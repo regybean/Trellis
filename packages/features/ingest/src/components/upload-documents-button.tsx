@@ -10,7 +10,7 @@ import { Button } from '@acme/ui';
 
 import { useTRPC } from '../trpc/react';
 
-const ACCEPTED_EXTENSIONS = ['.pdf', '.doc', '.docx', '.txt'];
+const ACCEPTED_EXTENSIONS = ['.pdf', '.docx', '.txt'];
 const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
 
 function validateFiles(files: File[]): string[] {

@@ -11,7 +11,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TestContextOptions } from '@acme/test-utils';
-import { documentUploader } from '@acme/llamaindex/server';
+import { documentUploader } from '@acme/rag/server';
 
 import { appRouter } from '../../../api/root';
 import {

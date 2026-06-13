@@ -6,7 +6,7 @@
  * only:
  * - mocks env.ts so createEnv validation never runs
  * - mocks server-only so server modules import under vitest
- * - mocks the document store (@acme/llamaindex/server) and S3 client — the two
+ * - mocks the document store (@acme/rag/server) and S3 client — the two
  *   external services the documents router talks to
  *
  * Tests set per-case return values via vi.mocked(...) on these mocks.
@@ -45,7 +45,7 @@ vi.mock('@acme/subscriptions', () => ({
 vi.mock('server-only', () => ({}));
 
 // The document store — never index real documents in unit tests.
-vi.mock('@acme/llamaindex/server', () => ({
+vi.mock('@acme/rag/server', () => ({
   documentUploader: {
     listDocuments: vi.fn(),
     uploadDocs: vi.fn(),

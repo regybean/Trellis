@@ -1,8 +1,8 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod/v4';
 
-import { documentUploader } from '@acme/llamaindex/server';
 import { logger } from '@acme/logger';
+import { documentUploader } from '@acme/rag/server';
 
 import {
   deleteFilesFromS3,

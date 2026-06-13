@@ -259,12 +259,12 @@ importers:
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
-      '@acme/llamaindex':
-        specifier: workspace:*
-        version: link:../../packages/shared/llamaindex
       '@acme/logger':
         specifier: workspace:*
         version: link:../../packages/shared/logger
+      '@acme/rag':
+        specifier: workspace:*
+        version: link:../../packages/shared/rag
       '@acme/sidebar':
         specifier: workspace:*
         version: link:../../packages/compositions/sidebar
@@ -717,12 +717,12 @@ importers:
       '@acme/hooks':
         specifier: workspace:*
         version: link:../../shared/hooks
-      '@acme/llamaindex':
-        specifier: workspace:*
-        version: link:../../shared/llamaindex
       '@acme/logger':
         specifier: workspace:*
         version: link:../../shared/logger
+      '@acme/rag':
+        specifier: workspace:*
+        version: link:../../shared/rag
       '@acme/redis':
         specifier: workspace:*
         version: link:../../shared/redis

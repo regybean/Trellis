@@ -11,7 +11,7 @@ export default {
     database: process.env.DB_NAME!,
     ssl: false,
   },
-  tablesFilter: ['acme_*'],
+  tablesFilter: ['acme_*', 'mastra_*'],
   out: './migrations/db',
   casing: 'camelCase',
   verbose: true,
