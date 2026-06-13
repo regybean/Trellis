@@ -1,10 +1,4 @@
-import {
-  jsonb,
-  pgTableCreator,
-  serial,
-  text,
-  vector,
-} from 'drizzle-orm/pg-core';
+import { jsonb, pgSchema, serial, text, vector } from 'drizzle-orm/pg-core';
 import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
@@ -24,14 +18,13 @@ export interface DocumentMetadata {
   parser: string;
 }
 
-const createTable = pgTableCreator(
-  (name) => `${env.NEXT_PUBLIC_WEBAPP}_${name}`,
-);
+// Per-app schema Mastra namespaces its tables under (see vector.ts RAG_SCHEMA).
+export const ragSchema = pgSchema(env.NEXT_PUBLIC_WEBAPP);
 
 // Drizzle mirror of the table Mastra's PgVector creates at runtime. Kept so the
 // knowledge base stays queryable with Drizzle (listing/deletion). The matching
 // migration is generated but marked applied — Mastra owns the actual DDL.
-export const documents = createTable(env.DOCUMENTS_TABLE_NAME, {
+export const documents = ragSchema.table(env.DOCUMENTS_TABLE_NAME, {
   id: serial('id').primaryKey(),
   vectorId: text('vector_id').notNull().unique(),
   embedding: vector('embedding', { dimensions: EMBED_DIMENSIONS }),

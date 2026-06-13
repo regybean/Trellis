@@ -1,13 +1,15 @@
-import { jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import { jsonb, text, timestamp } from 'drizzle-orm/pg-core';
 import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
+
+import { ragSchema } from './documents-schema';
 
 // Drizzle mirrors of the tables Mastra Memory (PostgresStore) creates at runtime
 // in the app database. Kept so conversations stay queryable with Drizzle; the
 // matching migration is generated but marked applied — Mastra owns the DDL.
-// Table names are fixed by Mastra (no webapp prefix).
+// Mastra namespaces these under the per-app schema (see vector.ts RAG_SCHEMA).
 
-export const mastraThreads = pgTable('mastra_threads', {
+export const mastraThreads = ragSchema.table('mastra_threads', {
   id: text('id').primaryKey(),
   resourceId: text('resourceId').notNull(),
   title: text('title').notNull(),
@@ -16,7 +18,7 @@ export const mastraThreads = pgTable('mastra_threads', {
   updatedAt: timestamp('updatedAt').notNull(),
 });
 
-export const mastraMessages = pgTable('mastra_messages', {
+export const mastraMessages = ragSchema.table('mastra_messages', {
   id: text('id').primaryKey(),
   threadId: text('thread_id').notNull(),
   content: text('content').notNull(),
@@ -26,7 +28,7 @@ export const mastraMessages = pgTable('mastra_messages', {
   resourceId: text('resourceId'),
 });
 
-export const mastraResources = pgTable('mastra_resources', {
+export const mastraResources = ragSchema.table('mastra_resources', {
   id: text('id').primaryKey(),
   workingMemory: text('workingMemory'),
   metadata: jsonb('metadata'),

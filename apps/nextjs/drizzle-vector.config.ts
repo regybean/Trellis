@@ -11,7 +11,9 @@ export default {
     database: process.env.DB_VECTOR_NAME!,
     ssl: false,
   },
-  tablesFilter: ['acme_*'],
+  // Mastra namespaces the knowledge-base table under a per-app schema.
+  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'acme'],
+  tablesFilter: ['*'],
   out: './migrations/vdb',
   casing: 'camelCase',
   verbose: true,

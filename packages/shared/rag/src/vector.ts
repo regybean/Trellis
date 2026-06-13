@@ -3,9 +3,14 @@ import { PgVector } from '@mastra/pg';
 import { env } from './env';
 import { EMBED_DIMENSIONS } from './schemas/documents-schema';
 
-// Name of the knowledge-base index/table. Matches the Drizzle mirror so both
-// Mastra and Drizzle address the same table.
-export const indexName = `${env.NEXT_PUBLIC_WEBAPP}_${env.DOCUMENTS_TABLE_NAME}`;
+// Knowledge-base table name within the per-app schema (see RAG_SCHEMA). Matches
+// the Drizzle mirror so both Mastra and Drizzle address the same table.
+export const indexName = env.DOCUMENTS_TABLE_NAME;
+
+// Per-app Postgres schema. Mastra namespaces every table it creates under this
+// schema (CREATE SCHEMA IF NOT EXISTS), giving multiple apps clean separation
+// inside one database instead of relying on table-name prefixes.
+export const RAG_SCHEMA = env.NEXT_PUBLIC_WEBAPP;
 
 // Vector store backing the knowledge base, in the dedicated vector database.
 export const pgVector = new PgVector({
@@ -15,6 +20,7 @@ export const pgVector = new PgVector({
   database: env.DB_VECTOR_NAME,
   user: env.DB_USER,
   password: env.DB_PASSWORD,
+  schemaName: RAG_SCHEMA,
 });
 
 let indexReady: Promise<unknown> | null = null;
