@@ -1,0 +1,30 @@
+{
+  "dependencies": {
+    "menuEnabled": true
+  },
+  "archiveEnabled": false,
+  "tracking": {
+    "gaID": null
+  },
+  "themes": {
+    "enabled": true
+  },
+  "menu": [
+    {
+      "label": "About Jaeger",
+      "items": [
+        {
+          "label": "Documentation",
+          "url": "https://www.jaegertracing.io/docs/latest"
+        }
+      ]
+    }
+  ],
+  "search": {
+    "maxLookback": {
+      "label": "2 Days",
+      "value": "2d"
+    }
+  },
+  "linkPatterns": []
+}

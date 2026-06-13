@@ -1,0 +1,15 @@
+# gitleaks configuration — https://github.com/gitleaks/gitleaks
+# Extends the bundled default ruleset and adds repo-specific allowlisting.
+title = "acme"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Ignore example/placeholder env files and the lockfile"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)\.env\.production$''',
+  '''(^|/)\.env\.staging$''',
+  '''(^|/)pnpm-lock\.yaml$''',
+]

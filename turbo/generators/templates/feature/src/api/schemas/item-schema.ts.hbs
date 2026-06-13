@@ -1,0 +1,40 @@
+import { pgTableCreator } from 'drizzle-orm/pg-core';
+import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
+import { z } from 'zod';
+
+import { env } from '../../env';
+
+// Sample entity for this feature — rename/replace with your real domain model.
+// Tables are prefixed per-app so multiple apps can share one database.
+const createTable = pgTableCreator(
+  (name) => `${env.NEXT_PUBLIC_WEBAPP}_${name}`,
+);
+
+export const items = createTable('items', (t) => ({
+  id: t.uuid().primaryKey().defaultRandom(),
+  userId: t.text().notNull(),
+  text: t.text().notNull(),
+  createdAt: t.timestamp().notNull().defaultNow(),
+}));
+
+export const selectItemSchema = createSelectSchema(items, {
+  id: z.uuid(),
+  userId: z.string(),
+  text: z.string(),
+  createdAt: z.coerce.date(),
+});
+export type SelectItemSchema = z.infer<typeof selectItemSchema>;
+
+export const insertItemSchema = createInsertSchema(items, {
+  userId: z.string(),
+  text: z.string().min(1).max(10_000),
+})
+  .required({ userId: true, text: true })
+  .omit({ id: true, createdAt: true });
+export type InsertItemSchema = z.infer<typeof insertItemSchema>;
+
+// Procedure input schemas.
+export const CreateItemRequest = z.object({
+  text: z.string().min(1, 'Required').max(10_000, 'Too long'),
+});
+export const ItemIdRequest = z.object({ id: z.uuid() });

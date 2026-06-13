@@ -1,0 +1,46 @@
+/**
+ * Backend test setup — runs before each backend test file.
+ *
+ * Responsibilities:
+ * - Mock `env.ts` with values injected by the global setup (real testcontainer
+ *   DB / Redis connection details), so the app's db/redis clients connect to the
+ *   throwaway containers rather than your dev environment.
+ * - Mock peer-package env modules and `server-only`.
+ *
+ * The container lifecycle itself lives in `global-setup.ts`.
+ */
+import { beforeEach, inject, vi } from 'vitest';
+
+// `inject(...)` reads values published by `@acme/test-utils/setup` (global-setup).
+vi.mock('../../env', () => ({
+  env: {
+    NODE_ENV: 'test',
+    NEXT_PUBLIC_WEBAPP: inject('NEXT_PUBLIC_WEBAPP'),
+    REDIS_URL: inject('REDIS_URL'),
+    DB_HOST: inject('DB_HOST'),
+    DB_PORT: inject('DB_PORT'),
+    DB_USER: inject('DB_USER'),
+    DB_PASSWORD: inject('DB_PASSWORD'),
+    DB_NAME: inject('DB_NAME'),
+  },
+}));
+
+vi.mock('@acme/redis/env', () => ({
+  env: { REDIS_URL: inject('REDIS_URL') },
+}));
+
+vi.mock('@acme/billing/env', () => ({
+  env: {
+    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_12345',
+    NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL: 'https://billing.example.com',
+    NEXT_PUBLIC_STRIPE_PRO_PLAN_ID: 'pro_plan_12345',
+    NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID: 'standard_plan_12345',
+  },
+}));
+
+// Allow importing server-only modules under vitest.
+vi.mock('server-only', () => ({}));
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});

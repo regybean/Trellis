@@ -1,0 +1,16 @@
+name: "Setup and install"
+description: "Common setup steps for Actions: pnpm (from packageManager), Node (from .nvmrc), frozen install"
+
+runs:
+  using: composite
+  steps:
+    # Reads the pnpm version from package.json#packageManager
+    - uses: pnpm/action-setup@v4
+
+    - uses: actions/setup-node@v6
+      with:
+        node-version-file: ".nvmrc"
+        cache: "pnpm"
+
+    - shell: bash
+      run: pnpm install --frozen-lockfile

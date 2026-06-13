@@ -1,0 +1,91 @@
+{
+  "typescript.experimental.useTsgo": true,
+
+  "eslint.workingDirectories": [
+    {
+      "mode": "auto"
+    }
+  ],
+  "editor.codeActionsOnSave": {
+    "source.addMissingImports": "explicit",
+    //"source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
+  },
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.suggest.autoImports": true,
+  "javascript.suggest.autoImports": true,
+  "typescript.tsserver.experimental.enableProjectDiagnostics": true,
+
+  "git.autofetch": true,
+  "git.confirmSync": false,
+  "git.enableSmartCommit": true,
+  "editor.formatOnSave": true,
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[scss]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "cSpell.words": ["acme", "trellis"],
+  "editor.tabSize": 2,
+  "editor.detectIndentation": false,
+  "search.exclude": {
+    "package-lock.json": true
+  },
+  "files.associations": {
+    "*.css": "tailwindcss"
+  },
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "typescript",
+    "typescriptreact",
+    "vue",
+    "html",
+    "markdown",
+    "json",
+    "jsonc",
+    "yaml",
+    "toml",
+    "xml",
+    "gql",
+    "graphql",
+    "astro",
+    "svelte",
+    "css",
+    "less",
+    "scss",
+    "pcss",
+    "postcss",
+    "github-actions-workflow"
+  ],
+  "workbench.editor.customLabels.patterns": {
+    "**/app/**/layout.tsx": "${dirname(1)}/${dirname} - Layout",
+    "**/app/**/page.tsx": "${dirname(1)}/${dirname} - Page",
+    "**/app/**/route.ts": "${dirname(1)}/${dirname} - Route",
+    "**/env.ts": "${dirname(1)} - Environment",
+    "**/app/**/_components/**/*.tsx": "${filename} - ${dirname(2)}/${dirname(1)} - Component",
+    "**/components/**/*.tsx": "${filename} - Component",
+    "**/hooks/**/*.ts": "${filename} - Hook",
+    "**/lib/**/*.ts": "${filename} - Library",
+    "**/utils/**/*.ts": "${filename} - Utility",
+    "**/tests/**/*.tsx": "${filename} - Test",
+    "**/__tests__/**/*.tsx": "${filename} - Test"
+  },
+  "vitest.maximumConfigs": 20,
+  "chat.tools.terminal.autoApprove": {
+    "cd": true,
+    "pnpm": true
+  }
+}

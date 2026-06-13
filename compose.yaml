@@ -1,0 +1,110 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: ${DB_NAME:-app}-postgres
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-app}
+      DB_VECTOR_NAME: ${DB_VECTOR_NAME:-vectordb}
+    volumes:
+      - pg_data:/var/lib/postgresql
+      - ./ops/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DB_USER:-postgres}
+      interval: 2s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+    profiles:
+      - infra
+    env_file:
+      - ./.env
+
+  redis:
+    image: redis:alpine
+    container_name: ${DB_NAME:-app}-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command:
+      - sh
+      - -c
+      - |
+        if [ -n "${REDIS_PASSWORD}" ]; then
+          exec redis-server --requirepass "${REDIS_PASSWORD}";
+        else
+          exec redis-server;
+        fi
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 2s
+      timeout: 3s
+      retries: 40
+      start_period: 3s
+    profiles:
+      - infra
+    env_file:
+      - ./.env
+
+  localstack:
+    image: localstack/localstack:3.8.1
+    container_name: ${DB_NAME:-app}-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,secretsmanager
+      - DEBUG=1
+      - LOCALSTACK_HOST=localhost.localstack.cloud
+    volumes:
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:4566/_localstack/health
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    profiles:
+      - infra
+    env_file:
+      - ./.env
+
+  jaeger:
+    image: jaegertracing/jaeger:latest
+    container_name: ${DB_NAME:-app}-jaeger
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317:4317" # OTLP gRPC
+      - "4318:4318" # OTLP HTTP
+    environment:
+      - COLLECTOR_OTLP_ENABLED=true
+      # Enable theme toggle in UI
+      - QUERY_UI_CONFIG=/etc/jaeger/ui-config.json
+    volumes:
+      - ./ops/jaeger/jaeger-ui-config.json:/etc/jaeger/ui-config.json:ro
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://localhost:16686
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    profiles:
+      - infra
+
+volumes:
+  pg_data:

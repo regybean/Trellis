@@ -1,0 +1,167 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "boundaries": {
+    "tags": {
+      "shared": {
+        "dependencies": {
+          "allow": ["shared", "tooling"]
+        },
+        "dependents": {
+          "allow": ["feature", "composition", "shared"]
+        }
+      },
+      "feature": {
+        "dependencies": {
+          "allow": ["shared", "tooling"]
+        },
+        "dependents": {
+          "allow": ["composition"]
+        }
+      },
+      "composition": {
+        "dependencies": {
+          "allow": ["feature", "shared", "tooling", "composition"]
+        }
+      },
+      "tooling": {
+        "dependencies": {
+          "allow": ["tooling"]
+        },
+        "dependents": {
+          "allow": ["shared", "feature", "composition", "tooling"]
+        }
+      }
+    }
+  },
+  "tasks": {
+    "topo": {
+      "dependsOn": ["^topo"]
+    },
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".cache/tsbuildinfo.json", "dist/**"]
+    },
+    "dev": {
+      "dependsOn": ["^dev"],
+      "cache": false,
+      "persistent": false
+    },
+    "format": {
+      "outputs": [".cache/.prettiercache"],
+      "outputLogs": "new-only"
+    },
+    "lint": {
+      "dependsOn": ["^topo", "^build"],
+      "outputs": [".cache/.eslintcache"]
+    },
+    "typecheck": {
+      "dependsOn": ["^topo", "^build"],
+      "outputs": [".cache/tsbuildinfo.json"]
+    },
+    "clean": {
+      "cache": false
+    },
+    "//#clean": {
+      "cache": false
+    },
+    "test": {
+      "env": ["NEXT_PUBLIC_WEBAPP"],
+      "dependsOn": ["^topo", "^build"]
+    },
+    "test:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "test:frontend": {
+      "dependsOn": ["^topo", "^build"]
+    },
+    "test:frontend:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "test:backend": {
+      "dependsOn": ["^topo", "^build"]
+    },
+    "test:backend:watch": {
+      "cache": false,
+      "persistent": true
+    },
+    "boundaries": {
+      "cache": false
+    },
+    "push": {
+      "cache": false,
+      "interactive": true
+    },
+    "studio": {
+      "cache": false,
+      "persistent": true
+    },
+    "ui-add": {
+      "cache": false,
+      "interactive": true
+    },
+    "db:push": {
+      "cache": false,
+      "interactive": true
+    },
+    "db:generate": {
+      "cache": false,
+      "interactive": false
+    }
+  },
+  "remoteCache": {
+    "enabled": true,
+    "signature": false
+  },
+  "globalEnv": [
+    "POSTGRES_URL",
+    "DATABASE_ENDPOINT",
+    "DATABASE_NAME",
+    "DB_USER",
+    "DB_PASS",
+    "DB_PORT",
+    "DB_HOST",
+    "IS_NEXT_BUILD",
+    "AUTH_DISCORD_ID",
+    "AUTH_DISCORD_SECRET",
+    "AUTH_REDIRECT_PROXY_URL",
+    "AUTH_SECRET",
+    "PORT",
+    "NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID",
+    "NEXT_PUBLIC_STRIPE_PRO_PLAN_ID",
+    "COMPLIANCE_URL",
+    "DATABASE_SERVER",
+    "CHAT_ASSISTANT_URL",
+    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
+    "NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL",
+    "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY",
+    "CLERK_SECRET_KEY",
+    "CLERK_WEBHOOK_SIGNING_SECRET",
+    "NEXT_PUBLIC_CLERK_SIGN_IN_URL",
+    "NEXT_PUBLIC_CLERK_SIGN_UP_URL",
+    "NEXT_PUBLIC_CLERK_SIGN_IN_FORCE_REDIRECT_URL",
+    "NEXT_PUBLIC_CLERK_SIGN_UP_FORCE_REDIRECT_URL",
+    "SERVICE_URL",
+    "DATABASE_SERVER_URL",
+    "REDIS_URL",
+    "NODE_TLS_REJECT_UNAUTHORIZED",
+    "NODE_NO_WARNINGS",
+    "WATCHPACK_POLLING",
+    "REACT_EDITOR",
+    "NPM_TOKEN",
+    "STRIPE_SECRET_KEY",
+    "STRIPE_SUCCESS_URL",
+    "STRIPE_CANCEL_URL",
+    "STRIPE_WEBHOOK_SECRET"
+  ],
+  "globalPassThroughEnv": [
+    "NODE_ENV",
+    "CI",
+    "VERCEL",
+    "VERCEL_ENV",
+    "VERCEL_URL",
+    "npm_lifecycle_event"
+  ]
+}

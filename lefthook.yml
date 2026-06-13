@@ -1,0 +1,27 @@
+# Git hooks managed by lefthook — https://lefthook.dev
+# Installed automatically via the root `prepare` script (`lefthook install`).
+#
+# Strategy: lint/format auto-fix runs through Turbo, so it is cache-aware and
+# effectively only re-runs the packages that actually changed. `glob` gates each
+# command to the relevant staged file types and `stage_fixed: true` re-stages
+# the staged files that the fixers modified.
+
+pre-commit:
+  parallel: false
+  commands:
+    lint:
+      glob: "*.{js,jsx,ts,tsx,cjs,mjs}"
+      run: pnpm lint:fix
+      stage_fixed: true
+    format:
+      glob: "*.{js,jsx,ts,tsx,cjs,mjs,json,jsonc,md,mdx,yml,yaml,css}"
+      run: pnpm format:fix
+      stage_fixed: true
+    gitleaks:
+      run: |
+        if command -v gitleaks >/dev/null 2>&1; then
+          gitleaks protect --staged --redact --config .gitleaks.toml
+        else
+          echo "⚠️  gitleaks not installed locally — skipping (enforced in CI)."
+          echo "    Install with: brew install gitleaks"
+        fi

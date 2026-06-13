@@ -1,0 +1,32 @@
+'use client';
+
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+
+import { useTRPC } from '../trpc/react';
+
+/**
+ * Encapsulates this feature's data access so components stay UI-focused.
+ * Keep business logic here, not in components (see CLAUDE.md).
+ */
+export function use{{ pascalCase name }}() {
+  const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
+  const listQuery = useQuery(trpc.{{ camelCase name }}.list.queryOptions());
+
+  const createMutation = useMutation(
+    trpc.{{ camelCase name }}.create.mutationOptions({
+      onSettled: () =>
+        queryClient.invalidateQueries(
+          trpc.{{ camelCase name }}.list.queryFilter(),
+        ),
+    }),
+  );
+
+  return {
+    items: listQuery.data ?? [],
+    isLoading: listQuery.isLoading,
+    create: (text: string) => createMutation.mutate({ text }),
+    isCreating: createMutation.isPending,
+  };
+}

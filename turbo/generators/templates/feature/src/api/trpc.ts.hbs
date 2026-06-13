@@ -1,0 +1,287 @@
+import { auth, currentUser } from '@clerk/nextjs/server';
+import { context, trace } from '@opentelemetry/api';
+import { initTRPC, TRPCError } from '@trpc/server';
+import { drizzle } from 'drizzle-orm/postgres-js';
+import superjson from 'superjson';
+import { z, ZodError } from 'zod/v4';
+
+import {
+  getSubscriptionType,
+  getTokens,
+  getUserSubscriptionFromRedis,
+} from '@acme/billing/server';
+import { logger } from '@acme/logger';
+import { redis } from '@acme/redis';
+import { instrumentDrizzleClient } from '@acme/telemetry';
+import {
+  createProcedureTelemetry,
+  createTelemetryContext,
+  getTracer,
+  SpanStatusCode,
+} from '@acme/telemetry/server';
+
+import { env } from '../env';
+
+const connection = {
+  host: env.DB_HOST,
+  port: env.DB_PORT,
+  user: env.DB_USER,
+  password: env.DB_PASSWORD,
+  database: env.DB_NAME,
+};
+export const db = drizzle({ connection }); // TODO add schema once defined
+// Instrument Drizzle client for automatic query tracing
+instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
+
+export type db = typeof db;
+
+/**
+ * 1. CONTEXT
+ *
+ * This section defines the "contexts" that are available in the backend API.
+ * These allow you to access things when processing a request, like the database,
+ * the session, etc.
+ *
+ * @see https://trpc.io/docs/server/context
+ */
+export const createTRPCContext = async (opts: {
+  headers: Headers;
+  req?: Request;
+  res?: Response;
+}) => {
+  const authResult = await auth();
+  const user = await currentUser();
+  const subscription = await getUserSubscriptionFromRedis(authResult.userId);
+  const tier = getSubscriptionType(subscription);
+  const tokens = await getTokens(authResult.userId, subscription, tier);
+
+  // Telemetry context - will be replaced with procedure-scoped version by middleware
+  const telemetry = createTelemetryContext();
+
+  return {
+    ...opts,
+    auth: authResult,
+    user,
+    subscription,
+    tokens,
+    tier,
+    db,
+    telemetry,
+  };
+};
+
+/**
+ * 2. INITIALIZATION
+ *
+ * This is where the tRPC API is initialized, connecting the context and transformer.
+ */
+const t = initTRPC.context<typeof createTRPCContext>().create({
+  transformer: superjson,
+  errorFormatter({ shape, error }) {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        zodError:
+          error.cause instanceof ZodError ? z.treeifyError(error.cause) : null,
+      },
+    };
+  },
+});
+
+/**
+ * Create a server-side caller.
+ *
+ * @see https://trpc.io/docs/server/server-side-calls
+ */
+export const createCallerFactory = t.createCallerFactory;
+
+/**
+ * 3. ROUTER & PROCEDURE
+ *
+ * These are the pieces you use to build your tRPC API.
+ */
+export const createTRPCRouter = t.router;
+
+/**
+ * Middleware for OpenTelemetry tracing. Creates a child span under the HTTP
+ * parent span for each tRPC procedure call.
+ */
+const telemetryMiddleware = t.middleware(async ({ next, path, type, ctx }) => {
+  const tracer = getTracer();
+  const start = Date.now();
+
+  const span = tracer.startSpan(`trpc.${path}`, {}, context.active());
+
+  span.setAttributes({
+    'trpc.procedure.path': path,
+    'trpc.procedure.type': type,
+    ...(ctx.auth.userId && { 'user.id': ctx.auth.userId }),
+  });
+
+  const telemetry = createProcedureTelemetry(path, span);
+
+  try {
+    const result = await context.with(
+      trace.setSpan(context.active(), span),
+      () => next({ ctx: { telemetry } }),
+    );
+
+    span.setAttributes({
+      'trpc.procedure.status': 'success',
+      'trpc.duration_ms': Date.now() - start,
+    });
+
+    return result;
+  } catch (error) {
+    span.setAttributes({
+      'trpc.procedure.status': 'error',
+      'trpc.duration_ms': Date.now() - start,
+    });
+    span.setStatus({ code: SpanStatusCode.ERROR });
+
+    if (error instanceof TRPCError) {
+      span.setAttributes({
+        'error.code': error.code,
+        'error.message': error.message,
+      });
+    }
+
+    if (error instanceof Error) {
+      span.recordException(error);
+    }
+
+    throw error;
+  } finally {
+    span.end();
+  }
+});
+
+/**
+ * Middleware for timing procedure execution, with an artificial delay in dev to
+ * help catch unwanted waterfalls.
+ */
+const timingMiddleware = t.middleware(async ({ next, path }) => {
+  const start = Date.now();
+
+  if (t._config.isDev) {
+    const waitMs = Math.floor(Math.random() * 400) + 100;
+    await new Promise((resolve) => setTimeout(resolve, waitMs));
+  }
+
+  const result = await next();
+
+  const end = Date.now();
+  logger.debug(
+    { path, durationMs: end - start },
+    `[TRPC] ${path} took ${end - start}ms to execute`,
+  );
+
+  return result;
+});
+
+/**
+ * Middleware for clerk authentication.
+ *
+ * @see https://clerk.com/docs/references/nextjs/trpc
+ */
+const isAuthed = t.middleware(({ next, ctx }) => {
+  if (!ctx.auth.userId) {
+    ctx.telemetry.event('auth.denied', { reason: 'not_authenticated' });
+
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'You must be logged in to access this resource.',
+    });
+  }
+
+  ctx.telemetry.event('auth.granted');
+
+  return next({ ctx: { auth: ctx.auth } });
+});
+
+const isAdmin = t.middleware(({ next, ctx }) => {
+  const role = ctx.auth.sessionClaims?.metadata.role;
+
+  if (role !== 'admin') {
+    ctx.telemetry.event('auth.denied', {
+      reason: 'not_admin',
+      actual_role: role ?? 'none',
+    });
+
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'You must be an admin to access this resource.',
+    });
+  }
+
+  ctx.telemetry.set({ 'user.role': 'admin' });
+  ctx.telemetry.event('auth.granted', { role: 'admin' });
+
+  return next({ ctx: { auth: ctx.auth } });
+});
+
+/**
+ * Public (unauthenticated) procedure.
+ *
+ * You can still access user session data if the caller is logged in.
+ */
+export const publicProcedure = t.procedure
+  .use(telemetryMiddleware)
+  .use(timingMiddleware);
+export const protectedProcedure = publicProcedure.use(isAuthed);
+export const adminProcedure = publicProcedure.use(isAdmin);
+
+/**
+ * Token-based rate limiter middleware.
+ *
+ * Usage: procedure.use(rateLimit({ tokens: 5 }))
+ */
+interface RateLimitOptions {
+  /** Number of tokens to consume for this request */
+  tokens?: number;
+}
+
+export const rateLimit = (opts: RateLimitOptions = {}) =>
+  t.middleware(async ({ next, ctx }) => {
+    const tokensToConsume = opts.tokens ?? 1;
+
+    const { auth, tokens, tier } = ctx;
+    const userId = auth.userId;
+    const key = `tokens:${userId}:${tier}`;
+
+    ctx.telemetry.set({
+      'rateLimit.tokensToConsume': tokensToConsume,
+      'rateLimit.tokensRemaining': tokens.remaining,
+      'rateLimit.tier': tier,
+      'rateLimit.userId': userId ?? 'none',
+    });
+
+    if (!ctx.auth.userId) {
+      ctx.telemetry.event('rateLimit.denied', { reason: 'not_authenticated' });
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'You must be logged in to access this resource.',
+      });
+    }
+
+    if (tokens.remaining < tokensToConsume) {
+      ctx.telemetry.event('rateLimit.exceeded', {
+        tokensToConsume,
+        tokensRemaining: tokens.remaining,
+      });
+      throw new TRPCError({
+        code: 'TOO_MANY_REQUESTS',
+        message: `You do not have enough tokens to complete the request`,
+      });
+    }
+
+    await redis.decrBy(key, tokensToConsume);
+
+    ctx.telemetry.event('rateLimit.passed', {
+      tokensConsumed: tokensToConsume,
+      tokensAfter: tokens.remaining - tokensToConsume,
+    });
+
+    return next({ ctx: { ...ctx, auth: ctx.auth } });
+  });

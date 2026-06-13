@@ -1,0 +1,14 @@
+import { {{ camelCase name }}Router } from './routers/{{ kebabCase name }}';
+import { createTRPCRouter } from './trpc';
+
+/**
+ * This is the primary router for this feature.
+ *
+ * All routers added in ./routers should be manually added here.
+ */
+export const appRouter = createTRPCRouter({
+  {{ camelCase name }}: {{ camelCase name }}Router,
+});
+
+// export type definition of API
+export type AppRouter = typeof appRouter;

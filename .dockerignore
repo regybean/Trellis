@@ -1,0 +1,53 @@
+# Dependencies
+node_modules
+.pnpm-store
+.npm
+.yarn
+
+# Build outputs
+.next
+.turbo
+dist
+build
+out
+.cache
+
+# Development files
+.env.local
+.env.*.local
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage
+.nyc_output
+
+# IDEs
+.idea
+.vscode
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Git
+.git
+.gitignore
+.gitattributes
+
+# CI/CD
+.github
+bitbucket-pipelines.yml
+
+# Documentation
+README.md
+*.md
+docs
+
+# Misc
+.editorconfig
+.prettierrc
+.eslintrc

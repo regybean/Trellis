@@ -1,0 +1,6 @@
+export const name = '{{ kebabCase name }}';
+{{#if react}}
+export { {{ pascalCase name }}List } from './components/{{ kebabCase name }}-list';
+export { use{{ pascalCase name }} } from './hooks/use-{{ kebabCase name }}';
+export { TRPCReactProvider as {{ pascalCase name }}TRPCReactProvider } from './trpc/react';
+{{/if}}

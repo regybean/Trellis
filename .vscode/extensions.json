@@ -1,0 +1,21 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "github.copilot",
+    "github.copilot-chat",
+    "ms-vscode.vscode-typescript-next",
+    "vitest.explorer",
+    "streetsidesoftware.code-spell-checker",
+    "donjayamanne.git-extension-pack",
+    "oderwat.indent-rainbow",
+    "dsznajder.es7-react-js-snippets",
+    "yoavbls.pretty-ts-errors",
+    "mikestead.dotenv",
+    "bradlc.vscode-tailwindcss",
+    "formulahendry.auto-rename-tag",
+    "hbenl.vscode-test-explorer",
+    "TypeScriptTeam.native-preview",
+    "GitHub.vscode-pull-request-github"
+  ]
+}

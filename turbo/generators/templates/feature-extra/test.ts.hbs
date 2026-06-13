@@ -1,0 +1,114 @@
+/**
+ * {{ pascalCase name }} router tests.
+ *
+ * Philosophy (mirrors the rest of the monorepo):
+ * - Test shared middleware (auth, rate limit) ONCE.
+ * - Focus on business logic against a REAL database (testcontainers).
+ * - Use the "zero / one / many" pattern for collections.
+ * - Build callers with `createTestContext` to simulate different auth states.
+ *
+ * Requires Docker (the global setup starts PostgreSQL + Redis containers).
+ */
+import { eq } from 'drizzle-orm';
+import { beforeEach, describe, expect, it } from 'vitest';
+
+import type { TestContextOptions } from '@acme/test-utils';
+
+import { appRouter } from '../../../api/root';
+import { items } from '../../../api/schemas/item-schema';
+import { db } from '../../../api/trpc';
+import { createTestItem, createTestItems, createTestUserId } from '../utils/fixtures';
+import { cleanupTestData, createTestContext } from '../utils/test-context';
+
+const baseTokens = {
+  remaining: 100,
+  limit: 100,
+  resetAt: Date.now() + 86_400_000,
+};
+
+function caller(opts: Partial<TestContextOptions> & { userId: string }) {
+  return appRouter.createCaller(
+    createTestContext({
+      role: 'user',
+      tier: 'Basic',
+      tokens: baseTokens,
+      ...opts,
+    }),
+  );
+}
+
+describe('{{ camelCase name }}Router', () => {
+  beforeEach(async () => {
+    await cleanupTestData();
+  });
+
+  // --- middleware (tested once) -------------------------------------------
+  describe('middleware', () => {
+    it('rejects admin procedures for non-admins', async () => {
+      const api = caller({ userId: createTestUserId(), role: 'user' });
+      await expect(
+        api.{{ camelCase name }}.adminList({ userId: createTestUserId() }),
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it('rejects mutations when rate-limit tokens are exhausted', async () => {
+      const api = caller({
+        userId: createTestUserId(),
+        tokens: { ...baseTokens, remaining: 0 },
+      });
+      await expect(
+        api.{{ camelCase name }}.create({ text: 'nope' }),
+      ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
+    });
+  });
+
+  // --- create --------------------------------------------------------------
+  describe('create', () => {
+    it('persists an item owned by the caller', async () => {
+      const userId = createTestUserId();
+      const api = caller({ userId });
+
+      const created = await api.{{ camelCase name }}.create({ text: 'Hello' });
+      expect(created).toMatchObject({ userId, text: 'Hello' });
+
+      const rows = await db.select().from(items).where(eq(items.id, created.id));
+      expect(rows).toHaveLength(1);
+    });
+  });
+
+  // --- list (zero / one / many) -------------------------------------------
+  describe('list', () => {
+    it('returns an empty array when the caller has no items (zero)', async () => {
+      const api = caller({ userId: createTestUserId() });
+      expect(await api.{{ camelCase name }}.list()).toEqual([]);
+    });
+
+    it('returns only the caller’s items (many)', async () => {
+      const userId = createTestUserId('owner');
+      await createTestItems({ userId, count: 3 });
+      await createTestItem({ userId: createTestUserId('other') }); // noise
+
+      const api = caller({ userId });
+      const result = await api.{{ camelCase name }}.list();
+
+      expect(result).toHaveLength(3);
+      for (const item of result) expect(item.userId).toBe(userId);
+    });
+  });
+
+  // --- ownership -----------------------------------------------------------
+  describe('remove', () => {
+    it('refuses to delete an item owned by another user', async () => {
+      const owner = createTestUserId('owner');
+      const item = await createTestItem({ userId: owner });
+
+      const api = caller({ userId: createTestUserId('attacker') });
+      await expect(
+        api.{{ camelCase name }}.remove({ id: item.id }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+
+      const rows = await db.select().from(items).where(eq(items.id, item.id));
+      expect(rows).toHaveLength(1); // still there
+    });
+  });
+});

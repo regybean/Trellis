@@ -1,0 +1,29 @@
+{
+  "name": "@acme/tailwind-config",
+  "type": "module",
+  "dependencies": {
+    "@tailwindcss/postcss": "catalog:"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "workspace:*",
+    "@acme/prettier-config": "workspace:*",
+    "@acme/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:"
+  },
+  "exports": {
+    "./theme": "./theme.css",
+    "./postcss-config": "./postcss-config.ts"
+  },
+  "license": "MIT",
+  "prettier": "@acme/prettier-config",
+  "private": true,
+  "scripts": {
+    "clean": "git clean -xdf .cache .turbo node_modules",
+    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "lint": "eslint --flag unstable_native_nodejs_ts_config",
+    "typecheck": "tsc --noEmit"
+  }
+}

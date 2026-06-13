@@ -1,0 +1,16 @@
+import { baseConfig, restrictEnvAccess } from '@acme/eslint-config/base';
+{{#if react}}import { reactConfig } from '@acme/eslint-config/react';
+{{/if}}import { securityConfig } from '@acme/eslint-config/security';
+{{#if anyTests}}import { testingConfig } from '@acme/eslint-config/testing';
+{{/if}}
+
+export default [
+  {
+    ignores: ['.next/**', 'dist/**'],
+  },
+  ...baseConfig,
+{{#if react}}  ...reactConfig,
+{{/if}}  ...securityConfig,
+  ...restrictEnvAccess,
+{{#if anyTests}}  ...testingConfig,
+{{/if}}];

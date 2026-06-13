@@ -1,0 +1,53 @@
+/**
+ * Test context factory.
+ *
+ * Builds the object tRPC procedures expect as `ctx`. We use the REAL db/redis
+ * clients (pointed at testcontainers) and only stub the layers we don't want to
+ * test here: Clerk auth and telemetry.
+ */
+import type { TestContextOptions } from '@acme/test-utils';
+import { redis } from '@acme/redis';
+import {
+  createMockAuth,
+  createMockUser,
+  createNoopTelemetry,
+} from '@acme/test-utils';
+
+import type { createTRPCContext } from '../../../api/trpc';
+import { items } from '../../../api/schemas/item-schema';
+import { db } from '../../../api/trpc';
+
+type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
+
+export function createTestContext(opts: TestContextOptions): TRPCContext {
+  return {
+    headers: new Headers(),
+    db,
+    auth: createMockAuth(opts.userId, opts.role),
+    user: createMockUser(opts.userId),
+    subscription: { status: 'none' } as const,
+    tokens: opts.tokens,
+    tier: opts.tier,
+    telemetry: createNoopTelemetry(),
+  };
+}
+
+/**
+ * Remove all rows this feature owns + flush Redis. Call in `beforeEach` for
+ * isolation between tests.
+ */
+export async function cleanupTestData() {
+  try {
+    await db.delete(items);
+  } catch (error) {
+    // Tables may not exist if migrations haven't been pushed yet.
+    console.log('⚠️ cleanup warning:', error);
+  }
+
+  try {
+    if (!redis.isOpen) await redis.connect();
+    await redis.flushDb();
+  } catch {
+    // Redis may not be connected in every scenario.
+  }
+}

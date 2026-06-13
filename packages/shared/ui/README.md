@@ -1,0 +1,2 @@
+- I want to look into the ui-add script eventually for this
+- Need to verify that the components.json is correct too as I don't understand its usage

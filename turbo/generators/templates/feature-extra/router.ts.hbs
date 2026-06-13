@@ -1,0 +1,138 @@
+import { TRPCError } from '@trpc/server';
+import { and, asc, eq } from 'drizzle-orm';
+import { z } from 'zod';
+
+import { logger } from '@acme/logger';
+
+import {
+  CreateItemRequest,
+  insertItemSchema,
+  ItemIdRequest,
+  items,
+  selectItemSchema,
+} from '../schemas/item-schema';
+import {
+  adminProcedure,
+  createTRPCRouter,
+  protectedProcedure,
+  rateLimit,
+} from '../trpc';
+
+/**
+ * Sample CRUD router demonstrating the patterns used across this monorepo:
+ * - `protectedProcedure` / `adminProcedure` for auth (tested once via middleware)
+ * - `rateLimit()` to consume tier tokens
+ * - `ctx.telemetry` for tracing and validated parsing
+ * - ownership checks before mutating user-owned rows
+ *
+ * Replace `items` with your real domain.
+ */
+export const {{ camelCase name }}Router = createTRPCRouter({
+  // List the caller's items (zero | one | many).
+  list: protectedProcedure.query(async ({ ctx }) => {
+    const { userId } = ctx.auth;
+    ctx.telemetry.set({ 'user.id': userId });
+
+    const rows = await ctx.db
+      .select()
+      .from(items)
+      .where(eq(items.userId, userId))
+      .orderBy(asc(items.createdAt));
+
+    ctx.telemetry.set({ 'result.count': rows.length });
+    return rows.map((row) =>
+      ctx.telemetry.parseWithTelemetry(selectItemSchema, row, 'selectItemSchema'),
+    );
+  }),
+
+  // Fetch a single owned item by id.
+  byId: protectedProcedure
+    .input(ItemIdRequest)
+    .query(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      ctx.telemetry.set({ 'user.id': userId, 'input.id': input.id });
+
+      const [row] = await ctx.db
+        .select()
+        .from(items)
+        .where(and(eq(items.id, input.id), eq(items.userId, userId)))
+        .limit(1);
+
+      if (!row) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'Item not found' });
+      }
+
+      return ctx.telemetry.parseWithTelemetry(
+        selectItemSchema,
+        row,
+        'selectItemSchema',
+      );
+    }),
+
+  // Create an item for the caller. Consumes one rate-limit token.
+  create: protectedProcedure
+    .input(CreateItemRequest)
+    .use(rateLimit())
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      ctx.telemetry.set({ 'user.id': userId, 'input.textLength': input.text.length });
+
+      const values = ctx.telemetry.parseWithTelemetry(
+        insertItemSchema,
+        { userId, text: input.text },
+        'insertItemSchema',
+      );
+
+      const [created] = await ctx.db.insert(items).values(values).returning();
+      if (!created) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create item',
+        });
+      }
+
+      logger.info({ userId, id: created.id }, 'item created');
+      return ctx.telemetry.parseWithTelemetry(
+        selectItemSchema,
+        created,
+        'selectItemSchema',
+      );
+    }),
+
+  // Delete an owned item. Rejects if the item belongs to another user.
+  remove: protectedProcedure
+    .input(ItemIdRequest)
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      ctx.telemetry.set({ 'user.id': userId, 'input.id': input.id });
+
+      const deleted = await ctx.db
+        .delete(items)
+        .where(and(eq(items.id, input.id), eq(items.userId, userId)))
+        .returning();
+
+      if (deleted.length === 0) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Item not found or not owned by you',
+        });
+      }
+
+      return { id: input.id };
+    }),
+
+  // Admin-only: list items belonging to any user.
+  adminList: adminProcedure
+    .input(z.object({ userId: z.string() }))
+    .query(async ({ ctx, input }) => {
+      ctx.telemetry.set({
+        'admin.userId': ctx.auth.userId ?? '',
+        'target.userId': input.userId,
+      });
+      return ctx.db
+        .select()
+        .from(items)
+        .where(eq(items.userId, input.userId))
+        .orderBy(asc(items.createdAt));
+    }),
+});

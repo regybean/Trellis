@@ -1,0 +1,49 @@
+'use client';
+
+import { useState } from 'react';
+
+import { use{{ pascalCase name }} } from '../hooks/use-{{ kebabCase name }}';
+
+/**
+ * Sample UI for the feature. Components stay presentational and delegate data
+ * access to the `use{{ pascalCase name }}` hook. Replace with your real UI.
+ */
+export function {{ pascalCase name }}List() {
+  const { items, isLoading, create, isCreating } = use{{ pascalCase name }}();
+  const [text, setText] = useState('');
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim()) return;
+    create(text.trim());
+    setText('');
+  };
+
+  return (
+    <div data-testid="{{ kebabCase name }}-root">
+      <form onSubmit={submit}>
+        <input
+          data-testid="{{ kebabCase name }}-input"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Add an item"
+        />
+        <button data-testid="{{ kebabCase name }}-add" type="submit" disabled={isCreating}>
+          Add
+        </button>
+      </form>
+
+      {isLoading ? (
+        <p data-testid="{{ kebabCase name }}-loading">Loading…</p>
+      ) : (
+        <ul data-testid="{{ kebabCase name }}-list">
+          {items.map((item) => (
+            <li key={item.id} data-testid={`{{ kebabCase name }}-item-${item.id}`}>
+              {item.text}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}

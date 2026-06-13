@@ -1,0 +1,71 @@
+{
+  "name": "acme",
+  "devDependencies": {
+    "@turbo/gen": "catalog:",
+    "jsdom": "catalog:",
+    "lefthook": "catalog:",
+    "syncpack": "14.0.0-alpha.32",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  },
+  "engines": {
+    "node": ">=22.19.0",
+    "pnpm": ">=10.15.1"
+  },
+  "overrides": {
+    "glob": "^13.0.0"
+  },
+  "packageManager": "pnpm@10.15.1",
+  "pnpm": {
+    "overrides": {
+      "import-in-the-middle": "2.0.4",
+      "require-in-the-middle": "8.0.1",
+      "vite": "catalog:",
+      "vitest": "catalog:",
+      "qs": "6.14.1"
+    }
+  },
+  "private": true,
+  "scripts": {
+    "boundaries": "turbo boundaries",
+    "build": "turbo run build",
+    "build:nextjs": "turbo run build -F @acme/nextjs...",
+    "clean": "git clean -xdf node_modules",
+    "clean:workspaces": "turbo run clean",
+    "db:check": "",
+    "db:generate": "turbo db:generate --ui=tui",
+    "db:migrate": "",
+    "db:push": "turbo db:push",
+    "db:studio": "",
+    "deps:check": "pnpm dlx knip",
+    "deps:format": "pnpm exec syncpack format",
+    "deps:lint": "pnpm exec syncpack lint",
+    "deps:update": "pnpm exec syncpack update",
+    "dev": "turbo watch dev --continue",
+    "dev:nextjs": "turbo watch dev -F @acme/nextjs...",
+    "env:pull": "pnpm with-env scripts/env-pull.sh",
+    "env:push": "pnpm with-env scripts/env-push.sh",
+    "format": "turbo run format --continue -- --cache --cache-location .cache/.prettiercache",
+    "format:fix": "turbo run format --continue -- --write --cache --cache-location .cache/.prettiercache",
+    "infra:clean": "./scripts/compose.sh --profile infra down -v",
+    "infra:down": "./scripts/compose.sh --profile infra down",
+    "infra:up": "./scripts/compose.sh --profile infra up -d",
+    "infra:logs": "./scripts/compose.sh --profile infra logs -f",
+    "lint": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache",
+    "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",
+    "lint:ws": "pnpm dlx sherif@latest",
+    "lint:ws:fix": "pnpm dlx sherif@latest --fix",
+    "postinstall": "turbo run build --filter=./packages/** && pnpm lint:ws:fix",
+    "prepare": "lefthook install",
+    "quality-gate": "pnpm lint:fix && pnpm format:fix && turbo run typecheck build --continue && pnpm boundaries && pnpm lint:ws && pnpm deps:lint && pnpm gitleaks && pnpm test && pnpm audit --audit-level=high ",
+    "gitleaks": "if command -v gitleaks >/dev/null 2>&1; then gitleaks git --no-banner --redact --config .gitleaks.toml .; else echo '⚠️  gitleaks not installed; skipping (CI enforces). Install: brew install gitleaks'; fi",
+    "predev": "scripts/check-remote-cache.sh",
+    "predev:nextjs": "scripts/check-remote-cache.sh",
+    "test": "NEXT_PUBLIC_WEBAPP=nextjs turbo run test",
+    "test:nextjs": "NEXT_PUBLIC_WEBAPP=nextjs turbo run test",
+    "test:watch": " turbo run test:watch",
+    "typecheck": "turbo run typecheck",
+    "ui-add": "turbo run ui-add",
+    "with-env": " dotenv -e ./.env --"
+  }
+}

@@ -1,0 +1,82 @@
+/**
+ * {{ pascalCase name }}List component tests.
+ *
+ * Demonstrates the frontend testing setup:
+ * - `renderWithProviders` wraps the component in the tRPC + React Query providers.
+ * - `trpcMsw` (msw-trpc) provides type-safe mocks for this feature's procedures.
+ * - A real MSW `setupServer` intercepts the HTTP calls the tRPC client makes.
+ *
+ * No database or network is touched — only the tRPC HTTP layer is mocked.
+ */
+import { screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+
+import '@testing-library/jest-dom';
+
+import { {{ pascalCase name }}List } from '../../components/{{ kebabCase name }}-list';
+import { renderWithProviders, trpcMsw } from './setup';
+
+const server = setupServer();
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => {
+  server.resetHandlers();
+  vi.clearAllMocks();
+});
+afterAll(() => server.close());
+
+const fakeItem = (text: string) => ({
+  id: crypto.randomUUID(),
+  userId: 'user_test',
+  text,
+  createdAt: new Date(),
+});
+
+describe('{{ pascalCase name }}List', () => {
+  it('renders items returned by the list query', async () => {
+    server.use(
+      trpcMsw.{{ camelCase name }}.list.query(() => [
+        fakeItem('first'),
+        fakeItem('second'),
+      ]),
+    );
+
+    renderWithProviders(<{{ pascalCase name }}List />);
+
+    expect(await screen.findByText('first')).toBeInTheDocument();
+    expect(screen.getByText('second')).toBeInTheDocument();
+    expect(screen.getByTestId('{{ kebabCase name }}-list').children).toHaveLength(2);
+  });
+
+  it('creates an item and refetches the list', async () => {
+    const created = fakeItem('written via the form');
+    let listCalls = 0;
+
+    server.use(
+      trpcMsw.{{ camelCase name }}.list.query(() => {
+        listCalls += 1;
+        return listCalls === 1 ? [] : [created];
+      }),
+      trpcMsw.{{ camelCase name }}.create.mutation(() => created),
+    );
+
+    const user = userEvent.setup();
+    renderWithProviders(<{{ pascalCase name }}List />);
+
+    // Initially empty.
+    await waitFor(() =>
+      expect(screen.getByTestId('{{ kebabCase name }}-list').children).toHaveLength(0),
+    );
+
+    await user.type(
+      screen.getByTestId('{{ kebabCase name }}-input'),
+      'written via the form',
+    );
+    await user.click(screen.getByTestId('{{ kebabCase name }}-add'));
+
+    // After the mutation settles, the invalidated list query refetches.
+    expect(await screen.findByText('written via the form')).toBeInTheDocument();
+  });
+});
