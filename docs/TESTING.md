@@ -1,6 +1,6 @@
 # Testing Guide
 
-This document provides concise guidance for writing tests in the Cyrail Suite monorepo.
+This document provides concise guidance for writing tests in the Trellis monorepo.
 
 ## Quick Start
 
