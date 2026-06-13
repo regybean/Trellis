@@ -21,15 +21,23 @@ out="docs/task-graph-${slug}.mermaid"
 
 turbo run "$@" --graph="$out"
 
+body=$(cat "$out")
+
 if [ -z "${GRAPH_FULL:-}" ]; then
   # Names of every package under tooling/, derived at runtime.
   tooling=$(node -e 'const fs=require("fs");for(const d of fs.readdirSync("tooling")){try{process.stdout.write(require(process.cwd()+"/tooling/"+d+"/package.json").name+"\n")}catch{}}')
   if [ -n "$tooling" ]; then
     # grep -F treats each newline-separated name as a fixed pattern; drop any
     # mermaid edge line referencing a tooling package on either side.
-    kept=$(grep -vF "$tooling" "$out")
-    printf '%s\n' "$kept" > "$out"
+    body=$(printf '%s\n' "$body" | grep -vF "$tooling")
   fi
 fi
+
+# Prepend a Mermaid config header: the ELK layout engine lays the graph out in
+# clean layers instead of dagre's crossing spaghetti. Override with GRAPH_LAYOUT.
+{
+  printf -- '---\nconfig:\n  layout: %s\n---\n' "${GRAPH_LAYOUT:-elk}"
+  printf '%s\n' "$body"
+} > "$out"
 
 printf 'Wrote %s\n' "$out"
