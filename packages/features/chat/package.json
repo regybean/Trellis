@@ -2,16 +2,16 @@
   "name": "@acme/chat",
   "dependencies": {
     "@acme/hooks": "workspace:*",
-    "@acme/llamaindex": "workspace:*",
     "@acme/logger": "workspace:*",
+    "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",
     "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
     "@clerk/nextjs": "catalog:",
-    "@llamaindex/aws": "catalog:",
-    "@llamaindex/workflow-core": "catalog:",
+    "@mastra/core": "catalog:",
+    "@mastra/rag": "catalog:",
     "@opentelemetry/api": "catalog:",
     "@t3-oss/env-nextjs": "catalog:",
     "@tanstack/react-query": "catalog:",
@@ -20,8 +20,6 @@
     "@trpc/tanstack-react-query": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "drizzle-orm": "catalog:",
-    "drizzle-zod": "catalog:",
-    "llamaindex": "catalog:",
     "lucide-react": "catalog:",
     "msw": "catalog:",
     "react": "catalog:",
@@ -55,6 +53,10 @@
     "./server": {
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
+    },
+    "./mastra": {
+      "types": "./dist/mastra/index.d.ts",
+      "default": "./src/mastra/index.ts"
     },
     "./schema": {
       "types": "./dist/index-schema.d.ts",

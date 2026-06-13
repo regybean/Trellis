@@ -1,20 +1,13 @@
 /**
  * Test Fixtures
  *
- * Factory functions for creating test data. These help create consistent
- * test data with sensible defaults that can be overridden as needed.
+ * Factory functions for creating test data. Conversations and messages are now
+ * persisted by Mastra Memory (threads/messages), so fixtures seed via the memory
+ * API rather than a chat-owned table.
  */
 
+import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
-
-import type { InsertChatSchema } from '../../../api/schemas/chat-schema';
-import type { SelectMessageSchema } from '../../../api/schemas/message-schema';
-import { chats } from '../../../api/schemas/chat-schema';
-import { messages } from '../../../api/schemas/message-schema';
-import { db } from '../../../api/trpc';
-
-// Type for message data we create (subset of SelectMessageSchema)
-type TestMessageData = Omit<SelectMessageSchema, 'timestamp'>;
 
 /**
  * Generate a random UUID (v4-like format)
@@ -37,109 +30,78 @@ export function createTestSessionId(): string {
   return generateId();
 }
 
-/**
- * Options for creating a test chat
- */
 export interface CreateTestChatOptions {
   sessionId?: string;
   userId?: string;
 }
 
 /**
- * Create a chat record in the test database
- *
- * @example
- * ```ts
- * const chat = await createTestChat({ userId: 'user_123' });
- * ```
+ * Create a Conversation (Mastra Memory thread) in the test database.
  */
-export async function createTestChat(
-  opts: CreateTestChatOptions = {},
-): Promise<InsertChatSchema & { sessionId: string; userId: string }> {
-  const chatData = {
-    sessionId: opts.sessionId ?? createTestSessionId(),
-    userId: opts.userId ?? createTestUserId(),
-  };
+export async function createTestChat(opts: CreateTestChatOptions = {}) {
+  const sessionId = opts.sessionId ?? createTestSessionId();
+  const userId = opts.userId ?? createTestUserId();
 
-  const [inserted] = await db.insert(chats).values(chatData).returning();
+  await memory.createThread({
+    threadId: sessionId,
+    resourceId: userId,
+    title: 'Test conversation',
+  });
 
-  if (!inserted) {
-    throw new Error('Failed to create test chat');
-  }
-
-  return inserted as InsertChatSchema & { sessionId: string; userId: string };
+  return { sessionId, userId };
 }
 
-/**
- * Options for creating a test message
- */
 export interface CreateTestMessageOptions {
   sessionId: string;
+  userId?: string;
   role?: 'user' | 'assistant';
   text?: string;
 }
 
 /**
- * Create a message record in the test database
- *
- * @example
- * ```ts
- * const msg = await createTestMessage({
- *   sessionId: chat.sessionId,
- *   role: 'user',
- *   text: 'Hello!'
- * });
- * ```
+ * Persist a single Message to a Conversation in the test database.
  */
-export async function createTestMessage(
-  opts: CreateTestMessageOptions,
-): Promise<TestMessageData> {
-  const messageData = {
-    sessionId: opts.sessionId,
-    role: opts.role ?? 'user',
-    text: opts.text ?? 'Test message',
-  };
+export async function createTestMessage(opts: CreateTestMessageOptions) {
+  const role = opts.role ?? 'user';
+  const text = opts.text ?? 'Test message';
 
-  const [inserted] = await db.insert(messages).values(messageData).returning();
+  await memory.saveMessages({
+    messages: [
+      {
+        id: generateId(),
+        role,
+        createdAt: new Date(),
+        threadId: opts.sessionId,
+        resourceId: opts.userId,
+        content: { format: 2, parts: [{ type: 'text', text }], content: text },
+      },
+    ],
+  });
 
-  if (!inserted) {
-    throw new Error('Failed to create test message');
-  }
-
-  return inserted;
+  return { sessionId: opts.sessionId, role, text };
 }
 
 /**
- * Create a complete chat with messages for testing
- *
- * @example
- * ```ts
- * const { chat, messages } = await createTestChatWithMessages({
- *   userId: 'user_123',
- *   messageCount: 5
- * });
- * ```
+ * Create a Conversation pre-seeded with alternating user/assistant Messages.
  */
 export async function createTestChatWithMessages(opts: {
   userId?: string;
   sessionId?: string;
   messageCount?: number;
-}): Promise<{
-  chat: InsertChatSchema & { sessionId: string; userId: string };
-  messages: TestMessageData[];
-}> {
+}) {
   const chat = await createTestChat({
     userId: opts.userId,
     sessionId: opts.sessionId,
   });
 
   const messageCount = opts.messageCount ?? 2;
-  const createdMessages: TestMessageData[] = [];
+  const createdMessages = [];
 
   for (let i = 0; i < messageCount; i++) {
     const role = i % 2 === 0 ? 'user' : 'assistant';
     const msg = await createTestMessage({
       sessionId: chat.sessionId,
+      userId: chat.userId,
       role,
       text: `Test message ${i + 1}`,
     });
@@ -151,11 +113,6 @@ export async function createTestChatWithMessages(opts: {
 
 /**
  * Set up Redis credits for a test user
- *
- * @example
- * ```ts
- * await setupTestCredits('user_123', 'free', 100);
- * ```
  */
 export async function setupTestCredits(
   userId: string,

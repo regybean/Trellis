@@ -1,18 +1,18 @@
-import type { Message } from '../schemas/message-schema';
-import { ChatMemory } from './chat-memory';
-import { RagWorkflow } from './rag-workflow';
+import { chatAgent } from './chat-agent';
 
+// Streams an assistant response for a turn. Mastra Memory (keyed by thread =
+// sessionId, resource = userId) supplies history and persists the new user and
+// assistant messages around the call. Yields incremental text deltas so the
+// tRPC subscription can keep its existing wire contract.
 class ChatService {
-  private ragWorkflow = new RagWorkflow();
-
-  query(prompt: string, messages: Message[], sessionId: string) {
-    const chatMemory = new ChatMemory(messages);
-
-    return this.ragWorkflow.query({
-      query: prompt,
-      chatMemory,
-      sessionId,
+  async *query(prompt: string, sessionId: string, userId: string) {
+    const result = await chatAgent.stream(prompt, {
+      memory: { thread: sessionId, resource: userId },
     });
+
+    for await (const delta of result.textStream) {
+      yield { delta };
+    }
   }
 }
 
