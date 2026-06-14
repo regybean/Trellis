@@ -9,6 +9,8 @@ packages:
 
 catalog:
   '@ai-sdk/amazon-bedrock': ^4.0.117
+  '@ai-sdk/openai-compatible': ^2.0.50
+  '@ai-sdk/provider': ^3.0.10
   '@aws-sdk/client-s3': ^3.914.0
   '@aws-sdk/s3-request-presigner': ^3.914.0
   '@clerk/nextjs': 6.32.2
@@ -29,6 +31,7 @@ catalog:
   '@opentelemetry/sdk-trace-base': ^2.4.0
   '@opentelemetry/sdk-trace-node': ^2.4.0
   '@opentelemetry/semantic-conventions': ^1.28.0
+  '@openrouter/ai-sdk-provider': ^2.9.1
   '@react-pdf/renderer': ^4.3.1
   '@t3-oss/env-nextjs': ^0.13.10
   '@tailwindcss/postcss': ^4.1.16
