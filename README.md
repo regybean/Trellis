@@ -34,7 +34,7 @@ tooling  →  platform  →  shared  →  features  →  compositions  →  apps
 |-------|---------------|-----------------|
 | [tooling/](tooling/) | tooling | Shared configs + test infra: eslint, prettier, typescript, tailwind, vitest, github, test-utils |
 | [packages/platform/](packages/platform/) | platform, tooling | Runtime substrate: trpc, subscriptions, logger, redis, telemetry |
-| [packages/shared/](packages/shared/) | shared, platform, tooling | Primitives: ui, auth, hooks, llamaindex |
+| [packages/shared/](packages/shared/) | shared, platform, tooling | Primitives: ui, auth, hooks, rag |
 | [packages/features/](packages/features/) | shared, platform, tooling | Vertical domain slices: billing, chat, ingest |
 | [packages/compositions/](packages/compositions/) | features, shared, platform, tooling, other compositions | Feature combinations: admin, sidebar |
 | [apps/](apps/) | everything | The deployable apps |
@@ -87,7 +87,7 @@ trellis/
 ├── packages/
 │   ├── platform/           # trpc, subscriptions, logger, redis, telemetry
 │   │                       #   (runtime substrate)
-│   ├── shared/             # ui, auth, hooks, llamaindex (primitives)
+│   ├── shared/             # ui, auth, hooks, rag        (primitives)
 │   ├── features/           # billing, chat, ingest      (vertical slices)
 │   └── compositions/       # admin, sidebar             (assembled UI)
 ├── tooling/                # eslint, prettier, typescript, tailwind, vitest, github, test-utils

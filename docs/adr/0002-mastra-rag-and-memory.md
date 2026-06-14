@@ -55,3 +55,8 @@ accepted
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.
 - Fresh start: old `acme_documents` vector data and `chats`/`messages` history are
   not migrated.
+
+## Status
+
+Superseded — `@acme/llamaindex` removed 2026-06-14 (package and its catalog deps
+deleted; `@acme/rag` is the sole RAG layer). The decision above stands as recorded.
