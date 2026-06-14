@@ -14,9 +14,11 @@ export const bedrockChat = bedrock(env.BEDROCK_CHAT_MODEL);
 // Cohere English v3 embeddings (1024-dim) used for indexing and retrieval.
 export const bedrockEmbed = bedrock.embedding('cohere.embed-english-v3');
 
-// Cohere `input_type`, surfaced by the AI SDK as `embeddingPurpose`. Indexing
-// embeds documents; retrieval embeds the query.
-export const EMBEDDING_PURPOSE = {
-  document: 'DOCUMENT_RETRIEVAL',
-  query: 'TEXT_RETRIEVAL',
+// Cohere `input_type`, passed via `providerOptions.bedrock.inputType`. Cohere
+// embeds documents and queries asymmetrically, so indexing uses `search_document`
+// and retrieval uses `search_query`. (The AI SDK's `embeddingPurpose` option is
+// Nova-only and ignored for Cohere models, so it must NOT be used here.)
+export const INPUT_TYPE = {
+  document: 'search_document',
+  query: 'search_query',
 } as const;

@@ -1,11 +1,14 @@
 import { PgVector } from '@mastra/pg';
 
 import { env } from './env';
-import { EMBED_DIMENSIONS } from './schemas/documents-schema';
+import {
+  EMBED_DIMENSIONS,
+  KNOWLEDGE_BASE_TABLE,
+} from './schemas/documents-schema';
 
 // Knowledge-base table name within the per-app schema (see RAG_SCHEMA). Matches
 // the Drizzle mirror so both Mastra and Drizzle address the same table.
-export const indexName = env.DOCUMENTS_TABLE_NAME;
+export const indexName = KNOWLEDGE_BASE_TABLE;
 
 // Per-app Postgres schema. Mastra namespaces every table it creates under this
 // schema (CREATE SCHEMA IF NOT EXISTS), giving multiple apps clean separation
@@ -26,12 +29,19 @@ export const pgVector = new PgVector({
 let indexReady: Promise<unknown> | null = null;
 
 // Idempotently create the index/table (Mastra runs the DDL; `CREATE ... IF NOT
-// EXISTS`). Called before the first upsert so uploads never race the schema.
+// EXISTS`). Called before the first upsert so uploads never race the schema. On
+// failure the cached promise is cleared so a transient error (e.g. DB blip) can
+// be retried on the next call instead of poisoning every later upload.
 export function ensureVectorIndex() {
-  indexReady ??= pgVector.createIndex({
-    indexName,
-    dimension: EMBED_DIMENSIONS,
-    metric: 'cosine',
-  });
+  indexReady ??= pgVector
+    .createIndex({
+      indexName,
+      dimension: EMBED_DIMENSIONS,
+      metric: 'cosine',
+    })
+    .catch((error: unknown) => {
+      indexReady = null;
+      throw error;
+    });
   return indexReady;
 }

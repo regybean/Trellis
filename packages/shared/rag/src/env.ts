@@ -20,12 +20,9 @@ function ragEnv() {
       DB_VECTOR_NAME: z.string().nonempty(),
       CHUNK_SIZE: z.coerce.number().default(1024),
       CHUNK_OVERLAP: z.coerce.number().default(20),
-      DOCUMENTS_TABLE_NAME: z.string().nonempty().default('documents'),
       // AWS Bedrock — region + Claude chat model id (eu-west-2 inference profile).
       AWS_REGION: z.string().nonempty().default('eu-west-2'),
       BEDROCK_CHAT_MODEL: z.string().nonempty(),
-      // Number of knowledge-base chunks the retrieval tool returns per query.
-      RAG_TOP_K: z.coerce.number().default(5),
     },
     client: {},
     runtimeEnv: {
@@ -40,10 +37,8 @@ function ragEnv() {
       DB_VECTOR_NAME: process.env.DB_VECTOR_NAME,
       CHUNK_OVERLAP: process.env.CHUNK_OVERLAP,
       CHUNK_SIZE: process.env.CHUNK_SIZE,
-      DOCUMENTS_TABLE_NAME: process.env.DOCUMENTS_TABLE_NAME,
       AWS_REGION: process.env.AWS_REGION,
       BEDROCK_CHAT_MODEL: process.env.BEDROCK_CHAT_MODEL,
-      RAG_TOP_K: process.env.RAG_TOP_K,
     },
     skipValidation:
       !!process.env.CI || process.env.npm_lifecycle_event === 'lint',

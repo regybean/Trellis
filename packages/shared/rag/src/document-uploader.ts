@@ -7,7 +7,7 @@ import { v5 as uuidv5 } from 'uuid';
 import { logger } from '@acme/logger';
 
 import type { DocumentMetadata } from './schemas/documents-schema';
-import { bedrockEmbed, EMBEDDING_PURPOSE } from './bedrock';
+import { bedrockEmbed, INPUT_TYPE } from './bedrock';
 import { env } from './env';
 import { extractText } from './parsing';
 import { documents } from './schemas/documents-schema';
@@ -39,95 +39,88 @@ export interface DocumentFilenameSummary {
   uploadTimestamp: number;
 }
 
-export class DocumentUploader {
-  private vdb = vdb;
+/** Parse, chunk, embed and index a batch of files into the knowledge base. */
+export async function uploadDocs(files: File[]) {
+  await ensureVectorIndex();
 
-  /** Parse, chunk, embed and index a batch of files into the knowledge base. */
-  async uploadDocs(files: File[]) {
-    await ensureVectorIndex();
-
-    const parsed = await Promise.all(
-      files.map(async (file) => {
-        const text = await extractText(file);
-        if (!text.trim()) {
-          throw new Error(
-            `No document could be parsed from file: ${file.name}`,
-          );
-        }
-        const uploadTimestamp = Date.now();
-        const doc = MDocument.fromText(text, {
-          file_name: file.name,
-          upload_timestamp: uploadTimestamp,
-          chunk_size: env.CHUNK_SIZE,
-          parser: 'officeparser',
-        });
-        const chunks = await doc.chunk({
-          strategy: 'sentence',
-          maxSize: env.CHUNK_SIZE,
-          overlap: env.CHUNK_OVERLAP,
-        });
-        return { file, uploadTimestamp, chunks };
-      }),
-    );
-
-    // Deduplicate by deterministic id so repeated chunks collapse to one row.
-    const byId = new Map<string, DocumentMetadata>();
-    for (const { file, uploadTimestamp, chunks } of parsed) {
-      for (const chunk of chunks) {
-        const id = deterministicId(chunk.text, file.name);
-        byId.set(id, {
-          text: chunk.text,
-          file_name: file.name,
-          upload_timestamp: uploadTimestamp,
-          chunk_size: env.CHUNK_SIZE,
-          parser: 'officeparser',
-        });
+  const parsed = await Promise.all(
+    files.map(async (file) => {
+      const text = await extractText(file);
+      if (!text.trim()) {
+        throw new Error(`No document could be parsed from file: ${file.name}`);
       }
+      const uploadTimestamp = Date.now();
+      const doc = MDocument.fromText(text, {
+        file_name: file.name,
+        upload_timestamp: uploadTimestamp,
+        chunk_size: env.CHUNK_SIZE,
+        parser: 'officeparser',
+      });
+      const chunks = await doc.chunk({
+        strategy: 'sentence',
+        maxSize: env.CHUNK_SIZE,
+        overlap: env.CHUNK_OVERLAP,
+      });
+      return { file, uploadTimestamp, chunks };
+    }),
+  );
+
+  // Deduplicate by deterministic id so repeated chunks collapse to one row.
+  const byId = new Map<string, DocumentMetadata>();
+  for (const { file, uploadTimestamp, chunks } of parsed) {
+    for (const chunk of chunks) {
+      const id = deterministicId(chunk.text, file.name);
+      byId.set(id, {
+        text: chunk.text,
+        file_name: file.name,
+        upload_timestamp: uploadTimestamp,
+        chunk_size: env.CHUNK_SIZE,
+        parser: 'officeparser',
+      });
     }
-
-    const ids = [...byId.keys()];
-    const metadata = [...byId.values()];
-
-    if (ids.length === 0) {
-      logger.warn('[Chunked]: No chunks produced; nothing to index.');
-      return;
-    }
-
-    const { embeddings } = await embedMany({
-      model: bedrockEmbed,
-      values: metadata.map((m) => m.text),
-      providerOptions: {
-        bedrock: { embeddingPurpose: EMBEDDING_PURPOSE.document },
-      },
-    });
-
-    logger.info(`[Chunked]: Indexing ${ids.length} chunk(s).`);
-
-    await pgVector.upsert({ indexName, ids, vectors: embeddings, metadata });
   }
 
-  /** List uploaded documents grouped by filename. */
-  async listDocuments(): Promise<DocumentFilenameSummary[]> {
-    return this.vdb
-      .select({
-        filename: sql<string>`(${documents.metadata} ->> 'file_name')`,
-        count: sql<number>`count(*)::integer`,
-        uploadTimestamp: sql<number>`max((${documents.metadata} ->> 'upload_timestamp')::double precision)`,
-      })
-      .from(documents)
-      .groupBy(sql`(${documents.metadata} ->> 'file_name')`);
+  const ids = [...byId.keys()];
+  const metadata = [...byId.values()];
+
+  if (ids.length === 0) {
+    logger.warn('[Chunked]: No chunks produced; nothing to index.');
+    return;
   }
 
-  /** Delete all chunks belonging to a given filename. */
-  async deleteByFilename(filename: string) {
-    const deleted = await this.vdb
-      .delete(documents)
-      .where(sql`(${documents.metadata} ->> 'file_name') = ${filename}`)
-      .returning({ id: documents.id });
+  const { embeddings } = await embedMany({
+    model: bedrockEmbed,
+    values: metadata.map((m) => m.text),
+    providerOptions: {
+      bedrock: { inputType: INPUT_TYPE.document },
+    },
+  });
 
-    logger.info({ filename, deletedCount: deleted.length }, 'Deleted document');
-    return { deletedCount: deleted.length, filename };
-  }
+  logger.info(`[Chunked]: Indexing ${ids.length} chunk(s).`);
+
+  await pgVector.upsert({ indexName, ids, vectors: embeddings, metadata });
 }
 
-export const documentUploader = new DocumentUploader();
+/** List uploaded documents grouped by filename. */
+export async function listDocuments() {
+  const summaries: DocumentFilenameSummary[] = await vdb
+    .select({
+      filename: sql<string>`(${documents.metadata} ->> 'file_name')`,
+      count: sql<number>`count(*)::integer`,
+      uploadTimestamp: sql<number>`max((${documents.metadata} ->> 'upload_timestamp')::double precision)`,
+    })
+    .from(documents)
+    .groupBy(sql`(${documents.metadata} ->> 'file_name')`);
+  return summaries;
+}
+
+/** Delete all chunks belonging to a given filename. */
+export async function deleteByFilename(filename: string) {
+  const deleted = await vdb
+    .delete(documents)
+    .where(sql`(${documents.metadata} ->> 'file_name') = ${filename}`)
+    .returning({ id: documents.id });
+
+  logger.info({ filename, deletedCount: deleted.length }, 'Deleted document');
+  return { deletedCount: deleted.length, filename };
+}

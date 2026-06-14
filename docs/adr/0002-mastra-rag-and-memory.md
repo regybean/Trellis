@@ -7,10 +7,13 @@ decisions are load-bearing:
 
 1. **Mastra owns the DDL; Drizzle tables are mirrors marked applied.** Mastra's
    `PgVector` and `PostgresStore` create their tables at runtime. `@acme/rag/schema`
-   declares Drizzle mirrors (`documents`, `mastra_threads`, `mastra_messages`,
+   declares Drizzle mirrors (`mastra_documents`, `mastra_threads`, `mastra_messages`,
    `mastra_resources`) so the data stays queryable with Drizzle, and we generate the
    matching migrations — but the operator **marks them applied** rather than running
-   them, because Mastra has already created the tables.
+   them, because Mastra has already created the tables. **Invariant: every
+   Mastra-owned table is `mastra_`-prefixed** — including the knowledge-base table,
+   named `mastra_documents` for exactly this reason (its name is ours; PgVector owns
+   its DDL). Everything else in the per-app schema is app-owned.
 2. **Per-app isolation via a Postgres schema, not a table prefix.** Mastra has no
    table-prefix option, so both stores set `schemaName: NEXT_PUBLIC_WEBAPP`. Each app
    gets its own schema (auto `CREATE SCHEMA IF NOT EXISTS`), and the Drizzle mirrors
@@ -18,7 +21,8 @@ decisions are load-bearing:
 3. **Bedrock via an AI-SDK provider instance, not Mastra's model router.** Mastra's
    model router has no native Bedrock entry, so we pass an `@ai-sdk/amazon-bedrock`
    provider instance directly as the agent/embedding model (Claude chat + Cohere
-   `embed-english-v3`, with `embeddingPurpose` distinguishing document vs. query).
+   `embed-english-v3`, with `inputType` — `search_document` vs. `search_query` —
+   distinguishing document from query embeddings).
 
 ## Status
 
@@ -55,8 +59,3 @@ accepted
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.
 - Fresh start: old `acme_documents` vector data and `chats`/`messages` history are
   not migrated.
-
-## Status
-
-Superseded — `@acme/llamaindex` removed 2026-06-14 (package and its catalog deps
-deleted; `@acme/rag` is the sole RAG layer). The decision above stands as recorded.
