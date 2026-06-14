@@ -57,4 +57,4 @@ each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
 
 **Boundary**: the Mastra `Agent`/`Mastra` instance is _not_ here — the shared layer
 cannot import features. This package exports primitives; `@acme/chat` assembles the
-agent and the root `src/mastra` re-exports it for the Mastra CLI.
+agent and the root Mastra CLI scripts point at `packages/features/chat/src/mastra`.

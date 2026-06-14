@@ -226,9 +226,6 @@ importers:
 
   .:
     devDependencies:
-      '@acme/chat':
-        specifier: workspace:*
-        version: link:packages/features/chat
       '@mastra/core':
         specifier: 'catalog:'
         version: 1.42.0(@grpc/grpc-js@1.14.3)(ai@6.0.204(zod@4.3.4))(express@5.2.1)(zod@4.3.4)
@@ -510,7 +507,7 @@ importers:
         version: link:../../shared/ui
       '@clerk/nextjs':
         specifier: 'catalog:'
-        version: 6.32.2(next@15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 6.32.2(next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
@@ -628,7 +625,7 @@ importers:
         version: link:../../shared/ui
       '@clerk/nextjs':
         specifier: 'catalog:'
-        version: 6.32.2(next@15.5.9(@babel/core@7.28.5)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+        version: 6.32.2(next@15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@mastra/core':
         specifier: 'catalog:'
         version: 1.42.0(@grpc/grpc-js@1.14.3)(ai@6.0.204(zod@4.3.4))(express@5.2.1)(zod@4.3.4)
