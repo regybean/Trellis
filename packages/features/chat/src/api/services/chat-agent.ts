@@ -4,8 +4,8 @@ import { createVectorQueryTool } from '@mastra/rag';
 import {
   bedrockChat,
   bedrockEmbed,
-  EMBEDDING_PURPOSE,
   indexName,
+  INPUT_TYPE,
   memory,
   pgVector,
 } from '@acme/rag';
@@ -14,13 +14,13 @@ import { getAppInfo } from '../../data/app-info';
 import { env } from '../../env';
 
 // Retrieval over the knowledge base. The agent calls this tool to ground its
-// answers; the query is embedded with Cohere (search_query input type).
+// answers; the query is embedded with Cohere using the `search_query` input type.
 const vectorQueryTool = createVectorQueryTool({
   vectorStore: pgVector,
   indexName,
   model: bedrockEmbed,
   providerOptions: {
-    bedrock: { embeddingPurpose: EMBEDDING_PURPOSE.query },
+    bedrock: { inputType: INPUT_TYPE.query },
   },
 });
 

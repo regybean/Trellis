@@ -68,7 +68,6 @@ vi.mock('@acme/rag/env', () => {
       CHUNK_OVERLAP: 20,
       AWS_REGION: 'eu-west-2',
       BEDROCK_CHAT_MODEL: 'test-model',
-      RAG_TOP_K: 5,
     },
   };
 });

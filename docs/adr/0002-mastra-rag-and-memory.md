@@ -21,7 +21,8 @@ decisions are load-bearing:
 3. **Bedrock via an AI-SDK provider instance, not Mastra's model router.** Mastra's
    model router has no native Bedrock entry, so we pass an `@ai-sdk/amazon-bedrock`
    provider instance directly as the agent/embedding model (Claude chat + Cohere
-   `embed-english-v3`, with `embeddingPurpose` distinguishing document vs. query).
+   `embed-english-v3`, with `inputType` — `search_document` vs. `search_query` —
+   distinguishing document from query embeddings).
 
 ## Status
 

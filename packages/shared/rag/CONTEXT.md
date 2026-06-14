@@ -37,10 +37,11 @@ Any non-`mastra_` table in the per-app schema — the app, via Drizzle, owns its
 `db:push` manages these freely (no migrations in dev); Mastra never touches them.
 There are none today; the lane exists for future app tables. _Avoid_: "custom table"
 
-**Embedding purpose**:
-Cohere's input-type distinction — `DOCUMENT_RETRIEVAL` when indexing, `TEXT_RETRIEVAL`
-when querying — passed through `providerOptions.bedrock.embeddingPurpose`.
-_Avoid_: "mode", "direction"
+**Input type**:
+Cohere's asymmetric-embedding distinction — `search_document` when indexing,
+`search_query` when querying — passed through `providerOptions.bedrock.inputType`.
+(Bedrock's `embeddingPurpose` option is Nova-only and ignored for Cohere, so it is
+not used.) _Avoid_: "embedding purpose", "mode", "direction"
 
 ## Relationships
 

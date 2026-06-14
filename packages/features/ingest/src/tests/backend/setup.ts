@@ -46,11 +46,9 @@ vi.mock('server-only', () => ({}));
 
 // The document store — never index real documents in unit tests.
 vi.mock('@acme/rag/server', () => ({
-  documentUploader: {
-    listDocuments: vi.fn(),
-    uploadDocs: vi.fn(),
-    deleteByFilename: vi.fn(),
-  },
+  listDocuments: vi.fn(),
+  uploadDocs: vi.fn(),
+  deleteByFilename: vi.fn(),
 }));
 
 // S3 — no network in unit tests.
