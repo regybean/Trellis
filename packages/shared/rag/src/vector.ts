@@ -26,12 +26,19 @@ export const pgVector = new PgVector({
 let indexReady: Promise<unknown> | null = null;
 
 // Idempotently create the index/table (Mastra runs the DDL; `CREATE ... IF NOT
-// EXISTS`). Called before the first upsert so uploads never race the schema.
+// EXISTS`). Called before the first upsert so uploads never race the schema. On
+// failure the cached promise is cleared so a transient error (e.g. DB blip) can
+// be retried on the next call instead of poisoning every later upload.
 export function ensureVectorIndex() {
-  indexReady ??= pgVector.createIndex({
-    indexName,
-    dimension: EMBED_DIMENSIONS,
-    metric: 'cosine',
-  });
+  indexReady ??= pgVector
+    .createIndex({
+      indexName,
+      dimension: EMBED_DIMENSIONS,
+      metric: 'cosine',
+    })
+    .catch((error: unknown) => {
+      indexReady = null;
+      throw error;
+    });
   return indexReady;
 }
