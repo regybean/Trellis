@@ -26,6 +26,17 @@ The Postgres schema (`= NEXT_PUBLIC_WEBAPP`) every Mastra-owned table is namespa
 under, giving each app DB-level separation. Set via Mastra's `schemaName` option.
 _Avoid_: "table prefix", "namespace prefix"
 
+**Mastra-owned table**:
+A table whose DDL Mastra creates at runtime (`PgVector`, `PostgresStore`). By
+invariant every one is `mastra_`-prefixed — `mastra_documents` (the knowledge base),
+`mastra_threads`, `mastra_messages`, `mastra_resources`. Drizzle only _mirrors_ these;
+`db:push` is blacklisted from them. _Avoid_: "drizzle table", "our table"
+
+**App-owned table**:
+Any non-`mastra_` table in the per-app schema — the app, via Drizzle, owns its DDL.
+`db:push` manages these freely (no migrations in dev); Mastra never touches them.
+There are none today; the lane exists for future app tables. _Avoid_: "custom table"
+
 **Embedding purpose**:
 Cohere's input-type distinction — `DOCUMENT_RETRIEVAL` when indexing, `TEXT_RETRIEVAL`
 when querying — passed through `providerOptions.bedrock.embeddingPurpose`.
@@ -49,8 +60,9 @@ Bedrock entry, so `@ai-sdk/amazon-bedrock` provider instances are passed directl
 the chat model (Claude) and embedding model (Cohere `embed-english-v3`, 1024 dims).
 
 **Mastra owns DDL; Drizzle mirrors are read models**: Mastra's stores create their
-tables; the Drizzle mirrors (`documents`, `mastra_*`) exist only so the data is
-queryable with Drizzle. Letting both own DDL would race and drift.
+tables (all `mastra_*`-prefixed); the Drizzle mirrors exist only so the data is
+queryable with Drizzle. Letting both own DDL would race and drift. `db:push` is
+scoped off `mastra_*` so it can only manage app-owned tables — see [ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
 
 **Per-app separation via `schemaName`**: Mastra exposes no table-prefix hook, so
 each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
