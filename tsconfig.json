@@ -1,0 +1,10 @@
+{
+  "extends": "./tooling/typescript/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023"],
+    "moduleResolution": "bundler",
+    "noEmit": true
+  },
+  "include": ["src/mastra"],
+  "exclude": ["node_modules"]
+}
