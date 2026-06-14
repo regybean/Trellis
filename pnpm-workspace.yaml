@@ -1,6 +1,7 @@
 packages:
   - apps/*
   - '!apps/tanstack-start' # bare reference app, excluded from workspace until phase 2
+  - packages/platform/*
   - packages/shared/*
   - packages/features/*
   - packages/compositions/*

@@ -250,7 +250,7 @@ export default mergeConfig(
 );
 ```
 
-3. Create `globalSetup.ts` and `globalTeardown.ts` using shared test-utils
+3. Create `globalSetup.ts` and `globalTeardown.ts` using `@acme/test-utils`
 4. Create `setup.ts` with mocks for your package's env.ts and external services
 5. Add test scripts to package.json:
 

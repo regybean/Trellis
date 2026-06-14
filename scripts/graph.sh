@@ -9,8 +9,9 @@ set -eu
 #   scripts/graph.sh                -> docs/task-graph-topo.mermaid
 #   scripts/graph.sh lint typecheck -> docs/task-graph-lint-typecheck.mermaid
 #
-# Tooling packages (tooling/*) are depended on by everything and dominate the
-# graph, so they are stripped by default. Set GRAPH_FULL=1 to keep them.
+# Tooling (tooling/*) and platform (packages/platform/*) packages are depended
+# on by everything and dominate the graph, so they are stripped by default.
+# Set GRAPH_FULL=1 to keep them.
 
 if [ "$#" -eq 0 ]; then
   set -- topo
@@ -24,12 +25,13 @@ turbo run "$@" --graph="$out"
 body=$(cat "$out")
 
 if [ -z "${GRAPH_FULL:-}" ]; then
-  # Names of every package under tooling/, derived at runtime.
-  tooling=$(node -e 'const fs=require("fs");for(const d of fs.readdirSync("tooling")){try{process.stdout.write(require(process.cwd()+"/tooling/"+d+"/package.json").name+"\n")}catch{}}')
-  if [ -n "$tooling" ]; then
+  # Names of every package under tooling/ and packages/platform/, derived at
+  # runtime — both are foundational layers depended on by everything.
+  strip=$(node -e 'const fs=require("fs");for(const base of ["tooling","packages/platform"]){let ds;try{ds=fs.readdirSync(base)}catch{continue}for(const d of ds){try{process.stdout.write(require(process.cwd()+"/"+base+"/"+d+"/package.json").name+"\n")}catch{}}}')
+  if [ -n "$strip" ]; then
     # grep -F treats each newline-separated name as a fixed pattern; drop any
-    # mermaid edge line referencing a tooling package on either side.
-    body=$(printf '%s\n' "$body" | grep -vF "$tooling")
+    # mermaid edge line referencing a tooling/platform package on either side.
+    body=$(printf '%s\n' "$body" | grep -vF "$strip")
   fi
 fi
 

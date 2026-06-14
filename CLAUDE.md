@@ -38,13 +38,14 @@ pnpm deps:check          # Check for unused dependencies with knip
 ### Layer boundaries
 
 ```
-tooling → shared → features → compositions → apps
+tooling → platform → shared → features → compositions → apps
 ```
 
-- **tooling**: Shared configs (ESLint, Prettier, TypeScript, Tailwind, Vitest). Depends on tooling only.
-- **shared**: Reusable primitives. Depends on shared and tooling.
-- **features**: Domain modules. Depends on shared and tooling only.
-- **compositions**: Feature combinations. Depends on features, shared, tooling, other compositions.
+- **tooling**: Shared configs (ESLint, Prettier, TypeScript, Tailwind, Vitest, test-utils). Depends on tooling only.
+- **platform**: Runtime substrate — the rails features run on (logger, telemetry, redis, subscriptions, trpc). Depends on platform and tooling.
+- **shared**: Reusable primitives (ui, hooks, auth, llamaindex). Depends on shared, platform, and tooling.
+- **features**: Domain modules. Depends on shared, platform, and tooling only.
+- **compositions**: Feature combinations. Depends on features, shared, platform, tooling, other compositions.
 - **apps**: Applications. Depends on all layers.
 
 ### tRPC Architecture (v11)

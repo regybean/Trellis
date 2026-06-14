@@ -10,8 +10,8 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 
 | Package | Context | ADRs |
 | --- | --- | --- |
-| `packages/shared/trpc/` | [`packages/shared/trpc/CONTEXT.md`](packages/shared/trpc/CONTEXT.md) | [`packages/shared/trpc/docs/adr/`](packages/shared/trpc/docs/adr/) |
-| `packages/shared/subscriptions/` | [`packages/shared/subscriptions/CONTEXT.md`](packages/shared/subscriptions/CONTEXT.md) | — |
+| `packages/platform/trpc/` | [`packages/platform/trpc/CONTEXT.md`](packages/platform/trpc/CONTEXT.md) | [`packages/platform/trpc/docs/adr/`](packages/platform/trpc/docs/adr/) |
+| `packages/platform/subscriptions/` | [`packages/platform/subscriptions/CONTEXT.md`](packages/platform/subscriptions/CONTEXT.md) | — |
 | `packages/features/billing/` | [`packages/features/billing/CONTEXT.md`](packages/features/billing/CONTEXT.md) | — |
 | `packages/features/chat/` | [`packages/features/chat/CONTEXT.md`](packages/features/chat/CONTEXT.md) | — |
 | `packages/features/ingest/` | [`packages/features/ingest/CONTEXT.md`](packages/features/ingest/CONTEXT.md) | — |
