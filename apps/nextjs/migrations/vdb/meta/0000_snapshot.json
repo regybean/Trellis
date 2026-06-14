@@ -1,155 +1,48 @@
 {
-  "id": "e23c72f8-3e78-4e5b-ae6d-98021047c1df",
+  "id": "3a17176d-7472-4a46-afdc-1f92e23ddafb",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.acme_documents": {
-      "name": "acme_documents",
-      "schema": "",
+    "acme.documents": {
+      "name": "documents",
+      "schema": "acme",
       "columns": {
         "id": {
           "name": "id",
-          "type": "uuid",
+          "type": "serial",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "json",
-          "primaryKey": false,
           "notNull": true
         },
-        "embeddings": {
-          "name": "embeddings",
-          "type": "vector(1024)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_id": {
-          "name": "external_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "collection": {
-          "name": "collection",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "document": {
-          "name": "document",
+        "vector_id": {
+          "name": "vector_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(1024)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "metadata": {
+          "name": "metadata",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.acme_projects_documents": {
-      "name": "acme_projects_documents",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "embeddings": {
-          "name": "embeddings",
-          "type": "vector(1024)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_id": {
-          "name": "external_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "collection": {
-          "name": "collection",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "document": {
-          "name": "document",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
+      "uniqueConstraints": {
+        "documents_vector_id_unique": {
+          "name": "documents_vector_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["vector_id"]
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.acme_standards": {
-      "name": "acme_standards",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "metadata": {
-          "name": "metadata",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "embeddings": {
-          "name": "embeddings",
-          "type": "vector(1024)",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "external_id": {
-          "name": "external_id",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "collection": {
-          "name": "collection",
-          "type": "varchar",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "document": {
-          "name": "document",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
