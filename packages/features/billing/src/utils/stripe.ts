@@ -10,6 +10,7 @@ import { redis } from '@acme/redis';
 import { SubscriptionCacheSchema } from '@acme/subscriptions';
 
 import { env } from '../env';
+import { buildSubscriptionCache } from './subscription-cache';
 
 // Constants
 const DEFAULT_QUANTITY = 1;
@@ -397,7 +398,12 @@ export async function syncStripeDataToKV(
       customer: customerId,
       limit: 1,
       status: 'all',
-      expand: ['data.default_payment_method', 'data.items.data.price'],
+      // localstripe has no `price` on items and no `default_payment_method` on
+      // subscriptions, and 400s on expand paths it can't resolve. Skip expands
+      // there; buildSubscriptionCache reads the inline `plan` fallback instead.
+      expand: env.STRIPE_API_BASE
+        ? []
+        : ['data.default_payment_method', 'data.items.data.price'],
     });
 
     if (subscriptions.data.length === 0 || !subscriptions.data[0]) {
@@ -411,26 +417,7 @@ export async function syncStripeDataToKV(
     }
 
     const subscription = subscriptions.data[0];
-    const productId = subscription.items.data[0]?.price.product;
-
-    const candidate: STRIPE_SUB_CACHE = {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      product: typeof productId === 'string' ? productId : null,
-      priceId: subscription.items.data[0]?.price.id ?? null,
-      currentPeriodStart:
-        subscription.items.data[0]?.current_period_start ?? null,
-      currentPeriodEnd: subscription.items.data[0]?.current_period_end ?? null,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      paymentMethod:
-        subscription.default_payment_method &&
-        typeof subscription.default_payment_method !== 'string'
-          ? {
-              brand: subscription.default_payment_method.card?.brand ?? null,
-              last4: subscription.default_payment_method.card?.last4 ?? null,
-            }
-          : null,
-    };
+    const candidate = buildSubscriptionCache(subscription);
 
     const validated = SubscriptionCacheSchema.safeParse(candidate);
     const subData: STRIPE_SUB_CACHE = validated.success
