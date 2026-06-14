@@ -24,7 +24,8 @@
       "require-in-the-middle": "8.0.1",
       "vite": "catalog:",
       "vitest": "catalog:",
-      "qs": "6.14.1"
+      "qs": "6.14.1",
+      "@clerk/backend": "^2.33.5"
     }
   },
   "private": true,

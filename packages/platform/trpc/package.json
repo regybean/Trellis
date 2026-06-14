@@ -5,7 +5,7 @@
     "@acme/redis": "workspace:*",
     "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
-    "@clerk/nextjs": "catalog:",
+    "@clerk/backend": "catalog:",
     "@opentelemetry/api": "catalog:",
     "@trpc/server": "catalog:",
     "server-only": "catalog:",

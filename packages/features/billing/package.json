@@ -51,6 +51,10 @@
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
     },
+    "./server-next": {
+      "types": "./dist/index-server-next.d.ts",
+      "default": "./src/index-server-next.ts"
+    },
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"

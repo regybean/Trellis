@@ -1,7 +1,8 @@
 'use client';
 
-import { useAuth } from '@clerk/nextjs';
 import { useQuery } from '@tanstack/react-query';
+
+import { useAuth } from '@acme/auth';
 
 import { useTRPC } from '../index';
 import { SubscriptionDetailsModal } from './subscription-details-modal';

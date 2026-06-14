@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { useAuth } from '@clerk/nextjs';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import {
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'react-toastify';
 
+import { useAuth } from '@acme/auth';
 import { useGenericErrorHandler } from '@acme/hooks';
 import {
   Button,

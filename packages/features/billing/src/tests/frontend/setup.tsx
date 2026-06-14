@@ -25,8 +25,8 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-// Mock Clerk
-vi.mock('@clerk/nextjs', () => ({
+// Mock Clerk (now consumed via the neutral @acme/auth surface)
+vi.mock('@acme/auth', () => ({
   useAuth: vi.fn(),
 }));
 
