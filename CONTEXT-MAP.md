@@ -12,8 +12,9 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 | --- | --- | --- |
 | `packages/shared/trpc/` | [`packages/shared/trpc/CONTEXT.md`](packages/shared/trpc/CONTEXT.md) | [`packages/shared/trpc/docs/adr/`](packages/shared/trpc/docs/adr/) |
 | `packages/shared/subscriptions/` | [`packages/shared/subscriptions/CONTEXT.md`](packages/shared/subscriptions/CONTEXT.md) | — |
+| `packages/shared/rag/` | [`packages/shared/rag/CONTEXT.md`](packages/shared/rag/CONTEXT.md) | — |
 | `packages/features/billing/` | [`packages/features/billing/CONTEXT.md`](packages/features/billing/CONTEXT.md) | — |
-| `packages/features/chat/` | [`packages/features/chat/CONTEXT.md`](packages/features/chat/CONTEXT.md) | — |
+| `packages/features/chat/` | [`packages/features/chat/CONTEXT.md`](packages/features/chat/CONTEXT.md) | [`packages/features/chat/docs/adr/`](packages/features/chat/docs/adr/) |
 | `packages/features/ingest/` | [`packages/features/ingest/CONTEXT.md`](packages/features/ingest/CONTEXT.md) | — |
 | `packages/compositions/admin/` | [`packages/compositions/admin/CONTEXT.md`](packages/compositions/admin/CONTEXT.md) | — |
 | `packages/compositions/sidebar/` | [`packages/compositions/sidebar/CONTEXT.md`](packages/compositions/sidebar/CONTEXT.md) | — |

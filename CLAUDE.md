@@ -75,9 +75,9 @@ const subscription = useSubscription(trpc.chat.stream.subscriptionOptions(input)
 
 Tokens are tier-based (free/standard/pro) stored in Redis. Available via tRPC middleware.
 
-### LlamaIndex/RAG
+### RAG / Mastra
 
-`@acme/llamaindex` provides document upload, pgvector storage, and retrieval. Used in compliance and diagram features. OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
+`@acme/rag` provides document upload (officeparser), pgvector storage, retrieval, and Mastra Memory — all on Mastra wired to AWS Bedrock. Used by the chat and ingest features. The chat Agent + Mastra instance live in `@acme/chat`; root `src/mastra` re-exports it for the Mastra CLI (`pnpm studio`, `pnpm lint:mastra`). See [`docs/adr/0002-mastra-rag-and-memory.md`](docs/adr/0002-mastra-rag-and-memory.md). (`@acme/llamaindex` remains in the repo but is no longer wired into any feature.) OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
 
 ## Development Patterns
 
