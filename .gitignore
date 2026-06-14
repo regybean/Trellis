@@ -55,4 +55,7 @@ dist/
 .turbo
 .claude
 
+# mastra
+.mastra/
+
 .claude/worktrees/
