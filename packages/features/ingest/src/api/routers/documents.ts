@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod/v4';
 
 import { logger } from '@acme/logger';
-import { documentUploader } from '@acme/rag/server';
+import { deleteByFilename, listDocuments, uploadDocs } from '@acme/rag/server';
 
 import {
   deleteFilesFromS3,
@@ -20,7 +20,7 @@ export const documentsRouter = createTRPCRouter({
   /** List indexed documents grouped by filename. */
   list: adminProcedure.input(z.void()).query(async ({ ctx }) => {
     ctx.telemetry.set({ 'admin.userId': ctx.auth.userId ?? '' });
-    const docs = await documentUploader.listDocuments();
+    const docs = await listDocuments();
     ctx.telemetry.set({ 'documents.count': docs.length });
     return docs;
   }),
@@ -78,7 +78,7 @@ export const documentsRouter = createTRPCRouter({
           }),
         );
 
-        await documentUploader.uploadDocs(files);
+        await uploadDocs(files);
         ctx.telemetry.set({ 'documents.indexed': files.length });
 
         await deleteFilesFromS3(s3Keys).catch((error) =>
@@ -107,6 +107,6 @@ export const documentsRouter = createTRPCRouter({
         'admin.userId': ctx.auth.userId ?? '',
         'document.filename': input.filename,
       });
-      return documentUploader.deleteByFilename(input.filename);
+      return deleteByFilename(input.filename);
     }),
 });

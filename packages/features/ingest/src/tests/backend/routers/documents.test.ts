@@ -11,7 +11,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TestContextOptions } from '@acme/test-utils';
-import { documentUploader } from '@acme/rag/server';
+import { deleteByFilename, listDocuments, uploadDocs } from '@acme/rag/server';
 
 import { appRouter } from '../../../api/root';
 import {
@@ -49,7 +49,7 @@ describe('documentsRouter', () => {
 
   describe('list', () => {
     it('returns an empty list when nothing is indexed', async () => {
-      vi.mocked(documentUploader.listDocuments).mockResolvedValue([]);
+      vi.mocked(listDocuments).mockResolvedValue([]);
 
       const result = await createCaller(adminOpts).documents.list();
 
@@ -61,7 +61,7 @@ describe('documentsRouter', () => {
         { filename: 'a.pdf', count: 3, uploadTimestamp: 1 },
         { filename: 'b.txt', count: 1, uploadTimestamp: 2 },
       ];
-      vi.mocked(documentUploader.listDocuments).mockResolvedValue(docs);
+      vi.mocked(listDocuments).mockResolvedValue(docs);
 
       const result = await createCaller(adminOpts).documents.list();
 
@@ -103,16 +103,15 @@ describe('documentsRouter', () => {
         buffer: Buffer.from('hello'),
         contentType: 'application/pdf',
       });
-      vi.mocked(documentUploader.uploadDocs).mockResolvedValue(undefined);
+      vi.mocked(uploadDocs).mockResolvedValue(undefined);
       vi.mocked(deleteFilesFromS3).mockResolvedValue(undefined);
 
       const s3Keys = ['uploads/u1/a.pdf', 'uploads/u1/b.pdf'];
       await createCaller(adminOpts).documents.uploadFromS3({ s3Keys });
 
       expect(downloadFileFromS3).toHaveBeenCalledTimes(2);
-      expect(documentUploader.uploadDocs).toHaveBeenCalledOnce();
-      const uploaded = vi.mocked(documentUploader.uploadDocs).mock
-        .calls[0]?.[0];
+      expect(uploadDocs).toHaveBeenCalledOnce();
+      const uploaded = vi.mocked(uploadDocs).mock.calls[0]?.[0];
       expect(uploaded).toHaveLength(2);
       expect(uploaded?.[0]).toBeInstanceOf(File);
       expect(uploaded?.[0]?.name).toBe('a.pdf');
@@ -124,9 +123,7 @@ describe('documentsRouter', () => {
         buffer: Buffer.from('hello'),
         contentType: 'application/pdf',
       });
-      vi.mocked(documentUploader.uploadDocs).mockRejectedValue(
-        new Error('index boom'),
-      );
+      vi.mocked(uploadDocs).mockRejectedValue(new Error('index boom'));
       vi.mocked(deleteFilesFromS3).mockResolvedValue(undefined);
 
       const s3Keys = ['uploads/u1/a.pdf'];
@@ -140,7 +137,7 @@ describe('documentsRouter', () => {
 
   describe('delete', () => {
     it('deletes every chunk for a filename', async () => {
-      vi.mocked(documentUploader.deleteByFilename).mockResolvedValue({
+      vi.mocked(deleteByFilename).mockResolvedValue({
         deletedCount: 3,
         filename: 'a.pdf',
       });
@@ -149,7 +146,7 @@ describe('documentsRouter', () => {
         filename: 'a.pdf',
       });
 
-      expect(documentUploader.deleteByFilename).toHaveBeenCalledWith('a.pdf');
+      expect(deleteByFilename).toHaveBeenCalledWith('a.pdf');
       expect(result).toEqual({ deletedCount: 3, filename: 'a.pdf' });
     });
   });
