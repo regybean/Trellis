@@ -69,7 +69,6 @@ vi.mock('@acme/rag/env', () => {
       DOCUMENTS_TABLE_NAME: 'documents',
       AWS_REGION: 'eu-west-2',
       BEDROCK_CHAT_MODEL: 'test-model',
-      RAG_TOP_K: 5,
     },
   };
 });
