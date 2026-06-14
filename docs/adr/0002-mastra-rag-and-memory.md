@@ -59,11 +59,3 @@ accepted
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.
 - Fresh start: old `acme_documents` vector data and `chats`/`messages` history are
   not migrated.
-- **`db:push` safety.** `drizzle-kit push` force-reconciles the DB to the Drizzle
-  schema, so against Mastra-owned tables it would drop or drift them. `db:push`
-  therefore runs through dedicated configs (`drizzle.push.config.ts`,
-  `drizzle-vector.push.config.ts`) that add `tablesFilter: ['!mastra_*']` — push can
-  only ever see app-owned tables, leaning on the `mastra_`-prefix invariant above.
-  `db:generate` keeps the full schema so the mirror migrations still generate (and
-  get marked applied). Push is the dev loop for app-owned tables; the mirrors are
-  never pushed.
