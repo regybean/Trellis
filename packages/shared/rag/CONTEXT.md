@@ -26,10 +26,11 @@ The Postgres schema (`= NEXT_PUBLIC_WEBAPP`) every Mastra-owned table is namespa
 under, giving each app DB-level separation. Set via Mastra's `schemaName` option.
 _Avoid_: "table prefix", "namespace prefix"
 
-**Embedding purpose**:
-Cohere's input-type distinction — `DOCUMENT_RETRIEVAL` when indexing, `TEXT_RETRIEVAL`
-when querying — passed through `providerOptions.bedrock.embeddingPurpose`.
-_Avoid_: "mode", "direction"
+**Input type**:
+Cohere's asymmetric-embedding distinction — `search_document` when indexing,
+`search_query` when querying — passed through `providerOptions.bedrock.inputType`.
+(Bedrock's `embeddingPurpose` option is Nova-only and ignored for Cohere, so it is
+not used.) _Avoid_: "embedding purpose", "mode", "direction"
 
 ## Relationships
 
