@@ -23,6 +23,10 @@ decisions are load-bearing:
    provider instance directly as the agent/embedding model (Claude chat + Cohere
    `embed-english-v3`, with `inputType` — `search_document` vs. `search_query` —
    distinguishing document from query embeddings).
+   **Superseded by [ADR 0003](./0003-multi-provider-models.md):** the AI-SDK-instance
+   approach stands, but the instance is now resolved by `@acme/models` (one of
+   Bedrock / OpenRouter / Ollama, Ollama default) rather than constructed in
+   `@acme/rag`. Bedrock is no longer the only — or default — provider.
 
 ## Status
 
