@@ -3,9 +3,17 @@
   "ui": "tui",
   "boundaries": {
     "tags": {
+      "platform": {
+        "dependencies": {
+          "allow": ["platform", "tooling"]
+        },
+        "dependents": {
+          "allow": ["platform", "shared", "feature", "composition"]
+        }
+      },
       "shared": {
         "dependencies": {
-          "allow": ["shared", "tooling"]
+          "allow": ["shared", "platform", "tooling"]
         },
         "dependents": {
           "allow": ["feature", "composition", "shared"]
@@ -13,7 +21,7 @@
       },
       "feature": {
         "dependencies": {
-          "allow": ["shared", "tooling"]
+          "allow": ["shared", "platform", "tooling"]
         },
         "dependents": {
           "allow": ["composition"]
@@ -21,7 +29,7 @@
       },
       "composition": {
         "dependencies": {
-          "allow": ["feature", "shared", "tooling", "composition"]
+          "allow": ["feature", "shared", "platform", "tooling", "composition"]
         }
       },
       "tooling": {
@@ -29,7 +37,7 @@
           "allow": ["tooling"]
         },
         "dependents": {
-          "allow": ["shared", "feature", "composition", "tooling"]
+          "allow": ["platform", "shared", "feature", "composition", "tooling"]
         }
       }
     }

@@ -1,4 +1,4 @@
-# Shared tRPC (`@acme/trpc`)
+# Platform tRPC (`@acme/trpc`)
 
 The single source of the tRPC initialization and request-pipeline middleware that
 every feature reuses. It owns _how_ a request is authenticated, traced, timed and

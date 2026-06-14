@@ -1,5 +1,5 @@
 {
   "extends": ["//"],
-  "tags": ["shared"],
+  "tags": ["platform"],
   "tasks": {}
 }

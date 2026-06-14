@@ -27,15 +27,16 @@ Apps don't reach into a feature's internals — they **mount** it: wire the serv
 Dependencies only ever point **down** the layers. Enforced by Turborepo boundary tags (`pnpm boundaries`) — a violation fails the build, not a review comment.
 
 ```
-tooling  →  shared  →  features  →  compositions  →  apps
+tooling  →  platform  →  shared  →  features  →  compositions  →  apps
 ```
 
 | Layer | May depend on | What lives here |
 |-------|---------------|-----------------|
-| [tooling/](tooling/) | tooling | Shared configs: eslint, prettier, typescript, tailwind, vitest, github |
-| [packages/shared/](packages/shared/) | shared, tooling | Primitives: ui, auth, trpc, subscriptions, hooks, logger, redis, telemetry, llamaindex, test-utils |
-| [packages/features/](packages/features/) | shared, tooling | Vertical domain slices: billing, chat, ingest |
-| [packages/compositions/](packages/compositions/) | features, shared, tooling, other compositions | Feature combinations: admin, sidebar |
+| [tooling/](tooling/) | tooling | Shared configs + test infra: eslint, prettier, typescript, tailwind, vitest, github, test-utils |
+| [packages/platform/](packages/platform/) | platform, tooling | Runtime substrate: trpc, subscriptions, logger, redis, telemetry |
+| [packages/shared/](packages/shared/) | shared, platform, tooling | Primitives: ui, auth, hooks, llamaindex |
+| [packages/features/](packages/features/) | shared, platform, tooling | Vertical domain slices: billing, chat, ingest |
+| [packages/compositions/](packages/compositions/) | features, shared, platform, tooling, other compositions | Feature combinations: admin, sidebar |
 | [apps/](apps/) | everything | The deployable apps |
 
 ## The apps
@@ -84,11 +85,12 @@ trellis/
 ├── apps/
 │   └── nextjs/              # ✅ Next.js app (express, tanstack-start 🚧)
 ├── packages/
-│   ├── shared/             # ui, auth, trpc, subscriptions, hooks,
-│   │                       #   logger, redis, telemetry, llamaindex, test-utils
+│   ├── platform/           # trpc, subscriptions, logger, redis, telemetry
+│   │                       #   (runtime substrate)
+│   ├── shared/             # ui, auth, hooks, llamaindex (primitives)
 │   ├── features/           # billing, chat, ingest      (vertical slices)
 │   └── compositions/       # admin, sidebar             (assembled UI)
-├── tooling/                # eslint, prettier, typescript, tailwind, vitest, github
+├── tooling/                # eslint, prettier, typescript, tailwind, vitest, github, test-utils
 ├── docs/
 │   ├── adr/                # architectural decision records
 │   └── agents/             # agent-skill docs
