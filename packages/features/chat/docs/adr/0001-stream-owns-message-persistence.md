@@ -10,7 +10,14 @@ mutation) and deleted the public `chat.save` endpoint entirely.
 
 ## Status
 
-accepted
+superseded by [0002-mastra-memory-owns-conversation-persistence](0002-mastra-memory-owns-conversation-persistence.md)
+
+The principle survives — persistence still lives behind the procedure, not the
+client, and there is still no public `save` endpoint. What changed is the
+mechanism: the `stream` procedure no longer writes `chats`/`messages` rows in a
+transaction it controls. Mastra Memory now owns the writes (it persists both the
+user turn and the streamed assistant turn as a side effect of `agent.stream`),
+so the procedure orchestrates a memory thread rather than a Drizzle transaction.
 
 ## Why
 

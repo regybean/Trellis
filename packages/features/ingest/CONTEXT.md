@@ -5,7 +5,7 @@ Admin-only feature for managing the knowledge base. Operators upload files that 
 ## Language
 
 **Document**:
-A file uploaded by an operator to the knowledge base. Identified by its filename. Stored in S3 and indexed as one or more chunks in the vector store.
+A file uploaded by an operator to the knowledge base. Identified by its filename. Accepted types: `.pdf`, `.docx` (parsed to text with officeparser) and `.txt` (read natively). Stored in S3 and indexed as one or more chunks in the vector store.
 _Avoid_: "file", "attachment", "resource"
 
 **Chunk**:
@@ -30,5 +30,7 @@ _Avoid_: "signed URL", "upload link"
 ## Design decisions
 
 **Browser-direct S3 upload**: Files are too large to route through Next.js request bodies. The two-step presign → upload → `uploadFromS3` flow keeps the server stateless and avoids timeouts on large PDFs.
+
+**Local parsing via officeparser**: Document text is extracted in-process (`@acme/rag`) rather than through a hosted parsing service — no LlamaParse/LlamaCloud dependency. Indexing (chunk → embed → upsert) runs on Mastra against the Bedrock Cohere embedder.
 
 **All procedures are admin-only**: The knowledge base is operator-managed. There is no user-facing upload path.

@@ -10,6 +10,7 @@
  */
 
 import type { TestContextOptions } from '@acme/test-utils';
+import { mastraMessages, mastraThreads } from '@acme/rag/schema';
 import { redis } from '@acme/redis';
 import {
   createMockAuth,
@@ -18,8 +19,6 @@ import {
 } from '@acme/test-utils';
 
 import type { createTRPCContext } from '../../../api/trpc';
-import { chats } from '../../../api/schemas/chat-schema';
-import { messages } from '../../../api/schemas/message-schema';
 import { db } from '../../../api/trpc';
 
 // Type for the tRPC context
@@ -54,11 +53,11 @@ export function createTestContext(opts: TestContextOptions): TRPCContext {
  * Call this in beforeEach/afterEach to ensure test isolation.
  */
 export async function cleanupTestData() {
-  // Delete in order respecting foreign key constraints
-  // Wrap in try-catch in case tables don't exist yet
+  // Delete messages before threads. Mastra Memory owns these tables; they are
+  // created lazily on first use, so this may run before they exist.
   try {
-    await db.delete(messages);
-    await db.delete(chats);
+    await db.delete(mastraMessages);
+    await db.delete(mastraThreads);
   } catch (error) {
     // Tables might not exist if migrations haven't been run
     // This is fine for test isolation - if tables don't exist, there's no data to clean

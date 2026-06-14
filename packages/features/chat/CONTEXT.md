@@ -5,8 +5,8 @@ LLM-powered chat interface with streaming responses, persistent history, and RAG
 ## Language
 
 **Conversation**:
-A named, persisted sequence of messages between a user and the assistant, identified by a UUID. A user can have many Conversations. Persisted across page reloads.
-_Avoid_: "session", "thread", "chat session"
+A named, persisted sequence of messages between a user and the assistant, identified by a UUID. A user can have many Conversations. Persisted across page reloads. Stored as a Mastra **thread** (`threadId = sessionId`) owned by a **resource** (`resourceId = userId`) — see `@acme/rag`.
+_Avoid_: "session", "chat session" (use Conversation in the domain; "thread"/"resource" only when referring to the Mastra storage layer)
 
 **Message**:
 A single turn within a Conversation. Has a `role` (`user` | `assistant`) and a `text` body. Stored in the database in order of `timestamp`.
@@ -17,7 +17,7 @@ The real-time delivery of an assistant Message chunk-by-chunk as it is generated
 _Avoid_: "socket", "websocket", "live update"
 
 **RAG** (Retrieval-Augmented Generation):
-The pattern where the assistant retrieves relevant Chunks from the knowledge base before generating a response, grounding the answer in operator-uploaded Documents. Handled by `@acme/llamaindex`.
+The pattern where the assistant retrieves relevant Chunks from the knowledge base before generating a response, grounding the answer in operator-uploaded Documents. Implemented agentically: the chat Agent is given a Mastra vector-query tool (`@acme/rag`) and decides when to retrieve.
 _Avoid_: "search", "lookup", "context injection"
 
 ## Relationships
@@ -32,4 +32,6 @@ _Avoid_: "search", "lookup", "context injection"
 
 **Rate limiting**: Each `stream` call consumes credits via the `rateLimit()` middleware. Exhausted credits produce a `TOO_MANY_REQUESTS` error before any LLM call is made.
 
-**Message persistence is inside the stream procedure**: The user message and the completed assistant message are both saved by the `stream` procedure itself — there is no public `save` endpoint and clients never orchestrate writes. The Conversation row is ensured and the user Message saved in a single transaction before any LLM call; the assistant Message is saved only on clean stream completion (a mid-stream error persists no partial assistant Message, leaving the turn retryable).
+**Message persistence is owned by Mastra Memory**: The `stream` procedure calls `chatAgent.stream(...)` with a memory thread; Mastra Memory (Postgres-backed, in `@acme/rag`) persists both the user turn and the streamed assistant turn — there is no public `save` endpoint and clients never orchestrate writes. A mid-stream error persists no partial assistant turn, leaving the turn retryable. See ADRs [0001](docs/adr/0001-stream-owns-message-persistence.md) (superseded) and [0002](docs/adr/0002-mastra-memory-owns-conversation-persistence.md).
+
+**Ownership is enforced in the procedure**: Mastra threads carry no row-level auth, so `getOwnedThread` checks the thread's `resourceId` against the caller's `userId` — `FORBIDDEN` on mismatch, `NOT_FOUND` when absent.

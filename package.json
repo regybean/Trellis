@@ -1,9 +1,11 @@
 {
   "name": "acme",
   "devDependencies": {
+    "@mastra/core": "catalog:",
     "@turbo/gen": "catalog:",
     "jsdom": "catalog:",
     "lefthook": "catalog:",
+    "mastra": "catalog:",
     "syncpack": "14.0.0-alpha.32",
     "turbo": "catalog:",
     "typescript": "catalog:"
@@ -54,12 +56,14 @@
     "infra:logs": "./scripts/compose.sh --profile infra logs -f",
     "lint": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache",
     "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",
+    "lint:mastra": "mastra lint --dir packages/features/chat/src/mastra",
     "lint:ws": "pnpm dlx sherif@latest",
     "lint:ws:fix": "pnpm dlx sherif@latest --fix",
     "postinstall": "turbo run build --filter=./packages/** && pnpm lint:ws:fix",
     "prepare": "lefthook install",
     "quality-gate": "pnpm lint:fix && pnpm format:fix && turbo run typecheck build --continue && pnpm boundaries && pnpm lint:ws && pnpm deps:lint && pnpm gitleaks && pnpm test && pnpm audit --audit-level=high ",
     "gitleaks": "if command -v gitleaks >/dev/null 2>&1; then gitleaks git --no-banner --redact --config .gitleaks.toml .; else echo '⚠️  gitleaks not installed; skipping (CI enforces). Install: brew install gitleaks'; fi",
+    "studio": "mastra dev --dir packages/features/chat/src/mastra",
     "predev": "scripts/check-remote-cache.sh",
     "predev:nextjs": "scripts/check-remote-cache.sh",
     "test": "NEXT_PUBLIC_WEBAPP=nextjs turbo run test",

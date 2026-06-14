@@ -11,7 +11,9 @@ export default {
     database: process.env.DB_NAME!,
     ssl: false,
   },
-  tablesFilter: ['acme_*'],
+  // Mastra namespaces its tables under a per-app schema (NEXT_PUBLIC_WEBAPP).
+  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'acme'],
+  tablesFilter: ['*'],
   out: './migrations/db',
   casing: 'camelCase',
   verbose: true,

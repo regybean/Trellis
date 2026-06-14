@@ -50,6 +50,29 @@ vi.mock('../../env', () => {
     },
   };
 });
+// Point @acme/rag at the test database. Mocking the env module (resolves to the
+// same file as rag's internal `./env` imports) lets Mastra Memory / storage
+// connect to the testcontainer without the real env validation.
+vi.mock('@acme/rag/env', () => {
+  return {
+    env: {
+      NODE_ENV: 'test',
+      NEXT_PUBLIC_WEBAPP: inject('NEXT_PUBLIC_WEBAPP'),
+      DB_HOST: inject('DB_HOST'),
+      DB_PORT: Number(inject('DB_PORT')),
+      DB_USER: inject('DB_USER'),
+      DB_PASSWORD: inject('DB_PASSWORD'),
+      DB_NAME: inject('DB_NAME'),
+      DB_VECTOR_NAME: 'vectordb',
+      CHUNK_SIZE: 1024,
+      CHUNK_OVERLAP: 20,
+      DOCUMENTS_TABLE_NAME: 'documents',
+      AWS_REGION: 'eu-west-2',
+      BEDROCK_CHAT_MODEL: 'test-model',
+      RAG_TOP_K: 5,
+    },
+  };
+});
 vi.mock('@acme/redis/env', () => {
   // Pin this package's tests to a dedicated Redis logical DB. cleanupTestData
   // calls flushDb(), which clears the whole selected DB — turbo runs feature
@@ -86,34 +109,16 @@ vi.mock('@acme/subscriptions', () => ({
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 
-// Mock the RAG Workflow to return predictable responses. The module is mocked
-// so constructing the workflow (Bedrock client, llamaindex index) is a no-op at
-// import time; the streamed deltas are supplied per-test via the chatService
-// spy in beforeEach below.
+// Predictable streamed response. chatService.query wraps the Mastra agent, so
+// spying on it keeps Bedrock and the vector store out of tests entirely; the
+// router only consumes `delta`.
 async function* mockRagQuery() {
-  yield { delta: 'Test ', raw: 'Test ' };
-  yield { delta: 'response ', raw: 'response ' };
-  yield { delta: 'from ', raw: 'from ' };
-  yield { delta: 'mocked ', raw: 'mocked ' };
-  yield { delta: 'LLM.', raw: 'LLM.' };
+  yield { delta: 'Test ' };
+  yield { delta: 'response ' };
+  yield { delta: 'from ' };
+  yield { delta: 'mocked ' };
+  yield { delta: 'LLM.' };
 }
-
-vi.mock('../../api/services/rag-workflow', () => {
-  class RagWorkflow {
-    query = vi.fn();
-  }
-
-  return { RagWorkflow };
-});
-
-// Mock llamaindex Bedrock client
-vi.mock('@llamaindex/aws', () => ({
-  Bedrock: vi.fn().mockImplementation(() => ({
-    chat: vi.fn().mockResolvedValue({
-      message: { content: 'Mocked LLM response' },
-    }),
-  })),
-}));
 
 // Establish the default streamed-response implementation before each test. The
 // base vitest config sets `mockReset: true`, which wipes mock implementations

@@ -1,4 +1,9 @@
-// Exports for database schema - can be imported in any context (CLI, server, client build)
-// Does NOT include server-only guard to allow drizzle-kit to load schemas
-export { chats } from './api/schemas/chat-schema';
-export { messages } from './api/schemas/message-schema';
+// Client-facing zod schemas — safe to import in any context. Conversations and
+// messages are persisted by Mastra Memory (see @acme/rag), not a chat-owned
+// table, so there are no drizzle tables to export here.
+export { selectChatSchema } from './api/schemas/chat-schema';
+export {
+  selectMessageSchema,
+  uiMessageSchema,
+} from './api/schemas/message-schema';
+export type { Message } from './api/schemas/message-schema';

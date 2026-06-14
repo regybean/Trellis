@@ -2,8 +2,8 @@
   "name": "@acme/ingest",
   "dependencies": {
     "@acme/hooks": "workspace:*",
-    "@acme/llamaindex": "workspace:*",
     "@acme/logger": "workspace:*",
+    "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",
     "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",

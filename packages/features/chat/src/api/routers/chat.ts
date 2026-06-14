@@ -1,18 +1,17 @@
 import { TRPCError } from '@trpc/server';
-import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { logger } from '@acme/logger';
+import { memory } from '@acme/rag';
 
 import type { StreamChatEvent } from '../schemas/chat-schema';
-import type { db } from '../trpc';
+import type { Message } from '../schemas/message-schema';
 import {
   ChatRequest,
-  chats,
   DeleteChatRequest,
   selectChatSchema,
 } from '../schemas/chat-schema';
-import { messages, selectMessageSchema } from '../schemas/message-schema';
+import { selectMessageSchema } from '../schemas/message-schema';
 import { chatService } from '../services/chat-service';
 import {
   adminProcedure,
@@ -21,51 +20,61 @@ import {
   rateLimit,
 } from '../trpc';
 
-// A drizzle client or an open transaction — the helpers below run under either,
-// so the stream procedure can wrap Conversation creation + the user Message in
-// one transaction.
-type DbOrTx = db | Parameters<Parameters<db['transaction']>[0]>[0];
+// A Conversation is a Mastra Memory thread (id = sessionId, resourceId =
+// userId). Mastra owns message persistence; these helpers translate threads and
+// stored messages back into the client-facing contract.
+type DBMessage = Awaited<ReturnType<typeof memory.recall>>['messages'][number];
 
-// Create-or-retrieve the Conversation row, enforcing ownership. Idempotent and
-// race-safe (onConflictDoNothing then re-read). Shared by `create` and `stream`.
-async function ensureChat(client: DbOrTx, userId: string, sessionId: string) {
-  await client
-    .insert(chats)
-    .values({ sessionId, userId })
-    .onConflictDoNothing();
+function threadToChat(thread: {
+  id: string;
+  resourceId: string;
+  createdAt: Date;
+}) {
+  return {
+    sessionId: thread.id,
+    userId: thread.resourceId,
+    createdAt: thread.createdAt,
+  };
+}
 
-  const [chat] = await client
-    .select()
-    .from(chats)
-    .where(eq(chats.sessionId, sessionId))
-    .limit(1);
-
-  if (!chat) {
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'Failed to create or retrieve chat session',
-    });
+function partsToText(content: DBMessage['content']) {
+  if (typeof content === 'string') return content;
+  let text = '';
+  for (const part of content.parts) {
+    if (part.type === 'text') text += part.text;
   }
-  if (chat.userId !== userId) {
+  if (!text && typeof content.content === 'string') text = content.content;
+  return text;
+}
+
+function renderMessages(dbMessages: DBMessage[], sessionId: string): Message[] {
+  return dbMessages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({
+      id: m.id,
+      sessionId,
+      role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+      text: partsToText(m.content),
+      timestamp: m.createdAt,
+    }));
+}
+
+// Load a thread and enforce ownership. Returns null when the thread does not
+// exist yet (the stream procedure creates it implicitly on the first message).
+async function getOwnedThread(sessionId: string, userId: string) {
+  const thread = await memory.getThreadById({ threadId: sessionId });
+  if (!thread) return null;
+  if (thread.resourceId !== userId) {
     throw new TRPCError({
       code: 'FORBIDDEN',
       message: 'You do not have access to this chat session',
     });
   }
-  return chat;
-}
-
-async function persistMessage(
-  client: DbOrTx,
-  sessionId: string,
-  role: 'user' | 'assistant',
-  text: string,
-) {
-  await client.insert(messages).values({ sessionId, role, text });
+  return thread;
 }
 
 export const chatRouter = createTRPCRouter({
-  // Streamed query using async generator (tRPC v11 httpBatchStreamLink)
+  // Streamed query using async generator (tRPC v11 httpBatchStreamLink).
   stream: protectedProcedure
     .input(ChatRequest)
     .use(rateLimit())
@@ -81,29 +90,12 @@ export const chatRouter = createTRPCRouter({
       logger.info({ userId, sessionId }, 'Starting streamed chat query');
 
       try {
-        // Prior turns in this Conversation, fetched before the new user Message
-        // is recorded (the current query is passed to the model separately).
-        const messageHistory = await ctx.db
-          .select()
-          .from(messages)
-          .where(eq(messages.sessionId, sessionId))
-          .orderBy(asc(messages.timestamp));
+        // Enforce ownership before any LLM call. A brand-new Conversation has no
+        // thread yet — Mastra Memory creates it (resourceId = userId) as it
+        // persists the user and assistant messages around the stream.
+        await getOwnedThread(sessionId, userId);
 
-        ctx.telemetry.set({ 'messageHistory.count': messageHistory.length });
-
-        // Ensure the Conversation exists and record the user Message before any
-        // LLM call — one transaction, so a new Conversation never lands without
-        // its first user turn.
-        await ctx.db.transaction(async (tx) => {
-          await ensureChat(tx, userId, sessionId);
-          await persistMessage(tx, sessionId, 'user', input.query);
-        });
-
-        const stream = chatService.query(
-          input.query,
-          messageHistory,
-          sessionId,
-        );
+        const stream = chatService.query(input.query, sessionId, userId);
         let accumulatedResponse = '';
 
         for await (const chunk of stream) {
@@ -126,17 +118,6 @@ export const chatRouter = createTRPCRouter({
         });
 
         logger.info({ userId, sessionId }, 'Completed streamed chat query');
-
-        // Persist the completed assistant Message only on clean completion — a
-        // mid-stream failure leaves the user turn recorded and retryable.
-        if (accumulatedResponse) {
-          await persistMessage(
-            ctx.db,
-            sessionId,
-            'assistant',
-            accumulatedResponse,
-          );
-        }
       } catch (error) {
         ctx.telemetry.set({ 'result.success': false });
         logger.error(
@@ -167,14 +148,22 @@ export const chatRouter = createTRPCRouter({
           'Creating chat session',
         );
 
-        const chat = await ensureChat(ctx.db, userId, input.sessionId);
+        const existing = await getOwnedThread(input.sessionId, userId);
+        const thread =
+          existing ??
+          (await memory.createThread({
+            threadId: input.sessionId,
+            resourceId: userId,
+            title: 'New conversation',
+          }));
 
         return ctx.telemetry.parseWithTelemetry(
           selectChatSchema,
-          chat,
+          threadToChat(thread),
           'selectChatSchema',
         );
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         logger.error(
           { error, userId, sessionId: input.sessionId },
           'Failed to create chat session',
@@ -200,44 +189,28 @@ export const chatRouter = createTRPCRouter({
       try {
         logger.info(
           { userId, sessionId: input.sessionId },
-          'Fetching chat from database',
+          'Fetching chat from memory',
         );
 
-        // Validation
-        const chatRecord = await ctx.db
-          .select()
-          .from(chats)
-          .where(eq(chats.sessionId, input.sessionId))
-          .limit(1);
-
-        if (chatRecord.length === 0) {
+        const thread = await getOwnedThread(input.sessionId, userId);
+        if (!thread) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Chat session not found',
           });
         }
 
-        if (chatRecord[0]?.userId !== userId) {
-          ctx.telemetry.set({ 'auth.forbidden': true });
-          logger.warn(
-            { userId, sessionId: input.sessionId },
-            'User attempted to fetch messages from chat they do not own',
-          );
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'You do not have access to this chat session',
-          });
-        }
+        const { messages: dbMessages } = await memory.recall({
+          threadId: input.sessionId,
+          resourceId: userId,
+          perPage: false,
+        });
 
-        const messageArray = await ctx.db
-          .select()
-          .from(messages)
-          .where(eq(messages.sessionId, input.sessionId))
-          .orderBy(asc(messages.timestamp));
+        const rendered = renderMessages(dbMessages, input.sessionId);
 
-        ctx.telemetry.set({ 'result.messageCount': messageArray.length });
+        ctx.telemetry.set({ 'result.messageCount': rendered.length });
 
-        return messageArray.map((msg) =>
+        return rendered.map((msg) =>
           ctx.telemetry.parseWithTelemetry(
             selectMessageSchema,
             msg,
@@ -245,13 +218,14 @@ export const chatRouter = createTRPCRouter({
           ),
         );
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         logger.error(
           { error, userId, sessionId: input.sessionId },
           'Failed to fetch messages',
         );
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch messages from database',
+          message: 'Failed to fetch messages from memory',
           cause: error,
         });
       }
@@ -273,55 +247,28 @@ export const chatRouter = createTRPCRouter({
           'Deleting chat session',
         );
 
-        // Validation
-        const chatRecord = await ctx.db
-          .select()
-          .from(chats)
-          .where(eq(chats.sessionId, input.sessionId))
-          .limit(1);
-
-        if (chatRecord.length === 0) {
+        const thread = await getOwnedThread(input.sessionId, userId);
+        if (!thread) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Chat session not found',
           });
         }
 
-        if (chatRecord[0]?.userId !== userId) {
-          ctx.telemetry.set({ 'auth.forbidden': true });
-          logger.warn(
-            { userId, sessionId: input.sessionId },
-            'User attempted to delete chat they do not own',
-          );
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'You do not have access to this chat session',
-          });
-        }
-
-        const deletedChat = await ctx.db
-          .delete(chats)
-          .where(eq(chats.sessionId, input.sessionId))
-          .returning();
-
-        if (deletedChat.length === 0) {
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Failed to delete chat session',
-          });
-        }
+        await memory.deleteThread(input.sessionId);
 
         ctx.telemetry.set({ 'result.deleted': true });
 
-        return deletedChat[0];
+        return threadToChat(thread);
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         logger.error(
           { error, userId, sessionId: input.sessionId },
           'Failed to delete chat session',
         );
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to delete chat session from database',
+          message: 'Failed to delete chat session from memory',
           cause: error,
         });
       }
@@ -341,12 +288,10 @@ export const chatRouter = createTRPCRouter({
           'Admin fetching chat',
         );
 
-        const chatRecord = await ctx.db
-          .select()
-          .from(chats)
-          .where(eq(chats.sessionId, input.sessionId));
-
-        if (chatRecord.length === 0) {
+        const thread = await memory.getThreadById({
+          threadId: input.sessionId,
+        });
+        if (!thread) {
           throw new TRPCError({
             code: 'NOT_FOUND',
             message: 'Chat session not found',
@@ -355,15 +300,16 @@ export const chatRouter = createTRPCRouter({
 
         ctx.telemetry.set({ 'result.found': true });
 
-        return chatRecord[0];
+        return threadToChat(thread);
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         logger.error(
           { error, adminId: ctx.auth.userId, sessionId: input.sessionId },
           'Admin failed to fetch chat',
         );
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch chat from database',
+          message: 'Failed to fetch chat from memory',
           cause: error,
         });
       }
@@ -383,15 +329,14 @@ export const chatRouter = createTRPCRouter({
           'Admin fetching chats for user',
         );
 
-        const chatArray = await ctx.db
-          .select()
-          .from(chats)
-          .where(eq(chats.userId, input.userId))
-          .orderBy(asc(chats.createdAt));
+        const { threads } = await memory.listThreads({
+          filter: { resourceId: input.userId },
+          perPage: false,
+        });
 
-        ctx.telemetry.set({ 'result.chatCount': chatArray.length });
+        ctx.telemetry.set({ 'result.chatCount': threads.length });
 
-        return chatArray;
+        return threads.map((thread) => threadToChat(thread));
       } catch (error) {
         logger.error(
           { error, adminId: ctx.auth.userId, targetUserId: input.userId },
@@ -399,7 +344,7 @@ export const chatRouter = createTRPCRouter({
         );
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to fetch chats from database',
+          message: 'Failed to fetch chats from memory',
           cause: error,
         });
       }

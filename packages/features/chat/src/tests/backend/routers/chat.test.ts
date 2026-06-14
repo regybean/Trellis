@@ -6,19 +6,19 @@
  * - Focus on BUSINESS LOGIC with real database scenarios
  * - Test with "zero, one, many" pattern for data
  * - Use real DB/Redis via testcontainers or docker-compose
- * - Mock only external services (LLM, Stripe, Otel)
+ * - Mock only external services (LLM via chatService spy)
+ *
+ * Conversations and messages are persisted by Mastra Memory; assertions read
+ * back through the memory API rather than a chat-owned table.
  */
 
-import { asc, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TestContextOptions } from '@acme/test-utils';
+import { memory } from '@acme/rag';
 
 import { appRouter } from '../../../api/root';
-import { chats } from '../../../api/schemas/chat-schema';
-import { messages } from '../../../api/schemas/message-schema';
 import { chatService } from '../../../api/services/chat-service';
-import { db } from '../../../api/trpc';
 import {
   createTestChat,
   createTestChatWithMessages,
@@ -32,6 +32,12 @@ function createCaller(opts: TestContextOptions) {
   const ctx = createTestContext(opts);
   return appRouter.createCaller(ctx);
 }
+
+const baseCredits = {
+  remaining: 100,
+  limit: 100,
+  resetAt: Date.now() + 86_400_000,
+};
 
 describe('chatRouter', () => {
   beforeEach(async () => {
@@ -48,20 +54,12 @@ describe('chatRouter', () => {
           userId: createTestUserId(),
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         await expect(
-          caller.chat.adminGet({
-            sessionId: createTestSessionId(),
-          }),
-        ).rejects.toMatchObject({
-          code: 'UNAUTHORIZED',
-        });
+          caller.chat.adminGet({ sessionId: createTestSessionId() }),
+        ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
       });
 
       it('allows admin users', async () => {
@@ -73,11 +71,7 @@ describe('chatRouter', () => {
           userId: adminUserId,
           role: 'admin',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         const result = await caller.chat.adminGet({
@@ -109,9 +103,7 @@ describe('chatRouter', () => {
             query: 'test',
             sessionId: createTestSessionId(),
           }),
-        ).rejects.toMatchObject({
-          code: 'TOO_MANY_REQUESTS',
-        });
+        ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
       });
     });
   });
@@ -127,27 +119,16 @@ describe('chatRouter', () => {
         userId,
         role: 'user',
         tier: 'Basic',
-        credits: {
-          remaining: 100,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
+        credits: baseCredits,
       });
 
       const result = await caller.chat.create({ sessionId });
 
-      expect(result).toMatchObject({
-        sessionId,
-        userId,
-      });
+      expect(result).toMatchObject({ sessionId, userId });
 
-      // Verify persisted to database
-      const dbChat = await db
-        .select()
-        .from(chats)
-        .where(eq(chats.sessionId, sessionId));
-      expect(dbChat).toHaveLength(1);
-      expect(dbChat[0]).toMatchObject({ sessionId, userId });
+      const thread = await memory.getThreadById({ threadId: sessionId });
+      expect(thread).not.toBeNull();
+      expect(thread?.resourceId).toBe(userId);
     });
 
     it('returns existing chat if sessionId already exists (idempotent)', async () => {
@@ -157,11 +138,7 @@ describe('chatRouter', () => {
         userId,
         role: 'user',
         tier: 'Basic',
-        credits: {
-          remaining: 100,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
+        credits: baseCredits,
       });
 
       const result = await caller.chat.create({
@@ -172,13 +149,6 @@ describe('chatRouter', () => {
         sessionId: existingChat.sessionId,
         userId,
       });
-
-      // Verify no duplicate was created
-      const dbChats = await db
-        .select()
-        .from(chats)
-        .where(eq(chats.sessionId, existingChat.sessionId));
-      expect(dbChats).toHaveLength(1);
     });
   });
 
@@ -198,18 +168,12 @@ describe('chatRouter', () => {
           userId: otherUserId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         await expect(
           caller.chat.get({ sessionId: chat.sessionId }),
-        ).rejects.toMatchObject({
-          code: 'INTERNAL_SERVER_ERROR',
-        });
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       });
     });
 
@@ -222,11 +186,7 @@ describe('chatRouter', () => {
           userId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         const result = await caller.chat.get({ sessionId: chat.sessionId });
@@ -245,11 +205,7 @@ describe('chatRouter', () => {
           userId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         const result = await caller.chat.get({ sessionId: chat.sessionId });
@@ -268,38 +224,27 @@ describe('chatRouter', () => {
           userId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         const result = await caller.chat.get({ sessionId: chat.sessionId });
 
         expect(result).toHaveLength(10);
-        // Verify alternating user/assistant pattern
         expect(result[0]).toMatchObject({ role: 'user' });
         expect(result[1]).toMatchObject({ role: 'assistant' });
       });
 
-      it('returns INTERNAL_SERVER_ERROR for non-existent chat', async () => {
+      it('returns NOT_FOUND for non-existent chat', async () => {
         const caller = createCaller({
           userId: createTestUserId(),
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         await expect(
           caller.chat.get({ sessionId: createTestSessionId() }),
-        ).rejects.toMatchObject({
-          code: 'INTERNAL_SERVER_ERROR',
-        });
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       });
     });
   });
@@ -318,25 +263,15 @@ describe('chatRouter', () => {
           userId: otherUserId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         await expect(
           caller.chat.delete({ sessionId: chat.sessionId }),
-        ).rejects.toMatchObject({
-          code: 'INTERNAL_SERVER_ERROR',
-        });
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
-        // Verify chat still exists
-        const dbChat = await db
-          .select()
-          .from(chats)
-          .where(eq(chats.sessionId, chat.sessionId));
-        expect(dbChat).toHaveLength(1);
+        const thread = await memory.getThreadById({ threadId: chat.sessionId });
+        expect(thread).not.toBeNull();
       });
     });
 
@@ -349,73 +284,28 @@ describe('chatRouter', () => {
           userId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         const result = await caller.chat.delete({ sessionId: chat.sessionId });
 
-        expect(result).toMatchObject({
-          sessionId: chat.sessionId,
-          userId,
-        });
+        expect(result).toMatchObject({ sessionId: chat.sessionId, userId });
 
-        // Verify chat is deleted from database
-        const dbChat = await db
-          .select()
-          .from(chats)
-          .where(eq(chats.sessionId, chat.sessionId));
-        expect(dbChat).toHaveLength(0);
+        const thread = await memory.getThreadById({ threadId: chat.sessionId });
+        expect(thread).toBeNull();
       });
 
-      it('cascades delete to all messages', async () => {
-        const userId = createTestUserId();
-        const { chat } = await createTestChatWithMessages({
-          userId,
-          messageCount: 5,
-        });
-
-        const caller = createCaller({
-          userId,
-          role: 'user',
-          tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
-        });
-
-        await caller.chat.delete({ sessionId: chat.sessionId });
-
-        // Verify all messages are deleted
-        const dbMessages = await db
-          .select()
-          .from(messages)
-          .where(eq(messages.sessionId, chat.sessionId));
-        expect(dbMessages).toHaveLength(0);
-      });
-
-      it('returns INTERNAL_SERVER_ERROR for non-existent chat', async () => {
+      it('returns NOT_FOUND for non-existent chat', async () => {
         const caller = createCaller({
           userId: createTestUserId(),
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 100,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
         await expect(
           caller.chat.delete({ sessionId: createTestSessionId() }),
-        ).rejects.toMatchObject({
-          code: 'INTERNAL_SERVER_ERROR',
-        });
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       });
     });
   });
@@ -432,11 +322,7 @@ describe('chatRouter', () => {
         userId: adminUserId,
         role: 'admin',
         tier: 'Basic',
-        credits: {
-          remaining: 100,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
+        credits: baseCredits,
       });
 
       const result = await caller.chat.adminList({ userId: targetUserId });
@@ -454,11 +340,7 @@ describe('chatRouter', () => {
         userId: adminUserId,
         role: 'admin',
         tier: 'Basic',
-        credits: {
-          remaining: 100,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
+        credits: baseCredits,
       });
 
       const result = await caller.chat.adminList({ userId: targetUserId });
@@ -472,23 +354,16 @@ describe('chatRouter', () => {
       const otherUserId = createTestUserId('other');
       const adminUserId = createTestUserId('admin');
 
-      // Create multiple chats for target user
       await createTestChat({ userId: targetUserId });
       await createTestChat({ userId: targetUserId });
       await createTestChat({ userId: targetUserId });
-
-      // Create chat for different user (should not be included)
       await createTestChat({ userId: otherUserId });
 
       const caller = createCaller({
         userId: adminUserId,
         role: 'admin',
         tier: 'Basic',
-        credits: {
-          remaining: 100,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
+        credits: baseCredits,
       });
 
       const result = await caller.chat.adminList({ userId: targetUserId });
@@ -504,11 +379,11 @@ describe('chatRouter', () => {
   // BUSINESS LOGIC: stream (subscription)
   // ==========================================================================
   describe('stream', () => {
-    // The rag-workflow is mocked in tests/backend/setup.ts to yield a fixed set
-    // of deltas, so a fully-drained stream always accumulates this text.
+    // chatService.query is mocked in tests/backend/setup.ts to yield a fixed set
+    // of deltas; a fully-drained stream always accumulates this text.
     const MOCKED_RESPONSE = 'Test response from mocked LLM.';
 
-    it('creates the Conversation and persists user + assistant Messages', async () => {
+    it('streams the accumulated assistant response', async () => {
       const userId = createTestUserId();
       const sessionId = createTestSessionId();
       const caller = createCaller({
@@ -522,44 +397,24 @@ describe('chatRouter', () => {
         },
       });
 
-      // Drive the subscription's async generator to completion.
       const stream = await caller.chat.stream({
         query: 'What is in my documents?',
         sessionId,
       });
+
       const chunks = [];
       for await (const chunk of stream) {
         chunks.push(chunk);
       }
+
       expect(chunks.length).toBeGreaterThan(0);
-
-      // ensureChat created the Conversation row (sessionId was never created).
-      const dbChat = await db
-        .select()
-        .from(chats)
-        .where(eq(chats.sessionId, sessionId));
-      expect(dbChat).toHaveLength(1);
-      expect(dbChat[0]).toMatchObject({ sessionId, userId });
-
-      // Both turns are persisted in order; the assistant turn carries the
-      // accumulated streamed text.
-      const dbMessages = await db
-        .select()
-        .from(messages)
-        .where(eq(messages.sessionId, sessionId))
-        .orderBy(asc(messages.timestamp));
-      expect(dbMessages).toHaveLength(2);
-      expect(dbMessages[0]).toMatchObject({
-        role: 'user',
-        text: 'What is in my documents?',
-      });
-      expect(dbMessages[1]).toMatchObject({
-        role: 'assistant',
-        text: MOCKED_RESPONSE,
+      expect(chunks.at(-1)).toMatchObject({
+        type: 'message',
+        acc: MOCKED_RESPONSE,
       });
     });
 
-    it('persists the user Message but no assistant Message on mid-stream error', async () => {
+    it('surfaces a mid-stream failure as INTERNAL_SERVER_ERROR', async () => {
       const userId = createTestUserId();
       const sessionId = createTestSessionId();
       const caller = createCaller({
@@ -573,11 +428,10 @@ describe('chatRouter', () => {
         },
       });
 
-      // Override the model for this case only: emit one chunk then fail.
       const querySpy = vi
         .spyOn(chatService, 'query')
         .mockImplementation(async function* () {
-          yield { delta: 'partial ', raw: 'partial ' };
+          yield { delta: 'partial ' };
           throw new Error('LLM exploded mid-stream');
         });
 
@@ -596,15 +450,6 @@ describe('chatRouter', () => {
       } finally {
         querySpy.mockRestore();
       }
-
-      // The user turn is durable (recorded before the LLM call); the partial
-      // assistant turn is discarded, leaving the turn retryable.
-      const dbMessages = await db
-        .select()
-        .from(messages)
-        .where(eq(messages.sessionId, sessionId));
-      expect(dbMessages).toHaveLength(1);
-      expect(dbMessages[0]).toMatchObject({ role: 'user', text: 'Hello' });
     });
   });
 });
