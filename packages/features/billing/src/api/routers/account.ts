@@ -15,6 +15,7 @@ import {
   createDashboardSession,
   findOrCreateCustomer,
   getProductWithPrice,
+  setUserTier,
 } from '../../utils/stripe';
 import {
   GetUserRateLimitStatusRequest,
@@ -23,6 +24,7 @@ import {
   MaxOutRateLimitRequest,
   OverrideExpiryRequest,
   ResetRateLimitRequest,
+  SetUserTierRequest,
 } from '../schemas/account';
 import {
   adminProcedure,
@@ -375,6 +377,32 @@ export const accountRouter = createTRPCRouter({
       return {
         userId,
         subscription,
+      };
+    }),
+
+  /**
+   * Set a user's billing tier directly (localstripe dev only — no Checkout).
+   */
+  setUserTier: adminProcedure
+    .input(SetUserTierRequest)
+    .mutation(async ({ input, ctx }) => {
+      const { userId, email, tier } = input;
+
+      ctx.telemetry.set({
+        'admin.target_user_id': userId,
+        'admin.requested_tier': tier,
+      });
+
+      const subscription = await setUserTier(
+        { userId, email, tier },
+        ctx.telemetry,
+      );
+
+      return {
+        message: `Successfully set ${userId} to ${tier}`,
+        userId,
+        tier,
+        status: subscription.status,
       };
     }),
 
