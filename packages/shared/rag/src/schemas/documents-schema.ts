@@ -7,6 +7,12 @@ import { env } from '../env';
 // Embedding dimensions for cohere.embed-english-v3 (see bedrock.ts).
 export const EMBED_DIMENSIONS = 1024;
 
+// Knowledge-base table name. Mastra-owned (PgVector creates it), but the name is
+// ours — so it carries the `mastra_` prefix to mark it Mastra-owned, keeping
+// `db:push`'s `!mastra_*` blacklist a single rule. Single source of truth for
+// both the PgVector index name (vector.ts) and the Drizzle mirror below.
+export const KNOWLEDGE_BASE_TABLE = 'mastra_documents';
+
 // Metadata stored alongside each chunk inside Mastra's PgVector `metadata`
 // column. `text` holds the chunk content (PgVector has no separate text column);
 // the rest mirror the document the chunk came from.
@@ -24,7 +30,7 @@ export const ragSchema = pgSchema(env.NEXT_PUBLIC_WEBAPP);
 // Drizzle mirror of the table Mastra's PgVector creates at runtime. Kept so the
 // knowledge base stays queryable with Drizzle (listing/deletion). The matching
 // migration is generated but marked applied — Mastra owns the actual DDL.
-export const documents = ragSchema.table(env.DOCUMENTS_TABLE_NAME, {
+export const documents = ragSchema.table(KNOWLEDGE_BASE_TABLE, {
   id: serial('id').primaryKey(),
   vectorId: text('vector_id').notNull().unique(),
   embedding: vector('embedding', { dimensions: EMBED_DIMENSIONS }),

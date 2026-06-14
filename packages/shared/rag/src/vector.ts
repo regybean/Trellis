@@ -1,11 +1,14 @@
 import { PgVector } from '@mastra/pg';
 
 import { env } from './env';
-import { EMBED_DIMENSIONS } from './schemas/documents-schema';
+import {
+  EMBED_DIMENSIONS,
+  KNOWLEDGE_BASE_TABLE,
+} from './schemas/documents-schema';
 
 // Knowledge-base table name within the per-app schema (see RAG_SCHEMA). Matches
 // the Drizzle mirror so both Mastra and Drizzle address the same table.
-export const indexName = env.DOCUMENTS_TABLE_NAME;
+export const indexName = KNOWLEDGE_BASE_TABLE;
 
 // Per-app Postgres schema. Mastra namespaces every table it creates under this
 // schema (CREATE SCHEMA IF NOT EXISTS), giving multiple apps clean separation

@@ -7,10 +7,13 @@ decisions are load-bearing:
 
 1. **Mastra owns the DDL; Drizzle tables are mirrors marked applied.** Mastra's
    `PgVector` and `PostgresStore` create their tables at runtime. `@acme/rag/schema`
-   declares Drizzle mirrors (`documents`, `mastra_threads`, `mastra_messages`,
+   declares Drizzle mirrors (`mastra_documents`, `mastra_threads`, `mastra_messages`,
    `mastra_resources`) so the data stays queryable with Drizzle, and we generate the
    matching migrations — but the operator **marks them applied** rather than running
-   them, because Mastra has already created the tables.
+   them, because Mastra has already created the tables. **Invariant: every
+   Mastra-owned table is `mastra_`-prefixed** — including the knowledge-base table,
+   named `mastra_documents` for exactly this reason (its name is ours; PgVector owns
+   its DDL). Everything else in the per-app schema is app-owned.
 2. **Per-app isolation via a Postgres schema, not a table prefix.** Mastra has no
    table-prefix option, so both stores set `schemaName: NEXT_PUBLIC_WEBAPP`. Each app
    gets its own schema (auto `CREATE SCHEMA IF NOT EXISTS`), and the Drizzle mirrors
@@ -56,3 +59,11 @@ accepted
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.
 - Fresh start: old `acme_documents` vector data and `chats`/`messages` history are
   not migrated.
+- **`db:push` safety.** `drizzle-kit push` force-reconciles the DB to the Drizzle
+  schema, so against Mastra-owned tables it would drop or drift them. `db:push`
+  therefore runs through dedicated configs (`drizzle.push.config.ts`,
+  `drizzle-vector.push.config.ts`) that add `tablesFilter: ['!mastra_*']` — push can
+  only ever see app-owned tables, leaning on the `mastra_`-prefix invariant above.
+  `db:generate` keeps the full schema so the mirror migrations still generate (and
+  get marked applied). Push is the dev loop for app-owned tables; the mirrors are
+  never pushed.

@@ -34,9 +34,9 @@ Per window (implemented by `/worktree-build`):
 
 - **Trigger:** planning-skill use, prompted *after* the plan is produced.
 - **Review surface:** GitHub PR, viewed in VSCode (`GitHub.vscode-pull-request-github`, in `.vscode/extensions.json`). Chosen for the richest diff view and because the worktree commits stay visible as PR history.
-- **Cleanup:** agent removes the local worktree immediately after opening the PR; the remote branch carries the PR. User never cleans up a worktree.
+- **Cleanup:** agent removes the local worktree as the final action of the turn that opens the PR (`ExitWorktree remove`, the deliberate exception to that tool's "don't call proactively" rule); the remote branch carries the PR. Do not defer to the session-exit keep/remove prompt — a kept-alive session never fires it, and `ExitWorktree` cannot remove a worktree across sessions (it's a no-op on anything it didn't create this session). Orphans from interrupted runs are swept at pre-flight via `git worktree list` + raw `git worktree remove`.
 - **Base ref:** `fresh` (from `origin/main`) — every agent starts from known-clean `main` so each PR is reviewable against `main` with no drift. Pre-flight prompt guards uncommitted local work.
-- **Naming:** branch == worktree dir == `<feature-slug>` == `.scratch/<feature-slug>/` — one identifier everywhere.
+- **Naming:** worktree dir == `<feature-slug>` == `.scratch/<feature-slug>/`. The **branch is `worktree-<feature-slug>`** — `EnterWorktree` prepends `worktree-`. One slug everywhere except the branch, which carries the prefix.
 - **PR shape:** base always `main`. Agent never auto-merges; merge/close is the user's call.
 - **Commits:** per logical plan step; align to numbered issue files when present.
 

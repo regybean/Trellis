@@ -137,7 +137,7 @@ Trellis is built to be navigated by coding agents as much as humans.
 
 - [CONTEXT-MAP.md](CONTEXT-MAP.md) indexes the domain language, pointing to per-package `CONTEXT.md` files.
 - [docs/adr/](docs/adr/) records the decisions that are hard to reverse and would otherwise be surprising.
-- **Agent skills** live in [docs/agents/](docs/agents/): an [issue tracker](docs/agents/issue-tracker.md) (markdown issues under `.scratch/`), [triage labels](docs/agents/triage-labels.md), and a [worktree workflow](docs/agents/worktree-workflow.md) for building plans in isolation → draft PR.
+- **Agent skills** live in [docs/agents/](docs/agents/): an [issue tracker](docs/agents/issue-tracker.md) (markdown issues under `.scratch/`), [triage labels](docs/agents/triage-labels.md), and a [worktree workflow](docs/agents/worktree-workflow.md) for building plans in isolation → PR.
 
 See [CLAUDE.md](CLAUDE.md) for the full agent brief.
 
