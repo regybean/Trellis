@@ -1,3 +1,5 @@
+import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
+
 import { bedrockChatModel, bedrockEmbedModel } from './bedrock';
 import { modelsEnv } from './env';
 import { ollamaChatModel, ollamaEmbedModel } from './ollama';
@@ -44,12 +46,11 @@ export const embedModel = resolveEmbedModel();
 // options. Callers pass the result straight to `embedMany` / the vector query
 // tool without knowing which provider is active.
 export function embedProviderOptions(purpose: 'document' | 'query') {
+  const options: SharedV3ProviderOptions = {};
   if (env.EMBED_PROVIDER === 'bedrock') {
-    return {
-      bedrock: {
-        inputType: purpose === 'document' ? 'search_document' : 'search_query',
-      },
+    options.bedrock = {
+      inputType: purpose === 'document' ? 'search_document' : 'search_query',
     };
   }
-  return {};
+  return options;
 }

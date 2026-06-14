@@ -31,7 +31,7 @@
   "prettier": "@acme/prettier-config",
   "dependencies": {
     "@acme/logger": "workspace:*",
-    "@ai-sdk/amazon-bedrock": "catalog:",
+    "@acme/models": "workspace:*",
     "@mastra/core": "catalog:",
     "@mastra/memory": "catalog:",
     "@mastra/pg": "catalog:",

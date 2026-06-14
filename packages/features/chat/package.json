@@ -3,6 +3,7 @@
   "dependencies": {
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
+    "@acme/models": "workspace:*",
     "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",
     "@acme/subscriptions": "workspace:*",

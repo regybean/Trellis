@@ -593,6 +593,9 @@ importers:
       '@acme/logger':
         specifier: workspace:*
         version: link:../../platform/logger
+      '@acme/models':
+        specifier: workspace:*
+        version: link:../../shared/models
       '@acme/rag':
         specifier: workspace:*
         version: link:../../shared/rag
@@ -1143,9 +1146,9 @@ importers:
       '@acme/logger':
         specifier: workspace:*
         version: link:../../platform/logger
-      '@ai-sdk/amazon-bedrock':
-        specifier: 'catalog:'
-        version: 4.0.117(zod@4.3.4)
+      '@acme/models':
+        specifier: workspace:*
+        version: link:../models
       '@mastra/core':
         specifier: 'catalog:'
         version: 1.42.0(@grpc/grpc-js@1.14.3)(ai@6.0.204(zod@4.3.4))(express@5.2.1)(zod@4.3.4)

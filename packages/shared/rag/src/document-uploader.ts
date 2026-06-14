@@ -5,9 +5,9 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import { v5 as uuidv5 } from 'uuid';
 
 import { logger } from '@acme/logger';
+import { embedModel, embedProviderOptions } from '@acme/models';
 
 import type { DocumentMetadata } from './schemas/documents-schema';
-import { bedrockEmbed, INPUT_TYPE } from './bedrock';
 import { env } from './env';
 import { extractText } from './parsing';
 import { documents } from './schemas/documents-schema';
@@ -89,11 +89,9 @@ export async function uploadDocs(files: File[]) {
   }
 
   const { embeddings } = await embedMany({
-    model: bedrockEmbed,
+    model: embedModel,
     values: metadata.map((m) => m.text),
-    providerOptions: {
-      bedrock: { inputType: INPUT_TYPE.document },
-    },
+    providerOptions: embedProviderOptions('document'),
   });
 
   logger.info(`[Chunked]: Indexing ${ids.length} chunk(s).`);
