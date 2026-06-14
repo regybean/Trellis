@@ -43,11 +43,13 @@ accepted
 - New package `@acme/rag` (shared layer) exports Bedrock providers, the `PgVector`
   store, `PostgresStore`, Mastra `Memory`, and the officeparser-based document
   uploader. The Mastra `Agent`/`Mastra` instance lives in `@acme/chat` (the shared
-  layer cannot import features). The root `pnpm studio` / `pnpm lint:mastra`
-  scripts point the Mastra CLI's `--dir` straight at `packages/features/chat/src/mastra`
-  rather than re-exporting through a root package — declaring a workspace dependency
-  on a feature at the root would pull the root package into the turbo boundary graph.
-- The generated migrations bake `NEXT_PUBLIC_WEBAPP` (default `acme`) into the SQL
+  layer cannot import features). The `studio` / `lint:mastra` scripts live in
+  `@acme/chat` and run the Mastra CLI against `src/mastra`; the root `pnpm studio` /
+  `pnpm lint:mastra` delegate via `pnpm --filter @acme/chat` (studio wrapped in
+  `with-env` to load `.env`). Keeping the scripts in the feature avoids declaring a
+  workspace dependency on a feature at the root, which would pull the root package
+  into the turbo boundary graph.
+- The generated migrations bake `NEXT_PUBLIC_WEBAPP` (default `nextjs`) into the SQL
   schema name; an app on a different schema regenerates with its own value.
 - Document parsing is now local (`officeparser`: `.pdf`/`.docx`, native read for
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.

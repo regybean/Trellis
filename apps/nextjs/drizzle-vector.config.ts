@@ -12,7 +12,7 @@ export default {
     ssl: false,
   },
   // Mastra namespaces the knowledge-base table under a per-app schema.
-  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'acme'],
+  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'nextjs'],
   tablesFilter: ['*'],
   out: './migrations/vdb',
   casing: 'camelCase',
