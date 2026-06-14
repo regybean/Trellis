@@ -71,3 +71,12 @@ each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
 **Boundary**: the Mastra `Agent`/`Mastra` instance is _not_ here — the shared layer
 cannot import features. This package exports primitives; `@acme/chat` assembles the
 agent and the root Mastra CLI scripts point at `packages/features/chat/src/mastra`.
+
+**Embedding dimension is configured, not baked in**: the embed model determines the
+vector dimension, so `EMBED_DIMENSIONS` is env-driven and is the single source of
+truth for both the `PgVector` index (vector.ts) and the Drizzle mirror
+(documents-schema.ts). Switching embed model means changing the dimension and
+`db:push`-ing the schema again — acceptable because the dev DB is ephemeral with no
+data worth migrating. A dimension mismatch against an existing index must fail with
+an actionable error ("re-push the schema" / drop the index), never a raw pgvector
+error.
