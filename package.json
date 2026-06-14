@@ -52,7 +52,7 @@
     "graph": "scripts/graph.sh",
     "infra:clean": "./scripts/compose.sh --profile infra down -v",
     "infra:down": "./scripts/compose.sh --profile infra down",
-    "infra:up": "./scripts/compose.sh --profile infra up -d",
+    "infra:up": "./scripts/infra-up.sh",
     "infra:logs": "./scripts/compose.sh --profile infra logs -f",
     "lint": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache",
     "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",
