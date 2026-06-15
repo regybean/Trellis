@@ -106,6 +106,24 @@ vi.mock('@acme/subscriptions', () => ({
 }));
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
+// @acme/models eagerly calls modelsEnv() at import time (in resolve.ts), which
+// validates EMBED_DIMENSIONS. Tests don't need real LLM models — chatService.query
+// is spied on below — so stub the whole module to avoid the env validation throw.
+vi.mock('@acme/models', () => ({
+  chatModel: {},
+  embedModel: {},
+  embedProviderOptions: vi.fn().mockReturnValue({}),
+}));
+// @acme/rag's documents-schema imports modelsEnv() from the /env subpath to read
+// EMBED_DIMENSIONS (the vector column dimension) at load time. Provide a fixed
+// value so the schema builds without a real provider env configured.
+vi.mock('@acme/models/env', () => ({
+  modelsEnv: vi.fn().mockReturnValue({
+    LLM_PROVIDER: 'ollama',
+    EMBED_PROVIDER: 'ollama',
+    EMBED_DIMENSIONS: 1024,
+  }),
+}));
 
 // Predictable streamed response. chatService.query wraps the Mastra agent, so
 // spying on it keeps Bedrock and the vector store out of tests entirely; the

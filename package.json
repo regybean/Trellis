@@ -63,6 +63,7 @@
     "prepare": "lefthook install",
     "quality-gate": "pnpm lint:fix && pnpm format:fix && turbo run typecheck build --continue && pnpm boundaries && pnpm lint:ws && pnpm deps:lint && pnpm gitleaks && pnpm test && pnpm audit --audit-level=high ",
     "gitleaks": "if command -v gitleaks >/dev/null 2>&1; then gitleaks git --no-banner --redact --config .gitleaks.toml .; else echo '⚠️  gitleaks not installed; skipping (CI enforces). Install: brew install gitleaks'; fi",
+    "seed:localstripe": "pnpm with-env pnpm --filter @acme/billing seed:localstripe",
     "studio": "pnpm with-env pnpm --filter @acme/chat studio",
     "predev": "scripts/check-remote-cache.sh",
     "predev:nextjs": "scripts/check-remote-cache.sh",

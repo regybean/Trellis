@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: ${DB_NAME:-app}-postgres
+    container_name: trellis-postgres
     ports:
       - "${DB_PORT:-5432}:5432"
     environment:
@@ -27,7 +27,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: ${DB_NAME:-app}-redis
+    container_name: trellis-redis
     ports:
       - "${REDIS_PORT:-6379}:6379"
     command:
@@ -55,7 +55,7 @@ services:
 
   localstack:
     image: localstack/localstack:3.8.1
-    container_name: ${DB_NAME:-app}-localstack
+    container_name: trellis-localstack
     ports:
       - "4566:4566"
     environment:
@@ -83,7 +83,7 @@ services:
     # Fake stateful Stripe server for local dev — no real Stripe account/network.
     # Pinned (tracks the latest PyPI release 1.15.10). See docs/adr/0004.
     image: adrienverge/localstripe:1.15.10
-    container_name: ${DB_NAME:-app}-localstripe
+    container_name: trellis-localstripe
     ports:
       - "8420:8420"
     healthcheck:
@@ -104,7 +104,7 @@ services:
 
   jaeger:
     image: jaegertracing/jaeger:latest
-    container_name: ${DB_NAME:-app}-jaeger
+    container_name: trellis-jaeger
     ports:
       - "16686:16686" # Jaeger UI
       - "4317:4317" # OTLP gRPC
@@ -137,7 +137,7 @@ services:
   # names come from env_file, not host interpolation.
   ollama:
     image: ollama/ollama:latest
-    container_name: ${DB_NAME:-app}-ollama
+    container_name: trellis-ollama
     ports:
       - "${OLLAMA_PORT:-11434}:11434"
     entrypoint:
