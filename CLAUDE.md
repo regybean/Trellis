@@ -101,6 +101,8 @@ pnpm turbo gen
 
 ## Agent Skills
 
+Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.json`). Claude only discovers a skill once it's symlinked into `.claude/skills/`, which is gitignored — so symlinks don't survive a clone. `scripts/register-skills.sh` recreates them idempotently from `.agents/skills/` and runs automatically on `postinstall`. Run `pnpm skills:register` manually after adding/removing a skill.
+
 ### Issue tracker
 
 Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
@@ -116,3 +118,13 @@ Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT
 ### Worktree workflow
 
 Large planning-skill work is built in an isolated worktree → PR, reviewed in the VSCode GitHub Pull Requests extension. One window per task for parallel isolated agents. Invokable via `/worktree-build`. See `docs/agents/worktree-workflow.md`.
+
+## Engineering direction
+
+The north star, to weigh when making changes:
+
+- **Protect the slice contract.** One feature = one package = router + hooks + UI, depending only downward. It's what lets apps mount different subsets — a bespoke client build is a new app importing a different subset, not a fork. Don't leak framework specifics into features; keep them in the app adapter (the honest seam).
+- **Keep seams swappable, name what's coupled.** Providers (`@acme/models`), auth (Clerk behind a seam), billing (Stripe) are meant to be replaceable. When something becomes load-bearing or hard to reverse, write it down (ADR) rather than letting it harden silently.
+- **Prefer app-owned over composition.** Framework-specific shell/chrome lives in the app (see `tanstack-start`'s console shell); reserve `packages/compositions/` for genuine cross-app DRY. The compositions layer is being wound down — don't grow it by default.
+- **Earn the next runtime.** The portability claim is only as true as the apps that prove it. New shared/feature code must stay runtime-agnostic; the planned `express` app (core-only, lighter-weight) is the test of the reduced-subset case — design toward making it trivial.
+- **Documentation keeps pace with design.** `CONTEXT.md` + ADRs are updated *as* decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.

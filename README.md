@@ -22,6 +22,18 @@ Apps don't reach into a feature's internals — they **mount** it: wire the serv
 
 > "Where it counts": features and shared packages are runtime-agnostic. Compositions (assembled UI) and the adapter wiring are app-specific by design — that's the honest boundary.
 
+### Why slices: one template, many apps
+
+The reason features are self-contained slices is so that **different apps can mount different subsets** of them. This was the founding motivation: if a client wants a bespoke build — *no billing, no Stripe, no auth* — or conversely an *extra feature* nobody else has, that build is **a new app importing a different subset**, not a fork of the codebase. The shared slices stay shared; only the app's dependency list and glue change.
+
+Today this is **architecturally true and partly proven — flagged honestly**:
+
+- ✅ **Portability is proven.** `nextjs` and `tanstack-start` mount the same slices through different framework adapters and different shells — same business logic, two runtimes.
+- ✅ **Subsetting already happens in the small.** The two live apps import *different* sets (`tanstack-start` drops the `sidebar` composition for an app-owned shell).
+- 🚧 **The reduced-client-app case is still illustrative.** No app yet ships a deliberately stripped subset (e.g. chat-only, no auth/billing). The planned `express` app is the intended minimal example — the seams to do it exist, the worked example doesn't yet.
+
+See [**what you get with Trellis**](docs/whats-included.md) for the full feature inventory and an honest map of [what's malleable vs load-bearing](docs/whats-included.md#whats-malleable-vs-load-bearing).
+
 ## The layered trellis
 
 Dependencies only ever point **down** the layers. Enforced by Turborepo boundary tags (`pnpm boundaries`) — a violation fails the build, not a review comment.
@@ -41,42 +53,40 @@ tooling  →  platform  →  shared  →  features  →  compositions  →  apps
 
 ## The apps
 
-Three apps, **each adding one hard problem on top of the last** — and each on a different runtime to prove the slices travel. Same packages, different frameworks.
+The apps run the **same packages on different runtimes** to prove the slices travel, and import **different subsets** to prove they compose.
 
-| App | Framework | Adds on top | Status |
-|-----|-----------|-------------|--------|
-| `express` | Express + Vite (decoupled BE/FE) | the core slice, SSE streaming, **fake providers → zero-config** | 🚧 planned |
-| `tanstack-start` | TanStack Start | ingest (doc upload), auth, subscriptions | 🚧 planned |
-| [`nextjs`](apps/nextjs/) | Next.js | billing (tiered rate-limiting), admin, sidebar | ✅ live |
+| App | Framework | Feature subset | Status |
+|-----|-----------|----------------|--------|
+| [`nextjs`](apps/nextjs/) | Next.js (:3000) | chat · ingest · billing · admin · **sidebar** | ✅ full reference |
+| [`tanstack-start`](apps/tanstack-start/) | TanStack Start — Vite + Nitro (:3001) | chat · ingest · billing · admin (app-owned "console shell", no sidebar) | ✅ live, feature parity |
+| `express` | Express + Vite (decoupled BE/FE) | core chat slice only — the minimal-subset proof | 🚧 planned |
 
-`nextjs` (`@acme/nextjs`) is the full reference app today; the other two are the portability proof and land next.
+`nextjs` and `tanstack-start` are both live and at feature parity — the portability proof, same slices under two frameworks with deliberately divergent shells. `express` is the planned reduced-subset example (core only, no auth/billing/ingest).
 
 ## Quickstart
 
-Requires **Node 22.19.0** ([.nvmrc](.nvmrc)) and **pnpm ≥ 10.15.1**.
+> The condensed version is below. For the full step-by-step walkthrough (install → infra → env → db → run → verify), see [**Getting started**](docs/getting-started.md).
+
+Requires **Node 22.19.0** ([.nvmrc](.nvmrc)) and **pnpm ≥ 10.15.1**, plus **Docker** for local infra.
 
 ```bash
 nvm use                      # 22.19.0
 npm install -g pnpm@latest-10
-pnpm i
+pnpm i                       # installs + builds packages + sets up git hooks
 ```
 
-**Zero-config chat** — the `express` app runs with **fake LLM + embedding providers**: no API keys, no Docker, no `.env`. Clone, install, run, and you have a working RAG chat to read and rip apart.
+**No cloud credentials needed.** The default model provider is **Ollama** (local, CPU-only), so chat + embeddings run without any API keys. Billing runs against `localstripe` and S3 against LocalStack — both local. You bring Docker; you don't bring accounts.
 
 ```bash
-pnpm dev                     # fake providers, in-memory — just works
-```
-
-**Full stack** — for `tanstack-start` / `nextjs` with real document ingest, auth, and billing:
-
-```bash
-pnpm infra:up                # postgres (pgvector), redis, localstack (s3), jaeger
-# populate .env  (see "Known rough edges" — committed .env.example is 🚧)
+pnpm infra:up                # Docker: postgres+pgvector, redis, localstack(s3), localstripe, jaeger, ollama
+cp .env.example .env         # local-dev defaults are non-secret and work as-is
 pnpm db:push                 # push schema (confirm prompts)
-pnpm dev                     # all apps in watch mode
+pnpm dev                     # all apps in watch mode — nextjs :3000, tanstack-start :3001
 ```
 
-After pulling others' changes, you may need to re-run `pnpm i`, `pnpm db:push`, or `pnpm infra:up` if deps / schema / env changed.
+After pulling others' changes, re-run `pnpm i`, `pnpm db:push`, or `pnpm infra:up` if deps / schema / infra changed.
+
+> 🚧 A truly zero-Docker quickstart (the planned `express` app, core chat only) doesn't exist yet — today, `pnpm infra:up` is the path. See the full [command reference and development flow](docs/whats-included.md#dx--developer-experience).
 
 ## Project structure
 
@@ -87,8 +97,8 @@ trellis/
 ├── packages/
 │   ├── platform/           # trpc, subscriptions, logger, redis, telemetry
 │   │                       #   (runtime substrate)
-│   ├── shared/             # ui, auth, hooks, rag        (primitives)
-│   ├── features/           # billing, chat, ingest      (vertical slices)
+│   ├── shared/             # ui, auth, hooks, rag, models (primitives)
+│   ├── features/           # chat, ingest, billing      (vertical slices)
 │   └── compositions/       # admin, sidebar             (assembled UI)
 ├── tooling/                # eslint, prettier, typescript, tailwind, vitest, github, test-utils
 ├── docs/
@@ -131,20 +141,33 @@ pnpm turbo gen
 
 The generator wires up configs, boundary tags, and the tRPC plumbing for you.
 
+> The above is the short list. For **every** script, the intended setup-and-develop flow, and the full tooling inventory, see [what you get with Trellis → DX](docs/whats-included.md#dx--developer-experience).
+
 ## AI-native
 
-Trellis is built to be navigated by coding agents as much as humans.
+Trellis is built to be navigated — and **extended** — by coding agents as much as by humans.
 
 - [CONTEXT-MAP.md](CONTEXT-MAP.md) indexes the domain language, pointing to per-package `CONTEXT.md` files.
 - [docs/adr/](docs/adr/) records the decisions that are hard to reverse and would otherwise be surprising.
-- **Agent skills** live in [docs/agents/](docs/agents/): an [issue tracker](docs/agents/issue-tracker.md) (markdown issues under `.scratch/`), [triage labels](docs/agents/triage-labels.md), and a [worktree workflow](docs/agents/worktree-workflow.md) for building plans in isolation → PR.
+- **The agent workflow** is a `/grill-with-docs` planning pass (stress-test the plan against the domain language, update `CONTEXT.md` + ADRs inline) → `/worktree-build` to build it in an isolated worktree → PR. The point is running **multiple agents in parallel, one window per task, isolated in their own worktrees**, with a **human making the engineering calls** and reviewing every PR — agents never auto-merge. Full overview in [docs/agents/](docs/agents/) (issue tracker, triage labels, worktree workflow, domain docs).
 
 See [CLAUDE.md](CLAUDE.md) for the full agent brief.
 
+## Documentation
+
+Full contents index — [**docs/**](docs/). The high-traffic ones:
+
+- [Getting started](docs/getting-started.md) — step-by-step first run.
+- [What you get with Trellis](docs/whats-included.md) — features, tooling, command reference, malleable vs load-bearing.
+- [Agent workflow](docs/agents/) — planning + parallel isolated build agents.
+- [Architectural decisions](docs/adr/) · [CONTEXT-MAP](CONTEXT-MAP.md) · [Testing guide](docs/TESTING.md).
+
 ## Known rough edges
 
-This is a living template — a couple of things are mid-transition. Flagged honestly:
+This is a living template — a few things are mid-transition. Flagged honestly:
 
-- **Env setup is changing.** The `env:*` scripts pull from a private secret store and are being deprecated — **don't rely on `pnpm env:pull`**. A committed **`.env.example`** is the intended path 🚧 (not landed yet). `pnpm infra:up` itself is solid; use it.
-- **LLM + embedding providers are in flux.** Provider config is being made swappable (fake / OpenRouter / Bedrock) via a boot-time toggle. Treat the wiring as moving until it settles; the `fake` path is what powers the zero-config quickstart.
-- **S3 / document ingest stays** — backed by localstack in dev (part of `pnpm infra:up`).
+- **Env setup.** `.env.example` is committed — `cp .env.example .env` and the non-secret local-dev defaults work as-is. For secrets, `pnpm env:pull` / `env:push` sync against a pluggable backend ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); default `dotenv-file`, zero setup). 🚧 The `SECRET_MAP` in `secrets.config.sh` still only maps the `nextjs` app — `tanstack-start` needs adding.
+- **Model providers are settling.** Provider selection lives in [`@acme/models`](packages/shared/models/CONTEXT.md) — `bedrock` / `openrouter` / `ollama`, chosen by env ([ADR 0003](docs/adr/0003-multi-provider-models.md)). **Ollama is the default** so the repo runs with no cloud credentials; the dev models are tiny/CPU-only, not production quality. (There is **no "fake" provider** — earlier drafts of this README implied one.)
+- **No zero-Docker path yet.** Full-stack local dev needs `pnpm infra:up`. The planned `express` app (core chat only) is the intended minimal, lighter-weight entry point — not built yet.
+- **The compositions layer is being reconsidered.** Direction is app-owned shells (see `tanstack-start`); compositions reserved for genuine cross-app DRY. See [what's malleable vs load-bearing](docs/whats-included.md#whats-malleable-vs-load-bearing).
+- **S3 / document ingest stays** — backed by LocalStack in dev (part of `pnpm infra:up`).

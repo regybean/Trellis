@@ -25,6 +25,6 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 | App | Context | ADRs |
 | --- | --- | --- |
 | `apps/nextjs/` | [`apps/nextjs/CONTEXT.md`](apps/nextjs/CONTEXT.md) | — |
-| `apps/tanstack-start/` | [`apps/tanstack-start/CONTEXT.md`](apps/tanstack-start/CONTEXT.md) | [`docs/adr/0003-framework-agnostic-auth-seam.md`](docs/adr/0003-framework-agnostic-auth-seam.md) |
+| `apps/tanstack-start/` | [`apps/tanstack-start/CONTEXT.md`](apps/tanstack-start/CONTEXT.md) | [`docs/adr/0003-framework-agnostic-auth-seam.md`](docs/adr/0003-framework-agnostic-auth-seam.md), [`docs/adr/0005-telemetry-init-seam.md`](docs/adr/0005-telemetry-init-seam.md) |
 
 > Add rows as you create context files. Run `/grill-with-docs` to populate them.

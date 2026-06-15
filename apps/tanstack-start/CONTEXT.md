@@ -21,6 +21,16 @@ framework-agnostic auth seam — see
 [`docs/adr/0003`](../../docs/adr/0003-framework-agnostic-auth-seam.md).
 _Avoid_: "auth middleware" (that's Clerk's `clerkMiddleware()` in `src/start.ts`).
 
+**Telemetry bootstrap** (Nitro startup plugin):
+The app-owned hook that calls `initTelemetry()` once at server startup to register
+the OpenTelemetry SDK. The per-app half of the telemetry seam: the platform
+(`@acme/trpc`) no longer assumes a framework left an ambient span — each app
+initializes the SDK at its own server boundary, just as each app owns its _Clerk
+resolver_. Unlike `apps/nextjs` (whose `instrumentation.ts` preloads full HTTP
+auto-instrumentation), this plugin registers the SDK after server modules load, so
+traces are rooted at the tRPC procedure span (`trpc.<path>`) rather than an HTTP
+parent. _Avoid_: "instrumentation file" (that's the Next.js mechanism).
+
 **Console shell** (`src/components/console-shell.tsx`):
 The app-local dark/dense "developer console" chrome (left rail + top bar + status
 bar) that wraps every page. The deliberate visual divergence from `apps/nextjs`;
