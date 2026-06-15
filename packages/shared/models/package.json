@@ -1,5 +1,5 @@
 {
-  "name": "@acme/rag",
+  "name": "@acme/models",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -7,14 +7,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
-    },
-    "./schema": {
-      "types": "./dist/index-schema.d.ts",
-      "default": "./src/index-schema.ts"
-    },
-    "./server": {
-      "types": "./dist/index-server.d.ts",
-      "default": "./src/index-server.ts"
     },
     "./env": {
       "types": "./dist/env.d.ts",
@@ -28,21 +20,13 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "prettier": "@acme/prettier-config",
   "dependencies": {
-    "@acme/logger": "workspace:*",
-    "@acme/models": "workspace:*",
-    "@mastra/core": "catalog:",
-    "@mastra/memory": "catalog:",
-    "@mastra/pg": "catalog:",
-    "@mastra/rag": "catalog:",
+    "@ai-sdk/amazon-bedrock": "catalog:",
+    "@ai-sdk/openai-compatible": "catalog:",
+    "@ai-sdk/provider": "catalog:",
+    "@openrouter/ai-sdk-provider": "catalog:",
     "@t3-oss/env-nextjs": "catalog:",
     "ai": "catalog:",
-    "drizzle-orm": "catalog:",
-    "drizzle-zod": "catalog:",
-    "officeparser": "catalog:",
-    "postgres": "catalog:",
-    "uuid": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {
@@ -52,5 +36,6 @@
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"
-  }
+  },
+  "prettier": "@acme/prettier-config"
 }

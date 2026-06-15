@@ -16,9 +16,6 @@ export function chatEnv() {
       DB_USER: z.string().nonempty(),
       DB_PASSWORD: z.string().nonempty(),
       DB_NAME: z.string().nonempty(),
-      AWS_REGION: z.string().default('eu-west-2'),
-      AWS_ACCESS_KEY_ID: z.string(),
-      AWS_SECRET_ACCESS_KEY: z.string(),
     },
     client: {},
     runtimeEnv: {
@@ -30,9 +27,6 @@ export function chatEnv() {
       DB_USER: process.env.DB_USER,
       DB_PASSWORD: process.env.DB_PASSWORD,
       DB_NAME: process.env.DB_NAME,
-      AWS_REGION: process.env.AWS_REGION,
-      AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
-      AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     },
     skipValidation:
       !!process.env.CI || process.env.npm_lifecycle_event === 'lint',
