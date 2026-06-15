@@ -2,6 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { dark } from '@clerk/themes';
+import { Moon, Sun, User } from 'lucide-react';
+import { useTheme } from 'next-themes';
+
 import {
   SignedIn,
   SignedOut,
@@ -9,11 +13,7 @@ import {
   SignUpButton,
   UserButton,
   useUser,
-} from '@clerk/nextjs';
-import { dark } from '@clerk/themes';
-import { Moon, Sun, User } from 'lucide-react';
-import { useTheme } from 'next-themes';
-
+} from '@acme/auth';
 import { NavUserSubscription } from '@acme/billing';
 import { env } from '@acme/billing/env';
 import {

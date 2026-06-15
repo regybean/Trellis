@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { auth, currentUser } from '@clerk/nextjs/server';
+import type { User } from '@clerk/backend';
 import { context, trace } from '@opentelemetry/api';
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
@@ -23,10 +23,38 @@ import {
   SpanStatusCode,
 } from '@acme/telemetry/server';
 
-interface HttpOpts {
+/**
+ * The auth seam. Clerk is resolved by the *app's* adapter (Next.js route
+ * handler via `@clerk/nextjs/server`, or TanStack Start via
+ * `@clerk/tanstack-react-start/server`) and the result is injected here. This
+ * package never imports a framework-specific Clerk SDK — it only depends on the
+ * neutral `@clerk/backend` types. See docs/adr/0003-framework-agnostic-auth-seam.md.
+ */
+/**
+ * The slice of Clerk session auth the platform consumes (`userId` +
+ * `sessionClaims`). Apps inject the full `SessionAuthObject` from their Clerk
+ * adapter — it is structurally assignable to this.
+ *
+ * A locally-named type is required here (rather than importing
+ * `SessionAuthObject`) because that type lives at a deep `@clerk/backend` path
+ * that cannot be named portably in this package's emitted declarations (TS2742).
+ * It is a discriminated union mirroring Clerk's `SignedIn | SignedOut` so that
+ * `protectedProcedure` narrows `userId` to a non-null `string`. The `user`
+ * field below uses the real `User` type, kept single-copy by the
+ * `@clerk/backend` override.
+ */
+export type InjectedAuth =
+  | { userId: string; sessionClaims: CustomJwtSessionClaims }
+  | { userId: null; sessionClaims: null };
+
+interface ContextOpts {
   headers: Headers;
   req?: Request;
   res?: Response;
+  /** Resolved Clerk session auth, injected by the app adapter. */
+  auth: InjectedAuth;
+  /** Full Clerk user, injected by the app adapter (null when signed out). */
+  user: User | null;
 }
 
 export interface RateLimitOptions {
@@ -37,20 +65,20 @@ export interface RateLimitOptions {
 type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 
 /**
- * Builds the base request context shared by every feature: Clerk auth + user,
- * the billing context (subscription / tier / credits) and a noop telemetry
- * object (replaced per-procedure by the telemetry middleware).
+ * Builds the base request context shared by every feature from the
+ * app-injected Clerk auth + user: derives the billing context (subscription /
+ * tier / credits) and a noop telemetry object (replaced per-procedure by the
+ * telemetry middleware).
  */
-export async function createTRPCContext(opts: HttpOpts) {
-  const authResult = await auth();
-  const user = await currentUser();
+export async function createTRPCContext(opts: ContextOpts) {
+  const { auth: authResult, user, ...rest } = opts;
   const subscription = await getUserSubscriptionFromRedis(authResult.userId);
   const tier = getSubscriptionType(subscription);
   const credits = await getCredits(authResult.userId, subscription, tier);
   const telemetry = createTelemetryContext();
 
   return {
-    ...opts,
+    ...rest,
     auth: authResult,
     user,
     subscription,

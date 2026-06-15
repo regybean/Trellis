@@ -4,8 +4,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom';
 
 import type { Mock } from 'vitest';
-import { useAuth } from '@clerk/nextjs';
 import userEvent from '@testing-library/user-event';
+
+import { useAuth } from '@acme/auth';
 
 import { PricingPage } from '../../components/pricing';
 import { renderWithProviders } from './setup';

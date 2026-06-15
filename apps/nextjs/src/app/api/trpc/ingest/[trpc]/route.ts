@@ -1,4 +1,5 @@
 import type { NextRequest } from 'next/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
 import { appRouter, createTRPCContext } from '@acme/ingest/server';
@@ -18,7 +19,13 @@ export const OPTIONS = () => {
 };
 
 const createContext = async (req: NextRequest) => {
-  return createTRPCContext({ headers: req.headers, req });
+  // App-owned auth seam: resolve Clerk here and inject into the neutral context.
+  return createTRPCContext({
+    headers: req.headers,
+    req,
+    auth: await auth(),
+    user: await currentUser(),
+  });
 };
 
 const handler = (req: NextRequest) =>

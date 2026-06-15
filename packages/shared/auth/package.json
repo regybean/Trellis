@@ -1,10 +1,8 @@
 {
   "name": "@acme/auth",
   "dependencies": {
-    "@clerk/nextjs": "catalog:",
-    "@clerk/themes": "catalog:",
-    "next": "catalog:",
-    "next-themes": "catalog:",
+    "@clerk/backend": "catalog:",
+    "@clerk/clerk-react": "catalog:",
     "react": "catalog:"
   },
   "devDependencies": {
@@ -19,6 +17,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./src/server.ts"
     }
   },
   "license": "MIT",

@@ -1,9 +1,9 @@
 {
   "name": "@acme/sidebar",
   "dependencies": {
+    "@acme/auth": "workspace:*",
     "@acme/billing": "workspace:*",
     "@acme/ui": "workspace:*",
-    "@clerk/nextjs": "catalog:",
     "@clerk/themes": "catalog:",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",

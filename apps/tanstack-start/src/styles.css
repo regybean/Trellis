@@ -1,0 +1,64 @@
+@import 'tailwindcss';
+@import '@acme/tailwind-config/theme';
+
+/* Variable Geist fonts ship with the app for the technical/console aesthetic. */
+@import '@fontsource-variable/geist';
+@import '@fontsource-variable/geist-mono';
+
+@source '../../../packages/shared/*/src/**/*.{ts,tsx}';
+@source '../../../packages/features/*/src/**/*.{ts,tsx}';
+@source '../../../packages/compositions/*/src/**/*.{ts,tsx}';
+@source './**/*.{ts,tsx}';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * Divergent shell tokens. The Next.js app uses the shared light-first
+ * Montserrat theme; this app overrides the same token surface to a dark-first,
+ * dense, technical "developer console" look (Geist + Geist Mono, low radius,
+ * tighter spacing, cool slate palette). Feature components are untouched — they
+ * consume these tokens and re-skin automatically.
+ */
+:root,
+.dark {
+  --background: oklch(0.1822 0.0059 285.89);
+  --foreground: oklch(0.9189 0.004 286.32);
+  --card: oklch(0.2134 0.0067 285.96);
+  --card-foreground: oklch(0.9189 0.004 286.32);
+  --popover: oklch(0.2134 0.0067 285.96);
+  --popover-foreground: oklch(0.9189 0.004 286.32);
+  --primary: oklch(0.7227 0.1502 174.5);
+  --primary-foreground: oklch(0.1822 0.0059 285.89);
+  --on-primary: oklch(0.1822 0.0059 285.89);
+  --secondary: oklch(0.2603 0.0072 285.96);
+  --secondary-foreground: oklch(0.9189 0.004 286.32);
+  --muted: oklch(0.2603 0.0072 285.96);
+  --muted-foreground: oklch(0.6726 0.0102 286.18);
+  --accent: oklch(0.2901 0.0291 256.85);
+  --accent-foreground: oklch(0.8 0.12 174.5);
+  --border: oklch(0.2901 0.0081 286.03);
+  --input: oklch(0.2901 0.0081 286.03);
+  --ring: oklch(0.7227 0.1502 174.5);
+  --sidebar: oklch(0.1611 0.0052 285.84);
+  --sidebar-foreground: oklch(0.9189 0.004 286.32);
+  --sidebar-primary: oklch(0.7227 0.1502 174.5);
+  --sidebar-primary-foreground: oklch(0.1822 0.0059 285.89);
+  --sidebar-accent: oklch(0.2603 0.0072 285.96);
+  --sidebar-accent-foreground: oklch(0.9189 0.004 286.32);
+  --sidebar-border: oklch(0.2901 0.0081 286.03);
+  --sidebar-ring: oklch(0.7227 0.1502 174.5);
+  --font-sans: 'Geist Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
+  --radius: 0.125rem;
+  --spacing: 0.22rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}

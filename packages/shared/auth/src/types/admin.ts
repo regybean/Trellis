@@ -1,4 +1,4 @@
-import type { User as ClerkUser } from '@clerk/nextjs/server';
+import type { User as ClerkUser } from '@clerk/backend';
 
 // Plain object type for user data that can be safely passed to client components
 export interface SerializableUser {

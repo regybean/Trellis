@@ -1,7 +1,7 @@
 import { Suspense } from 'react';
 
 import { StripeSuccessLoading, StripeSuccessRedirect } from '@acme/billing';
-import { StripeSuccessHandler } from '@acme/billing/server';
+import { StripeSuccessHandler } from '@acme/billing/server-next';
 
 export default function StripeProcessingPage() {
   return (

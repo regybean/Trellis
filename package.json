@@ -24,7 +24,8 @@
       "require-in-the-middle": "8.0.1",
       "vite": "catalog:",
       "vitest": "catalog:",
-      "qs": "6.14.1"
+      "qs": "6.14.1",
+      "@clerk/backend": "catalog:"
     }
   },
   "private": true,
@@ -45,6 +46,7 @@
     "deps:update": "pnpm exec syncpack update",
     "dev": "turbo watch dev --continue",
     "dev:nextjs": "turbo watch dev -F @acme/nextjs...",
+    "dev:tanstack-start": "turbo watch dev -F @acme/tanstack-start...",
     "env:pull": "pnpm with-env scripts/env-pull.sh",
     "env:push": "pnpm with-env scripts/env-push.sh",
     "format": "turbo run format --continue -- --cache --cache-location .cache/.prettiercache",

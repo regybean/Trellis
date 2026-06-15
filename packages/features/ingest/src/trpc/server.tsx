@@ -3,6 +3,7 @@ import 'server-only';
 import type { TRPCQueryOptions } from '@trpc/tanstack-react-query';
 import { cache } from 'react';
 import { headers } from 'next/headers';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
@@ -19,8 +20,12 @@ const createContext = cache(async () => {
   const heads = new Headers(await headers());
   heads.set('x-trpc-source', 'rsc');
 
+  // RSC adapter for the auth seam: resolve Clerk here (Next.js server) and
+  // inject it into the neutral tRPC context.
   return createTRPCContext({
     headers: heads,
+    auth: await auth(),
+    user: await currentUser(),
   });
 });
 
