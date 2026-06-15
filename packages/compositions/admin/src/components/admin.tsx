@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { clerkClient } from '@clerk/nextjs/server';
 import { Users } from 'lucide-react';
 
-import { transformUserForClient } from '@acme/auth';
+import { transformUserForClient } from '@acme/auth/server';
 import { StripeTesting } from '@acme/billing';
 import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
 import { Card, CardContent, CardHeader } from '@acme/ui';

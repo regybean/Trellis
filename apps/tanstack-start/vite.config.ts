@@ -14,7 +14,12 @@ export default defineConfig({
   },
   plugins: [
     tsConfigPaths({ projects: ['./tsconfig.json'] }),
-    nitro(),
+    // Nitro bundles the whole server graph in prod (resolve.noExternal: true),
+    // feeding ctx.bundlerConfig.rollupConfig into build.rollupOptions. officeparser
+    // (via @acme/rag) dynamically imports puppeteer in its optional PdfGenerator
+    // path, which we never call — Rollup still tries to resolve it and fails.
+    // Externalize puppeteer so it stays an unbundled (absent) import.
+    nitro({ rollupConfig: { external: ['puppeteer'] } }),
     tanstackStart(),
     viteReact(),
     tailwindcss(),

@@ -1214,6 +1214,8 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  packages/shared/models: {}
+
   packages/shared/rag:
     dependencies:
       '@acme/logger':

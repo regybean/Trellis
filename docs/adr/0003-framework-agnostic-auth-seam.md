@@ -52,3 +52,13 @@ accepted
   `clerkClient().users.getUser` when a `userId` is present.
 - Route guards replace Next middleware in the Start app: `beforeLoad` calls a
   `getAuthState` server function and redirects unauthenticated / non-admin users.
+- The neutral surface is split into two entry points so the Next RSC graph never
+  evaluates client Clerk code: `@acme/auth` is a `'use client'` barrel
+  re-exporting `@clerk/clerk-react` hooks/components, and `@acme/auth/server`
+  holds the backend `transformUserForClient`. Without the client boundary, a
+  server component importing the barrel pulls `@clerk/clerk-react` →
+  `@clerk/shared` → `swr` into the server graph, where `swr` resolves via its
+  `react-server` export condition (no default export / no `useSWR*`) and the
+  build fails. Backend code (`transformUserForClient`) must stay out of the
+  `'use client'` barrel because it has to *run* on the server, not become a
+  client reference.

@@ -2,7 +2,7 @@ import { auth, clerkClient } from '@clerk/tanstack-react-start/server';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
 
-import { transformUserForClient } from '@acme/auth';
+import { transformUserForClient } from '@acme/auth/server';
 
 /**
  * App-owned admin data + role mutations as TanStack Start server functions —
