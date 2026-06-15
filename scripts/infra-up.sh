@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Bring up the infra profile, then seed localstripe once it's healthy.
-# localstripe state is in-memory, so the seed runs on every infra:up.
+# Bring up infra (via infra.sh, which applies provider-aware profile gating),
+# then seed localstripe once it's healthy. localstripe state is in-memory, so
+# the seed runs on every infra:up.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-./scripts/compose.sh --profile infra up -d
+pnpm with-env ./scripts/infra.sh up -d
 
 # Seed only when configured for localstripe (real Stripe needs no seeding).
 if grep -qE '^\s*STRIPE_API_BASE=' .env 2>/dev/null; then

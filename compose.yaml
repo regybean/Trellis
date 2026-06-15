@@ -81,7 +81,7 @@ services:
 
   localstripe:
     # Fake stateful Stripe server for local dev — no real Stripe account/network.
-    # Pinned (tracks the latest PyPI release 1.15.10). See docs/adr/0003.
+    # Pinned (tracks the latest PyPI release 1.15.10). See docs/adr/0004.
     image: adrienverge/localstripe:1.15.10
     container_name: ${DB_NAME:-app}-localstripe
     ports:
@@ -129,5 +129,42 @@ services:
     profiles:
       - infra
 
+  # Local LLM / embedding runtime, for dev and test without cloud providers.
+  # Gated behind the `ollama` profile (see scripts/infra.sh): it only starts when
+  # LLM_PROVIDER or EMBED_PROVIDER is `ollama`. A single container serves both
+  # chat and embeddings over the OpenAI-compatible `/v1` endpoint. Models are
+  # pulled on first boot; `$$VAR` defers expansion to the container shell so the
+  # names come from env_file, not host interpolation.
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ${DB_NAME:-app}-ollama
+    ports:
+      - "${OLLAMA_PORT:-11434}:11434"
+    entrypoint:
+      - /bin/sh
+      - -c
+    command:
+      - |
+        ollama serve &
+        until ollama ls >/dev/null 2>&1; do sleep 1; done
+        ollama pull "$$OLLAMA_CHAT_MODEL"
+        ollama pull "$$OLLAMA_EMBED_MODEL"
+        wait
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - ollama ls | grep -q "$$OLLAMA_CHAT_MODEL" && ollama ls | grep -q "$$OLLAMA_EMBED_MODEL"
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+    volumes:
+      - ollama_data:/root/.ollama
+    profiles:
+      - ollama
+    env_file:
+      - ./.env
+
 volumes:
   pg_data:
+  ollama_data:
