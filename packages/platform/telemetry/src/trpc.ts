@@ -16,7 +16,13 @@
 
 import type { Context, Span, SpanOptions, Tracer } from '@opentelemetry/api';
 import type { ZodType } from 'zod';
-import { context, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
+import {
+  context,
+  INVALID_SPAN_CONTEXT,
+  SpanKind,
+  SpanStatusCode,
+  trace,
+} from '@opentelemetry/api';
 
 const TRACER_NAME = 'trpc';
 
@@ -47,23 +53,29 @@ export function getActiveSpan(): Span | undefined {
 
 /**
  * Create a telemetry context for use in tRPC context.
- * Uses the currently active span (usually the HTTP span).
- * The telemetry middleware will replace this with a procedure-scoped version.
+ *
+ * Uses the currently active span when one exists (e.g. an HTTP span from an
+ * app that preloads auto-instrumentation, as `apps/nextjs` does). When no SDK
+ * established an ambient span — the case for apps that initialize OTel at the
+ * server boundary without an HTTP-parent preload (`apps/tanstack-start`) — this
+ * falls back to a non-recording span instead of throwing.
+ *
+ * Either way this object is a throwaway placeholder: the telemetry middleware
+ * creates the real procedure-scoped span (`trpc.<path>`) and replaces it. The
+ * fallback is a *non-recording* span (never started via the tracer), so it
+ * needs no `.end()`, leaks nothing, and silently drops set/event/child-span
+ * calls. See docs/adr/0005-telemetry-init-seam.md.
  */
 export function createTelemetryContext() {
   const tracer = getTracer();
-  const activeSpan = getActiveSpan();
-  if (!activeSpan) {
-    // No active span - return a noop telemetry object
-    throw new Error('No active span found for telemetry context');
-  }
+  const span = getActiveSpan() ?? trace.wrapSpanContext(INVALID_SPAN_CONTEXT);
 
   const set = (attributes: TelemetryAttributes) => {
-    activeSpan.setAttributes(attributes);
+    span.setAttributes(attributes);
   };
 
   const event = (name: string, attributes?: TelemetryAttributes) => {
-    activeSpan.addEvent(name, attributes);
+    span.addEvent(name, attributes);
   };
 
   const withSpan = async <T>(
@@ -99,9 +111,9 @@ export function createTelemetryContext() {
 
   return {
     path: '',
-    traceId: activeSpan.spanContext().traceId,
-    spanId: activeSpan.spanContext().spanId,
-    span: activeSpan,
+    traceId: span.spanContext().traceId,
+    spanId: span.spanContext().spanId,
+    span,
 
     set,
     event,

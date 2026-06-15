@@ -1,5 +1,16 @@
 import { clerkMiddleware } from '@clerk/tanstack-react-start/server';
-import { createStart } from '@tanstack/react-start';
+import { createCsrfMiddleware, createStart } from '@tanstack/react-start';
+
+/**
+ * Same-origin guard for server functions. Server functions are RPC endpoints
+ * invoked from our own client, so a cross-site request to one is always a CSRF
+ * attempt. Scoped to `handlerType === 'serverFn'` so it leaves `router` requests
+ * untouched — the Stripe webhook (`/api/stripe`) is a legitimate cross-origin
+ * POST and the tRPC routes carry their own auth.
+ */
+const csrfMiddleware = createCsrfMiddleware({
+  filter: (ctx) => ctx.handlerType === 'serverFn',
+});
 
 /**
  * Global Start instance. Registering Clerk's request middleware here populates
@@ -9,5 +20,5 @@ import { createStart } from '@tanstack/react-start';
  * `@clerk/nextjs/server` resolver). See docs/adr/0003-framework-agnostic-auth-seam.md.
  */
 export const startInstance = createStart(() => ({
-  requestMiddleware: [clerkMiddleware()],
+  requestMiddleware: [csrfMiddleware, clerkMiddleware()],
 }));

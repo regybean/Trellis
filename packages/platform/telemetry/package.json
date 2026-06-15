@@ -31,6 +31,10 @@
     "./server": {
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
+    },
+    "./register": {
+      "types": "./dist/register.d.ts",
+      "default": "./src/register.ts"
     }
   },
   "license": "MIT",

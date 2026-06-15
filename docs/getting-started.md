@@ -17,17 +17,7 @@ pnpm i
 
 `pnpm i` also runs `postinstall` (builds the workspace packages and registers the vendored agent skills via `pnpm skills:register`) and `prepare` (installs the lefthook git hooks).
 
-## 2. Start local infra
-
-Manual-only — run it yourself:
-
-```bash
-pnpm infra:up
-```
-
-Brings up, via Docker Compose: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and **Ollama** (the default model provider — local, CPU-only, so no API keys).
-
-## 3. Configure env
+## 2. Configure env
 
 The committed [`.env.example`](../.env.example) holds non-secret local-dev defaults that work as-is:
 
@@ -42,6 +32,30 @@ pnpm env:pull            # fetches secrets from the configured backend into your
 ```
 
 Default backend is `dotenv-file` (a gitignored local JSON — zero setup). The backend is selectable in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
+
+### Choosing a model provider
+
+Configure this **before** starting infra — `infra:up` only spins up Ollama when a provider below is set to `ollama`.
+
+LLM and embeddings providers are selected independently via `LLM_PROVIDER` / `EMBED_PROVIDER` in `.env`:
+
+| Provider | `LLM_PROVIDER` | `EMBED_PROVIDER` | Notes |
+|---|---|---|---|
+| **Ollama** (default) | `ollama` | `ollama` | Local, CPU-only, no API keys. Started by `infra:up`. |
+| AWS Bedrock | `bedrock` | `bedrock` | Requires AWS credentials in `.env`. |
+| OpenRouter | `openrouter` | — | No embeddings API; pair with `EMBED_PROVIDER=ollama` or `bedrock`. |
+
+The defaults (`LLM_PROVIDER=ollama`, `EMBED_PROVIDER=ollama`) work out of the box with no secrets. To switch, change the provider vars and set the corresponding credentials.
+
+## 3. Start local infra
+
+Manual-only — run it yourself:
+
+```bash
+pnpm infra:up
+```
+
+Brings up, via Docker Compose: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys).
 
 ## 4. Push the database schema
 

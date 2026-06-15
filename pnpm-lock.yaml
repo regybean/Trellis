@@ -411,9 +411,18 @@ importers:
       '@acme/logger':
         specifier: workspace:*
         version: link:../../packages/platform/logger
+      '@acme/models':
+        specifier: workspace:*
+        version: link:../../packages/shared/models
+      '@acme/rag':
+        specifier: workspace:*
+        version: link:../../packages/shared/rag
       '@acme/redis':
         specifier: workspace:*
         version: link:../../packages/platform/redis
+      '@acme/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/platform/telemetry
       '@acme/ui':
         specifier: workspace:*
         version: link:../../packages/shared/ui

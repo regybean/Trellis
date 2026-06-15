@@ -50,9 +50,13 @@ accepted
   from manual `instrumentDrizzleClient` (`@kubiks/otel-drizzle`), whose deferred
   proxy tracer resolves once the plugin registers the provider before the first
   request.
-- Escalation path if full parity is later needed: add a side-effecting
-  `@acme/telemetry/register` entry and preload it via `NODE_OPTIONS=--import` on the
-  tanstack `dev`/`start` scripts — additive, no rework of the seam.
-- The Nitro plugin is the natural future home for other boot-time concerns Next does
-  in `instrumentation.ts` (provider resolution via `@acme/models`,
-  `ensureVectorIndex()`) — out of scope here.
+- Escalation path for full HTTP-parent parity: the side-effecting
+  `@acme/telemetry/register` entry is pre-built. Preload it via
+  `NODE_OPTIONS="--import @acme/telemetry/register"` on the tanstack `dev`/`start`
+  scripts to patch auto-instrumentation before the server graph loads — additive,
+  no rework of the seam. It reads `OTEL_SERVICE_NAME` / `OTEL_EXPORTER_OTLP_ENDPOINT`
+  from the environment.
+- The Nitro plugin also carries the other boot-time concerns Next does in
+  `instrumentation.ts` — provider resolution (`import('@acme/models')`) and
+  `ensureVectorIndex()` — so both apps fail fast at startup on a missing selected-
+  provider env or an unreachable vector DB, rather than on the first request.

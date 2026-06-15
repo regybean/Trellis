@@ -40,7 +40,7 @@ let sdk: NodeSDK | null = null;
  * export async function register() {
  *   if (process.env.NEXT_RUNTIME === 'nodejs') {
  *     const { initTelemetry } = await import('@acme/telemetry');
- *     initTelemetry({ serviceName: 'trellis' });
+ *     initTelemetry({ serviceName: 'trellis-nextjs' });
  *   }
  * }
  */

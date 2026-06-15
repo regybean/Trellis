@@ -13,7 +13,7 @@ export async function register() {
     const { initTelemetry } = await import('@acme/telemetry');
 
     initTelemetry({
-      serviceName: 'trellis',
+      serviceName: 'trellis-nextjs',
       serviceVersion: process.env.npm_package_version ?? '0.0.0',
       // Use environment variable for flexibility
       otlpEndpoint:

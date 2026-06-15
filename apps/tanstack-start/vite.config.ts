@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
@@ -79,7 +80,17 @@ export default defineConfig({
     // (via @acme/rag) dynamically imports puppeteer in its optional PdfGenerator
     // path, which we never call — Rollup still tries to resolve it and fails.
     // Externalize puppeteer so it stays an unbundled (absent) import.
-    nitro({ rollupConfig: { external: ['puppeteer'] } }),
+    //
+    // `plugins`: register the app-owned telemetry bootstrap as a Nitro startup
+    // plugin (initializes the OTel SDK at the server boundary — ADR-0005).
+    // Registered explicitly by absolute path rather than relying on Nitro's
+    // `plugins/` auto-scan, whose scan root is ambiguous under TanStack Start.
+    nitro({
+      rollupConfig: { external: ['puppeteer'] },
+      plugins: [
+        fileURLToPath(new URL('./src/nitro/telemetry.ts', import.meta.url)),
+      ],
+    }),
     tanstackStart(),
     viteReact(),
     tailwindcss(),
