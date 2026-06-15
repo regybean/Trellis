@@ -1,0 +1,12 @@
+{
+  "extends": "@acme/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "dom", "dom.iterable"],
+    "jsx": "react-jsx",
+    "paths": {
+      "~/*": ["./src/*"]
+    }
+  },
+  "include": [".", "../../packages/shared/auth/src/types/globals.d.ts"],
+  "exclude": ["node_modules", ".nitro", ".output", ".tanstack"]
+}

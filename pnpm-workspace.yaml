@@ -1,6 +1,5 @@
 packages:
   - apps/*
-  - '!apps/tanstack-start' # bare reference app, excluded from workspace until phase 2
   - packages/platform/*
   - packages/shared/*
   - packages/features/*
@@ -79,7 +78,7 @@ catalog:
   turbo: ^2.7.5
   typescript: ^5.9.3
   uuid: ^13.0.0
-  vite: ^6.0.11
+  vite: ^7.0.0
   vitest: ^4.0.1
   xpath: 0.0.34
   yaml: ^2.8.2
