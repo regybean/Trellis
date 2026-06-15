@@ -24,6 +24,14 @@ export const GetUserSubscriptionRequest = z.object({
   userId: z.string().min(1, 'User ID is required'),
 });
 
+// Admin-only, localstripe-only: move a user between billing tiers directly
+// (no Stripe Checkout). 'Basic' cancels any paid subscription.
+export const SetUserTierRequest = z.object({
+  userId: z.string().min(1, 'User ID is required'),
+  email: z.email('A valid email is required'),
+  tier: z.enum(['Basic', 'Standard', 'Pro']),
+});
+
 export const GetUserSubscriptionResponse = z.object({
   userId: z.string(),
   subscription: z.union([

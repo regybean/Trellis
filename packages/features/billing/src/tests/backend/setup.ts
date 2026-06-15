@@ -82,6 +82,7 @@ vi.mock('../../utils/stripe', () => ({
     billingPortalUrl: 'https://billing.stripe.com/test',
   }),
   syncStripeDataToKV: vi.fn().mockResolvedValue(null),
+  setUserTier: vi.fn().mockResolvedValue({ status: 'active' }),
 }));
 
 // Mock rate limiting utilities

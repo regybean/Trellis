@@ -5,6 +5,7 @@ export {
   TRPCReactProvider as BillingTRPCReactProvider,
 } from './trpc/react';
 export { RateLimitManagement } from './components/admin/rate-limit-management';
+export { TierManagement } from './components/admin/tier-management';
 export { PricingPage } from './components/pricing';
 export { StripeSuccessLoading } from './components/stripe/stripe-success-loading';
 export { StripeSuccessRedirect } from './components/stripe/stripe-success-redirect';

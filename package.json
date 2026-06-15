@@ -52,7 +52,7 @@
     "graph": "scripts/graph.sh",
     "infra:clean": "pnpm with-env ./scripts/infra.sh down -v",
     "infra:down": "pnpm with-env ./scripts/infra.sh down",
-    "infra:up": "pnpm with-env ./scripts/infra.sh up -d",
+    "infra:up": "./scripts/infra-up.sh",
     "infra:logs": "pnpm with-env ./scripts/infra.sh logs -f",
     "lint": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache",
     "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",

@@ -438,6 +438,70 @@ describe('accountRouter', () => {
   });
 
   // ==========================================================================
+  // ADMIN: setUserTier (localstripe dev)
+  // ==========================================================================
+  describe('setUserTier', () => {
+    it('sets a target user to a paid tier', async () => {
+      const targetUserId = createTestUserId('target');
+      const adminUserId = createTestUserId('admin');
+
+      const caller = createCaller({
+        userId: adminUserId,
+        role: 'admin',
+        tier: 'Basic',
+        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
+      });
+
+      const result = await caller.account.setUserTier({
+        userId: targetUserId,
+        email: 'target@example.com',
+        tier: 'Pro',
+      });
+
+      expect(result).toMatchObject({
+        userId: targetUserId,
+        tier: 'Pro',
+        status: 'active',
+        message: expect.stringContaining('Successfully set'),
+      });
+    });
+
+    it('rejects non-admin users', async () => {
+      const caller = createCaller({
+        userId: createTestUserId(),
+        role: 'user',
+        tier: 'Basic',
+        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
+      });
+
+      await expect(
+        caller.account.setUserTier({
+          userId: createTestUserId('target'),
+          email: 'target@example.com',
+          tier: 'Pro',
+        }),
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+
+    it('rejects an invalid email', async () => {
+      const caller = createCaller({
+        userId: createTestUserId('admin'),
+        role: 'admin',
+        tier: 'Basic',
+        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
+      });
+
+      await expect(
+        caller.account.setUserTier({
+          userId: createTestUserId('target'),
+          email: 'not-an-email',
+          tier: 'Standard',
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+    });
+  });
+
+  // ==========================================================================
   // SUBSCRIPTION FEATURES
   // ==========================================================================
   describe('subscription features', () => {

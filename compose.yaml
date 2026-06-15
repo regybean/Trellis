@@ -79,6 +79,29 @@ services:
     env_file:
       - ./.env
 
+  localstripe:
+    # Fake stateful Stripe server for local dev — no real Stripe account/network.
+    # Pinned (tracks the latest PyPI release 1.15.10). See docs/adr/0004.
+    image: adrienverge/localstripe:1.15.10
+    container_name: ${DB_NAME:-app}-localstripe
+    ports:
+      - "8420:8420"
+    healthcheck:
+      # Base image has python3 but no curl/wget; probe the API with python.
+      test:
+        - CMD
+        - python3
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://localhost:8420/')
+      interval: 2s
+      timeout: 3s
+      retries: 40
+      start_period: 3s
+    profiles:
+      - infra
+    env_file:
+      - ./.env
+
   jaeger:
     image: jaegertracing/jaeger:latest
     container_name: ${DB_NAME:-app}-jaeger
