@@ -1,23 +1,38 @@
-# Mastra owns RAG + Memory; Drizzle mirrors are marked-applied read models
+# Mastra owns RAG + Memory; Drizzle mirrors are query-only read models
 
 RAG and conversation persistence run on Mastra (`@mastra/core`, `@mastra/rag`,
 `@mastra/pg`, `@mastra/memory`), wrapped by a new shared package `@acme/rag`.
 `@acme/llamaindex` is left intact but is no longer wired into any feature. Three
 decisions are load-bearing:
 
-1. **Mastra owns the DDL; Drizzle tables are mirrors marked applied.** Mastra's
-   `PgVector` and `PostgresStore` create their tables at runtime. `@acme/rag/schema`
-   declares Drizzle mirrors (`mastra_documents`, `mastra_threads`, `mastra_messages`,
-   `mastra_resources`) so the data stays queryable with Drizzle, and we generate the
-   matching migrations — but the operator **marks them applied** rather than running
-   them, because Mastra has already created the tables. **Invariant: every
-   Mastra-owned table is `mastra_`-prefixed** — including the knowledge-base table,
-   named `mastra_documents` for exactly this reason (its name is ours; PgVector owns
-   its DDL). Everything else in the per-app schema is app-owned.
+1. **Mastra owns the DDL; Drizzle mirrors are query-only and unmanaged by
+   drizzle-kit.** Mastra's `PgVector` and `PostgresStore` create their tables at
+   runtime. `@acme/rag/schema` declares Drizzle mirrors (`mastra_documents`,
+   `mastra_threads`, `mastra_messages`, `mastra_resources`) so the data stays
+   queryable with Drizzle — but these mirrors are **not** exported through the
+   drizzle-kit schema entrypoints, so `db:push`/`db:generate` neither create, alter,
+   nor track them. (A table only needs its TypeScript definition to be queried with
+   drizzle-orm; it does not need to be drizzle-kit-managed. This replaces the earlier
+   "generate the migrations but mark them applied" approach — there are no mirror
+   migrations to mark.) `db:push` additionally carries a `!mastra_*` `tablesFilter`
+   whose real job is to hide Mastra's runtime tables during DB introspection so push
+   doesn't try to DROP tables it doesn't declare; `tablesFilter` does not affect the
+   code-derived desired state. **Invariant: every Mastra-owned table is
+   `mastra_`-prefixed** — including the knowledge-base table, named `mastra_documents`
+   for exactly this reason (its name is ours; PgVector owns its DDL). Everything else
+   in the per-app schema is app-owned.
 2. **Per-app isolation via a Postgres schema, not a table prefix.** Mastra has no
    table-prefix option, so both stores set `schemaName: NEXT_PUBLIC_WEBAPP`. Each app
-   gets its own schema (auto `CREATE SCHEMA IF NOT EXISTS`), and the Drizzle mirrors
-   use `pgSchema(NEXT_PUBLIC_WEBAPP)` to match.
+   gets its own schema. **Drizzle owns the schema's creation:** the app exports an
+   `appSchema = pgSchema(NEXT_PUBLIC_WEBAPP)` (`apps/nextjs/src/server/app-schema.ts`)
+   through both drizzle-kit entrypoints so `CREATE SCHEMA` is emitted. Mastra also
+   issues `CREATE SCHEMA IF NOT EXISTS` for the same name at runtime — idempotent, so
+   a harmless no-op once drizzle created it. **Run drizzle before the app on a fresh
+   DB** (`db:push` in dev, `db:migrate` in deploy, both before boot). drizzle-kit
+   emits plain `CREATE SCHEMA` (no `IF NOT EXISTS`) in generated migrations, so the
+   first migration's schema-creation line should be hand-edited to
+   `CREATE SCHEMA IF NOT EXISTS` to stay safe if Mastra ever boots first. App-owned
+   tables are namespaced on `appSchema`.
 3. **Bedrock via an AI-SDK provider instance, not Mastra's model router.** Mastra's
    model router has no native Bedrock entry, so we pass an `@ai-sdk/amazon-bedrock`
    provider instance directly as the agent/embedding model (Claude chat + Cohere

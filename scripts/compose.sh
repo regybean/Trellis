@@ -16,4 +16,14 @@ if [ -z "$engine" ]; then
   fi
 fi
 
-exec "$engine" compose "$@"
+# podman-compose ignores the COMPOSE_PROFILES env var (docker honors it), so
+# translate it into explicit --profile flags, which both engines accept.
+profile_args=()
+if [ -n "${COMPOSE_PROFILES:-}" ]; then
+  IFS=',' read -ra _profiles <<<"$COMPOSE_PROFILES"
+  for p in "${_profiles[@]}"; do
+    [ -n "$p" ] && profile_args+=(--profile "$p")
+  done
+fi
+
+exec "$engine" compose "${profile_args[@]}" "$@"

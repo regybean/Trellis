@@ -48,7 +48,9 @@ export function billingEnv() {
       DB_NAME: process.env.DB_NAME,
     },
     skipValidation:
-      !!process.env.CI || process.env.npm_lifecycle_event === 'lint',
+      !!process.env.CI ||
+      process.env.npm_lifecycle_event === 'lint' ||
+      process.env.NEXT_PHASE === 'phase-production-build',
   });
 }
 

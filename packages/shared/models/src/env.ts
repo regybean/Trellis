@@ -4,7 +4,9 @@ import { z } from 'zod/v4';
 // Validation is skipped on CI and during lint so those steps don't need a real
 // provider configured — matches the convention in the other `env.ts` files.
 const skipValidation =
-  !!process.env.CI || process.env.npm_lifecycle_event === 'lint';
+  !!process.env.CI ||
+  process.env.npm_lifecycle_event === 'lint' ||
+  process.env.NEXT_PHASE === 'phase-production-build';
 
 // Provider selection + the one cross-provider knob (embedding dimension). These
 // are always required; the per-provider envs below are only validated when their
@@ -42,6 +44,7 @@ export function bedrockEnv() {
     server: {
       AWS_REGION: z.string().nonempty().default('eu-west-2'),
       BEDROCK_CHAT_MODEL: z.string().nonempty(),
+      BEDROCK_EMBED_MODEL: z.string().nonempty(),
       AWS_ACCESS_KEY_ID: z.string(),
       AWS_SECRET_ACCESS_KEY: z.string(),
     },
@@ -49,6 +52,7 @@ export function bedrockEnv() {
     runtimeEnv: {
       AWS_REGION: process.env.AWS_REGION,
       BEDROCK_CHAT_MODEL: process.env.BEDROCK_CHAT_MODEL,
+      BEDROCK_EMBED_MODEL: process.env.BEDROCK_EMBED_MODEL,
       AWS_ACCESS_KEY_ID: process.env.AWS_ACCESS_KEY_ID,
       AWS_SECRET_ACCESS_KEY: process.env.AWS_SECRET_ACCESS_KEY,
     },

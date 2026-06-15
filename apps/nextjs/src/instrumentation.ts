@@ -21,5 +21,10 @@ export async function register() {
         'http://localhost:4318/v1/traces',
       debug: process.env.NODE_ENV === 'development',
     });
+
+    // Resolve active chat+embed providers at boot so a missing/invalid env for a
+    // *selected* provider crashes startup, not the first request. Only the chosen
+    // providers' envs are validated (resolve.ts switch) — ollama stays AWS-free.
+    await import('@acme/models');
   }
 }
