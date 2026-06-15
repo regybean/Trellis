@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 
 import type { SerializableUser } from '@acme/auth';
-import { RateLimitManagement } from '@acme/billing';
+import { RateLimitManagement, TierManagement } from '@acme/billing';
 import {
   Avatar,
   AvatarFallback,
@@ -203,6 +203,8 @@ export function UserDetailedManagement({
         </Card>
 
         <RateLimitManagement user={user} />
+
+        <TierManagement user={user} />
       </div>
     </div>
   );

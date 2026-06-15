@@ -39,9 +39,12 @@ _Avoid_: "dashboard", "account page"
 - **Credit** balance is stored in Redis at `credits:{userId}:{tier}`, expiring at the end of the **Billing window**
 - Tier access is enforced by `requireTier(minTier)` (from `@acme/trpc`), composed onto `protectedProcedure` per procedure. `requireTier('Standard')` admits Standard or Pro (i.e. any paying customer); `requireTier('Pro')` admits Pro only
 - Admin procedures (`resetUserRateLimit`, `maxOutUserRateLimit`, `overrideUserRateLimitExpiry`) directly manipulate the Redis credit key
+- `setUserTier` (admin, localstripe dev only) cancels/creates a Stripe subscription directly to move a user between Tiers without Checkout
 
 ## Design decisions
 
 **Credits are not Stripe metered billing**: The credit system is a Redis token bucket, not a Stripe usage record. Credits reset on a per-billing-window schedule but are not billed per-credit.
+
+**Local dev runs on localstripe, not real Stripe**: When `STRIPE_API_BASE` is set, `getStripe()` retargets the SDK at a fake stateful Stripe server (the default dev config). localstripe predates the Prices API, so it serves the legacy `plan` shape — `buildSubscriptionCache` reads `price ?? plan` and `syncStripeDataToKV` skips the unsupported expands. Tiers are granted from the admin page (`setUserTier`) rather than Checkout. See [`docs/adr/0003-localstripe-dev-billing.md`](../../../docs/adr/0003-localstripe-dev-billing.md).
 
 **Tier-gating is hierarchical and decision-only**: Gates compare against a _minimum_ tier (`requireTier`), so higher tiers inherit lower-tier access. The gate reads the already-assembled Billing context and performs no Redis or Stripe I/O. The previous dev-only inline Stripe re-sync was removed from the gate: it ran _after_ the subscription was read into context, so it never affected the current request's decision (only the next one) while paying a Stripe round-trip on every gated request. Keeping the local `stripe:customer:*` cache fresh in dev is a separate concern (Stripe webhooks / manual sync), not the gate's job.

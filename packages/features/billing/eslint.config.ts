@@ -5,7 +5,9 @@ import { testingConfig } from '@acme/eslint-config/testing';
 
 export default [
   {
-    ignores: ['.next/**'],
+    // scripts/ holds standalone node-run dev tooling (e.g. seed-localstripe),
+    // outside the src tsconfig project — exclude from type-aware linting.
+    ignores: ['.next/**', 'scripts/**'],
   },
   ...baseConfig,
   ...reactConfig,

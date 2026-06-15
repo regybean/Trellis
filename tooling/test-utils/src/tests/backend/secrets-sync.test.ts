@@ -32,8 +32,8 @@ import {
 
 const SECRET_NAME = 'secrets-sync-test';
 const here = dirname(fileURLToPath(import.meta.url));
-// src/tests/backend -> repo root is six levels up.
-const repoRoot = resolve(here, '../../../../../../');
+// src/tests/backend -> repo root is five levels up.
+const repoRoot = resolve(here, '../../../../../');
 const scriptsDir = join(repoRoot, 'scripts');
 
 const awsEnv = {

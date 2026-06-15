@@ -9,6 +9,9 @@ export function billingEnv() {
         .default('development'),
     },
     server: {
+      // Dev-only: point the Stripe SDK at a localstripe server instead of the
+      // real Stripe API. Unset in prod → real Stripe. See docs/adr/0003.
+      STRIPE_API_BASE: z.url().optional(),
       STRIPE_SECRET_KEY: z.string(),
       STRIPE_WEBHOOK_SECRET: z.string(),
       STRIPE_SUCCESS_URL: z.url(),
@@ -38,6 +41,7 @@ export function billingEnv() {
         process.env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID,
       NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID:
         process.env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID,
+      STRIPE_API_BASE: process.env.STRIPE_API_BASE,
       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
       REDIS_URL: process.env.REDIS_URL,
@@ -48,7 +52,9 @@ export function billingEnv() {
       DB_NAME: process.env.DB_NAME,
     },
     skipValidation:
-      !!process.env.CI || process.env.npm_lifecycle_event === 'lint',
+      !!process.env.CI ||
+      process.env.npm_lifecycle_event === 'lint' ||
+      process.env.NEXT_PHASE === 'phase-production-build',
   });
 }
 

@@ -3,13 +3,14 @@ import { TRPCError } from '@trpc/server';
 import Stripe from 'stripe';
 import { z } from 'zod/v4';
 
-import type { SubscriptionCache } from '@acme/subscriptions';
+import type { SubscriptionCache, SubscriptionTier } from '@acme/subscriptions';
 import type { Telemetry } from '@acme/telemetry/server';
 import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 import { SubscriptionCacheSchema } from '@acme/subscriptions';
 
 import { env } from '../env';
+import { buildSubscriptionCache } from './subscription-cache';
 
 // Constants
 const DEFAULT_QUANTITY = 1;
@@ -55,9 +56,28 @@ export function getStripe(): Stripe {
     }
     _stripe = new Stripe(env.STRIPE_SECRET_KEY, {
       httpClient: Stripe.createFetchHttpClient(),
+      // Dev-only: route the SDK at a localstripe server. Unset → real Stripe.
+      ...localstripeConfig(),
     });
   }
   return _stripe;
+}
+
+/**
+ * When STRIPE_API_BASE is set (local dev with localstripe), parse it into the
+ * host/port/protocol overrides the Stripe SDK uses to target an alternate
+ * server. Returns an empty object in prod so SDK defaults are untouched.
+ */
+function localstripeConfig() {
+  if (!env.STRIPE_API_BASE) return {};
+  const url = new URL(env.STRIPE_API_BASE);
+  const isHttps = url.protocol === 'https:';
+  const protocol: 'http' | 'https' = isHttps ? 'https' : 'http';
+  return {
+    host: url.hostname,
+    port: Number(url.port) || (isHttps ? 443 : 80),
+    protocol,
+  };
 }
 
 export async function getProductWithPrice(
@@ -378,7 +398,12 @@ export async function syncStripeDataToKV(
       customer: customerId,
       limit: 1,
       status: 'all',
-      expand: ['data.default_payment_method', 'data.items.data.price'],
+      // localstripe has no `price` on items and no `default_payment_method` on
+      // subscriptions, and 400s on expand paths it can't resolve. Skip expands
+      // there; buildSubscriptionCache reads the inline `plan` fallback instead.
+      expand: env.STRIPE_API_BASE
+        ? []
+        : ['data.default_payment_method', 'data.items.data.price'],
     });
 
     if (subscriptions.data.length === 0 || !subscriptions.data[0]) {
@@ -392,26 +417,7 @@ export async function syncStripeDataToKV(
     }
 
     const subscription = subscriptions.data[0];
-    const productId = subscription.items.data[0]?.price.product;
-
-    const candidate: STRIPE_SUB_CACHE = {
-      subscriptionId: subscription.id,
-      status: subscription.status,
-      product: typeof productId === 'string' ? productId : null,
-      priceId: subscription.items.data[0]?.price.id ?? null,
-      currentPeriodStart:
-        subscription.items.data[0]?.current_period_start ?? null,
-      currentPeriodEnd: subscription.items.data[0]?.current_period_end ?? null,
-      cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      paymentMethod:
-        subscription.default_payment_method &&
-        typeof subscription.default_payment_method !== 'string'
-          ? {
-              brand: subscription.default_payment_method.card?.brand ?? null,
-              last4: subscription.default_payment_method.card?.last4 ?? null,
-            }
-          : null,
-    };
+    const candidate = buildSubscriptionCache(subscription);
 
     const validated = SubscriptionCacheSchema.safeParse(candidate);
     const subData: STRIPE_SUB_CACHE = validated.success
@@ -449,4 +455,121 @@ export async function syncStripeDataToKV(
     });
   }
   return await operation();
+}
+
+/**
+ * Resolve (or create) the Stripe customer for a user, without the active-
+ * subscription guard in findOrCreateCustomer — setUserTier intentionally
+ * re-grants over an existing subscription.
+ */
+async function resolveCustomerId(
+  email: string,
+  userId: string,
+): Promise<string> {
+  const stripe = getStripe();
+  const existing = await redis.get(`stripe:user:${userId}`);
+  if (existing) {
+    const customer = await stripe.customers.retrieve(existing);
+    if (!customer.deleted) return existing;
+  }
+  const created = await stripe.customers.create({
+    email,
+    metadata: { userId },
+  });
+  await redis.set(`stripe:user:${userId}`, created.id);
+  return created.id;
+}
+
+/**
+ * localstripe models the legacy Plans API, so we look the plan up by the
+ * product the tier maps to rather than hard-coding seed plan IDs.
+ */
+async function findPlanForProduct(productId: string): Promise<Stripe.Plan> {
+  const stripe = getStripe();
+  const plans = await stripe.plans.list({ limit: 100 });
+  const plan = plans.data.find((p) => {
+    const ref = p.product;
+    return (typeof ref === 'string' ? ref : ref?.id) === productId;
+  });
+  if (!plan) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: `No localstripe plan for product ${productId}; run pnpm infra:up to seed.`,
+    });
+  }
+  return plan;
+}
+
+/**
+ * Admin-only, localstripe-only: move a user to a billing tier directly, with no
+ * Stripe Checkout. Cancels any existing subscription first (so tier changes and
+ * downgrades don't stack), then for a paid tier attaches localstripe's test
+ * card and creates an active subscription on the matching plan. 'Basic' just
+ * cancels. Syncs Redis immediately so the admin UI is deterministic.
+ *
+ * Guarded on STRIPE_API_BASE so it can never run against real Stripe.
+ */
+export async function setUserTier(
+  args: { userId: string; email: string; tier: SubscriptionTier },
+  telemetry?: Telemetry,
+): Promise<STRIPE_SUB_CACHE> {
+  const { userId, email, tier } = args;
+
+  if (!env.STRIPE_API_BASE) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'setUserTier is only available in local dev with localstripe',
+    });
+  }
+
+  const stripe = getStripe();
+  const customerId = await resolveCustomerId(email, userId);
+
+  // Clean slate: cancel any non-canceled subscription so a tier change doesn't
+  // leave the customer on two plans.
+  const existing = await stripe.subscriptions.list({
+    customer: customerId,
+    status: 'all',
+    limit: 100,
+  });
+  for (const sub of existing.data) {
+    if (sub.status !== 'canceled') {
+      await stripe.subscriptions.cancel(sub.id);
+    }
+  }
+
+  if (tier !== 'Basic') {
+    const productId =
+      tier === 'Pro'
+        ? env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID
+        : env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID;
+    const plan = await findPlanForProduct(productId);
+
+    // Attach localstripe's built-in 4242 test card and make it the default so
+    // the first invoice is paid immediately — otherwise the subscription stays
+    // `incomplete` and never becomes `active`.
+    const pm = await stripe.paymentMethods.attach('pm_card_visa', {
+      customer: customerId,
+    });
+    await stripe.customers.update(customerId, {
+      invoice_settings: { default_payment_method: pm.id },
+    });
+
+    await stripe.subscriptions.create({
+      customer: customerId,
+      items: [{ plan: plan.id }],
+      default_payment_method: pm.id,
+    });
+  }
+
+  const subData = await syncStripeDataToKV(customerId, telemetry);
+
+  telemetry?.set({
+    'admin.action': 'set_user_tier',
+    'admin.target_user_id': userId,
+    'admin.tier': tier,
+    'admin.subscription_status': subData.status,
+  });
+
+  return subData;
 }

@@ -6,10 +6,17 @@ title = "acme"
 useDefault = true
 
 [allowlist]
-description = "Ignore example/placeholder env files and the lockfile"
+description = "Ignore example/placeholder env files, the lockfile, and localstripe dev placeholders"
 paths = [
   '''(^|/)\.env\.example$''',
   '''(^|/)\.env\.production$''',
   '''(^|/)\.env\.staging$''',
   '''(^|/)pnpm-lock\.yaml$''',
+]
+# Fixed, non-secret placeholders for the local dev localstripe server (no real
+# Stripe account/keys involved). See docs/adr/0003.
+regexes = [
+  '''sk_test_localstripe''',
+  '''whsec_localstripe''',
+  '''pk_test_localstripe''',
 ]
