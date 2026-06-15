@@ -73,6 +73,15 @@ scoped off `mastra_*` so it can only manage app-owned tables — see [ADR 0002](
 **Per-app separation via `schemaName`**: Mastra exposes no table-prefix hook, so
 each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
 
+**Knowledge-base table created at boot, not on first upload**: PgVector creates
+`mastra_documents` lazily (on the first upsert), so a freshly-pushed vector DB has
+no table and reads (`listDocuments`) throw `relation … does not exist`. The app
+calls `ensureVectorIndex()` at boot (Next.js `instrumentation.ts`) so the table
+exists before any read; `uploadDocs` keeps its own call as a backstop. Reads stay
+pure (no DDL on a read), and an unreachable vector DB fails at startup rather than
+on the first request — the same contract as provider resolution. Still Mastra-owned
+DDL, consistent with [ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
+
 **Boundary**: the Mastra `Agent`/`Mastra` instance is _not_ here — the shared layer
 cannot import features. This package exports primitives; `@acme/chat` assembles the
 agent and the root Mastra CLI scripts point at `packages/features/chat/src/mastra`.

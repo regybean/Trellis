@@ -26,5 +26,13 @@ export async function register() {
     // *selected* provider crashes startup, not the first request. Only the chosen
     // providers' envs are validated (resolve.ts switch) — ollama stays AWS-free.
     await import('@acme/models');
+
+    // Create the knowledge-base table at boot (Mastra owns the DDL — ADR-0002).
+    // PgVector creates it lazily on first upload, so a freshly-pushed vector DB
+    // has no table and reads (documents.list) throw "relation does not exist".
+    // Ensuring it here makes reads pure and surfaces an unreachable vector DB at
+    // startup, not the first request — same contract as provider resolution.
+    const { ensureVectorIndex } = await import('@acme/rag/server');
+    await ensureVectorIndex();
   }
 }

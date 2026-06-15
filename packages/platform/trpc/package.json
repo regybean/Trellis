@@ -24,6 +24,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
+    },
+    "./error": {
+      "types": "./dist/error.d.ts",
+      "default": "./src/error.ts"
     }
   },
   "license": "MIT",

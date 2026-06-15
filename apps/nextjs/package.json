@@ -11,6 +11,7 @@
     "@acme/rag": "workspace:*",
     "@acme/sidebar": "workspace:*",
     "@acme/telemetry": "workspace:*",
+    "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
     "@clerk/nextjs": "catalog:",
     "@clerk/themes": "catalog:",

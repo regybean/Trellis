@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
 import { appRouter, createTRPCContext } from '@acme/ingest/server';
+import { logTRPCError } from '@acme/trpc/error';
 
 const setCorsHeaders = (res: Response) => {
   res.headers.set('Access-Control-Allow-Origin', '*');
@@ -26,11 +27,7 @@ const handler = (req: NextRequest) =>
     req,
     router: appRouter,
     createContext: () => createContext(req),
-    onError: ({ path, error }) => {
-      console.error(
-        `❌ tRPC failed on ${path ?? '<no-path>'}: ${error.message}, ${error.cause}`,
-      );
-    },
+    onError: logTRPCError,
   });
 
 export { handler as GET, handler as POST };
