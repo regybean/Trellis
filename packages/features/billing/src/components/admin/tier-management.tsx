@@ -68,11 +68,11 @@ export function TierManagement({ user }: TierManagementProps) {
   return (
     <Card className="border-border shadow-xs">
       <CardHeader>
-        <CardTitle className="text-text flex items-center">
-          <CreditCard className="text-text-accent mr-2 h-5 w-5" />
+        <CardTitle className="text-foreground flex items-center">
+          <CreditCard className="text-accent-foreground mr-2 h-5 w-5" />
           Tier Management
         </CardTitle>
-        <div className="text-text-secondary text-sm">
+        <div className="text-muted-foreground text-sm">
           Grant or cancel a billing tier directly (local dev / localstripe
           only). Basic cancels any paid subscription.
         </div>
@@ -103,7 +103,7 @@ export function TierManagement({ user }: TierManagementProps) {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             <Button
-              className="bg-background-primary text-on-primary hover:bg-background-primary/90"
+              className="bg-primary text-on-primary hover:bg-primary/90"
               disabled={!primaryEmail}
             >
               Set to {tier}
@@ -128,7 +128,7 @@ export function TierManagement({ user }: TierManagementProps) {
               <Button
                 onClick={handleApply}
                 disabled={setUserTier.isPending}
-                className="bg-background-primary text-on-primary hover:bg-background-primary/90"
+                className="bg-primary text-on-primary hover:bg-primary/90"
               >
                 {setUserTier.isPending ? 'Applying...' : `Set to ${tier}`}
               </Button>

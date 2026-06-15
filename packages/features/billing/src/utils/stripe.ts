@@ -87,9 +87,21 @@ export async function getProductWithPrice(
   const operation = async () => {
     const stripe = getStripe();
     const product = await stripe.products.retrieve(productId);
-    const defaultPriceId = product.default_price;
 
-    if (!defaultPriceId || typeof defaultPriceId !== 'string') {
+    let defaultPriceId =
+      typeof product.default_price === 'string'
+        ? product.default_price
+        : undefined;
+
+    // localstripe (and legacy data) predates the Prices API: products carry no
+    // default_price, only legacy Plans. Fall back to the product's plan, whose
+    // id is accepted as line_items[].price. No-op on real Stripe. See ADR-0003.
+    if (!defaultPriceId) {
+      const plans = await stripe.plans.list({ product: productId, limit: 1 });
+      defaultPriceId = plans.data[0]?.id;
+    }
+
+    if (!defaultPriceId) {
       logger.error({ productId }, 'Product does not have a default price');
       throw new TRPCError({
         code: 'BAD_REQUEST',
@@ -545,9 +557,12 @@ export async function setUserTier(
         : env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID;
     const plan = await findPlanForProduct(productId);
 
-    // Attach localstripe's built-in 4242 test card and make it the default so
-    // the first invoice is paid immediately — otherwise the subscription stays
-    // `incomplete` and never becomes `active`.
+    // Attach localstripe's built-in 4242 test card and make it the customer's
+    // default so the first invoice is paid immediately — otherwise the
+    // subscription stays `incomplete` and never becomes `active`. localstripe's
+    // subscription create doesn't accept default_payment_method (only the
+    // customer-level invoice_settings default), and the subscription inherits
+    // it from there.
     const pm = await stripe.paymentMethods.attach('pm_card_visa', {
       customer: customerId,
     });
@@ -558,7 +573,6 @@ export async function setUserTier(
     await stripe.subscriptions.create({
       customer: customerId,
       items: [{ plan: plan.id }],
-      default_payment_method: pm.id,
     });
   }
 

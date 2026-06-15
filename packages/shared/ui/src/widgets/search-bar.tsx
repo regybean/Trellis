@@ -42,11 +42,11 @@ export function SearchBar({
       <div className="bg-primary h-2" />
       <CardHeader className="bg-accent p-0">
         <div className="px-6 py-4">
-          <CardTitle className="text-text flex items-center">
-            <Search className="text-text-accent mr-2 h-5 w-5" />
+          <CardTitle className="text-foreground flex items-center">
+            <Search className="text-accent-foreground mr-2 h-5 w-5" />
             Search Questions
           </CardTitle>
-          <CardDescription className="text-text-secondary">
+          <CardDescription className="text-muted-foreground">
             Find specific compliance questions
           </CardDescription>
         </div>
@@ -64,7 +64,7 @@ export function SearchBar({
               }}
               autoFocus={autoFocus}
               className={cn(
-                'border-border text-text bg-background h-12 w-full pr-24 text-base',
+                'border-border text-foreground bg-background h-12 w-full pr-24 text-base',
                 inputClassName,
               )}
               data-testid="search-bar-input"
@@ -73,7 +73,7 @@ export function SearchBar({
               onClick={handleSearch}
               type="button"
               className={cn(
-                'bg-primary text-on-primary hover:bg-button-primary-hover absolute top-1 right-1 flex h-10 items-center rounded-md px-4',
+                'bg-primary text-on-primary hover:bg-primary/90 absolute top-1 right-1 flex h-10 items-center rounded-md px-4',
                 buttonClassName,
               )}
               size="sm"

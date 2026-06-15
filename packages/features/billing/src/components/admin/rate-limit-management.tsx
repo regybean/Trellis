@@ -122,18 +122,20 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
   return (
     <Card className="border-border shadow-xs">
       <CardHeader>
-        <CardTitle className="text-text flex items-center">
-          <Timer className="text-text-accent mr-2 h-5 w-5" />
+        <CardTitle className="text-foreground flex items-center">
+          <Timer className="text-accent-foreground mr-2 h-5 w-5" />
           Subscription Management
         </CardTitle>
-        <div className="text-text-secondary text-sm">
+        <div className="text-muted-foreground text-sm">
           User: {primaryEmail} (ID: {user.id})
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Rate Limit Status */}
         <div className="space-y-3">
-          <h4 className="text-text font-medium">Current Rate Limit Status</h4>
+          <h4 className="text-foreground font-medium">
+            Current Rate Limit Status
+          </h4>
           {rateLimitStatus.data && (
             <RateLimitStatusDisplay
               rateLimitStatus={rateLimitStatus.data}
@@ -146,7 +148,7 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
 
         {/* Subscription Details */}
         <div className="space-y-3">
-          <h4 className="text-text font-medium">Subscription Details</h4>
+          <h4 className="text-foreground font-medium">Subscription Details</h4>
           {subscription.data && (
             <SubscriptionDetailsDisplay
               subscriptionData={subscription.data}
@@ -186,7 +188,7 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
                 <Button
                   onClick={handleResetRateLimit}
                   disabled={resetRateLimit.isPending}
-                  className="bg-background-primary text-on-primary hover:bg-background-primary/90"
+                  className="bg-primary text-on-primary hover:bg-primary/90"
                 >
                   {resetRateLimit.isPending ? 'Resetting...' : 'Reset'}
                 </Button>
@@ -267,7 +269,7 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
                     min="1"
                     max="8760"
                   />
-                  <div className="text-text-secondary text-sm">
+                  <div className="text-muted-foreground text-sm">
                     New expiry:{' '}
                     {new Date(
                       // eslint-disable-next-line react-hooks/purity
@@ -287,7 +289,7 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
                   <Button
                     onClick={handleOverrideExpiry}
                     disabled={overrideExpiry.isPending || !overrideHours}
-                    className="bg-background-primary text-on-primary hover:bg-background-primary/90"
+                    className="bg-primary text-on-primary hover:bg-primary/90"
                   >
                     {overrideExpiry.isPending ? 'Setting...' : 'Set Override'}
                   </Button>

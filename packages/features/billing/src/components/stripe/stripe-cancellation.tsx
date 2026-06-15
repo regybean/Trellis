@@ -124,12 +124,12 @@ export function SubscriptionCancellation({
           </div>
         ) : (
           <div className="text-center">
-            <p className="text-text-secondary/80 mb-2 text-xs">
+            <p className="text-muted-foreground/80 mb-2 text-xs">
               We&apos;re sorry to see you go.
             </p>
             <Button
               variant="link"
-              className="text-text-secondary/60 hover:text-text-secondary h-auto p-0 text-xs underline"
+              className="text-muted-foreground/60 hover:text-muted-foreground h-auto p-0 text-xs underline"
               onClick={handleCancellation}
               disabled={createDashboardSession.isPending}
             >

@@ -39,9 +39,9 @@ const getRoleBadgeVariant = (role?: 'user' | 'admin') =>
 
 const getRoleIcon = (role?: 'user' | 'admin') =>
   role === 'admin' ? (
-    <Shield className="text-text h-3 w-3" />
+    <Shield className="text-foreground h-3 w-3" />
   ) : (
-    <UserIcon className="text-text h-3 w-3" />
+    <UserIcon className="text-foreground h-3 w-3" />
   );
 
 const getUserRole = (user: SerializableUser): 'user' | 'admin' =>
@@ -69,8 +69,8 @@ export function UserDetailedManagement({
       {/* User Header */}
       <Card className="border-border shadow-xs">
         <CardHeader>
-          <CardTitle className="text-text flex items-center">
-            <User className="text-text-accent mr-2 h-5 w-5" />
+          <CardTitle className="text-foreground flex items-center">
+            <User className="text-accent-foreground mr-2 h-5 w-5" />
             User Details
           </CardTitle>
         </CardHeader>
@@ -81,24 +81,26 @@ export function UserDetailedManagement({
                 src={user.imageUrl || '/placeholder.svg'}
                 alt={primaryEmail}
               />
-              <AvatarFallback className="bg-background-primary text-on-primary text-lg">
+              <AvatarFallback className="bg-primary text-on-primary text-lg">
                 {emailInitials}
               </AvatarFallback>
             </Avatar>
 
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
-                <Mail className="text-text-secondary h-4 w-4" />
-                <h3 className="text-text text-lg font-medium">
+                <Mail className="text-muted-foreground h-4 w-4" />
+                <h3 className="text-foreground text-lg font-medium">
                   {primaryEmail}
                 </h3>
               </div>
-              <p className="text-text-secondary text-sm">User ID: {user.id}</p>
-              <p className="text-text-secondary text-sm">
+              <p className="text-muted-foreground text-sm">
+                User ID: {user.id}
+              </p>
+              <p className="text-muted-foreground text-sm">
                 Created: {new Date(user.createdAt).toLocaleDateString()}
               </p>
               {user.lastSignInAt && (
-                <p className="text-text-secondary text-sm">
+                <p className="text-muted-foreground text-sm">
                   Last Sign In:{' '}
                   {new Date(user.lastSignInAt).toLocaleDateString()}
                 </p>
@@ -113,11 +115,11 @@ export function UserDetailedManagement({
         {/* Clerk Role Management */}
         <Card className="border-border shadow-xs">
           <CardHeader>
-            <CardTitle className="text-text flex items-center">
-              <Users className="text-text-accent mr-2 h-5 w-5" />
+            <CardTitle className="text-foreground flex items-center">
+              <Users className="text-accent-foreground mr-2 h-5 w-5" />
               Role Management
             </CardTitle>
-            <div className="text-text-secondary text-sm">
+            <div className="text-muted-foreground text-sm">
               User: {primaryEmail} (ID: {user.id})
             </div>
           </CardHeader>
@@ -129,9 +131,9 @@ export function UserDetailedManagement({
                   className="flex items-center space-x-1"
                 >
                   {getRoleIcon(userRole)}
-                  <span className="text-text capitalize">{userRole}</span>
+                  <span className="text-foreground capitalize">{userRole}</span>
                 </Badge>
-                <span className="text-text-secondary text-sm">
+                <span className="text-muted-foreground text-sm">
                   Current Role
                 </span>
               </div>
@@ -140,7 +142,7 @@ export function UserDetailedManagement({
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
-                    className="text-text-secondary hover:bg-background-hover hover:text-text h-8 w-8 p-0"
+                    className="text-muted-foreground hover:bg-accent hover:text-foreground h-8 w-8 p-0"
                   >
                     <MoreHorizontal className="h-4 w-4" />
                     <span className="sr-only">Open menu</span>
@@ -157,7 +159,7 @@ export function UserDetailedManagement({
                     <DropdownMenuItem asChild>
                       <button
                         type="submit"
-                        className="text-text hover:bg-background-hover focus:bg-background-hover flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                        className="text-foreground hover:bg-accent focus:bg-accent flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={userRole === 'admin'}
                       >
                         <Shield className="h-4 w-4" />
@@ -172,7 +174,7 @@ export function UserDetailedManagement({
                     <DropdownMenuItem asChild>
                       <button
                         type="submit"
-                        className="text-text hover:bg-background-hover focus:bg-background-hover flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
+                        className="text-foreground hover:bg-accent focus:bg-accent flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                         disabled={userRole === 'user'}
                       >
                         <UserIcon className="h-4 w-4" />

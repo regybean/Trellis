@@ -19,7 +19,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
   className,
 }) => {
   return (
-    <div className={`max-w-none ${className ?? 'text-text'}`}>
+    <div className={`max-w-none ${className ?? 'text-foreground'}`}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -46,7 +46,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
           // Links & emphasis
           a: ({ ...props }) => (
             <a
-              className="text-text-accent underline underline-offset-2 hover:opacity-80"
+              className="text-accent-foreground underline underline-offset-2 hover:opacity-80"
               target="_blank"
               rel="noreferrer noopener"
               {...props}
@@ -120,7 +120,7 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
           // Blockquotes
           blockquote: ({ ...props }) => (
             <blockquote
-              className="border-border-accent bg-background-secondary/40 my-3 border-l-4 px-4 py-2 text-inherit italic"
+              className="border-ring bg-secondary/40 my-3 border-l-4 px-4 py-2 text-inherit italic"
               {...props}
             />
           ),

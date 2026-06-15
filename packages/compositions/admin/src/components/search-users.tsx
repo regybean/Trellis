@@ -36,12 +36,12 @@ export const SearchUsers = () => {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="search" className="text-text font-medium">
+        <Label htmlFor="search" className="text-foreground font-medium">
           Search Users
         </Label>
         <div className="flex space-x-2">
           <div className="relative flex-1">
-            <Search className="text-text-secondary absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
             <Input
               id="search"
               name="search"
@@ -49,13 +49,13 @@ export const SearchUsers = () => {
               placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="border-border bg-background text-text placeholder:text-text-secondary focus:border-border-accent focus:ring-border-accent pl-10"
+              className="border-border bg-background text-foreground placeholder:text-muted-foreground focus:border-ring focus:ring-ring pl-10"
             />
             {searchTerm && (
               <button
                 type="button"
                 onClick={handleClear}
-                className="text-text-secondary hover:text-text absolute top-1/2 right-3 -translate-y-1/2"
+                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -63,7 +63,7 @@ export const SearchUsers = () => {
           </div>
           <Button
             type="submit"
-            className="bg-button-primary text-on-primary hover:bg-button-primary-hover"
+            className="bg-primary text-on-primary hover:bg-primary/90"
             disabled={!searchTerm.trim()}
           >
             <Search className="mr-2 h-4 w-4" />
@@ -74,7 +74,7 @@ export const SearchUsers = () => {
               type="button"
               variant="outline"
               onClick={handleClear}
-              className="border-border text-text hover:bg-background-hover"
+              className="border-border text-foreground hover:bg-accent"
             >
               Clear
             </Button>

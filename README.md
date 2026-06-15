@@ -96,6 +96,7 @@ pnpm turbo gen
 
 A living template — a few things are mid-transition, flagged honestly:
 
+- **Clerk is a hard dependency for both apps.** The *framework* is abstracted behind the auth seam ([ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md)) — apps resolve auth and inject it into the tRPC context, so the server side is already swappable. But the *provider* isn't: `@acme/auth` re-exports `@clerk/clerk-react` hooks/components that features import directly (e.g. `UserButton`, billing's `useAuth`), and `ctx.user` is a backend Clerk `User`. So today you can't run `nextjs`/`tanstack-start` without Clerk env. The planned `express` app sidesteps it (core chat only, no auth); fully decoupling the provider from the existing apps is a known pain point we may revisit.
 - **No zero-Docker path yet.** Full-stack local dev needs `pnpm infra:up`. The planned `express` app (core chat only) is the intended lighter-weight entry point — not built yet.
 - **`SECRET_MAP` only maps `nextjs`.** Secrets sync against a pluggable backend ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); default `dotenv-file`, zero setup), but `tanstack-start` still needs adding to `secrets.config.sh`.
 - **Model providers are settling.** Selection lives in [`@acme/models`](packages/shared/models/CONTEXT.md) — `bedrock` / `openrouter` / `ollama` by env ([ADR 0003](docs/adr/0003-multi-provider-models.md)). Ollama is the default so the repo runs with no credentials; dev models are tiny/CPU-only, not production quality.

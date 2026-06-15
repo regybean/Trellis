@@ -14,7 +14,7 @@ export default function MessageItem({ message }: { message: Message }) {
   const justify = isUser ? 'justify-end' : 'justify-start';
   const direction = isUser ? 'flex-row-reverse' : 'flex-row';
   const bubbleBase = `mx-2 rounded-lg p-3 ${
-    isUser ? 'bg-primary text-white' : 'bg-muted text-text'
+    isUser ? 'bg-primary text-white' : 'bg-muted text-foreground'
   }`;
   const testId = isUser ? 'user-message' : 'bot-message';
 

@@ -13,27 +13,27 @@ export const ButtonSkeleton = ({ colors }: { colors: { button: string } }) => (
 
 export const FeaturesList = ({ features }: { features: PricingFeature[] }) => (
   <div className="space-y-3">
-    <h4 className="text-text font-medium">Features included:</h4>
+    <h4 className="text-foreground font-medium">Features included:</h4>
     <ul className="space-y-2">
       {features.map((feature, i) => (
         <li key={i} className="flex items-start space-x-3">
           {feature.included ? (
             <Check className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
           ) : (
-            <X className="text-text-secondary mt-0.5 h-4 w-4 shrink-0" />
+            <X className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0" />
           )}
           <div>
             <span
               className={`text-sm ${
                 feature.included
-                  ? 'text-text'
-                  : 'text-text-secondary line-through'
+                  ? 'text-foreground'
+                  : 'text-muted-foreground line-through'
               }`}
             >
               {feature.name}
             </span>
             {feature.description && feature.included && (
-              <p className="text-text-secondary mt-0.5 text-xs">
+              <p className="text-muted-foreground mt-0.5 text-xs">
                 {feature.description}
               </p>
             )}

@@ -27,9 +27,9 @@ const getRoleBadgeVariant = (role?: 'user' | 'admin') =>
 
 const getRoleIcon = (role?: 'user' | 'admin') =>
   role === 'admin' ? (
-    <Shield className="text-text h-3 w-3" />
+    <Shield className="text-foreground h-3 w-3" />
   ) : (
-    <UserIcon className="text-text h-3 w-3" />
+    <UserIcon className="text-foreground h-3 w-3" />
   );
 
 const getUserRole = (user: SerializableUser): 'user' | 'admin' =>
@@ -70,7 +70,7 @@ export function UserManagement({
     <>
       <Card className="border-border shadow-xs">
         <CardHeader>
-          <CardTitle className="text-text">
+          <CardTitle className="text-foreground">
             User Results ({users.length})
           </CardTitle>
         </CardHeader>
@@ -96,7 +96,7 @@ export function UserManagement({
                         src={user.imageUrl || '/placeholder.svg'}
                         alt={primaryEmail}
                       />
-                      <AvatarFallback className="bg-background-primary text-on-primary text-sm">
+                      <AvatarFallback className="bg-primary text-on-primary text-sm">
                         {emailInitials}
                       </AvatarFallback>
                     </Avatar>
@@ -104,8 +104,8 @@ export function UserManagement({
                     <div className="space-y-1">
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center space-x-1">
-                          <Mail className="text-text-secondary h-4 w-4" />
-                          <h3 className="text-text font-medium">
+                          <Mail className="text-muted-foreground h-4 w-4" />
+                          <h3 className="text-foreground font-medium">
                             {primaryEmail}
                           </h3>
                         </div>
@@ -114,13 +114,13 @@ export function UserManagement({
                           className="flex items-center space-x-1"
                         >
                           {getRoleIcon(userRole)}
-                          <span className="text-text capitalize">
+                          <span className="text-foreground capitalize">
                             {userRole}
                           </span>
                         </Badge>
                       </div>
 
-                      <p className="text-text-secondary text-xs">
+                      <p className="text-muted-foreground text-xs">
                         User ID: {user.id}
                       </p>
                     </div>
@@ -129,7 +129,7 @@ export function UserManagement({
                   <Button
                     variant="default"
                     onClick={() => handleOpenUserManagement(user.id)}
-                    className="bg-button-primary text-on-primary hover:bg-button-primary-hover flex items-center space-x-2"
+                    className="flex items-center space-x-2"
                   >
                     <Settings className="h-4 w-4" />
                     <span>User Management</span>
@@ -143,7 +143,7 @@ export function UserManagement({
 
       {/* User Management Modal */}
       <Dialog open={isModalOpen} onOpenChange={handleCloseModal}>
-        <DialogContent className="max-h-[80vh] max-w-4xl overflow-y-auto">
+        <DialogContent className="max-h-[80vh] w-full overflow-y-auto sm:max-w-[min(90rem,calc(100vw-2rem))]">
           <DialogHeader>
             <DialogTitle>User Management</DialogTitle>
           </DialogHeader>

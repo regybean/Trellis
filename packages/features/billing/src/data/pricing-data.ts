@@ -231,10 +231,9 @@ export const getTierColors = (
     default: {
       return {
         border: 'border-border',
-        accent: 'text-text-accent',
-        button:
-          'bg-button-primary hover:bg-button-primary-hover text-text-on-primary',
-        badge: 'bg-button-primary',
+        accent: 'text-accent-foreground',
+        button: 'bg-primary hover:bg-primary/90 text-on-primary',
+        badge: 'bg-primary',
       };
     }
   }

@@ -78,11 +78,11 @@ export async function AdminDashboard({ searchParams }: Props) {
           {query && serializableUsers.length === 0 && (
             <Card className="border-border shadow-xs">
               <CardContent className="py-8 text-center">
-                <Users className="text-text-secondary/50 mx-auto h-12 w-12" />
-                <h3 className="text-text mt-4 text-lg font-medium">
+                <Users className="text-muted-foreground/50 mx-auto h-12 w-12" />
+                <h3 className="text-foreground mt-4 text-lg font-medium">
                   No users found
                 </h3>
-                <p className="text-text-secondary mt-2">
+                <p className="text-muted-foreground mt-2">
                   No users match your search criteria. Try a different search
                   term.
                 </p>

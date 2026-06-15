@@ -148,20 +148,20 @@ export function StripeTesting() {
   return (
     <Card className="border-border shadow-xs">
       <CardHeader>
-        <CardTitle className="text-text flex items-center">
-          <TestTube className="text-text-accent mr-2 h-5 w-5" />
+        <CardTitle className="text-foreground flex items-center">
+          <TestTube className="text-accent-foreground mr-2 h-5 w-5" />
           Stripe Testing
         </CardTitle>
-        <CardDescription className="text-text-secondary">
+        <CardDescription className="text-muted-foreground">
           Test Stripe integration and subscription feature access
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Demo Purchase Section */}
         <div className="space-y-4">
-          <h4 className="text-text font-medium">Demo Purchase</h4>
-          <div className="border-background-primary bg-background-secondary/50 rounded-lg border border-dashed p-4">
-            <p className="text-text-secondary mb-4 text-sm">
+          <h4 className="text-foreground font-medium">Demo Purchase</h4>
+          <div className="border-primary bg-secondary/50 rounded-lg border border-dashed p-4">
+            <p className="text-muted-foreground mb-4 text-sm">
               Test Stripe checkout session creation with a demo product.
             </p>
             <Button
@@ -170,7 +170,7 @@ export function StripeTesting() {
                   productId: env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID,
                 })
               }
-              className="bg-background-primary text-on-primary hover:bg-button-primary-hover"
+              className="bg-primary text-on-primary hover:bg-primary/90"
               disabled={createCheckoutSession.isPending}
             >
               {createCheckoutSession.isPending ? (
@@ -190,11 +190,11 @@ export function StripeTesting() {
 
         {/* Feature Testing Section */}
         <div className="space-y-4">
-          <h4 className="text-text font-medium">
+          <h4 className="text-foreground font-medium">
             Subscription Feature Testing
           </h4>
-          <div className="border-background-primary bg-background-secondary/50 rounded-lg border border-dashed p-4">
-            <p className="text-text-secondary mb-4 text-sm">
+          <div className="border-primary bg-secondary/50 rounded-lg border border-dashed p-4">
+            <p className="text-muted-foreground mb-4 text-sm">
               Test protected subscription feature endpoints via tRPC.
             </p>
             <div className="flex flex-col gap-3 sm:flex-row">

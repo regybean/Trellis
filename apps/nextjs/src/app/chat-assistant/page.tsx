@@ -16,7 +16,7 @@ function ChatPage() {
   };
 
   return (
-    <div className="bg-background-tertiary min-h-screen flex-grow p-5">
+    <div className="bg-muted min-h-screen flex-grow p-5">
       <ChatAssistant onTokensConsumed={handleTokensConsumed} />
     </div>
   );

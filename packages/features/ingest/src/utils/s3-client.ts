@@ -29,6 +29,12 @@ export const s3Client = new S3Client({
     accessKeyId: env.AWS_ACCESS_KEY_ID,
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
   },
+  // AWS SDK >=3.729 defaults requestChecksumCalculation to WHEN_SUPPORTED, which
+  // bakes a CRC32 of an EMPTY body into presigned PUT URLs. The browser then PUTs
+  // real bytes -> checksum mismatch -> 400 InvalidRequest. Browser PUTs can't join
+  // the checksum protocol; disable it (TLS covers transit, server re-parses on
+  // download). Don't "tidy" this away — it breaks direct uploads.
+  requestChecksumCalculation: 'WHEN_REQUIRED',
   ...(env.S3_ENDPOINT && {
     endpoint: env.S3_ENDPOINT,
     forcePathStyle: true, // Required for LocalStack

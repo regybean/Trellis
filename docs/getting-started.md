@@ -33,6 +33,24 @@ pnpm env:pull            # fetches secrets from the configured backend into your
 
 Default backend is `dotenv-file` (a gitignored local JSON — zero setup). The backend is selectable in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
 
+### Auth: Clerk keys (required for both apps)
+
+Both `nextjs` and `tanstack-start` require [Clerk](https://clerk.com) today — it's the one credential you can't stub locally (the framework is behind a seam, the provider isn't yet; see [README → known rough edges](../README.md#known-rough-edges)). Create a free Clerk app, then set its two keys from the [API keys](https://dashboard.clerk.com/last-active?path=api-keys) page:
+
+| Var | Where | Value |
+|---|---|---|
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | both apps | `pk_test_…` (Publishable key) |
+| `CLERK_SECRET_KEY` | both apps | `sk_test_…` (Secret key) |
+| `CLERK_PUBLISHABLE_KEY` | `tanstack-start` only | same `pk_test_…` — its server SDK doesn't read `NEXT_PUBLIC_*` |
+
+Set them per app in `apps/nextjs/.env` and `apps/tanstack-start/.env`. The `*_SIGN_IN_URL` / `*_SIGN_UP_URL` vars already have working defaults.
+
+**Roles** — admin-only actions (e.g. uploading docs on the ingest/admin page) are gated on a `role` claim (`admin` | `user`, typed in [globals.d.ts](../packages/shared/auth/src/types/globals.d.ts)). To make yourself an admin, set this in the user's **public metadata** in the Clerk dashboard:
+
+```json
+{ "role": "admin" }
+```
+
 ### Choosing a model provider
 
 Configure this **before** starting infra — `infra:up` only spins up Ollama when a provider below is set to `ollama`.
