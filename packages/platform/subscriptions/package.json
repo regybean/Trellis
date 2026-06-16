@@ -39,10 +39,5 @@
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module",
-  "turbo": {
-    "tags": [
-      "shared"
-    ]
-  }
+  "type": "module"
 }
