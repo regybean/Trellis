@@ -36,7 +36,7 @@ vi.mock('@acme/redis/env', () => ({
 // (it ignores SKIP_ENV_VALIDATION) and demands Stripe plan ids. The documents
 // router calls none of these, so stub the module to bypass that validation.
 vi.mock('@acme/subscriptions', () => ({
-  getCredits: vi.fn(),
+  credits: { read: vi.fn() },
   getSubscriptionType: vi.fn(),
   getUserSubscriptionFromRedis: vi.fn(),
 }));
