@@ -2,82 +2,40 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { logger } from '@acme/logger';
-import { memory } from '@acme/rag';
 
 import type { StreamChatEvent } from '../schemas/chat-schema';
-import type { Message } from '../schemas/message-schema';
 import {
   ChatRequest,
   DeleteChatRequest,
   selectChatSchema,
 } from '../schemas/chat-schema';
 import { selectMessageSchema } from '../schemas/message-schema';
-import { chatService } from '../services/chat-service';
+import { chatAgent } from '../services/chat-agent';
+import {
+  createConversation,
+  deleteConversation,
+  getConversationUnchecked,
+  listConversations,
+  recallMessages,
+  toConversation,
+  toMessages,
+} from '../services/chat-memory';
 import {
   adminProcedure,
   createTRPCRouter,
-  protectedProcedure,
+  existingConversationProcedure,
+  ownedConversationProcedure,
   rateLimit,
 } from '../trpc';
 
-// A Conversation is a Mastra Memory thread (id = sessionId, resourceId =
-// userId). Mastra owns message persistence; these helpers translate threads and
-// stored messages back into the client-facing contract.
-type DBMessage = Awaited<ReturnType<typeof memory.recall>>['messages'][number];
-
-function threadToChat(thread: {
-  id: string;
-  resourceId: string;
-  createdAt: Date;
-}) {
-  return {
-    sessionId: thread.id,
-    userId: thread.resourceId,
-    createdAt: thread.createdAt,
-  };
-}
-
-function partsToText(content: DBMessage['content']) {
-  if (typeof content === 'string') return content;
-  let text = '';
-  for (const part of content.parts) {
-    if (part.type === 'text') text += part.text;
-  }
-  if (!text && typeof content.content === 'string') text = content.content;
-  return text;
-}
-
-function renderMessages(dbMessages: DBMessage[], sessionId: string): Message[] {
-  return dbMessages
-    .filter((m) => m.role === 'user' || m.role === 'assistant')
-    .map((m) => ({
-      id: m.id,
-      sessionId,
-      role: m.role === 'assistant' ? ('assistant' as const) : ('user' as const),
-      text: partsToText(m.content),
-      timestamp: m.createdAt,
-    }));
-}
-
-// Load a thread and enforce ownership. Returns null when the thread does not
-// exist yet (the stream procedure creates it implicitly on the first message).
-async function getOwnedThread(sessionId: string, userId: string) {
-  const thread = await memory.getThreadById({ threadId: sessionId });
-  if (!thread) return null;
-  if (thread.resourceId !== userId) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'You do not have access to this chat session',
-    });
-  }
-  return thread;
-}
-
 export const chatRouter = createTRPCRouter({
   // Streamed query using async generator (tRPC v11 httpBatchStreamLink).
-  stream: protectedProcedure
-    .input(ChatRequest)
+  // Ownership is enforced by `ownedConversationProcedure` before any LLM call;
+  // a brand-new Conversation has no thread yet (`ctx.conversation` is null) and
+  // Mastra Memory stamps `resourceId = userId` as it persists the turn.
+  stream: ownedConversationProcedure
     .use(rateLimit())
+    .input(ChatRequest)
     .subscription(async function* ({ ctx, input }) {
       const { userId } = ctx.auth;
       const { sessionId } = input;
@@ -90,21 +48,19 @@ export const chatRouter = createTRPCRouter({
       logger.info({ userId, sessionId }, 'Starting streamed chat query');
 
       try {
-        // Enforce ownership before any LLM call. A brand-new Conversation has no
-        // thread yet — Mastra Memory creates it (resourceId = userId) as it
-        // persists the user and assistant messages around the stream.
-        await getOwnedThread(sessionId, userId);
+        const result = await chatAgent.stream(input.query, {
+          memory: { thread: sessionId, resource: userId },
+        });
 
-        const stream = chatService.query(input.query, sessionId, userId);
         let accumulatedResponse = '';
 
-        for await (const chunk of stream) {
-          accumulatedResponse += chunk.delta;
+        for await (const chunk of result.textStream) {
+          accumulatedResponse += chunk;
 
           const streamEvent: StreamChatEvent = {
             type: 'message',
             acc: accumulatedResponse,
-            chunk: chunk.delta,
+            chunk,
             ts: Date.now().toString(),
             sessionId,
           };
@@ -132,7 +88,7 @@ export const chatRouter = createTRPCRouter({
       }
     }),
 
-  create: protectedProcedure
+  create: ownedConversationProcedure
     .input(z.object({ sessionId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
@@ -148,18 +104,13 @@ export const chatRouter = createTRPCRouter({
           'Creating chat session',
         );
 
-        const existing = await getOwnedThread(input.sessionId, userId);
         const thread =
-          existing ??
-          (await memory.createThread({
-            threadId: input.sessionId,
-            resourceId: userId,
-            title: 'New conversation',
-          }));
+          ctx.conversation ??
+          (await createConversation(input.sessionId, userId));
 
         return ctx.telemetry.parseWithTelemetry(
           selectChatSchema,
-          threadToChat(thread),
+          toConversation(thread),
           'selectChatSchema',
         );
       } catch (error) {
@@ -176,7 +127,7 @@ export const chatRouter = createTRPCRouter({
       }
     }),
 
-  get: protectedProcedure
+  get: existingConversationProcedure
     .input(z.object({ sessionId: z.uuid() }))
     .query(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
@@ -192,21 +143,8 @@ export const chatRouter = createTRPCRouter({
           'Fetching chat from memory',
         );
 
-        const thread = await getOwnedThread(input.sessionId, userId);
-        if (!thread) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Chat session not found',
-          });
-        }
-
-        const { messages: dbMessages } = await memory.recall({
-          threadId: input.sessionId,
-          resourceId: userId,
-          perPage: false,
-        });
-
-        const rendered = renderMessages(dbMessages, input.sessionId);
+        const dbMessages = await recallMessages(input.sessionId, userId);
+        const rendered = toMessages(dbMessages, input.sessionId);
 
         ctx.telemetry.set({ 'result.messageCount': rendered.length });
 
@@ -231,7 +169,7 @@ export const chatRouter = createTRPCRouter({
       }
     }),
 
-  delete: protectedProcedure
+  delete: existingConversationProcedure
     .input(DeleteChatRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
@@ -247,19 +185,11 @@ export const chatRouter = createTRPCRouter({
           'Deleting chat session',
         );
 
-        const thread = await getOwnedThread(input.sessionId, userId);
-        if (!thread) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Chat session not found',
-          });
-        }
-
-        await memory.deleteThread(input.sessionId);
+        await deleteConversation(input.sessionId);
 
         ctx.telemetry.set({ 'result.deleted': true });
 
-        return threadToChat(thread);
+        return toConversation(ctx.conversation);
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         logger.error(
@@ -288,9 +218,7 @@ export const chatRouter = createTRPCRouter({
           'Admin fetching chat',
         );
 
-        const thread = await memory.getThreadById({
-          threadId: input.sessionId,
-        });
+        const thread = await getConversationUnchecked(input.sessionId);
         if (!thread) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -300,7 +228,7 @@ export const chatRouter = createTRPCRouter({
 
         ctx.telemetry.set({ 'result.found': true });
 
-        return threadToChat(thread);
+        return toConversation(thread);
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         logger.error(
@@ -329,14 +257,11 @@ export const chatRouter = createTRPCRouter({
           'Admin fetching chats for user',
         );
 
-        const { threads } = await memory.listThreads({
-          filter: { resourceId: input.userId },
-          perPage: false,
-        });
+        const threads = await listConversations(input.userId);
 
         ctx.telemetry.set({ 'result.chatCount': threads.length });
 
-        return threads.map((thread) => threadToChat(thread));
+        return threads.map((thread) => toConversation(thread));
       } catch (error) {
         logger.error(
           { error, adminId: ctx.auth.userId, targetUserId: input.userId },
