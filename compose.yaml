@@ -87,12 +87,17 @@ services:
     ports:
       - "8420:8420"
     healthcheck:
-      # Base image has python3 but no curl/wget; probe the API with python.
+      # Base image has python3 but no curl/wget; probe with python. localstripe
+      # returns 401 to unauthenticated API requests (so `/` is no good as a
+      # liveness probe), but it serves its bundled Stripe.js shim unauthenticated
+      # at /js.stripe.com/v3/. urlopen raises on a connection failure and on any
+      # non-2xx (HTTPError), so an uncaught exception exits non-zero → unhealthy.
+      # Strict on purpose: this won't mask a server that's up but answering wrong.
       test:
         - CMD
         - python3
         - -c
-        - import urllib.request; urllib.request.urlopen('http://localhost:8420/')
+        - import urllib.request; urllib.request.urlopen('http://localhost:8420/js.stripe.com/v3/')
       interval: 2s
       timeout: 3s
       retries: 40
