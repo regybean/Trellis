@@ -18,7 +18,8 @@ import type { TestContextOptions } from '@acme/test-utils';
 import { memory } from '@acme/rag';
 
 import { appRouter } from '../../../api/root';
-import { chatService } from '../../../api/services/chat-service';
+import { chatAgent } from '../../../api/services/chat-agent';
+import { throwingAgentStream } from '../setup';
 import {
   createTestChat,
   createTestChatWithMessages,
@@ -106,6 +107,116 @@ describe('chatRouter', () => {
         ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
       });
     });
+
+    // Ownership is seated at the request pipeline by the conversation builders
+    // (`ownedConversationProcedure` / `existingConversationProcedure`), so it is
+    // tested once here across both builders rather than per procedure.
+    describe('conversation ownership', () => {
+      it('rejects reading a conversation owned by another user (existing builder)', async () => {
+        const ownerUserId = createTestUserId('owner');
+        const otherUserId = createTestUserId('other');
+        const { chat } = await createTestChatWithMessages({
+          userId: ownerUserId,
+        });
+
+        const caller = createCaller({
+          userId: otherUserId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await expect(
+          caller.chat.get({ sessionId: chat.sessionId }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      });
+
+      it('rejects deleting a conversation owned by another user, leaving it intact', async () => {
+        const ownerUserId = createTestUserId('owner');
+        const otherUserId = createTestUserId('other');
+        const chat = await createTestChat({ userId: ownerUserId });
+
+        const caller = createCaller({
+          userId: otherUserId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await expect(
+          caller.chat.delete({ sessionId: chat.sessionId }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+
+        const thread = await memory.getThreadById({ threadId: chat.sessionId });
+        expect(thread).not.toBeNull();
+      });
+
+      it('rejects creating against a conversation owned by another user (owned builder)', async () => {
+        const ownerUserId = createTestUserId('owner');
+        const otherUserId = createTestUserId('other');
+        const chat = await createTestChat({ userId: ownerUserId });
+
+        const caller = createCaller({
+          userId: otherUserId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await expect(
+          caller.chat.create({ sessionId: chat.sessionId }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      });
+
+      it('returns NOT_FOUND when reading an absent conversation', async () => {
+        const caller = createCaller({
+          userId: createTestUserId(),
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await expect(
+          caller.chat.get({ sessionId: createTestSessionId() }),
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      });
+
+      it('returns NOT_FOUND when deleting an absent conversation', async () => {
+        const caller = createCaller({
+          userId: createTestUserId(),
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await expect(
+          caller.chat.delete({ sessionId: createTestSessionId() }),
+        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+      });
+
+      it('enforces ownership before rate limiting on stream', async () => {
+        const ownerUserId = createTestUserId('owner');
+        const otherUserId = createTestUserId('other');
+        const chat = await createTestChat({ userId: ownerUserId });
+
+        const caller = createCaller({
+          userId: otherUserId,
+          role: 'user',
+          tier: 'Basic',
+          credits: {
+            remaining: 0,
+            limit: 100,
+            resetAt: Date.now() + 86_400_000,
+          },
+        });
+
+        // Zero credits would yield TOO_MANY_REQUESTS if rate limiting ran first;
+        // FORBIDDEN proves ownership is checked before credits are consumed.
+        await expect(
+          caller.chat.stream({ query: 'test', sessionId: chat.sessionId }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      });
+    });
   });
 
   // ==========================================================================
@@ -156,27 +267,6 @@ describe('chatRouter', () => {
   // BUSINESS LOGIC: get
   // ==========================================================================
   describe('get', () => {
-    describe('ownership authorization', () => {
-      it('rejects accessing chat owned by another user', async () => {
-        const ownerUserId = createTestUserId('owner');
-        const otherUserId = createTestUserId('other');
-        const { chat } = await createTestChatWithMessages({
-          userId: ownerUserId,
-        });
-
-        const caller = createCaller({
-          userId: otherUserId,
-          role: 'user',
-          tier: 'Basic',
-          credits: baseCredits,
-        });
-
-        await expect(
-          caller.chat.get({ sessionId: chat.sessionId }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-      });
-    });
-
     describe('data retrieval', () => {
       it('returns empty array for chat with no messages (zero)', async () => {
         const userId = createTestUserId();
@@ -233,19 +323,6 @@ describe('chatRouter', () => {
         expect(result[0]).toMatchObject({ role: 'user' });
         expect(result[1]).toMatchObject({ role: 'assistant' });
       });
-
-      it('returns NOT_FOUND for non-existent chat', async () => {
-        const caller = createCaller({
-          userId: createTestUserId(),
-          role: 'user',
-          tier: 'Basic',
-          credits: baseCredits,
-        });
-
-        await expect(
-          caller.chat.get({ sessionId: createTestSessionId() }),
-        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
-      });
     });
   });
 
@@ -253,28 +330,6 @@ describe('chatRouter', () => {
   // BUSINESS LOGIC: delete
   // ==========================================================================
   describe('delete', () => {
-    describe('ownership authorization', () => {
-      it('rejects deleting chat owned by another user', async () => {
-        const ownerUserId = createTestUserId('owner');
-        const otherUserId = createTestUserId('other');
-        const chat = await createTestChat({ userId: ownerUserId });
-
-        const caller = createCaller({
-          userId: otherUserId,
-          role: 'user',
-          tier: 'Basic',
-          credits: baseCredits,
-        });
-
-        await expect(
-          caller.chat.delete({ sessionId: chat.sessionId }),
-        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
-
-        const thread = await memory.getThreadById({ threadId: chat.sessionId });
-        expect(thread).not.toBeNull();
-      });
-    });
-
     describe('deletion behavior', () => {
       it('deletes chat and returns deleted record', async () => {
         const userId = createTestUserId();
@@ -293,19 +348,6 @@ describe('chatRouter', () => {
 
         const thread = await memory.getThreadById({ threadId: chat.sessionId });
         expect(thread).toBeNull();
-      });
-
-      it('returns NOT_FOUND for non-existent chat', async () => {
-        const caller = createCaller({
-          userId: createTestUserId(),
-          role: 'user',
-          tier: 'Basic',
-          credits: baseCredits,
-        });
-
-        await expect(
-          caller.chat.delete({ sessionId: createTestSessionId() }),
-        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       });
     });
   });
@@ -379,8 +421,8 @@ describe('chatRouter', () => {
   // BUSINESS LOGIC: stream (subscription)
   // ==========================================================================
   describe('stream', () => {
-    // chatService.query is mocked in tests/backend/setup.ts to yield a fixed set
-    // of deltas; a fully-drained stream always accumulates this text.
+    // chatAgent.stream is mocked in tests/backend/setup.ts to yield a fixed set
+    // of chunks; a fully-drained stream always accumulates this text.
     const MOCKED_RESPONSE = 'Test response from mocked LLM.';
 
     it('streams the accumulated assistant response', async () => {
@@ -429,11 +471,13 @@ describe('chatRouter', () => {
       });
 
       const querySpy = vi
-        .spyOn(chatService, 'query')
-        .mockImplementation(async function* () {
-          yield { delta: 'partial ' };
-          throw new Error('LLM exploded mid-stream');
-        });
+        .spyOn(chatAgent, 'stream')
+        .mockResolvedValue(
+          throwingAgentStream(
+            ['partial '],
+            new Error('LLM exploded mid-stream'),
+          ),
+        );
 
       try {
         await expect(

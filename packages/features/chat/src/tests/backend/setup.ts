@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, inject, vi } from 'vitest';
 
-import { chatService } from '../../api/services/chat-service';
+import { chatAgent } from '../../api/services/chat-agent';
 import { cleanupTestData } from './utils/test-context';
 
 // Mock the env module using factory function pattern
@@ -127,7 +127,7 @@ vi.mock('@acme/subscriptions', () => ({
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 // @acme/models eagerly calls modelsEnv() at import time (in resolve.ts), which
-// validates EMBED_DIMENSIONS. Tests don't need real LLM models — chatService.query
+// validates EMBED_DIMENSIONS. Tests don't need real LLM models — chatAgent.stream
 // is spied on below — so stub the whole module to avoid the env validation throw.
 vi.mock('@acme/models', () => ({
   chatModel: {},
@@ -145,16 +145,41 @@ vi.mock('@acme/models/env', () => ({
   }),
 }));
 
-// Predictable streamed response. chatService.query wraps the Mastra agent, so
-// spying on it keeps Bedrock and the vector store out of tests entirely; the
-// router only consumes `delta`.
-async function* mockRagQuery() {
-  yield { delta: 'Test ' };
-  yield { delta: 'response ' };
-  yield { delta: 'from ' };
-  yield { delta: 'mocked ' };
-  yield { delta: 'LLM.' };
+// Predictable streamed response. The router consumes `chatAgent.stream(...)`
+// directly, iterating the resolved result's `textStream`; spying on the agent
+// keeps Bedrock and the vector store out of tests entirely. The single cast to
+// the Mastra stream-result type is centralised in `asAgentStream` — tests build
+// streams with `fakeAgentStream` / `throwingAgentStream`.
+type AgentStreamResult = Awaited<ReturnType<typeof chatAgent.stream>>;
+
+function asAgentStream(textStream: AsyncIterable<string>) {
+  return { textStream } as unknown as AgentStreamResult;
 }
+
+export function fakeAgentStream(chunks: string[]) {
+  return asAgentStream(
+    (async function* () {
+      for (const chunk of chunks) yield chunk;
+    })(),
+  );
+}
+
+export function throwingAgentStream(chunks: string[], error: Error) {
+  return asAgentStream(
+    (async function* () {
+      for (const chunk of chunks) yield chunk;
+      throw error;
+    })(),
+  );
+}
+
+const DEFAULT_STREAM_CHUNKS = [
+  'Test ',
+  'response ',
+  'from ',
+  'mocked ',
+  'LLM.',
+];
 
 // Establish the default streamed-response implementation before each test. The
 // base vitest config sets `mockReset: true`, which wipes mock implementations
@@ -162,7 +187,9 @@ async function* mockRagQuery() {
 // (re)applied here rather than only at mock-factory time. Tests that need a
 // different stream (e.g. mid-stream failure) override this spy locally.
 beforeEach(() => {
-  vi.spyOn(chatService, 'query').mockImplementation(mockRagQuery);
+  vi.spyOn(chatAgent, 'stream').mockResolvedValue(
+    fakeAgentStream(DEFAULT_STREAM_CHUNKS),
+  );
 });
 
 // Clean up after each test
