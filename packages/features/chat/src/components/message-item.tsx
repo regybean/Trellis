@@ -1,6 +1,7 @@
 // src/components/MessageItem.tsx
 'use client';
 
+import type React from 'react';
 import { useEffect, useState } from 'react';
 import { Bot, User } from 'lucide-react';
 
@@ -9,7 +10,13 @@ import { Avatar, MarkdownContent } from '@acme/ui';
 import type { Message } from '../api/schemas/message-schema';
 import AnimatedEllipsis from '../components/animated-ellipsis';
 
-export default function MessageItem({ message }: { message: Message }) {
+export default function MessageItem({
+  message,
+  renderMessageActions,
+}: {
+  message: Message;
+  renderMessageActions?: (message: Message) => React.ReactNode;
+}) {
   const isUser = message.role === 'user';
   const justify = isUser ? 'justify-end' : 'justify-start';
   const direction = isUser ? 'flex-row-reverse' : 'flex-row';
@@ -55,6 +62,11 @@ export default function MessageItem({ message }: { message: Message }) {
       </div>
     );
   } else {
+    // Render-slot for per-message actions (e.g. feedback). Only settled
+    // assistant messages carry a persisted id, so the slot stays absent while
+    // streaming and for user turns.
+    const actions =
+      !isUser && message.id ? renderMessageActions?.(message) : null;
     messageContent = (
       <div className={bubbleBase} data-testid={testId}>
         <MarkdownContent
@@ -62,6 +74,7 @@ export default function MessageItem({ message }: { message: Message }) {
           className={isUser ? 'text-white' : undefined}
         />
         <ClientMessageTime timestamp={message.timestamp} />
+        {actions ? <div className="mt-2">{actions}</div> : null}
       </div>
     );
   }

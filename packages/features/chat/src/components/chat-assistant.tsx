@@ -1,10 +1,12 @@
 // components/chat-assistant.tsx
 'use client';
 
+import type React from 'react';
 import { useMemo } from 'react';
 
 import { Card, CardContent, CardFooter, MessageInput } from '@acme/ui';
 
+import type { Message } from '../api/schemas/message-schema';
 import { getAppInfo } from '../data/app-info';
 import { env } from '../env';
 import { useChat } from '../hooks/use-chat';
@@ -13,9 +15,16 @@ import MessageList from './message-list';
 
 interface ChatAssistantProps {
   onTokensConsumed?: () => void;
+  // Optional render-slot seam: an app supplies per-message actions (e.g.
+  // feedback buttons from `@acme/feedback`) without the chat feature depending
+  // on them. Rendered only for settled assistant messages — see MessageItem.
+  renderMessageActions?: (message: Message) => React.ReactNode;
 }
 
-export function ChatAssistant({ onTokensConsumed }: ChatAssistantProps) {
+export function ChatAssistant({
+  onTokensConsumed,
+  renderMessageActions,
+}: ChatAssistantProps) {
   const info = getAppInfo(env.NEXT_PUBLIC_WEBAPP);
   const sessionId = useMemo(() => crypto.randomUUID(), []);
 
@@ -52,6 +61,7 @@ export function ChatAssistant({ onTokensConsumed }: ChatAssistantProps) {
           <MessageList
             messages={messages}
             scrollToBottomRef={scrollToBottomRef}
+            renderMessageActions={renderMessageActions}
           />
           <hr className="border-borderborder-t" />
         </CardContent>

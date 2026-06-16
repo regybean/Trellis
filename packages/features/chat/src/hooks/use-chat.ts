@@ -48,6 +48,24 @@ export function useChat(
       {
         enabled: !!queryInput,
         onData: (data) => {
+          // The terminal `done` event carries the persisted assistant message
+          // id — stamp it onto the settled message so feedback can attach
+          // without refetching the Conversation.
+          if (data.type === 'done') {
+            setMessages((prev) =>
+              prev.map((m, i) =>
+                i === prev.length - 1
+                  ? {
+                      ...m,
+                      id: data.messageId ?? m.id,
+                      sessionId: data.sessionId,
+                      loading: false,
+                    }
+                  : m,
+              ),
+            );
+            return;
+          }
           // Update last message with accumulated text
           setMessages((prev) =>
             prev.map((m, i) =>
