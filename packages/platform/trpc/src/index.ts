@@ -8,9 +8,8 @@ import { z, ZodError } from 'zod/v4';
 
 import type { SubscriptionTier } from '@acme/subscriptions';
 import { logger } from '@acme/logger';
-import { redis } from '@acme/redis';
 import {
-  getCredits,
+  credits as creditPolicy,
   getSubscriptionType,
   getUserSubscriptionFromRedis,
   isTierAtLeast,
@@ -74,7 +73,11 @@ export async function createTRPCContext(opts: ContextOpts) {
   const { auth: authResult, user, ...rest } = opts;
   const subscription = await getUserSubscriptionFromRedis(authResult.userId);
   const tier = getSubscriptionType(subscription);
-  const credits = await getCredits(authResult.userId, subscription, tier);
+  const credits = await creditPolicy.read(
+    authResult.userId,
+    subscription,
+    tier,
+  );
   const telemetry = createTelemetryContext();
 
   return {
@@ -231,7 +234,6 @@ function buildCore() {
       const creditsToConsume = opts.credits ?? 1;
       const { auth: authCtx, credits, tier } = ctx;
       const userId = authCtx.userId;
-      const key = `credits:${userId}:${tier}`;
 
       ctx.telemetry.set({
         'rateLimit.creditsToConsume': creditsToConsume,
@@ -261,7 +263,7 @@ function buildCore() {
         });
       }
 
-      await redis.decrBy(key, creditsToConsume);
+      await creditPolicy.consume(userId, tier, creditsToConsume);
 
       ctx.telemetry.event('rateLimit.passed', {
         creditsConsumed: creditsToConsume,

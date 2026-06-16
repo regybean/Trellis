@@ -2,13 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod/v4';
 
 import { redis } from '@acme/redis';
-import {
-  getBillingWindow,
-  getCreditLimit,
-  getCredits,
-  getSubscriptionType,
-  getUserSubscriptionFromRedis,
-} from '@acme/subscriptions';
+import { credits, getUserSubscriptionFromRedis } from '@acme/subscriptions';
 
 import {
   createCheckoutSession,
@@ -187,18 +181,8 @@ export const accountRouter = createTRPCRouter({
 
       ctx.telemetry.set({ 'admin.target_user_id': userId });
 
-      const subscription = await getUserSubscriptionFromRedis(userId);
-      const tier = getSubscriptionType(subscription);
-      const key = `credits:${userId}:${tier}`;
-
       try {
-        // Get user's subscription and tier to determine token limit
-        const limit = getCreditLimit(tier);
-        const billingWindow = getBillingWindow(subscription);
-
-        // Reset tokens to full limit
-        await redis.set(key, String(limit));
-        await redis.expireAt(key, billingWindow.end);
+        const { tier, limit, resetAt } = await credits.reset(userId);
 
         ctx.telemetry.set({
           'admin.action': 'rate_limit_reset',
@@ -211,7 +195,7 @@ export const accountRouter = createTRPCRouter({
           userId,
           newCreditCount: limit,
           tier,
-          resetAt: billingWindow.end,
+          resetAt,
         };
       } catch (error) {
         ctx.telemetry.set({ 'admin.action_failed': true });
@@ -233,21 +217,12 @@ export const accountRouter = createTRPCRouter({
 
       ctx.telemetry.set({ 'admin.target_user_id': userId });
 
-      const subscription = await getUserSubscriptionFromRedis(userId);
-      const tier = getSubscriptionType(subscription);
-      const key = `credits:${userId}:${tier}`;
-
       try {
-        const limit = getCreditLimit(tier);
-        const billingWindow = getBillingWindow(subscription);
-
-        // Set tokens to 0 (exhausted)
-        await redis.set(key, '0');
-        await redis.expireAt(key, billingWindow.end);
+        const { tier, previousLimit, resetAt } = await credits.maxOut(userId);
 
         ctx.telemetry.set({
           'admin.action': 'rate_limit_maxout',
-          'admin.previous_limit': limit,
+          'admin.previous_limit': previousLimit,
           'admin.tier': tier,
         });
 
@@ -255,9 +230,9 @@ export const accountRouter = createTRPCRouter({
           message: `Successfully maxed out rate limit for user ${userId}`,
           userId,
           newCreditCount: 0,
-          previousLimit: limit,
+          previousLimit,
           tier,
-          resetAt: billingWindow.end,
+          resetAt,
         };
       } catch (error) {
         ctx.telemetry.set({ 'admin.action_failed': true });
@@ -282,34 +257,13 @@ export const accountRouter = createTRPCRouter({
         'admin.new_expiry_timestamp': expiryTimestamp,
       });
 
-      const subscription = await getUserSubscriptionFromRedis(userId);
-      const tier = getSubscriptionType(subscription);
-      const key = `credits:${userId}:${tier}`;
-
-      // Check if the key exists and get current TTL
-      const keyExists = await redis.exists(key);
-      let previousExpiryTimestamp: number | null = null;
-
-      if (keyExists) {
-        // Get current TTL and calculate previous expiry timestamp
-        const currentTtl = await redis.ttl(key);
-        if (currentTtl > 0) {
-          previousExpiryTimestamp = Math.floor(Date.now() / 1000) + currentTtl;
-        }
-      } else {
-        // If key doesn't exist, we need to create it with current token count
-        const limit = getCreditLimit(tier);
-        await redis.set(key, String(limit));
-
-        ctx.telemetry.set({ 'admin.created_key': true });
-      }
-
-      // Set new expiry timestamp
-      await redis.expireAt(key, expiryTimestamp);
+      const { tier, keyExisted, previousExpiryTimestamp } =
+        await credits.overrideExpiry(userId, expiryTimestamp);
 
       ctx.telemetry.set({
         'admin.action': 'rate_limit_expiry_override',
-        'admin.key_existed': keyExists,
+        'admin.created_key': !keyExisted,
+        'admin.key_existed': keyExisted,
         'admin.tier': tier,
       });
 
@@ -331,27 +285,22 @@ export const accountRouter = createTRPCRouter({
 
       ctx.telemetry.set({ 'admin.target_user_id': userId });
 
-      const subscription = await getUserSubscriptionFromRedis(userId);
-      const tier = getSubscriptionType(subscription);
-      const key = `credits:${userId}:${tier}`;
-      const credits = await getCredits(userId, subscription, tier);
-
-      // Check if key exists in Redis
-      const keyExists = (await redis.exists(key)) === 1;
+      const { tier, remaining, limit, resetAt, keyExists } =
+        await credits.status(userId);
 
       ctx.telemetry.set({
         'admin.query': 'rate_limit_status',
         'admin.tier': tier,
         'admin.key_exists': keyExists,
-        'admin.remaining_credits': credits.remaining,
+        'admin.remaining_credits': remaining,
       });
 
       return {
         userId,
         tier,
-        remaining: credits.remaining,
-        limit: credits.limit,
-        resetAt: credits.resetAt,
+        remaining,
+        limit,
+        resetAt,
         keyExists,
       };
     }),
