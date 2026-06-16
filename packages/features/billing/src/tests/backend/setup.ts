@@ -87,16 +87,36 @@ vi.mock('../../utils/stripe', () => ({
 
 // Mock rate limiting utilities
 vi.mock('@acme/subscriptions', () => ({
-  getCreditLimit: vi.fn().mockReturnValue(250),
-  getBillingWindow: vi.fn().mockReturnValue({
-    start: Math.floor(Date.now() / 1000),
-    end: Math.floor(Date.now() / 1000) + 86_400 * 30,
-  }),
-  getCredits: vi.fn().mockResolvedValue({
-    remaining: 100,
-    limit: 250,
-    resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-  }),
+  credits: {
+    read: vi.fn().mockResolvedValue({
+      remaining: 100,
+      limit: 250,
+      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
+    }),
+    consume: vi.fn().mockResolvedValue(undefined),
+    reset: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      limit: 250,
+      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
+    }),
+    maxOut: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      previousLimit: 250,
+      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
+    }),
+    overrideExpiry: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      keyExisted: true,
+      previousExpiryTimestamp: Math.floor(Date.now() / 1000) + 86_400 * 30,
+    }),
+    status: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      remaining: 100,
+      limit: 250,
+      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
+      keyExists: true,
+    }),
+  },
   getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
   getSubscriptionType: vi.fn().mockReturnValue('Basic'),
   // Real tier ordering (Basic < Standard < Pro) so requireTier gates behave

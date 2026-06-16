@@ -14,7 +14,7 @@ import type { ZodType } from 'zod';
 // ============================================================================
 
 /**
- * Credit info type matching the billing package's getCredits return type.
+ * Credit info type matching the billing package's `credits.read` return type.
  */
 export interface CreditInfo {
   remaining: number;
