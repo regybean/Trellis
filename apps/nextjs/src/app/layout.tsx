@@ -6,6 +6,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 
 import { BillingTRPCReactProvider } from '@acme/billing';
 import { ChatTRPCReactProvider } from '@acme/chat';
+import { FeedbackTRPCReactProvider } from '@acme/feedback';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 // Toast container is rendered client-side to safely access localStorage
 import {
@@ -62,22 +63,24 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           >
             <BillingTRPCReactProvider>
               <ChatTRPCReactProvider>
-                <IngestTRPCReactProvider>
-                  <TooltipProvider>
-                    <SidebarProvider>
-                      <Sidebar />
-                      <SidebarInset>
-                        <header className="bg-background sticky top-0 p-4">
-                          <SidebarTrigger />
-                        </header>
-                        <main>
-                          <ToastThemeClient />
-                          {props.children}
-                        </main>
-                      </SidebarInset>
-                    </SidebarProvider>
-                  </TooltipProvider>
-                </IngestTRPCReactProvider>
+                <FeedbackTRPCReactProvider>
+                  <IngestTRPCReactProvider>
+                    <TooltipProvider>
+                      <SidebarProvider>
+                        <Sidebar />
+                        <SidebarInset>
+                          <header className="bg-background sticky top-0 p-4">
+                            <SidebarTrigger />
+                          </header>
+                          <main>
+                            <ToastThemeClient />
+                            {props.children}
+                          </main>
+                        </SidebarInset>
+                      </SidebarProvider>
+                    </TooltipProvider>
+                  </IngestTRPCReactProvider>
+                </FeedbackTRPCReactProvider>
               </ChatTRPCReactProvider>
             </BillingTRPCReactProvider>
           </NextThemeProvider>

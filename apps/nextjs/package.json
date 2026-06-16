@@ -5,6 +5,7 @@
     "@acme/auth": "workspace:*",
     "@acme/billing": "workspace:*",
     "@acme/chat": "workspace:*",
+    "@acme/feedback": "workspace:*",
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
