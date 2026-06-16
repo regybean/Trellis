@@ -17,13 +17,42 @@ const TEXT_NODE_NAMESPACE = '3b241101-e2bb-4255-8caf-4136c566a962';
 
 // Deterministic chunk id: identical content from the same file always maps to
 // the same vector_id, so re-uploads update in place instead of duplicating.
-function deterministicId(text: string, fileName: string) {
+export function deriveChunkId(text: string, fileName: string) {
   return uuidv5(`${text.trim()}-${fileName}`, TEXT_NODE_NAMESPACE);
 }
 
+// A parsed file ready for indexing: its chunks plus the metadata shared by every
+// chunk it produced. The shape `dedupeChunks` consumes.
+interface ParsedDocument {
+  file: File;
+  uploadTimestamp: number;
+  chunks: { text: string }[];
+}
+
+// Collapse chunks to one row per deterministic id: repeated content — within a
+// single batch or across re-uploads — derives the same vector_id, so duplicates
+// overwrite instead of accumulating. Pure: no DB, no embeddings.
+export function dedupeChunks(parsed: ParsedDocument[]) {
+  const byId = new Map<string, DocumentMetadata>();
+  for (const { file, uploadTimestamp, chunks } of parsed) {
+    for (const chunk of chunks) {
+      const id = deriveChunkId(chunk.text, file.name);
+      byId.set(id, {
+        text: chunk.text,
+        file_name: file.name,
+        upload_timestamp: uploadTimestamp,
+        chunk_size: env.CHUNK_SIZE,
+        parser: 'officeparser',
+      });
+    }
+  }
+  return { ids: [...byId.keys()], metadata: [...byId.values()] };
+}
+
 // Drizzle client against the vector database, for direct reads/deletes that
-// don't need the vector store (listing and deletion by filename).
-export const vdb = drizzle({
+// don't need the vector store (listing and deletion by filename). Module-private
+// so callers can't run arbitrary SQL against the knowledge base.
+const vdb = drizzle({
   connection: {
     host: env.DB_HOST,
     port: Number(env.DB_PORT),
@@ -65,23 +94,7 @@ export async function uploadDocs(files: File[]) {
     }),
   );
 
-  // Deduplicate by deterministic id so repeated chunks collapse to one row.
-  const byId = new Map<string, DocumentMetadata>();
-  for (const { file, uploadTimestamp, chunks } of parsed) {
-    for (const chunk of chunks) {
-      const id = deterministicId(chunk.text, file.name);
-      byId.set(id, {
-        text: chunk.text,
-        file_name: file.name,
-        upload_timestamp: uploadTimestamp,
-        chunk_size: env.CHUNK_SIZE,
-        parser: 'officeparser',
-      });
-    }
-  }
-
-  const ids = [...byId.keys()];
-  const metadata = [...byId.values()];
+  const { ids, metadata } = dedupeChunks(parsed);
 
   if (ids.length === 0) {
     logger.warn('[Chunked]: No chunks produced; nothing to index.');

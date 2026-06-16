@@ -1,8 +1,7 @@
 export {
-  uploadDocs,
-  listDocuments,
   deleteByFilename,
-  vdb,
+  listDocuments,
+  uploadDocs,
 } from './document-uploader';
 export type { DocumentFilenameSummary } from './document-uploader';
 export { extractText } from './parsing';
