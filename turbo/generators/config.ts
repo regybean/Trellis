@@ -1,5 +1,5 @@
-import { execSync } from "node:child_process";
 import type { PlopTypes } from "@turbo/gen";
+import { execSync } from "node:child_process";
 
 /** Split an arbitrary string into lowercased words. */
 function words(input: string): string[] {
@@ -126,7 +126,35 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
   }
 
   const sortKeys = (obj: Record<string, string>) =>
-    Object.fromEntries(Object.keys(obj).sort().map((k) => [k, obj[k]]));
+    Object.fromEntries(
+      Object.keys(obj)
+        .sort()
+        .map((k) => [k, obj[k]]),
+    );
+
+  // Test-policy metadata (see scripts/check-test-policy.mjs + docs/TESTING.md).
+  // A feature is full-stack when it ships UI, otherwise a backend library.
+  const testClass = o.react ? "full-stack" : o.api ? "backend-library" : "none";
+  const conforming =
+    testClass === "full-stack"
+      ? o.backendTests && o.frontendTests
+      : testClass === "backend-library"
+        ? o.backendTests
+        : true;
+  const acme =
+    testClass === "none"
+      ? {
+          testClass,
+          reason: "Utility package; no runtime seam to test.",
+        }
+      : conforming
+        ? { testClass }
+        : {
+            testClass,
+            testStatus: "todo",
+            reason:
+              "Scaffolded without full test coverage; add tests before release.",
+          };
 
   const pkg = {
     name: `@acme/${name}`,
@@ -140,6 +168,7 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
       : {}),
     devDependencies: sortKeys(devDependencies),
     prettier: "@acme/prettier-config",
+    acme,
   };
   return JSON.stringify(pkg, null, 2) + "\n";
 }
@@ -152,7 +181,9 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       .map((w, i) => (i === 0 ? w : upperFirst(w)))
       .join(""),
   );
-  plop.setHelper("pascalCase", (s: string) => words(s).map(upperFirst).join(""));
+  plop.setHelper("pascalCase", (s: string) =>
+    words(s).map(upperFirst).join(""),
+  );
 
   const stripScope = (name: string) =>
     name.startsWith("@acme/") ? name.replace("@acme/", "") : name;
@@ -231,11 +262,19 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       const add = (
         path: string,
         templateFile: string,
-      ): PlopTypes.ActionType => ({ type: "add", path: `${dir}/${path}`, templateFile });
+      ): PlopTypes.ActionType => ({
+        type: "add",
+        path: `${dir}/${path}`,
+        templateFile,
+      });
 
       const actions: PlopTypes.ActionType[] = [
         // package.json is built in JS so deps/exports/scripts match the toggles.
-        { type: "add", path: `${dir}/package.json`, template: featurePackageJson(name, data) },
+        {
+          type: "add",
+          path: `${dir}/package.json`,
+          template: featurePackageJson(name, data),
+        },
         // Always-present core (templates branch internally on the toggles).
         add("tsconfig.json", t("tsconfig.json.hbs")),
         add("eslint.config.ts", t("eslint.config.ts.hbs")),
@@ -252,7 +291,10 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
           add("src/index-schema.ts", t("src/index-schema.ts.hbs")),
           add("src/api/trpc.ts", t("src/api/trpc.ts.hbs")),
           add("src/api/root.ts", t("src/api/root.ts.hbs")),
-          add("src/api/schemas/item-schema.ts", t("src/api/schemas/item-schema.ts.hbs")),
+          add(
+            "src/api/schemas/item-schema.ts",
+            t("src/api/schemas/item-schema.ts.hbs"),
+          ),
           add(`src/api/routers/${name}.ts`, x("router.ts.hbs")),
         );
       }
@@ -270,10 +312,22 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       if (data.backendTests) {
         actions.push(
           add("vitest.config.backend.ts", t("vitest.config.backend.ts.hbs")),
-          add("src/tests/backend/setup.ts", t("src/tests/backend/setup.ts.hbs")),
-          add("src/tests/backend/global-setup.ts", t("src/tests/backend/global-setup.ts.hbs")),
-          add("src/tests/backend/utils/test-context.ts", t("src/tests/backend/utils/test-context.ts.hbs")),
-          add("src/tests/backend/utils/fixtures.ts", t("src/tests/backend/utils/fixtures.ts.hbs")),
+          add(
+            "src/tests/backend/setup.ts",
+            t("src/tests/backend/setup.ts.hbs"),
+          ),
+          add(
+            "src/tests/backend/global-setup.ts",
+            t("src/tests/backend/global-setup.ts.hbs"),
+          ),
+          add(
+            "src/tests/backend/utils/test-context.ts",
+            t("src/tests/backend/utils/test-context.ts.hbs"),
+          ),
+          add(
+            "src/tests/backend/utils/fixtures.ts",
+            t("src/tests/backend/utils/fixtures.ts.hbs"),
+          ),
           add(`src/tests/backend/routers/${name}.test.ts`, x("test.ts.hbs")),
         );
       }
@@ -281,8 +335,14 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       if (data.frontendTests) {
         actions.push(
           add("vitest.config.frontend.ts", t("vitest.config.frontend.ts.hbs")),
-          add("src/tests/frontend/setup.tsx", t("src/tests/frontend/setup.tsx.hbs")),
-          add(`src/tests/frontend/${name}-list.test.tsx`, x("frontend-test.tsx.hbs")),
+          add(
+            "src/tests/frontend/setup.tsx",
+            t("src/tests/frontend/setup.tsx.hbs"),
+          ),
+          add(
+            `src/tests/frontend/${name}-list.test.tsx`,
+            x("frontend-test.tsx.hbs"),
+          ),
         );
       }
 

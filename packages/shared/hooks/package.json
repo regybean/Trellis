@@ -30,5 +30,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "frontend-library",
+    "testStatus": "todo",
+    "reason": "Shared React hooks; tests not yet written."
+  }
 }

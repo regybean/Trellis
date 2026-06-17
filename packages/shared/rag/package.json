@@ -58,5 +58,8 @@
     "prettier": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "acme": {
+    "testClass": "backend-library"
   }
 }

@@ -47,5 +47,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "OTel init seam; tests not yet written."
+  }
 }

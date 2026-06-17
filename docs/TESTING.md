@@ -127,10 +127,7 @@ The `@acme/test-utils` package provides:
 ### Testcontainers
 
 ```typescript
-import {
-  startContainers,
-  stopContainers,
-} from "@acme/test-utils/containers";
+import { startContainers, stopContainers } from "@acme/test-utils/containers";
 
 // In globalSetup.ts
 export async function setup() {
@@ -143,10 +140,7 @@ export async function setup() {
 ### Mocks
 
 ```typescript
-import {
-  createNoopTelemetry,
-  createMockAuth,
-} from "@acme/test-utils";
+import { createNoopTelemetry, createMockAuth } from "@acme/test-utils";
 ```
 
 ## Creating Test Context
@@ -223,7 +217,51 @@ CI automatically:
 5. Executes tests
 6. Stops containers
 
+## Package test policy
+
+The root `pnpm test` is a trustworthy gate: every workspace package declares
+its test capability so "no test script" is never ambiguous. Each `package.json`
+carries an `acme` block, enforced by `pnpm test:policy`
+([`scripts/check-test-policy.mjs`](../scripts/check-test-policy.mjs), wired into
+`quality-gate`):
+
+```jsonc
+"acme": {
+  "testClass": "backend-library", // capability class (see table)
+  "testStatus": "todo",           // optional: a tracked-but-allowed gap
+  "reason": "why this gap/exemption exists"
+}
+```
+
+### Test classes
+
+| `testClass`        | What it is                                  | Required scripts                                                                                   |
+| ------------------ | ------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `full-stack`       | Ships an API router **and** UI              | `test`, `test:backend`, `test:backend:watch`, `test:frontend`, `test:frontend:watch`, `test:watch` |
+| `backend-library`  | Runtime/server logic, no UI                 | `test`, `test:backend`, `test:backend:watch`                                                       |
+| `frontend-library` | React UI primitives/hooks                   | `test`, `test:frontend`, `test:frontend:watch`                                                     |
+| `app`              | Deployable application shell                | none (covered by feature/integration suites)                                                       |
+| `none`             | Config / codegen / scripts, no runtime seam | none                                                                                               |
+
+### `testStatus` and `reason`
+
+- **Omitted** — the package exposes every script its class requires (conforming).
+- **`"todo"`** — a library-class package that _should_ have tests but doesn't
+  yet. The gate stays green; the gap is tracked, not lost. Requires a `reason`.
+  List all gaps with `pnpm test:policy --todos`.
+- `reason` is **required** when `testStatus` is `todo`, or when `testClass` is
+  `app` or `none` (document why it's intentionally test-free).
+
+The checker also warns when a `none` package ships `.tsx` (UI) or `src/api` (a
+router) — a contradiction signalling it's mis-classified.
+
+Closing a gap = write the tests, add the class's scripts, and delete the
+`testStatus`/`reason` keys.
+
 ## Adding Tests to a New Package
+
+> New packages scaffolded via `pnpm turbo gen` already include a compliant
+> `acme` block; the steps below are for retrofitting an existing package.
 
 1. Add dev dependency on `@acme/test-utils`
 2. Create `vitest.config.backend.ts`:
@@ -263,3 +301,6 @@ export default mergeConfig(
   }
 }
 ```
+
+6. Drop the `acme.testStatus`/`reason` keys once the scripts and tests exist, so
+   the package counts as conforming (`pnpm test:policy`).

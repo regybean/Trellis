@@ -43,5 +43,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "full-stack",
+    "testStatus": "todo",
+    "reason": "Server actions + admin UI present; backend/frontend tests not yet written."
+  }
 }

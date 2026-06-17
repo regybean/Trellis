@@ -38,5 +38,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "Shared tRPC primitives + middleware; tests not yet written."
+  }
 }

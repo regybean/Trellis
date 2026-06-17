@@ -1,4 +1,8 @@
 {
   "name": "@acme/github",
-  "private": true
+  "private": true,
+  "acme": {
+    "testClass": "none",
+    "reason": "GitHub setup scripts; no runtime logic to test."
+  }
 }

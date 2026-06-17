@@ -77,5 +77,8 @@
     "test:watch": "vitest --watch",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "full-stack"
+  }
 }
