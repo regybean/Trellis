@@ -13,7 +13,7 @@ A single turn within a Conversation. Has a `role` (`user` | `assistant`) and a `
 _Avoid_: "turn", "entry", "line"
 
 **Stream**:
-The real-time delivery of an assistant Message chunk-by-chunk as it is generated. Implemented as a tRPC subscription over SSE. Clients receive `{ type: 'message', chunk, acc, sessionId }` events followed by a `{ type: 'done' }` sentinel.
+The real-time delivery of an assistant Message chunk-by-chunk as it is generated. Implemented as a tRPC subscription over SSE. Clients receive `{ type: 'message', chunk, acc, sessionId }` events followed by a `{ type: 'done', sessionId, messageId }` sentinel. The `done` event carries the persisted assistant `messageId` (or `null` if it could not be resolved) so clients can stamp the settled Message with its real id — the handle other features (e.g. feedback) key off.
 _Avoid_: "socket", "websocket", "live update"
 
 **RAG** (Retrieval-Augmented Generation):
@@ -37,3 +37,7 @@ _Avoid_: "search", "lookup", "context injection"
 **The chat-memory adapter is the only seam to Mastra Memory**: All thread↔Conversation and stored-message↔Message transforms, plus the Mastra-backed mutations, live in `chat-memory.ts`. The router never imports `memory` directly. The Mastra vocabulary (`thread`, `resource`) is confined to the adapter; everything above speaks Conversation. The agent is called directly — there is no `ChatService` wrapper.
 
 **Ownership is structural, enforced by middleware**: Mastra threads carry no row-level auth, so ownership is seated at the request pipeline by two procedure builders rather than checked per procedure. `ownedConversationProcedure` (used by `stream`, `create`) loads-and-verifies the Conversation, tolerating an absent thread (injected as `ctx.conversation = null`) since those procedures legitimately run before the thread is stamped. `existingConversationProcedure` (used by `get`, `delete`) additionally requires the thread to exist, injecting a non-null `ctx.conversation`. Both throw `FORBIDDEN` when `resourceId !== userId`; the existing variant throws `NOT_FOUND` when absent. A procedure cannot touch a Conversation without going through a builder, so an unguarded procedure cannot be written. Ownership runs _before_ rate limiting on `stream`, so a rejected request consumes no credits. Admin procedures bypass ownership through explicitly-named adapter accessors (`getConversationUnchecked`, `listConversations`). See [0003](docs/adr/0003-conversation-ownership-as-middleware.md).
+
+**The ownership rule itself lives in `@acme/rag`**: the builders call `assertThreadOwned(threadId, userId)` from `@acme/rag` rather than reading `resourceId` inline. The thread-ownership fact has one definition, reused by the feedback feature's `submit` mutation — a feature that annotates Mastra data inherits the rule instead of copying it.
+
+**Message actions are an app-wired render-slot, not a feature dependency**: `ChatAssistant` accepts `renderMessageActions(message)` and renders its result beneath each settled assistant Message. Apps mount per-message UI (e.g. `FeedbackButtons` from `@acme/feedback`) through that slot, so chat never depends on feedback and stays mountable without it. The slot only fires for settled assistant Messages that have a real `id` — which is why the `done` Stream event carries `messageId`.

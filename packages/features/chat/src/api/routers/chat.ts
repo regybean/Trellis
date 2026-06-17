@@ -15,6 +15,7 @@ import {
   createConversation,
   deleteConversation,
   getConversationUnchecked,
+  latestAssistantMessageId,
   listConversations,
   recallMessages,
   toConversation,
@@ -67,6 +68,22 @@ export const chatRouter = createTRPCRouter({
 
           yield { ...streamEvent };
         }
+
+        // Drain the stream so Mastra has finished persisting the assistant turn
+        // before we read back its minted id. This await is load-bearing: the
+        // `mastra_messages` row may not exist until the stream fully resolves.
+        await result.text;
+
+        const messageId = await latestAssistantMessageId(sessionId, userId);
+
+        const doneEvent: StreamChatEvent = {
+          type: 'done',
+          ts: Date.now().toString(),
+          sessionId,
+          messageId,
+        };
+
+        yield { ...doneEvent };
 
         ctx.telemetry.set({
           'result.responseLength': accumulatedResponse.length,

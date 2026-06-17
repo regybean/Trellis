@@ -36,7 +36,18 @@ invariant every one is `mastra_`-prefixed — `mastra_documents` (the knowledge 
 **App-owned table**:
 Any non-`mastra_` table in the per-app schema — the app, via Drizzle, owns its DDL.
 `db:push` manages these freely (no migrations in dev); Mastra never touches them.
-There are none today; the lane exists for future app tables. _Avoid_: "custom table"
+The first is `message_feedback`, defined in [`@acme/feedback`](../../features/feedback/CONTEXT.md)
+and re-exported through the app's `db/schema.ts` so drizzle-kit manages it. It carries
+Mastra-owned ids (`messageId`, `threadId`) by value with no foreign key. _Avoid_: "custom table"
+
+**Thread ownership**:
+The fact that a Mastra **thread** belongs to a **resource** (`thread.resourceId ===
+userId`). Mastra rows carry no row-level auth, so this is a rule, not a constraint:
+`assertThreadOwned(threadId, userId)` reads the thread and either returns it, returns
+`null` (absent), or throws `ThreadOwnershipError` (owned by someone else). Transport-
+agnostic — callers map the outcomes onto their own errors (chat → `FORBIDDEN`/`NOT_FOUND`
+middleware; feedback → the same tRPC codes). _Avoid_: "auth check", "guard" (it's a
+domain rule any feature can reuse)
 
 **Embed purpose**:
 Whether an embedding is for a stored document or a query — `document` when indexing,
@@ -56,6 +67,9 @@ Cohere-only detail), "mode", "direction"
 - Mastra creates every table at runtime; `@acme/rag/schema` exposes Drizzle mirrors
   of them so the data stays queryable. The matching migrations are generated but
   marked applied — see [system ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
+- `assertThreadOwned` is the shared **thread ownership** rule: chat's ownership
+  middleware and feedback's `submit` mutation both call it rather than re-reading
+  `resourceId` inline, so the ownership fact has one definition across features.
 
 ## Design decisions
 

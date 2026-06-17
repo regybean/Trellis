@@ -13,10 +13,11 @@ interface MessageListProps {
   shouldScrollToBottom?: boolean;
   onScrollComplete?: () => void;
   scrollToBottomRef?: React.RefObject<(() => void) | null>;
+  renderMessageActions?: (message: Message) => React.ReactNode;
 }
 
 const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
-  ({ messages, scrollToBottomRef }, _ref) => {
+  ({ messages, scrollToBottomRef, renderMessageActions }, _ref) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = useCallback(() => {
@@ -45,7 +46,13 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
       >
         <div className="pb-[500px]">
           {messages.map((message, index) => {
-            return <MessageItem key={message.id ?? index} message={message} />;
+            return (
+              <MessageItem
+                key={message.id ?? index}
+                message={message}
+                renderMessageActions={renderMessageActions}
+              />
+            );
           })}
         </div>
       </ScrollArea>

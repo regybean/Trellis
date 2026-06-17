@@ -31,4 +31,8 @@ export type StreamChatEvent =
       type: 'done';
       ts: string;
       sessionId: string;
+      // The id Mastra minted for the persisted assistant turn, or null when it
+      // could not be resolved. Lets the client attach feedback to the settled
+      // message without refetching the Conversation.
+      messageId: string | null;
     };

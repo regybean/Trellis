@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import { useTRPC as useBillingTRPC } from '@acme/billing';
 import { ChatAssistant } from '@acme/chat';
+import { FeedbackButtons } from '@acme/feedback';
 
 import { getAuthState } from '../lib/auth';
 
@@ -35,7 +36,17 @@ function ChatRoute() {
 
   return (
     <div className="min-h-full flex-grow p-5">
-      <ChatAssistant onTokensConsumed={handleTokensConsumed} />
+      <ChatAssistant
+        onTokensConsumed={handleTokensConsumed}
+        renderMessageActions={(message) =>
+          message.id && message.sessionId ? (
+            <FeedbackButtons
+              messageId={message.id}
+              threadId={message.sessionId}
+            />
+          ) : null
+        }
+      />
     </div>
   );
 }
