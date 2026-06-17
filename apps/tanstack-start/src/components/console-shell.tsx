@@ -1,12 +1,26 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { dark } from '@clerk/themes';
 import { Link } from '@tanstack/react-router';
 import { FileText, MessageSquare, SquareTerminal, Tag } from 'lucide-react';
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@acme/auth';
-import { Button } from '@acme/ui';
+import { NavUserSubscription } from '@acme/billing';
+import { env } from '@acme/billing/env';
+import { Button, StripeIcon } from '@acme/ui';
 
 import { StatusBar } from './status-bar';
+
+const ProfileIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 512 512"
+    fill="currentColor"
+  >
+    <path d="M399 384.2C376.9 345.8 335.4 320 288 320H224c-47.4 0-88.9 25.8-111 64.2c35.2 39.2 86.2 63.8 143 63.8s107.8-24.7 143-63.8zM0 256a256 256 0 1 1 512 0A256 256 0 1 1 0 256zm256 16a72 72 0 1 0 0-144 72 72 0 1 0 0 144z" />
+  </svg>
+);
 
 interface NavItem {
   title: string;
@@ -29,6 +43,8 @@ const navItems: NavItem[] = [
  * components rendered inside `children` are untouched.
  */
 export function ConsoleShell({ children }: { children: ReactNode }) {
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+
   return (
     <div className="flex h-screen w-full overflow-hidden">
       <aside className="border-border bg-sidebar flex w-52 shrink-0 flex-col border-r">
@@ -59,7 +75,37 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
 
         <div className="border-border border-t p-3">
           <SignedIn>
-            <UserButton />
+            <UserButton
+              appearance={{
+                baseTheme: dark,
+                elements: {
+                  avatarBox: 'h-8 w-8',
+                  userButtonPopoverCard: 'shadow-lg',
+                  userButtonPopoverActionButton: 'text-sm',
+                  userButtonPopoverActionButtonIcon: 'w-4 h-4',
+                  userButtonPopoverActionButtonText: 'text-sm',
+                  userButtonPopoverFooter: 'hidden',
+                },
+              }}
+            >
+              <UserButton.MenuItems>
+                <UserButton.Action
+                  label="View Subscription Details"
+                  labelIcon={<ProfileIcon />}
+                  onClick={() => setSubscriptionModalOpen(true)}
+                />
+                <UserButton.Action
+                  label="Manage Billing"
+                  labelIcon={<StripeIcon />}
+                  onClick={() =>
+                    window.open(
+                      env.NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL,
+                      '_blank',
+                    )
+                  }
+                />
+              </UserButton.MenuItems>
+            </UserButton>
           </SignedIn>
           <SignedOut>
             <SignInButton mode="modal">
@@ -80,6 +126,11 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
         <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
         <StatusBar />
       </div>
+
+      <NavUserSubscription
+        isOpen={subscriptionModalOpen}
+        onOpenChange={setSubscriptionModalOpen}
+      />
     </div>
   );
 }
