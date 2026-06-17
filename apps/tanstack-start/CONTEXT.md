@@ -36,6 +36,17 @@ The app-local dark/dense "developer console" chrome (left rail + top bar + statu
 bar) that wraps every page. The deliberate visual divergence from `apps/nextjs`;
 feature components are reused untouched.
 
+**App-owned Postgres schema** (`src/server/app-schema.ts`):
+The per-app `pgSchema` named off `NEXT_PUBLIC_WEBAPP` (falls back to
+`tanstack-start`), isolating this app's tables from `apps/nextjs` in the same
+database. `src/server/db/schema.ts` is the drizzle-kit entrypoint — it re-exports
+`appSchema` (so push/generate own `CREATE SCHEMA`) plus the app-owned
+`messageFeedback` table from `@acme/feedback/schema`. Mastra's `mastra_*` tables
+are deliberately excluded (the `!mastra_*` tablesFilter in `drizzle.push.config.ts`);
+Mastra owns their DDL at runtime — see
+[ADR 0002](../../docs/adr/0002-mastra-rag-and-memory.md). Run `db:push` (dev) or
+`db:migrate` (deploy) before booting the app on a fresh DB.
+
 ## Structure
 
 | Path                                                    | Purpose                                                                    |
@@ -57,6 +68,9 @@ feature components are reused untouched.
 | `src/lib/auth.ts`                                       | `getAuthState` server fn used by `beforeLoad` route guards                 |
 | `src/lib/admin.ts`                                      | `listUsers` / `setUserRole` / `removeUserRole` server fns                  |
 | `src/lib/stripe.ts`                                     | `syncStripeOnSuccess` server fn                                            |
+| `src/server/app-schema.ts`                              | App-owned `pgSchema` (per-app isolation, named off `NEXT_PUBLIC_WEBAPP`)   |
+| `src/server/db/schema.ts`                               | drizzle-kit entrypoint — re-exports `appSchema` + `messageFeedback`        |
+| `drizzle.config.ts`, `drizzle.push.config.ts`           | drizzle-kit configs (generate/migrate; push excludes `mastra_*`)           |
 | `src/components/`                                       | App-local shell + framework-coupled glue (console shell, admin, stripe)    |
 
 ## Relationships
