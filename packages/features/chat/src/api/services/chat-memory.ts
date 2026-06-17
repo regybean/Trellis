@@ -1,6 +1,6 @@
 import { TRPCError } from '@trpc/server';
 
-import { memory } from '@acme/rag';
+import { assertThreadOwned, memory, ThreadOwnershipError } from '@acme/rag';
 
 import type { Message } from '../schemas/message-schema';
 
@@ -58,16 +58,20 @@ export function toMessages(
 // not exist yet (the stream/create procedures operate before the thread is
 // stamped). Throws FORBIDDEN when the thread is owned by another user — the
 // security invariant the ownership middleware seats at the request pipeline.
+// The ownership rule itself lives in `@acme/rag` (transport-agnostic); this
+// thin caller maps its error onto tRPC's FORBIDDEN.
 export async function loadOwnedConversation(sessionId: string, userId: string) {
-  const thread = await memory.getThreadById({ threadId: sessionId });
-  if (!thread) return null;
-  if (thread.resourceId !== userId) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'You do not have access to this chat session',
-    });
+  try {
+    return await assertThreadOwned(sessionId, userId);
+  } catch (error) {
+    if (error instanceof ThreadOwnershipError) {
+      throw new TRPCError({
+        code: 'FORBIDDEN',
+        message: 'You do not have access to this chat session',
+      });
+    }
+    throw error;
   }
-  return thread;
 }
 
 export async function createConversation(sessionId: string, userId: string) {
@@ -89,6 +93,24 @@ export async function recallMessages(sessionId: string, userId: string) {
     perPage: false,
   });
   return messages;
+}
+
+// The id Mastra minted for the most recently persisted assistant turn in this
+// Conversation. Sourced by re-reading the thread once the stream completes
+// (rather than parsing Mastra's stream-result shape) so it stays robust across
+// Mastra versions. Returns null when no assistant message exists yet. The
+// `done` stream event carries this id so the client can attach feedback to the
+// settled message without a refetch.
+export async function latestAssistantMessageId(
+  sessionId: string,
+  userId: string,
+) {
+  const messages = await recallMessages(sessionId, userId);
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (message?.role === 'assistant') return message.id;
+  }
+  return null;
 }
 
 // Admin bypass: read any Conversation without an ownership check. Named

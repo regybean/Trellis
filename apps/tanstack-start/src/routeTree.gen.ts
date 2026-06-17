@@ -21,6 +21,7 @@ import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiTrpcIngestSplatRouteImport } from './routes/api/trpc/ingest.$'
+import { Route as ApiTrpcFeedbackSplatRouteImport } from './routes/api/trpc/feedback.$'
 import { Route as ApiTrpcChatSplatRouteImport } from './routes/api/trpc/chat.$'
 import { Route as ApiTrpcBillingSplatRouteImport } from './routes/api/trpc/billing.$'
 
@@ -84,6 +85,11 @@ const ApiTrpcIngestSplatRoute = ApiTrpcIngestSplatRouteImport.update({
   path: '/api/trpc/ingest/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTrpcFeedbackSplatRoute = ApiTrpcFeedbackSplatRouteImport.update({
+  id: '/api/trpc/feedback/$',
+  path: '/api/trpc/feedback/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiTrpcChatSplatRoute = ApiTrpcChatSplatRouteImport.update({
   id: '/api/trpc/chat/$',
   path: '/api/trpc/chat/$',
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/stripe/success': typeof StripeSuccessRoute
   '/api/trpc/billing/$': typeof ApiTrpcBillingSplatRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
+  '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
 }
 export interface FileRoutesByTo {
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   '/stripe/success': typeof StripeSuccessRoute
   '/api/trpc/billing/$': typeof ApiTrpcBillingSplatRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
+  '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
 }
 export interface FileRoutesById {
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   '/stripe/success': typeof StripeSuccessRoute
   '/api/trpc/billing/$': typeof ApiTrpcBillingSplatRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
+  '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
 }
 export interface FileRouteTypes {
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | '/stripe/success'
     | '/api/trpc/billing/$'
     | '/api/trpc/chat/$'
+    | '/api/trpc/feedback/$'
     | '/api/trpc/ingest/$'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/stripe/success'
     | '/api/trpc/billing/$'
     | '/api/trpc/chat/$'
+    | '/api/trpc/feedback/$'
     | '/api/trpc/ingest/$'
   id:
     | '__root__'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/stripe/success'
     | '/api/trpc/billing/$'
     | '/api/trpc/chat/$'
+    | '/api/trpc/feedback/$'
     | '/api/trpc/ingest/$'
   fileRoutesById: FileRoutesById
 }
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   StripeSuccessRoute: typeof StripeSuccessRoute
   ApiTrpcBillingSplatRoute: typeof ApiTrpcBillingSplatRoute
   ApiTrpcChatSplatRoute: typeof ApiTrpcChatSplatRoute
+  ApiTrpcFeedbackSplatRoute: typeof ApiTrpcFeedbackSplatRoute
   ApiTrpcIngestSplatRoute: typeof ApiTrpcIngestSplatRoute
 }
 
@@ -298,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiTrpcIngestSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/trpc/feedback/$': {
+      id: '/api/trpc/feedback/$'
+      path: '/api/trpc/feedback/$'
+      fullPath: '/api/trpc/feedback/$'
+      preLoaderRoute: typeof ApiTrpcFeedbackSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trpc/chat/$': {
       id: '/api/trpc/chat/$'
       path: '/api/trpc/chat/$'
@@ -329,6 +349,7 @@ const rootRouteChildren: RootRouteChildren = {
   StripeSuccessRoute: StripeSuccessRoute,
   ApiTrpcBillingSplatRoute: ApiTrpcBillingSplatRoute,
   ApiTrpcChatSplatRoute: ApiTrpcChatSplatRoute,
+  ApiTrpcFeedbackSplatRoute: ApiTrpcFeedbackSplatRoute,
   ApiTrpcIngestSplatRoute: ApiTrpcIngestSplatRoute,
 }
 export const routeTree = rootRouteImport

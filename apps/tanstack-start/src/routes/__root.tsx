@@ -12,6 +12,7 @@ import {
 
 import { BillingTRPCReactProvider } from '@acme/billing';
 import { ChatTRPCReactProvider } from '@acme/chat';
+import { FeedbackTRPCReactProvider } from '@acme/feedback';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
@@ -64,12 +65,14 @@ function RootDocument({ children }: { children: ReactNode }) {
           >
             <BillingTRPCReactProvider>
               <ChatTRPCReactProvider>
-                <IngestTRPCReactProvider>
-                  <TooltipProvider>
-                    <ConsoleShell>{children}</ConsoleShell>
-                    <ToastThemeClient />
-                  </TooltipProvider>
-                </IngestTRPCReactProvider>
+                <FeedbackTRPCReactProvider>
+                  <IngestTRPCReactProvider>
+                    <TooltipProvider>
+                      <ConsoleShell>{children}</ConsoleShell>
+                      <ToastThemeClient />
+                    </TooltipProvider>
+                  </IngestTRPCReactProvider>
+                </FeedbackTRPCReactProvider>
               </ChatTRPCReactProvider>
             </BillingTRPCReactProvider>
           </NextThemeProvider>
