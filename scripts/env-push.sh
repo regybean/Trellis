@@ -8,6 +8,12 @@ cd "$REPO_ROOT"
 
 # shellcheck source=../secrets.config.sh
 source "$REPO_ROOT/secrets.config.sh"
+if [ -z "${SECRETS_BACKEND:-}" ]; then
+  echo "SECRETS_BACKEND is not set — secrets sync needs an explicit backend." >&2
+  echo "  SECRETS_BACKEND=localstack  dev/demo, against the infra LocalStack vault" >&2
+  echo "  SECRETS_BACKEND=aws         a real cloud vault (AWS Secrets Manager)" >&2
+  exit 1
+fi
 adapter="$SCRIPT_DIR/secrets-backends/${SECRETS_BACKEND}.sh"
 if [ ! -f "$adapter" ]; then
   echo "Unknown SECRETS_BACKEND '$SECRETS_BACKEND' (no $adapter)" >&2

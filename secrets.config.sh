@@ -4,8 +4,10 @@
 
 # Which adapter to use, from scripts/secrets-backends/<name>.sh.
 # This CANNOT live in .env — that's the file we fetch (chicken-and-egg) — so it
-# lives here. Override per-environment with the SECRETS_BACKEND env var (e.g. CI).
-SECRETS_BACKEND="${SECRETS_BACKEND:-dotenv-file}"
+# lives here. There is deliberately NO default: pick a backend explicitly via the
+# SECRETS_BACKEND env var. `localstack` (dev/demo, against the always-on infra
+# LocalStack) or `aws` (a real cloud vault) are the shipped examples.
+SECRETS_BACKEND="${SECRETS_BACKEND:-}"
 
 # Maps a secret name (as known to your backend) -> the local .env file it fills.
 # Format: "secret-name:path/to/.env". The matching template is "<path>.example",

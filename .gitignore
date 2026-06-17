@@ -41,9 +41,6 @@ yarn-error.log*
 .env
 .env*.local
 
-# dotenv-file secrets backend store
-secrets/
-
 # vercel
 .vercel
 
