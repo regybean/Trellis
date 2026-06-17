@@ -86,44 +86,6 @@ vi.mock('@acme/redis/env', () => {
     },
   };
 });
-vi.mock('@acme/subscriptions', () => ({
-  credits: {
-    read: vi.fn().mockResolvedValue({
-      remaining: 100,
-      limit: 250,
-      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-    }),
-    consume: vi.fn().mockResolvedValue(undefined),
-    reset: vi.fn().mockResolvedValue({
-      tier: 'Basic',
-      limit: 250,
-      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-    }),
-    maxOut: vi.fn().mockResolvedValue({
-      tier: 'Basic',
-      previousLimit: 250,
-      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-    }),
-    overrideExpiry: vi.fn().mockResolvedValue({
-      tier: 'Basic',
-      keyExisted: true,
-      previousExpiryTimestamp: Math.floor(Date.now() / 1000) + 86_400 * 30,
-    }),
-    status: vi.fn().mockResolvedValue({
-      tier: 'Basic',
-      remaining: 100,
-      limit: 250,
-      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-      keyExists: true,
-    }),
-  },
-  getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
-  getSubscriptionType: vi.fn().mockReturnValue('Basic'),
-  isTierAtLeast: vi.fn((tier: string, minTier: string) => {
-    const rank: Record<string, number> = { Basic: 0, Standard: 1, Pro: 2 };
-    return (rank[tier] ?? 0) >= (rank[minTier] ?? 0);
-  }),
-}));
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 // @acme/models eagerly calls modelsEnv() at import time (in resolve.ts), which

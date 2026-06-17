@@ -10,28 +10,29 @@
  */
 
 // Types
+export type { TestContainers } from './containers';
 export type {
   CreditInfo,
-  SubscriptionTier,
   MockSubscription,
+  SubscriptionTier,
   TestContextOptions,
 } from './mocks';
-export type { TestContainers } from './containers';
 
 // Mock functions
 export {
-  createMockAuth,
-  createMockUser,
   createDefaultCredits,
-  createNoopTelemetry,
+  createMockAuth,
+  createMockEntitlements,
   createMockStripe,
+  createMockUser,
+  createNoopTelemetry,
 } from './mocks';
 
 // Containers
 export {
+  startContainers,
   startPostgresContainer,
   startRedisContainer,
-  startContainers,
   stopContainers,
 } from './containers';
 

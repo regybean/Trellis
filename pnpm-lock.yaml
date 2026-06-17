@@ -278,6 +278,9 @@ importers:
       '@acme/sidebar':
         specifier: workspace:*
         version: link:../../packages/compositions/sidebar
+      '@acme/subscriptions':
+        specifier: workspace:*
+        version: link:../../packages/platform/subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../packages/platform/telemetry
@@ -420,6 +423,9 @@ importers:
       '@acme/redis':
         specifier: workspace:*
         version: link:../../packages/platform/redis
+      '@acme/subscriptions':
+        specifier: workspace:*
+        version: link:../../packages/platform/subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../packages/platform/telemetry
@@ -751,9 +757,6 @@ importers:
       '@acme/redis':
         specifier: workspace:*
         version: link:../../platform/redis
-      '@acme/subscriptions':
-        specifier: workspace:*
-        version: link:../../platform/subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../platform/telemetry
@@ -763,9 +766,6 @@ importers:
       '@acme/ui':
         specifier: workspace:*
         version: link:../../shared/ui
-      '@clerk/nextjs':
-        specifier: 'catalog:'
-        version: 6.32.2(next@15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@mastra/core':
         specifier: 'catalog:'
         version: 1.42.0(@grpc/grpc-js@1.14.3)(ai@6.0.204(zod@4.4.3))(express@5.2.1)(zod@4.4.3)
@@ -878,9 +878,6 @@ importers:
       '@acme/redis':
         specifier: workspace:*
         version: link:../../platform/redis
-      '@acme/subscriptions':
-        specifier: workspace:*
-        version: link:../../platform/subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../platform/telemetry
@@ -896,9 +893,6 @@ importers:
       '@aws-sdk/s3-request-presigner':
         specifier: 'catalog:'
         version: 3.962.0
-      '@clerk/nextjs':
-        specifier: 'catalog:'
-        version: 6.32.2(next@15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
@@ -976,6 +970,27 @@ importers:
         specifier: ^4.0.1
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/platform/entitlements:
+    devDependencies:
+      '@acme/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@acme/prettier-config':
+        specifier: workspace:*
+        version: link:../../../tooling/prettier
+      '@acme/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.7.0)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.7.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   packages/platform/logger:
     dependencies:
       pino:
@@ -1034,6 +1049,9 @@ importers:
 
   packages/platform/subscriptions:
     dependencies:
+      '@acme/entitlements':
+        specifier: workspace:*
+        version: link:../entitlements
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
@@ -1132,21 +1150,15 @@ importers:
 
   packages/platform/trpc:
     dependencies:
+      '@acme/entitlements':
+        specifier: workspace:*
+        version: link:../entitlements
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
-      '@acme/redis':
-        specifier: workspace:*
-        version: link:../redis
-      '@acme/subscriptions':
-        specifier: workspace:*
-        version: link:../subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../telemetry
-      '@clerk/backend':
-        specifier: ^2.33.5
-        version: 2.33.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0

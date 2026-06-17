@@ -7,6 +7,8 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
+import { subscriptionsEntitlements } from '@acme/subscriptions';
+
 import type { AppRouter } from '../api/root';
 import { appRouter } from '../api/root';
 import { createTRPCContext } from '../api/trpc';
@@ -26,6 +28,7 @@ const createContext = cache(async () => {
     headers: heads,
     auth: await auth(),
     user: await currentUser(),
+    entitlements: subscriptionsEntitlements,
   });
 });
 

@@ -2,6 +2,8 @@
 
 Server-only package. Single source of truth for reading a user's Subscription state and Credit balance from Redis. No Stripe API calls — that is `@acme/billing`'s job. This package only reads what `@acme/billing` has already synced.
 
+It is the **Stripe/Redis-backed adapter** for the `@acme/entitlements` contract: it implements `EntitlementsProvider` as `subscriptionsEntitlements` and re-exports the relocated contract types (`SubscriptionTier`, `SubscriptionCache`, `isTierAtLeast`). The neutral types live in `@acme/entitlements`; the Zod `SubscriptionCacheSchema` that validates the Stripe-shaped variant stays here, guarded by a conformance assertion against the contract type. See [`docs/adr/0006-entitlements-injection-seam.md`](../../../docs/adr/0006-entitlements-injection-seam.md).
+
 ## Language
 
 **Subscription cache**:

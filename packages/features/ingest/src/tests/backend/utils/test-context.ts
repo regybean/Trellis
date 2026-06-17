@@ -11,6 +11,7 @@
 import type { TestContextOptions } from '@acme/test-utils';
 import {
   createMockAuth,
+  createMockEntitlements,
   createMockUser,
   createNoopTelemetry,
 } from '@acme/test-utils';
@@ -54,6 +55,10 @@ export function createTestContext(opts: TestContextOptions): TRPCContext {
     headers: new Headers(),
     auth: createMockAuth(opts.userId, opts.role),
     user: createMockUser(opts.userId),
+    entitlements: createMockEntitlements({
+      tier: opts.tier,
+      credits: opts.credits,
+    }),
     subscription,
     tier: opts.tier,
     credits: opts.credits,

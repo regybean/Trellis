@@ -32,15 +32,6 @@ vi.mock('@acme/redis/env', () => ({
   env: { REDIS_URL: 'redis://localhost:6379' },
 }));
 
-// @acme/trpc imports @acme/subscriptions, whose env.ts runs createEnv at import
-// (it ignores SKIP_ENV_VALIDATION) and demands Stripe plan ids. The documents
-// router calls none of these, so stub the module to bypass that validation.
-vi.mock('@acme/subscriptions', () => ({
-  credits: { read: vi.fn() },
-  getSubscriptionType: vi.fn(),
-  getUserSubscriptionFromRedis: vi.fn(),
-}));
-
 // Allow importing server-only modules under vitest.
 vi.mock('server-only', () => ({}));
 

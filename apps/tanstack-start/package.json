@@ -22,6 +22,7 @@
     "@acme/models": "workspace:*",
     "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",
+    "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@acme/ui": "workspace:*",
     "@clerk/tanstack-react-start": "catalog:",

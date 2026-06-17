@@ -1,19 +1,15 @@
 import 'server-only';
 
-import type { User } from '@clerk/backend';
 import { context, trace } from '@opentelemetry/api';
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import { z, ZodError } from 'zod/v4';
 
-import type { SubscriptionTier } from '@acme/subscriptions';
+import type {
+  EntitlementsProvider,
+  SubscriptionTier,
+} from '@acme/entitlements';
 import { logger } from '@acme/logger';
-import {
-  credits as creditPolicy,
-  getSubscriptionType,
-  getUserSubscriptionFromRedis,
-  isTierAtLeast,
-} from '@acme/subscriptions';
 import { instrumentDrizzleClient } from '@acme/telemetry';
 import {
   createProcedureTelemetry,
@@ -26,25 +22,26 @@ import {
  * The auth seam. Clerk is resolved by the *app's* adapter (Next.js route
  * handler via `@clerk/nextjs/server`, or TanStack Start via
  * `@clerk/tanstack-react-start/server`) and the result is injected here. This
- * package never imports a framework-specific Clerk SDK — it only depends on the
- * neutral `@clerk/backend` types. See docs/adr/0003-framework-agnostic-auth-seam.md.
+ * package depends on no Clerk SDK at all — `InjectedAuth` is a neutral local
+ * type and `ctx.user` is the augmentable `InjectedUser` global (below). See
+ * docs/adr/0003-framework-agnostic-auth-seam.md and
+ * docs/adr/0006-entitlements-injection-seam.md.
  */
 /**
- * The slice of Clerk session auth the platform consumes (`userId` +
- * `sessionClaims`). Apps inject the full `SessionAuthObject` from their Clerk
- * adapter — it is structurally assignable to this.
- *
- * A locally-named type is required here (rather than importing
- * `SessionAuthObject`) because that type lives at a deep `@clerk/backend` path
- * that cannot be named portably in this package's emitted declarations (TS2742).
- * It is a discriminated union mirroring Clerk's `SignedIn | SignedOut` so that
- * `protectedProcedure` narrows `userId` to a non-null `string`. The `user`
- * field below uses the real `User` type, kept single-copy by the
- * `@clerk/backend` override.
+ * The slice of session auth the platform consumes (`userId` + `sessionClaims`).
+ * Apps inject their Clerk `SessionAuthObject`, which is structurally assignable
+ * to this discriminated union — so `protectedProcedure` narrows `userId` to a
+ * non-null `string`.
  */
 export type InjectedAuth =
   | { userId: string; sessionClaims: CustomJwtSessionClaims }
   | { userId: null; sessionClaims: null };
+
+/**
+ * Re-exported so app adapters and RSC callers can type the injected billing
+ * policy without taking a direct dependency on `@acme/entitlements`.
+ */
+export type { EntitlementsProvider } from '@acme/entitlements';
 
 interface ContextOpts {
   headers: Headers;
@@ -52,8 +49,19 @@ interface ContextOpts {
   res?: Response;
   /** Resolved Clerk session auth, injected by the app adapter. */
   auth: InjectedAuth;
-  /** Full Clerk user, injected by the app adapter (null when signed out). */
-  user: User | null;
+  /**
+   * The full user, injected by the app adapter (null when signed out). Typed
+   * via the augmentable `InjectedUser` global so an app can sharpen it to its
+   * own user shape (the full apps augment it to a Clerk `User`).
+   */
+  user: InjectedUser | null;
+  /**
+   * The billing policy — rate limiting + tier gating. Required, with no
+   * implicit default (mirroring the auth seam): a deployment must explicitly
+   * inject either the `@acme/subscriptions` adapter or, for a no-billing build,
+   * `unlimitedEntitlements` from `@acme/entitlements`.
+   */
+  entitlements: EntitlementsProvider;
 }
 
 export interface RateLimitOptions {
@@ -65,18 +73,14 @@ type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 
 /**
  * Builds the base request context shared by every feature from the
- * app-injected Clerk auth + user: derives the billing context (subscription /
- * tier / credits) and a noop telemetry object (replaced per-procedure by the
- * telemetry middleware).
+ * app-injected auth + user + entitlements provider: resolves the billing
+ * context (subscription / tier / credits) through the provider and a noop
+ * telemetry object (replaced per-procedure by the telemetry middleware).
  */
 export async function createTRPCContext(opts: ContextOpts) {
-  const { auth: authResult, user, ...rest } = opts;
-  const subscription = await getUserSubscriptionFromRedis(authResult.userId);
-  const tier = getSubscriptionType(subscription);
-  const credits = await creditPolicy.read(
+  const { auth: authResult, user, entitlements, ...rest } = opts;
+  const { subscription, tier, credits } = await entitlements.resolve(
     authResult.userId,
-    subscription,
-    tier,
   );
   const telemetry = createTelemetryContext();
 
@@ -84,6 +88,7 @@ export async function createTRPCContext(opts: ContextOpts) {
     ...rest,
     auth: authResult,
     user,
+    entitlements,
     subscription,
     credits,
     tier,
@@ -263,7 +268,7 @@ function buildCore() {
         });
       }
 
-      await creditPolicy.consume(userId, tier, creditsToConsume);
+      await ctx.entitlements.consume(userId, tier, creditsToConsume);
 
       ctx.telemetry.event('rateLimit.passed', {
         creditsConsumed: creditsToConsume,
@@ -286,7 +291,7 @@ function buildCore() {
         'subscription.tier': ctx.tier,
       });
 
-      if (!isTierAtLeast(ctx.tier, minTier)) {
+      if (!ctx.entitlements.isTierAtLeast(ctx.tier, minTier)) {
         ctx.telemetry.event('subscription.check.denied', {
           reason: 'insufficient_tier',
           required: minTier,
