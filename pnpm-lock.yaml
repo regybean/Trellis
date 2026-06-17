@@ -1167,6 +1167,9 @@ importers:
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
@@ -1176,6 +1179,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: ^4.0.1
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
   packages/platform/subscriptions:
     dependencies:
@@ -9989,6 +9995,7 @@ packages:
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
     engines: {node: ^18 || >=20}
+    deprecated: unmaintained
     hasBin: true
     peerDependencies:
       typescript: ^5.0.0
