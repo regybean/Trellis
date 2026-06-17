@@ -10,7 +10,6 @@
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
     "@acme/rag": "workspace:*",
-    "@acme/sidebar": "workspace:*",
     "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",

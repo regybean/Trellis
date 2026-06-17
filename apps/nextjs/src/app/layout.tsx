@@ -1,7 +1,6 @@
 import './styles.css';
 
 import type { Metadata, Viewport } from 'next';
-import { Montserrat } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 
 import { BillingTRPCReactProvider } from '@acme/billing';
@@ -9,17 +8,9 @@ import { ChatTRPCReactProvider } from '@acme/chat';
 import { FeedbackTRPCReactProvider } from '@acme/feedback';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 // Toast container is rendered client-side to safely access localStorage
-import {
-  cn,
-  NextThemeProvider,
-  SidebarInset,
-  SidebarProvider,
-  SidebarTrigger,
-  ToastThemeClient,
-  TooltipProvider,
-} from '@acme/ui';
+import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
-import { Sidebar } from '../components/pages/layout/sidebar';
+import { EditorialShell } from '../components/pages/layout/editorial-shell';
 import { env } from '../env';
 
 export const metadata: Metadata = {
@@ -40,20 +31,10 @@ export const viewport: Viewport = {
   ],
 };
 
-const montserrat = Montserrat({
-  subsets: ['latin'],
-  variable: '--font-montserrat',
-});
-
 export default function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body
-        className={cn(
-          'bg-background text-foreground min-h-screen font-sans antialiased',
-          montserrat.variable,
-        )}
-      >
+      <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
           <NextThemeProvider
             attribute="class"
@@ -66,18 +47,10 @@ export default function RootLayout(props: { children: React.ReactNode }) {
                 <FeedbackTRPCReactProvider>
                   <IngestTRPCReactProvider>
                     <TooltipProvider>
-                      <SidebarProvider>
-                        <Sidebar />
-                        <SidebarInset>
-                          <header className="bg-background sticky top-0 p-4">
-                            <SidebarTrigger />
-                          </header>
-                          <main>
-                            <ToastThemeClient />
-                            {props.children}
-                          </main>
-                        </SidebarInset>
-                      </SidebarProvider>
+                      <EditorialShell>
+                        <ToastThemeClient />
+                        {props.children}
+                      </EditorialShell>
                     </TooltipProvider>
                   </IngestTRPCReactProvider>
                 </FeedbackTRPCReactProvider>

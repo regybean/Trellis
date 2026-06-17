@@ -278,9 +278,6 @@ importers:
       '@acme/rag':
         specifier: workspace:*
         version: link:../../packages/shared/rag
-      '@acme/sidebar':
-        specifier: workspace:*
-        version: link:../../packages/compositions/sidebar
       '@acme/subscriptions':
         specifier: workspace:*
         version: link:../../packages/platform/subscriptions
