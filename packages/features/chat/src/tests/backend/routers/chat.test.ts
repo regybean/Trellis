@@ -428,6 +428,10 @@ describe('chatRouter', () => {
     it('streams the accumulated assistant response', async () => {
       const userId = createTestUserId();
       const sessionId = createTestSessionId();
+      // The real agent stamps the thread as a side effect of streaming; the
+      // mocked agent does not, so seed it here. Without it the post-stream
+      // `latestAssistantMessageId` recall throws "No thread found".
+      await createTestChat({ userId, sessionId });
       const caller = createCaller({
         userId,
         role: 'user',
@@ -450,9 +454,16 @@ describe('chatRouter', () => {
       }
 
       expect(chunks.length).toBeGreaterThan(0);
-      expect(chunks.at(-1)).toMatchObject({
+      // The last message event carries the fully accumulated response, followed
+      // by a terminal `done` event.
+      const messageEvents = chunks.filter((c) => c.type === 'message');
+      expect(messageEvents.at(-1)).toMatchObject({
         type: 'message',
         acc: MOCKED_RESPONSE,
+      });
+      expect(chunks.at(-1)).toMatchObject({
+        type: 'done',
+        sessionId,
       });
     });
 

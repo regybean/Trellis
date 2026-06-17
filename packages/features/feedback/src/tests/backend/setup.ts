@@ -13,6 +13,13 @@ import { afterEach, beforeAll, inject, vi } from 'vitest';
 
 import { cleanupTestData } from './utils/test-context';
 
+// Dedicated Postgres schema so a parallel suite's cleanup (unscoped DELETE on
+// the Mastra `mastra_*` tables) can't wipe this suite's threads mid-test. turbo
+// runs feature backend suites concurrently against one shared database; without
+// per-package schemas they all share `nextjs.mastra_threads`. This is the
+// Postgres analogue of the per-package Redis logical DB pinned below.
+const { TEST_SCHEMA } = vi.hoisted(() => ({ TEST_SCHEMA: 'feedback_test' }));
+
 vi.mock('../../env', () => {
   const REDIS_URL = inject('REDIS_URL');
   const DB_HOST = inject('DB_HOST');
@@ -20,12 +27,11 @@ vi.mock('../../env', () => {
   const DB_USER = inject('DB_USER');
   const DB_PASSWORD = inject('DB_PASSWORD');
   const DB_NAME = inject('DB_NAME');
-  const NEXT_PUBLIC_WEBAPP = inject('NEXT_PUBLIC_WEBAPP');
 
   return {
     env: {
       NODE_ENV: 'test',
-      NEXT_PUBLIC_WEBAPP,
+      NEXT_PUBLIC_WEBAPP: TEST_SCHEMA,
       DB_HOST,
       DB_PORT,
       DB_USER,
@@ -40,7 +46,7 @@ vi.mock('../../env', () => {
 vi.mock('@acme/rag/env', () => ({
   env: {
     NODE_ENV: 'test',
-    NEXT_PUBLIC_WEBAPP: inject('NEXT_PUBLIC_WEBAPP'),
+    NEXT_PUBLIC_WEBAPP: TEST_SCHEMA,
     DB_HOST: inject('DB_HOST'),
     DB_PORT: Number(inject('DB_PORT')),
     DB_USER: inject('DB_USER'),
@@ -97,7 +103,7 @@ vi.mock('@acme/models/env', () => ({
 // connects to the testcontainer.
 beforeAll(async () => {
   const { db } = await import('../../api/trpc');
-  const schema = inject('NEXT_PUBLIC_WEBAPP') ?? 'nextjs';
+  const schema = TEST_SCHEMA;
   await db.execute(sql.raw(`CREATE SCHEMA IF NOT EXISTS "${schema}"`));
   await db.execute(
     sql.raw(
