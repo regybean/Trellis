@@ -25,13 +25,13 @@ The committed [`.env.example`](../.env.example) holds non-secret local-dev defau
 cp .env.example .env
 ```
 
-For secrets (anything declared with an empty value in `.env.example`), use the pluggable sync instead of editing by hand:
+For secrets (anything declared with an empty value in `.env.example`), you can fill them by hand, or use the pluggable sync. Sync is opt-in: pick a backend with one env var:
 
 ```bash
-pnpm env:pull            # fetches secrets from the configured backend into your .env
+SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vault
 ```
 
-Default backend is `dotenv-file` (a gitignored local JSON — zero setup). The backend is selectable in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
+There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
 
 ### Auth: Clerk keys (required for both apps)
 
