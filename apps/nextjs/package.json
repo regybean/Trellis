@@ -68,5 +68,9 @@
     "typecheck": "tsc --noEmit",
     "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "app",
+    "reason": "Application shell; covered by feature/integration suites, no package-level unit tests."
+  }
 }

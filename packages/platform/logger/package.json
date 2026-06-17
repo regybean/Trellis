@@ -27,5 +27,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "Structured-logger wrapper; tests not yet written."
+  }
 }

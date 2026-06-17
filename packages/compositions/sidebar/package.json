@@ -33,5 +33,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "frontend-library",
+    "testStatus": "todo",
+    "reason": "Composition UI; tests not yet written."
+  }
 }

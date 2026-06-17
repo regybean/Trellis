@@ -28,6 +28,7 @@
     "lint": "eslint",
     "test": "pnpm test:backend",
     "test:backend": "vitest run --config vitest.config.backend.ts",
+    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -49,5 +50,8 @@
     "prettier": "catalog:",
     "typescript": "catalog:"
   },
-  "prettier": "@acme/prettier-config"
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "backend-library"
+  }
 }

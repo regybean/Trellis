@@ -24,5 +24,10 @@
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
+  },
+  "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "Tier/entitlement logic; tests not yet written."
   }
 }

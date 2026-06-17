@@ -33,5 +33,10 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "Redis client + rate-limit helpers; tests not yet written."
+  }
 }

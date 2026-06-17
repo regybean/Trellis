@@ -25,5 +25,9 @@
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint --flag unstable_native_nodejs_ts_config",
     "typecheck": "tsc --noEmit"
+  },
+  "acme": {
+    "testClass": "none",
+    "reason": "Tailwind/PostCSS config; no runtime logic to test."
   }
 }

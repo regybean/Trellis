@@ -75,5 +75,8 @@
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
-  "prettier": "@acme/prettier-config"
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "full-stack"
+  }
 }

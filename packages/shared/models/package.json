@@ -37,5 +37,10 @@
     "prettier": "catalog:",
     "typescript": "catalog:"
   },
-  "prettier": "@acme/prettier-config"
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "Provider resolution logic; tests not yet written."
+  }
 }

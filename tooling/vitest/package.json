@@ -23,5 +23,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "none",
+    "reason": "Shared Vitest config; no runtime logic to test."
+  }
 }

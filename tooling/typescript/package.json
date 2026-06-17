@@ -3,5 +3,9 @@
   "files": [
     "*.json"
   ],
-  "private": true
+  "private": true,
+  "acme": {
+    "testClass": "none",
+    "reason": "TypeScript config; no runtime logic to test."
+  }
 }

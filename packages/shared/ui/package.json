@@ -62,5 +62,10 @@
     "typecheck": "tsc --noEmit",
     "ui-add": "pnpm dlx shadcn@latest add && prettier src --write --list-different"
   },
-  "type": "module"
+  "type": "module",
+  "acme": {
+    "testClass": "frontend-library",
+    "testStatus": "todo",
+    "reason": "Reusable UI primitives; component tests not yet written."
+  }
 }
