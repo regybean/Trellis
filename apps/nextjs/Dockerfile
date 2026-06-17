@@ -76,10 +76,8 @@ COPY --from=builder --chown=nextjs:nodejs /app/apps/nextjs/public ./apps/nextjs/
 
 # Copy migration files
 COPY --from=builder --chown=nextjs:nodejs /app/apps/nextjs/migrations/db ./migrations/db
-COPY --from=builder --chown=nextjs:nodejs /app/apps/nextjs/migrations/vdb ./migrations/vdb
 # Copy the drizzle config and env files required to work
 COPY --from=builder --chown=nextjs:nodejs /app/apps/nextjs/drizzle.config.ts ./drizzle.config.ts
-COPY --from=builder --chown=nextjs:nodejs /app/apps/nextjs/drizzle-vector.config.ts ./drizzle-vector.config.ts
 # copy the node modules required to migrate 
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 

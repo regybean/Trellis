@@ -13,9 +13,9 @@ import { env } from '../env';
 export const { EMBED_DIMENSIONS } = modelsEnv();
 
 // Knowledge-base table name. Mastra-owned (PgVector creates it), but the name is
-// ours — so it carries the `mastra_` prefix to mark it Mastra-owned, keeping
-// `db:push`'s `!mastra_*` blacklist a single rule. Single source of truth for
-// both the PgVector index name (vector.ts) and the Drizzle mirror below.
+// ours — so it carries the `mastra_` prefix to mark it Mastra-owned, matching the
+// `mastra_`-prefix invariant for every Mastra-owned table. Single source of truth
+// for both the PgVector index name (vector.ts) and the Drizzle mirror below.
 export const KNOWLEDGE_BASE_TABLE = 'mastra_documents';
 
 // Metadata stored alongside each chunk inside Mastra's PgVector `metadata`
@@ -33,8 +33,8 @@ export interface DocumentMetadata {
 export const ragSchema = pgSchema(env.NEXT_PUBLIC_WEBAPP);
 
 // Drizzle mirror of the table Mastra's PgVector creates at runtime. Kept so the
-// knowledge base stays queryable with Drizzle (listing/deletion). The matching
-// migration is generated but marked applied — Mastra owns the actual DDL.
+// knowledge base stays queryable with Drizzle (listing/deletion). Mastra owns the
+// actual DDL; the vector database is not drizzle-kit-managed at all (ADR-0002).
 export const documents = ragSchema.table(KNOWLEDGE_BASE_TABLE, {
   id: serial('id').primaryKey(),
   vectorId: text('vector_id').notNull().unique(),

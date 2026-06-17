@@ -933,6 +933,9 @@ importers:
       '@acme/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint
+      '@acme/models':
+        specifier: workspace:*
+        version: link:../../shared/models
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier

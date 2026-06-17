@@ -57,9 +57,9 @@
   "scripts": {
     "build": "IS_NEXT_BUILD=true pnpm with-env next build",
     "clean": "git clean -xdf .cache .next .turbo node_modules",
-    "db:generate": "pnpm with-env drizzle-kit generate --config drizzle.config.ts && pnpm with-env drizzle-kit generate --config drizzle-vector.config.ts",
-    "db:migrate": "pnpm drizzle-kit migrate && pnpm drizzle-kit migrate --config drizzle-vector.config.ts",
-    "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts && pnpm with-env drizzle-kit push --config drizzle-vector.push.config.ts",
+    "db:generate": "pnpm with-env drizzle-kit generate --config drizzle.config.ts",
+    "db:migrate": "pnpm drizzle-kit migrate",
+    "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts",
     "dev": "pnpm with-env next dev --turbopack",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",

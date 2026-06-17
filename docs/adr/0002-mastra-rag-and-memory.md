@@ -14,25 +14,40 @@ decisions are load-bearing:
    nor track them. (A table only needs its TypeScript definition to be queried with
    drizzle-orm; it does not need to be drizzle-kit-managed. This replaces the earlier
    "generate the migrations but mark them applied" approach — there are no mirror
-   migrations to mark.) `db:push` additionally carries a `!mastra_*` `tablesFilter`
-   whose real job is to hide Mastra's runtime tables during DB introspection so push
-   doesn't try to DROP tables it doesn't declare; `tablesFilter` does not affect the
-   code-derived desired state. **Invariant: every Mastra-owned table is
+   migrations to mark.) The **app database** `db:push` additionally carries a
+   `!mastra_*` `tablesFilter` whose real job is to hide Mastra's runtime tables
+   (`mastra_threads`, `mastra_messages`, `mastra_resources`) during DB introspection
+   so push doesn't try to DROP tables it doesn't declare; `tablesFilter` does not
+   affect the code-derived desired state. **Invariant: every Mastra-owned table is
    `mastra_`-prefixed** — including the knowledge-base table, named `mastra_documents`
    for exactly this reason (its name is ours; PgVector owns its DDL). Everything else
    in the per-app schema is app-owned.
+
+   **Amendment (vector DB no longer drizzle-kit-managed).** The vector database has
+   no app-owned tables — only Mastra's `mastra_documents` — so drizzle-kit doesn't
+   manage it at all: there is no vector `db:push`/`db:generate`/`db:migrate`, and the
+   vector drizzle configs and `vdb/schema.ts` entrypoint were removed. The query-only
+   mirror in `@acme/rag/schema` still backs Drizzle reads/deletes against the
+   knowledge base. Reason: `mastra_documents` has a `serial` id whose backing
+   sequence (`mastra_documents_id_seq`) is **not** covered by `tablesFilter` (a known
+   drizzle-kit limitation — sequences aren't filtered with their table), so vector
+   `db:push` tried to `DROP SEQUENCE` it and failed on the column dependency. Mastra
+   owns the whole vector DB end to end, including its schema creation.
 2. **Per-app isolation via a Postgres schema, not a table prefix.** Mastra has no
    table-prefix option, so both stores set `schemaName: NEXT_PUBLIC_WEBAPP`. Each app
-   gets its own schema. **Drizzle owns the schema's creation:** the app exports an
-   `appSchema = pgSchema(NEXT_PUBLIC_WEBAPP)` (`apps/nextjs/src/server/app-schema.ts`)
-   through both drizzle-kit entrypoints so `CREATE SCHEMA` is emitted. Mastra also
-   issues `CREATE SCHEMA IF NOT EXISTS` for the same name at runtime — idempotent, so
-   a harmless no-op once drizzle created it. **Run drizzle before the app on a fresh
-   DB** (`db:push` in dev, `db:migrate` in deploy, both before boot). drizzle-kit
-   emits plain `CREATE SCHEMA` (no `IF NOT EXISTS`) in generated migrations, so the
-   first migration's schema-creation line should be hand-edited to
-   `CREATE SCHEMA IF NOT EXISTS` to stay safe if Mastra ever boots first. App-owned
-   tables are namespaced on `appSchema`.
+   gets its own schema. **Drizzle owns the app database's schema creation:** the app
+   exports an `appSchema = pgSchema(NEXT_PUBLIC_WEBAPP)`
+   (`apps/nextjs/src/server/app-schema.ts`) through the app DB drizzle-kit entrypoint
+   so `CREATE SCHEMA` is emitted. Mastra also issues `CREATE SCHEMA IF NOT EXISTS`
+   for the same name at runtime — idempotent, so a harmless no-op once drizzle
+   created it. **Run drizzle before the app on a fresh app DB** (`db:push` in dev,
+   `db:migrate` in deploy, both before boot). drizzle-kit emits plain `CREATE SCHEMA`
+   (no `IF NOT EXISTS`) in generated migrations, so the first migration's
+   schema-creation line should be hand-edited to `CREATE SCHEMA IF NOT EXISTS` to
+   stay safe if Mastra ever boots first. App-owned tables are namespaced on
+   `appSchema`. For the **vector database** (no app-owned tables; see the amendment
+   to point 1) Mastra owns schema creation outright via its runtime
+   `CREATE SCHEMA IF NOT EXISTS`.
 3. **Bedrock via an AI-SDK provider instance, not Mastra's model router.** Mastra's
    model router has no native Bedrock entry, so we pass an `@ai-sdk/amazon-bedrock`
    provider instance directly as the agent/embedding model (Claude chat + Cohere
