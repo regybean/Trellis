@@ -190,7 +190,7 @@ Every script in [package.json](../package.json), grouped. ⚠️ = **manual-only
 | `pnpm db:push` / `pnpm db:generate` | ⚠️ Push schema / generate migrations (Drizzle) |
 | `pnpm seed:localstripe` | ⚠️ Seed dev billing products/plans |
 | `pnpm with-env <cmd>` | Run a command with `.env` loaded (dotenv) |
-| `pnpm env:pull` / `pnpm env:push` | ⚠️ Sync local `.env` files with a pluggable secrets backend. `.env.example` is the contract (empty value = secret); default backend is `dotenv-file` (gitignored local JSON, zero setup). See [ADR 0001](adr/0001-pluggable-secrets-sync.md). |
+| `pnpm env:pull` / `pnpm env:push` | ⚠️ Sync local `.env` files with a pluggable secrets backend. `.env.example` is the contract (empty value = secret). Opt-in via `SECRETS_BACKEND` (no default): `localstack` (dev/demo vault) or `aws` (real cloud). See [ADR 0001](adr/0001-pluggable-secrets-sync.md). |
 
 > `db:check`, `db:migrate`, and `db:studio` exist as script names but are currently empty stubs — `db:push` is the wired path.
 

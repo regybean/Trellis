@@ -3,10 +3,12 @@
 `env:pull` / `env:push` keep local `.env` files in sync, but the backend is now
 pluggable: each script sources `secrets.config.sh` (selecting a `SECRETS_BACKEND`)
 and a one-function-pair adapter from `scripts/secrets-backends/<name>.sh`
-(`fetch_secret` / `put_secret`). The default is `dotenv-file` (gitignored local
-JSON, zero setup); `aws.sh` is the worked example. `<file>.example` is the source
-of truth for which keys exist and which are secret: a non-empty value is
-non-secret config that lives in the repo; an empty value (and never a
+(`fetch_secret` / `put_secret`). There is no default backend — sync is opt-in,
+selected explicitly with `SECRETS_BACKEND`: `localstack` is the dev/demo example
+(the `aws` adapter pre-pointed at the always-on infra LocalStack vault, dummy
+credentials baked in) and `aws` is the real-cloud worked example. `<file>.example`
+is the source of truth for which keys exist and which are secret: a non-empty
+value is non-secret config that lives in the repo; an empty value (and never a
 `NEXT_PUBLIC_*` key) is a secret that lives only in the backend. This keeps
 non-secret config out of the vault and makes one-command onboarding work on any
 provider.
