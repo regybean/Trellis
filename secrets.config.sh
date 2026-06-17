@@ -14,5 +14,6 @@ SECRETS_BACKEND="${SECRETS_BACKEND:-}"
 # which is the source of truth for which keys are secret (empty value = secret).
 SECRET_MAP=(
   "app-shared:.env"
-  "web:apps/nextjs/.env"
+  "nextjs:apps/nextjs/.env"
+  "tanstack-start:apps/tanstack-start/.env"
 )
