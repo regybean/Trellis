@@ -2,6 +2,10 @@
 @import 'tw-animate-css';
 @import '@acme/tailwind-config/theme';
 
+/* Variable editorial fonts ship with the app for the print/magazine aesthetic. */
+@import '@fontsource-variable/fraunces';
+@import '@fontsource-variable/hanken-grotesk';
+
 @source '../../../../packages/shared/*/src/**/*.{ts,tsx}';
 @source '../../../../packages/features/*/src/**/*.{ts,tsx}';
 @source '../../../../packages/compositions/*/src/**/*.{ts,tsx}';
@@ -10,6 +14,96 @@
 @custom-variant dark (&:where(.dark, .dark *));
 @custom-variant light (&:where(.light, .light *));
 @custom-variant auto (&:where(.auto, .auto *));
+
+/*
+ * Divergent editorial token surface. The shared theme ships a light-first
+ * Montserrat / blue look; this app overrides the same tokens into a warm
+ * "print magazine" identity — paper-cream canvas, oxblood accent, hairline
+ * rules, sharp corners, Fraunces (display, via `font-serif`) over Hanken
+ * Grotesk (body). Feature components are untouched: they read these tokens and
+ * re-skin automatically. Mirrors how tanstack-start diverges to its console
+ * look, proving the slice contract holds — same routes, different skin.
+ */
+:root {
+  --background: oklch(0.9711 0.013 83);
+  --foreground: oklch(0.231 0.012 55);
+  --card: oklch(0.985 0.009 83);
+  --card-foreground: oklch(0.231 0.012 55);
+  --popover: oklch(0.985 0.009 83);
+  --popover-foreground: oklch(0.231 0.012 55);
+  --primary: oklch(0.43 0.135 25);
+  --primary-foreground: oklch(0.975 0.013 83);
+  --on-primary: oklch(0.975 0.013 83);
+  --secondary: oklch(0.93 0.012 80);
+  --secondary-foreground: oklch(0.3 0.02 45);
+  --muted: oklch(0.935 0.01 80);
+  --muted-foreground: oklch(0.48 0.018 50);
+  --accent: oklch(0.9 0.028 60);
+  --accent-foreground: oklch(0.43 0.135 25);
+  --destructive: oklch(0.505 0.19 27);
+  --destructive-foreground: oklch(0.975 0.013 83);
+  --border: oklch(0.875 0.012 70);
+  --input: oklch(0.875 0.012 70);
+  --ring: oklch(0.43 0.135 25);
+  --chart-1: oklch(0.43 0.135 25);
+  --chart-2: oklch(0.55 0.13 45);
+  --chart-3: oklch(0.62 0.1 75);
+  --chart-4: oklch(0.5 0.08 110);
+  --chart-5: oklch(0.42 0.06 160);
+  --sidebar: oklch(0.955 0.014 83);
+  --sidebar-foreground: oklch(0.231 0.012 55);
+  --sidebar-primary: oklch(0.43 0.135 25);
+  --sidebar-primary-foreground: oklch(0.975 0.013 83);
+  --sidebar-accent: oklch(0.9 0.028 60);
+  --sidebar-accent-foreground: oklch(0.43 0.135 25);
+  --sidebar-border: oklch(0.875 0.012 70);
+  --sidebar-ring: oklch(0.43 0.135 25);
+
+  --font-sans: 'Hanken Grotesk Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif:
+    'Fraunces Variable', ui-serif, Georgia, 'Times New Roman', serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius: 0.125rem;
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+}
+
+.dark {
+  --background: oklch(0.19 0.008 50);
+  --foreground: oklch(0.92 0.01 80);
+  --card: oklch(0.225 0.009 50);
+  --card-foreground: oklch(0.92 0.01 80);
+  --popover: oklch(0.225 0.009 50);
+  --popover-foreground: oklch(0.92 0.01 80);
+  --primary: oklch(0.585 0.14 28);
+  --primary-foreground: oklch(0.16 0.008 50);
+  --on-primary: oklch(0.16 0.008 50);
+  --secondary: oklch(0.26 0.01 50);
+  --secondary-foreground: oklch(0.92 0.01 80);
+  --muted: oklch(0.26 0.01 50);
+  --muted-foreground: oklch(0.705 0.015 70);
+  --accent: oklch(0.3 0.03 40);
+  --accent-foreground: oklch(0.78 0.1 35);
+  --destructive: oklch(0.62 0.2 27);
+  --destructive-foreground: oklch(0.96 0.01 80);
+  --border: oklch(0.32 0.01 50);
+  --input: oklch(0.32 0.01 50);
+  --ring: oklch(0.585 0.14 28);
+  --chart-1: oklch(0.585 0.14 28);
+  --chart-2: oklch(0.64 0.12 50);
+  --chart-3: oklch(0.7 0.1 80);
+  --chart-4: oklch(0.6 0.08 120);
+  --chart-5: oklch(0.55 0.07 165);
+  --sidebar: oklch(0.165 0.007 50);
+  --sidebar-foreground: oklch(0.92 0.01 80);
+  --sidebar-primary: oklch(0.585 0.14 28);
+  --sidebar-primary-foreground: oklch(0.16 0.008 50);
+  --sidebar-accent: oklch(0.26 0.01 50);
+  --sidebar-accent-foreground: oklch(0.92 0.01 80);
+  --sidebar-border: oklch(0.32 0.01 50);
+  --sidebar-ring: oklch(0.585 0.14 28);
+}
 
 @layer base {
   * {
