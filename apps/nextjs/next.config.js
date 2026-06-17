@@ -27,6 +27,12 @@ const config = {
   typescript: { ignoreBuildErrors: true },
   output: 'standalone',
   webpack: (config, { isServer }) => {
+    // Node.js 24 detaches the WebAssembly memory buffer used by webpack's
+    // bundled WASM hash (md4/xxhash64), crashing the build with
+    // "Cannot read properties of undefined (reading 'length')" inside
+    // WasmHash._updateWithBuffer. Force a native Node crypto hash to bypass it.
+    config.output.hashFunction = 'sha256';
+
     if (isServer) {
       // Suppress critical dependency warnings from OpenTelemetry
       config.module = {
