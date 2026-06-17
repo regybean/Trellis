@@ -1,29 +1,11 @@
-{
-  "name": "@acme/{{ kebabCase name }}",
-  "private": true,
-  "type": "module",
-  "license": "MIT",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./src/index.ts"
-    }
-  },
-  "scripts": {
-    "build": "tsc",
-    "clean": "git clean -xdf .cache .turbo dist node_modules",
-    "format": "prettier --check . --ignore-path ../../.gitignore",
-    "lint": "eslint",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {},
-  "devDependencies": {
-    "@acme/eslint-config": "workspace:*",
-    "@acme/prettier-config": "workspace:*",
-    "@acme/tsconfig": "workspace:*",
-    "eslint": "catalog:",
-    "prettier": "catalog:",
-    "typescript": "catalog:"
-  },
-  "prettier": "@acme/prettier-config"
-}
+{ "name": "@acme/{{kebabCase name}}", "private": true, "type": "module",
+"license": "MIT", "exports": { ".": { "types": "./dist/index.d.ts", "default":
+"./src/index.ts" } }, "scripts": { "build": "tsc", "clean": "git clean -xdf
+.cache .turbo dist node_modules", "format": "prettier --check . --ignore-path
+../../.gitignore", "lint": "eslint", "typecheck": "tsc --noEmit" },
+"dependencies": {}, "devDependencies": { "@acme/eslint-config": "workspace:*",
+"@acme/prettier-config": "workspace:*", "@acme/tsconfig": "workspace:*",
+"eslint": "catalog:", "prettier": "catalog:", "typescript": "catalog:" },
+"prettier": "@acme/prettier-config", "acme": { "testClass": "backend-library",
+"testStatus": "todo", "reason": "Newly scaffolded shared primitive; reclassify
+(backend/frontend-library) and add tests." } }
