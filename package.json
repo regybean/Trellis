@@ -61,6 +61,7 @@
     "lint:mastra": "pnpm --filter @acme/chat lint:mastra",
     "lint:ws": "pnpm dlx sherif@latest",
     "lint:ws:fix": "pnpm dlx sherif@latest --fix",
+    "prune": "scripts/extract-app.sh",
     "postinstall": "turbo run build --filter=./packages/** && pnpm lint:ws:fix && pnpm skills:register",
     "skills:register": "scripts/register-skills.sh",
     "prepare": "lefthook install",
