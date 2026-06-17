@@ -14,6 +14,7 @@ import { mastraMessages, mastraThreads } from '@acme/rag/schema';
 import { redis } from '@acme/redis';
 import {
   createMockAuth,
+  createMockEntitlements,
   createMockUser,
   createNoopTelemetry,
 } from '@acme/test-utils';
@@ -41,6 +42,10 @@ export function createTestContext(opts: TestContextOptions): TRPCContext {
     headers: new Headers(),
     auth: mockAuth,
     user: mockUser,
+    entitlements: createMockEntitlements({
+      tier: opts.tier,
+      credits: opts.credits,
+    }),
     subscription: defaultSubscription,
     credits: opts.credits,
     tier: opts.tier,

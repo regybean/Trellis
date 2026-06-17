@@ -116,6 +116,36 @@ export function createDefaultCredits(
   };
 }
 
+/**
+ * Creates a mock entitlements provider for tRPC procedure tests: `consume` is a
+ * no-op (no Redis), `isTierAtLeast` uses the real `Basic < Standard < Pro`
+ * ordering, and `resolve` echoes the supplied tier/credits with a `'none'`
+ * subscription. Structurally matches `EntitlementsProvider` from
+ * `@acme/entitlements` without importing it — tooling must not depend on
+ * platform packages.
+ */
+export function createMockEntitlements(opts: {
+  tier: SubscriptionTier;
+  credits: CreditInfo;
+}) {
+  const rank: Record<SubscriptionTier, number> = {
+    Basic: 0,
+    Standard: 1,
+    Pro: 2,
+  };
+  return {
+    resolve: () =>
+      Promise.resolve({
+        subscription: { status: 'none' as const },
+        tier: opts.tier,
+        credits: opts.credits,
+      }),
+    consume: () => Promise.resolve(),
+    isTierAtLeast: (tier: SubscriptionTier, minTier: SubscriptionTier) =>
+      rank[tier] >= rank[minTier],
+  };
+}
+
 // ============================================================================
 // Telemetry Mocks
 // ============================================================================

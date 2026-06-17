@@ -1,5 +1,7 @@
 import { z } from 'zod/v4';
 
+import type { SubscriptionCache as ContractSubscriptionCache } from '@acme/entitlements';
+
 const SubscriptionStatus = z.enum([
   'active',
   'past_due',
@@ -30,6 +32,16 @@ export const SubscriptionCacheSchema = z.discriminatedUnion('status', [
   }),
 ]);
 
-export type SubscriptionCache = z.infer<typeof SubscriptionCacheSchema>;
+// The subscription/tier types are owned by the neutral `@acme/entitlements`
+// contract; this package owns the Zod schema that validates the Stripe-shaped
+// cache and re-exports the contract types alongside it.
+export type { SubscriptionCache, SubscriptionTier } from '@acme/entitlements';
 
-export type SubscriptionTier = 'Basic' | 'Standard' | 'Pro';
+// Drift guard: the Stripe-shaped Zod schema must stay assignable to the neutral
+// `SubscriptionCache` contract type. A schema change that diverges from the
+// contract fails to compile here.
+type _SchemaConformsToContract =
+  z.infer<typeof SubscriptionCacheSchema> extends ContractSubscriptionCache
+    ? true
+    : never;
+const _schemaConformsToContract: _SchemaConformsToContract = true;

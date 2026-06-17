@@ -3,6 +3,7 @@ import { auth, currentUser } from '@clerk/nextjs/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
 import { appRouter, createTRPCContext } from '@acme/ingest/server';
+import { subscriptionsEntitlements } from '@acme/subscriptions';
 import { logTRPCError } from '@acme/trpc/error';
 
 const setCorsHeaders = (res: Response) => {
@@ -25,6 +26,7 @@ const createContext = async (req: NextRequest) => {
     req,
     auth: await auth(),
     user: await currentUser(),
+    entitlements: subscriptionsEntitlements,
   });
 };
 

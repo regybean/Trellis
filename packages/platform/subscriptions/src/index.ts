@@ -1,13 +1,14 @@
 import 'server-only';
 
+export { credits } from './credits';
+export { subscriptionsEntitlements } from './entitlements-adapter';
 export {
   SubscriptionCacheSchema,
   type SubscriptionCache,
   type SubscriptionTier,
 } from './subscription-cache';
 export {
-  getUserSubscriptionFromRedis,
   getSubscriptionType,
+  getUserSubscriptionFromRedis,
 } from './subscriptions';
-export { credits } from './credits';
 export { isTierAtLeast } from './tiers';
