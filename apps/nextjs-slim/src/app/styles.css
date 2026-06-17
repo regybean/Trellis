@@ -1,0 +1,40 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import '@acme/tailwind-config/theme';
+
+@source '../../../../packages/shared/*/src/**/*.{ts,tsx}';
+@source '../../../../packages/features/*/src/**/*.{ts,tsx}';
+@source '../../../../packages/compositions/*/src/**/*.{ts,tsx}';
+@source '../components/**/*.{ts,tsx}';
+
+@custom-variant dark (&:where(.dark, .dark *));
+@custom-variant light (&:where(.light, .light *));
+@custom-variant auto (&:where(.auto, .auto *));
+
+/*
+ * Slim-app brand accent. Overrides the shared theme's primary to a distinct
+ * indigo/violet so this app is visually distinguishable from tanstack-slim
+ * (which uses an amber accent). Only the primary/ring tokens are touched; the
+ * rest of the shared light-first Montserrat theme is inherited.
+ */
+:root {
+  --primary: oklch(0.55 0.21 280);
+  --primary-foreground: oklch(0.98 0.01 280);
+  --ring: oklch(0.55 0.21 280);
+}
+
+.dark {
+  --primary: oklch(0.68 0.18 280);
+  --primary-foreground: oklch(0.16 0.02 280);
+  --ring: oklch(0.68 0.18 280);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
