@@ -400,6 +400,263 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/nextjs-slim:
+    dependencies:
+      '@acme/chat':
+        specifier: workspace:*
+        version: link:../../packages/features/chat
+      '@acme/entitlements':
+        specifier: workspace:*
+        version: link:../../packages/platform/entitlements
+      '@acme/ingest':
+        specifier: workspace:*
+        version: link:../../packages/features/ingest
+      '@acme/logger':
+        specifier: workspace:*
+        version: link:../../packages/platform/logger
+      '@acme/models':
+        specifier: workspace:*
+        version: link:../../packages/shared/models
+      '@acme/rag':
+        specifier: workspace:*
+        version: link:../../packages/shared/rag
+      '@acme/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/platform/telemetry
+      '@acme/trpc':
+        specifier: workspace:*
+        version: link:../../packages/platform/trpc
+      '@acme/ui':
+        specifier: workspace:*
+        version: link:../../packages/shared/ui
+      '@t3-oss/env-nextjs':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
+      '@tailwindcss/postcss':
+        specifier: 'catalog:'
+        version: 4.1.18
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.90.16(react@19.2.3)
+      '@trpc/client':
+        specifier: 'catalog:'
+        version: 11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3)
+      '@trpc/server':
+        specifier: 'catalog:'
+        version: 11.8.1(typescript@5.9.3)
+      '@trpc/tanstack-react-query':
+        specifier: 'catalog:'
+        version: 11.8.1(@tanstack/react-query@5.90.16(react@19.2.3))(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
+      drizzle-kit:
+        specifier: ^0.31.8
+        version: 0.31.8
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7)
+      lucide-react:
+        specifier: 'catalog:'
+        version: 0.475.0(react@19.2.3)
+      next:
+        specifier: 'catalog:'
+        version: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      next-themes:
+        specifier: 'catalog:'
+        version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      postcss:
+        specifier: ^8.5.6
+        version: 8.5.6
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.7
+      react:
+        specifier: catalog:react19
+        version: 19.2.3
+      react-dom:
+        specifier: catalog:react19
+        version: 19.2.3(react@19.2.3)
+      server-only:
+        specifier: 'catalog:'
+        version: 0.0.1
+      superjson:
+        specifier: 'catalog:'
+        version: 2.2.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@acme/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@acme/prettier-config':
+        specifier: workspace:*
+        version: link:../../tooling/prettier
+      '@acme/tailwind-config':
+        specifier: workspace:*
+        version: link:../../tooling/tailwind
+      '@acme/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.3
+      '@types/react':
+        specifier: catalog:react19
+        version: 19.2.7
+      '@types/react-dom':
+        specifier: catalog:react19
+        version: 19.2.3(@types/react@19.2.7)
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.7.0)
+      jiti:
+        specifier: ^2.6.1
+        version: 2.7.0
+      prettier:
+        specifier: 'catalog:'
+        version: 3.7.4
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.1
+      tw-animate-css:
+        specifier: ^1.4.0
+        version: 1.4.0
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
+  apps/tanstack-slim:
+    dependencies:
+      '@acme/chat':
+        specifier: workspace:*
+        version: link:../../packages/features/chat
+      '@acme/entitlements':
+        specifier: workspace:*
+        version: link:../../packages/platform/entitlements
+      '@acme/ingest':
+        specifier: workspace:*
+        version: link:../../packages/features/ingest
+      '@acme/logger':
+        specifier: workspace:*
+        version: link:../../packages/platform/logger
+      '@acme/models':
+        specifier: workspace:*
+        version: link:../../packages/shared/models
+      '@acme/rag':
+        specifier: workspace:*
+        version: link:../../packages/shared/rag
+      '@acme/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/platform/telemetry
+      '@acme/trpc':
+        specifier: workspace:*
+        version: link:../../packages/platform/trpc
+      '@acme/ui':
+        specifier: workspace:*
+        version: link:../../packages/shared/ui
+      '@fontsource-variable/geist':
+        specifier: ^5.2.9
+        version: 5.2.9
+      '@fontsource-variable/geist-mono':
+        specifier: ^5.2.8
+        version: 5.2.8
+      '@t3-oss/env-nextjs':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
+      '@tanstack/react-query':
+        specifier: 'catalog:'
+        version: 5.90.16(react@19.2.3)
+      '@tanstack/react-router':
+        specifier: ^1.170.15
+        version: 1.170.15(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@tanstack/react-router-ssr-query':
+        specifier: ^1.167.1
+        version: 1.167.1(@tanstack/query-core@5.90.16)(@tanstack/react-query@5.90.16(react@19.2.3))(@tanstack/react-router@1.170.15(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(@tanstack/router-core@1.171.13)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@tanstack/react-start':
+        specifier: ^1.168.25
+        version: 1.168.25(crossws@0.4.6(srvx@0.11.16))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@trpc/server':
+        specifier: 'catalog:'
+        version: 11.8.1(typescript@5.9.3)
+      dotenv-cli:
+        specifier: ^11.0.0
+        version: 11.0.0
+      drizzle-kit:
+        specifier: ^0.31.8
+        version: 0.31.8
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7)
+      lucide-react:
+        specifier: 'catalog:'
+        version: 0.475.0(react@19.2.3)
+      nitro:
+        specifier: 3.0.260610-beta
+        version: 3.0.260610-beta(aws4fetch@1.0.20)(chokidar@5.0.0)(dotenv@17.4.2)(drizzle-orm@0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7))(idb-keyval@6.2.5)(jiti@2.7.0)(lru-cache@11.5.1)(rollup@4.62.0)(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.7
+      react:
+        specifier: catalog:react19
+        version: 19.2.3
+      react-dom:
+        specifier: catalog:react19
+        version: 19.2.3(react@19.2.3)
+      superjson:
+        specifier: 'catalog:'
+        version: 2.2.2
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@acme/eslint-config':
+        specifier: workspace:*
+        version: link:../../tooling/eslint
+      '@acme/prettier-config':
+        specifier: workspace:*
+        version: link:../../tooling/prettier
+      '@acme/tailwind-config':
+        specifier: workspace:*
+        version: link:../../tooling/tailwind
+      '@acme/tsconfig':
+        specifier: workspace:*
+        version: link:../../tooling/typescript
+      '@tailwindcss/vite':
+        specifier: 'catalog:'
+        version: 4.3.1(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.3
+      '@types/react':
+        specifier: catalog:react19
+        version: 19.2.7
+      '@types/react-dom':
+        specifier: catalog:react19
+        version: 19.2.3(@types/react@19.2.7)
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 5.1.2(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.7.0)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.7.4
+      tailwindcss:
+        specifier: 'catalog:'
+        version: 4.3.1
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vite:
+        specifier: ^7.0.0
+        version: 7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2)
+      vite-tsconfig-paths:
+        specifier: ^6.1.1
+        version: 6.1.1(typescript@5.9.3)(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
+
   apps/tanstack-start:
     dependencies:
       '@acme/admin':

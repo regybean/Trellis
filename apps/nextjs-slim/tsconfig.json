@@ -1,0 +1,18 @@
+{
+  "extends": "@acme/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "dom", "dom.iterable"],
+    "jsx": "preserve",
+    "paths": {
+      "~/*": ["./src/*"]
+    },
+    "plugins": [{ "name": "next" }],
+    "module": "esnext"
+  },
+  "include": [
+    ".",
+    ".next/types/**/*.ts",
+    "../../packages/platform/trpc/src/global.d.ts"
+  ],
+  "exclude": ["node_modules"]
+}
