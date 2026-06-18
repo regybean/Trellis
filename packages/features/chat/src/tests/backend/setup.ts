@@ -64,7 +64,7 @@ vi.mock('@acme/rag/env', () => {
       DB_PASSWORD: inject('DB_PASSWORD'),
       DB_NAME: inject('DB_NAME'),
       DB_VECTOR_NAME: 'vectordb',
-      CHUNK_SIZE: 1024,
+      CHUNK_SIZE: 768,
       CHUNK_OVERLAP: 20,
       AWS_REGION: 'eu-west-2',
       BEDROCK_CHAT_MODEL: 'test-model',
@@ -103,7 +103,7 @@ vi.mock('@acme/models/env', () => ({
   modelsEnv: vi.fn().mockReturnValue({
     LLM_PROVIDER: 'ollama',
     EMBED_PROVIDER: 'ollama',
-    EMBED_DIMENSIONS: 1024,
+    EMBED_DIMENSIONS: 768,
   }),
 }));
 

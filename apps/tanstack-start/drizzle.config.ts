@@ -12,7 +12,7 @@ export default {
     ssl: false,
   },
   // Mastra namespaces its tables under a per-app schema (NEXT_PUBLIC_WEBAPP).
-  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'tanstack-start'],
+  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'tanstack_start'],
   tablesFilter: ['*'],
   out: './migrations/db',
   casing: 'camelCase',

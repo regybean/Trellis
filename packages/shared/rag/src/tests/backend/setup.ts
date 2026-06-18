@@ -18,7 +18,7 @@ import { inject, vi } from 'vitest';
 
 // Fixed vector dimension for tests — must match the EMBED_DIMENSIONS the schema
 // and PgVector index are built with (mocked below).
-const EMBED_DIMENSIONS = 1024;
+const EMBED_DIMENSIONS = 768;
 
 // Point @acme/rag at the test databases. Mocking the env module (the same file
 // rag's internal `./env` imports resolve to) lets the uploader and vector store
