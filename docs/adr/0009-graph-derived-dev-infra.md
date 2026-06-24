@@ -15,7 +15,7 @@ infra is the **union of `acme.infra` over its transitive workspace closure**
 (`scripts/resolve-infra.mjs`, via `pnpm --filter "<app>..." ls`). Each entry is a
 Compose **profile** of the same name in `compose.yaml`.
 
-This follows the slice contract ([ADR 0008](0008-slim-no-auth-apps.md)): infra need
+This follows the slice contract ([ADR 0010](0010-slim-no-auth-apps.md)): infra need
 travels with the package that owns it, down the dependency edges, exactly like code.
 A slim app that doesn't depend on `@acme/billing` derives no `billing` service —
 **because the dependency graph already encodes that**, not because anyone maintained
@@ -23,8 +23,8 @@ a parallel list. Adding an app needs zero change here; adding infra to a feature
 one line in that feature's `package.json`.
 
 **There is no `core` / always-on set.** Nothing is assumed running. An app whose
-closure declares no infra starts none — which is the point: it keeps the future
-reduced-runtime app (the `express` core-only case) honest, and makes the resolver's
+closure declares no infra starts none — which is the point: it keeps any future
+reduced-runtime app (a core-only case) honest, and makes the resolver's
 output an audit of what an app truly couples to.
 
 ## The graph gives candidates; env prunes them

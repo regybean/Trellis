@@ -44,3 +44,9 @@ System-wide decisions live in [`adr/`](adr/). Per-package ADRs live under each p
 | [0003 (auth)](adr/0003-framework-agnostic-auth-seam.md) | Auth is injected into the tRPC context; the app owns the Clerk resolver. |
 | [0003 (models)](adr/0003-multi-provider-models.md) | Multi-provider models behind a single `@acme/models` package. |
 | [0004](adr/0004-localstripe-dev-billing.md) | localstripe for dependency-free local-dev billing. |
+| [0005](adr/0005-telemetry-init-seam.md) | Telemetry is initialised per-app at the server boundary; the platform assumes no ambient span. |
+| [0006](adr/0006-entitlements-injection-seam.md) | Billing is injected into the tRPC context as an `EntitlementsProvider`. |
+| [0007](adr/0007-package-test-policy.md) | Every package declares a `testClass` so the root test gate is trustworthy. |
+| [0008](adr/0008-per-app-redis-namespace.md) | Each app gets its own Redis key namespace, prefixed from `NEXT_PUBLIC_WEBAPP`. |
+| [0009](adr/0009-graph-derived-dev-infra.md) | `pnpm dev` derives the infra it starts from the dependency graph, not a per-app list. |
+| [0010](adr/0010-slim-no-auth-apps.md) | Slim apps are separate no-auth deployments that inject a constant admin principal. |

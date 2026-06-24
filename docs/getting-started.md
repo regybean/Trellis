@@ -33,9 +33,11 @@ SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vaul
 
 There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
 
-### Auth: Clerk keys (required for both apps)
+### Auth: Clerk keys (required for the full apps)
 
-Both `nextjs` and `tanstack-start` require [Clerk](https://clerk.com) today — it's the one credential you can't stub locally (the framework is behind a seam, the provider isn't yet; see [README → known rough edges](../README.md#known-rough-edges)). Create a free Clerk app, then set its two keys from the [API keys](https://dashboard.clerk.com/last-active?path=api-keys) page:
+The **full** apps (`nextjs`, `tanstack-start`) require [Clerk](https://clerk.com) today — it's the one credential you can't stub locally (the framework is behind a seam, the provider isn't yet; see [README → known rough edges](../README.md#known-rough-edges)). The **slim** apps (`nextjs-slim`, `tanstack-slim`) need no Clerk keys at all — they inject a constant local principal ([ADR 0010](adr/0010-slim-no-auth-apps.md)), so you can skip this section if you only run those.
+
+Create a free Clerk app, then set its two keys from the [API keys](https://dashboard.clerk.com/last-active?path=api-keys) page:
 
 | Var | Where | Value |
 |---|---|---|
@@ -67,13 +69,15 @@ The defaults (`LLM_PROVIDER=ollama`, `EMBED_PROVIDER=ollama`) work out of the bo
 
 ## 3. Start local infra
 
+> Shortcut: `pnpm dev` (step 5) is graph-aware — it starts the infra each target app needs, waits for health, and pushes the schema for you, so steps 3–4 are optional if you go straight to `pnpm dev`. They're spelled out here so you know what's happening.
+
 Manual-only — run it yourself:
 
 ```bash
 pnpm infra:up
 ```
 
-Brings up, via Docker Compose: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys).
+Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset *that* app's dependency graph requires ([ADR 0009](adr/0009-graph-derived-dev-infra.md)).
 
 ## 4. Push the database schema
 
@@ -90,13 +94,15 @@ pnpm seed:localstripe
 ## 5. Run
 
 ```bash
-pnpm dev                 # all apps in watch mode
+pnpm dev                 # all apps — starts the infra they need, then the servers
 ```
 
 - **nextjs** → http://localhost:3000 (full reference: chat · ingest · billing · admin · sidebar)
 - **tanstack-start** → http://localhost:3001 (same slices, app-owned "console shell")
+- **nextjs-slim** → http://localhost:3002 (chat · ingest only — no auth, no billing)
+- **tanstack-slim** → http://localhost:3003 (slim, app-owned console shell)
 
-Run a single app with `pnpm dev:nextjs` or `pnpm dev:tanstack-start`.
+Run a single app — and only the infra it needs — by passing its name: `pnpm dev nextjs`, `pnpm dev tanstack-slim`, etc.
 
 ## 6. Verify it works
 

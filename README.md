@@ -1,6 +1,6 @@
 # Trellis
 
-> Build RAG apps from composable full-stack feature slices. Import only the features you need; run them on the React framework you want — Next.js, TanStack Start, or plain React.
+> Build RAG apps from composable full-stack feature slices. Import only the features you need; run them on the React framework you want — Next.js or TanStack Start.
 
 Trellis is an opinionated monorepo template for full-stack RAG apps. It's less a product than a **way of building**: each feature is a self-contained vertical slice, and an app is just a subset of slices plus the glue to mount them.
 
@@ -31,31 +31,45 @@ tooling  →  platform  →  shared  →  features  →  compositions  →  apps
 | Layer | May depend on | What lives here |
 |-------|---------------|-----------------|
 | [tooling/](tooling/) | tooling | Shared configs + test infra: eslint, prettier, typescript, tailwind, vitest, github, test-utils |
-| [packages/platform/](packages/platform/) | platform, tooling | Runtime substrate: trpc, subscriptions, logger, redis, telemetry |
+| [packages/platform/](packages/platform/) | platform, tooling | Runtime substrate: trpc, subscriptions, entitlements, logger, redis, telemetry |
 | [packages/shared/](packages/shared/) | shared, platform, tooling | Primitives: ui, auth, hooks, rag, models |
-| [packages/features/](packages/features/) | shared, platform, tooling | Vertical domain slices: chat, ingest, billing |
+| [packages/features/](packages/features/) | shared, platform, tooling | Vertical domain slices: chat, ingest, billing, feedback |
 | [packages/compositions/](packages/compositions/) | + features, other compositions | Feature combinations: admin, sidebar |
 | [apps/](apps/) | everything | The deployable apps |
 
 > **"Where it counts."** Features and shared packages are runtime-agnostic. Compositions (assembled UI) and adapter wiring are app-specific *by design* — that's the honest boundary, not a leak.
 
-## The apps prove it
+## The apps prove it — two axes, four apps
 
-The apps run the **same packages on different runtimes** to prove the slices travel, and import **different subsets** to prove they compose.
+The claim is two-dimensional: the same slices **travel across runtimes** *and* **compose into different subsets**. So the apps are a 2×2 — pick a framework (column), pick a subset (row), the feature slices underneath are byte-for-byte the same packages:
 
-| App | Framework | Feature subset | Status |
-|-----|-----------|----------------|--------|
-| [`nextjs`](apps/nextjs/) | Next.js (:3000) | chat · ingest · billing · admin · **sidebar** | ✅ full reference |
-| [`tanstack-start`](apps/tanstack-start/) | TanStack Start — Vite + Nitro (:3001) | chat · ingest · billing · admin (app-owned "console shell", no sidebar) | ✅ live, feature parity |
-| `express` | Express + Vite (decoupled BE/FE) | core chat slice only | 🚧 planned |
+| | **Next.js** | **TanStack Start** (Vite + Nitro) |
+|---|---|---|
+| **Full** — chat · ingest · billing · admin | [`nextjs`](apps/nextjs/) :3000 — full reference (+ `sidebar`) | [`tanstack-start`](apps/tanstack-start/) :3001 — app-owned console shell |
+| **Slim** — chat · ingest, *no auth, no billing* | [`nextjs-slim`](apps/nextjs-slim/) :3002 | [`tanstack-slim`](apps/tanstack-slim/) :3003 |
 
-`nextjs` and `tanstack-start` are the portability proof: identical slices under two frameworks with deliberately divergent shells. They already subset in the small (`tanstack-start` drops `sidebar` for an app-owned shell). `express` is the planned reduced-subset example (core only, no auth/billing) — the seams to do it exist; the worked example doesn't yet.
+- **Columns prove portability.** Identical slices under two frameworks with deliberately divergent shells — the only per-app code is the adapter (route handler + client URL + auth-context resolver).
+- **Rows prove subsetting.** The slim apps **drop Clerk and Stripe entirely** — they don't depend on `@acme/auth`, `@acme/billing`, `@acme/subscriptions`, or `@acme/admin`, and inject a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](docs/adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is *a different subset of the same packages*, not a fork — and the build enforces it (the dependency graph literally doesn't contain Clerk/Stripe for a slim app).
 
-See [**what you get with Trellis**](docs/whats-included.md) for the full feature inventory and an honest map of [what's malleable vs load-bearing](docs/whats-included.md#whats-malleable-vs-load-bearing).
+That row is only possible because billing and auth are **injected, not imported**: the platform substrate depends on neutral contracts, and the app chooses the implementation ([auth seam ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md), [entitlements seam ADR 0006](docs/adr/0006-entitlements-injection-seam.md)).
+
+See [**what you get with Trellis**](docs/whats-included.md) for the full feature inventory and [what's malleable vs load-bearing](docs/whats-included.md#whats-malleable-vs-load-bearing).
 
 ## Every slice speaks one language
 
 A vertical slice is only as decoupled as its **vocabulary**. Every feature ships a [`CONTEXT.md`](packages/features/chat/CONTEXT.md) defining its domain terms — and the synonyms it **refuses** to use: chat owns **Conversation**/**Message**/**Stream** (never "session"); "thread"/"resource" stay quarantined to the Mastra storage layer. That's strategic Domain-Driven Design — bounded contexts with an explicit ubiquitous language — and it pays off: a named term is a context border, so when chat maps a Conversation onto a Mastra `thread` the translation is a written-down anti-corruption seam ([chat.ts](packages/features/chat/src/api/routers/chat.ts#L24)), not a leaked field name. The `_Avoid_` lists let any reviewer flag drift against the doc, and a subsetting app inherits the *meaning*, not just the code. Indexed in [CONTEXT-MAP.md](CONTEXT-MAP.md).
+
+## The tooling earns the claims
+
+The architecture is only as honest as the tooling that keeps it that way. A few that do real work:
+
+- **Eject any app into a standalone repo.** `pnpm prune @acme/tanstack-start` runs `turbo prune` + a config overlay to emit a **self-contained single-app repo** under `out/` that installs and builds on its own (`pnpm install`) — no monorepo required ([scripts/extract-app.sh](scripts/extract-app.sh)). The slice contract means an app *is* extractable; this proves it.
+- **Dev infra derived from the dependency graph.** `pnpm dev [app]` starts only the Docker services its targets actually need — the **union of `acme.infra` over each app's transitive package closure**, waits for them healthy, pushes schema, then runs the dev servers. There's no `core` always-on set: a slim app that doesn't depend on `@acme/billing` derives no Stripe container *because the graph says so*, not because anyone maintained a list ([ADR 0009](docs/adr/0009-graph-derived-dev-infra.md)).
+- **A test gate you can trust.** Every package declares a `testClass` capability in `package.json`; `pnpm test:policy` (in `quality-gate`) asserts each one ships the tests it owes, and tracked gaps are explicit `testStatus: "todo"` — so a green `pnpm test` means "coverage intent satisfied", not "the packages that happen to have tests passed" ([ADR 0007](docs/adr/0007-package-test-policy.md)).
+- **One identity partitions every shared datastore.** A single `NEXT_PUBLIC_WEBAPP` value namespaces each app's Postgres schema *and* its Redis keyspace (the latter via an invisible client `Proxy`), so the four apps share one Postgres + one Redis without clobbering each other — fail-loud if unset ([ADR 0008](docs/adr/0008-per-app-redis-namespace.md)).
+- **One composite gate.** `pnpm quality-gate` runs lint → format → typecheck → build → boundaries → test-policy → workspace-lint → dep-lint → gitleaks → test → audit. The same checks CI runs.
+
+More in [**DX & tooling**](docs/whats-included.md#dx--developer-experience).
 
 ## AI-native
 
@@ -68,38 +82,27 @@ Full agent brief in [CLAUDE.md](CLAUDE.md); workflow details in [docs/agents/](d
 
 ## Quickstart
 
-Requires **Node 22.19.0** ([.nvmrc](.nvmrc)), **pnpm ≥ 10.15.1**, and **Docker** for local infra. **No cloud credentials needed** — the default provider is **Ollama** (local, CPU-only), billing runs on `localstripe`, S3 on LocalStack. You bring Docker; you don't bring accounts.
+Requires **Node 22.19.0** ([.nvmrc](.nvmrc)), **pnpm ≥ 10.15.1**, and **Docker** for local infra. **No cloud credentials needed** — the default provider is **Ollama** (local, CPU-only), billing runs on `localstripe`, S3 on LocalStack.
 
 ```bash
 nvm use                      # 22.19.0
 npm install -g pnpm@latest-10
 pnpm i                       # installs + builds packages + sets up git hooks
-pnpm infra:up                # Docker: postgres+pgvector, redis, localstack(s3), localstripe, jaeger, ollama
 cp .env.example .env         # non-secret local-dev defaults work as-is
-pnpm db:push                 # push schema (confirm prompts)
-pnpm dev                     # nextjs :3000, tanstack-start :3001
+pnpm dev                     # starts only the infra each app needs, then the dev servers
 ```
 
-For the full walkthrough (install → infra → env → db → run → verify), every script, and the development flow, see [**Getting started**](docs/getting-started.md) and [**DX & tooling**](docs/whats-included.md#dx--developer-experience).
+`pnpm dev` is graph-aware: it brings up the Docker services your target apps need, waits for health, pushes the schema, and runs the servers. The full apps need [Clerk](https://clerk.com) keys; the **slim apps need no auth or billing credentials at all**.
 
-## Tooling & opinions
-
-Everything is centralised so apps and packages stay thin. Shared configs (`@acme/eslint-config`, `@acme/tsconfig`, `@acme/tailwind-config`, …) are extended, never redefined. Turborepo handles the task graph, caching, and boundary enforcement. Workspace hygiene is [sherif](https://github.com/QuiiBz/sherif) (`pnpm lint:ws`) + [knip](https://knip.dev/) (`pnpm deps:check`); git hooks are [lefthook](https://github.com/evilmartians/lefthook) with gitleaks secret scanning.
-
-Always scaffold packages — never hand-roll them — so configs, boundary tags, and tRPC plumbing get wired for you:
-
-```bash
-pnpm turbo gen
-```
+Step-by-step (install → infra → env → db → run → verify) in [**Getting started**](docs/getting-started.md). Every script in [**DX & tooling**](docs/whats-included.md#dx--developer-experience).
 
 ## Known rough edges
 
 A living template — a few things are mid-transition, flagged honestly:
 
-- **Clerk is a hard dependency for both apps.** The *framework* is abstracted behind the auth seam ([ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md)) — apps resolve auth and inject it into the tRPC context, so the server side is already swappable. But the *provider* isn't: `@acme/auth` re-exports `@clerk/clerk-react` hooks/components that features import directly (e.g. `UserButton`, billing's `useAuth`), and `ctx.user` is a backend Clerk `User`. So today you can't run `nextjs`/`tanstack-start` without Clerk env. The planned `express` app sidesteps it (core chat only, no auth); fully decoupling the provider from the existing apps is a known pain point we may revisit.
-- **Billing is swappable but not yet exercised by a no-billing app.** Billing is injected the same way auth is: the platform substrate depends only on the neutral `@acme/entitlements` contract, and the app injects a concrete `EntitlementsProvider` — the Stripe/Redis-backed `subscriptionsEntitlements`, or `unlimitedEntitlements` for a no-billing build ([ADR 0006](docs/adr/0006-entitlements-injection-seam.md)). chat and ingest no longer drag in Stripe or Clerk. The existing apps still wire the Stripe adapter; the no-billing subset (inject `unlimitedEntitlements` + a constant principal, mount chat + ingest) isn't a shipped app yet.
-- **No zero-Docker path yet.** Full-stack local dev needs `pnpm infra:up`. The planned `express` app (core chat only) is the intended lighter-weight entry point — not built yet.
-- **`SECRET_MAP` only maps `nextjs`.** Secrets sync against a pluggable backend ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); opt-in via `SECRETS_BACKEND`, `localstack` for dev or `aws` for a real vault), but `tanstack-start` still needs adding to `secrets.config.sh`.
+- **Clerk is a hard dependency for the *full* apps.** The *framework* is abstracted behind the auth seam ([ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md)), but the *provider* isn't: `@acme/auth` re-exports `@clerk/clerk-react` hooks/components that features import directly (e.g. `UserButton`, billing's `useAuth`), and `ctx.user` is a backend Clerk `User`. So `nextjs`/`tanstack-start` need Clerk env. The **slim apps sidestep it entirely** (no `@acme/auth`, constant local principal) — fully decoupling the provider from the *full* apps is the remaining work.
+- **No zero-Docker path.** Even the slim apps need `pnpm infra:up` — they keep chat + ingest, which need Postgres + pgvector (Mastra) and Ollama. The graph-derived `pnpm dev` starts *less* for a slim app (no Stripe, no Redis), but not *nothing*.
+- **`SECRET_MAP` only maps `nextjs`.** Secrets sync against a pluggable backend ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); opt-in via `SECRETS_BACKEND`, `localstack` for dev or `aws` for a real vault), but the other apps still need adding to `secrets.config.sh`.
 - **Model providers are settling.** Selection lives in [`@acme/models`](packages/shared/models/CONTEXT.md) — `bedrock` / `openrouter` / `ollama` by env ([ADR 0003](docs/adr/0003-multi-provider-models.md)). Ollama is the default so the repo runs with no credentials; dev models are tiny/CPU-only, not production quality.
 - **The compositions layer is being wound down.** Direction is app-owned shells (see `tanstack-start`); compositions reserved for genuine cross-app DRY.
 
@@ -110,3 +113,5 @@ Full index — [**docs/**](docs/). High-traffic:
 - [Getting started](docs/getting-started.md) — step-by-step first run.
 - [What you get with Trellis](docs/whats-included.md) — features, tooling, command reference, malleable vs load-bearing.
 - [Agent workflow](docs/agents/) · [Architectural decisions](docs/adr/) · [CONTEXT-MAP](CONTEXT-MAP.md) · [Testing guide](docs/TESTING.md).
+</content>
+</invoke>

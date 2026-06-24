@@ -10,13 +10,16 @@ Status key: ✅ wired & runnable · 🟡 evolving · 🚧 planned / not built ye
 
 ## Apps — what's actually wired up
 
+The four apps form a 2×2: framework (column) × feature subset (row). The slices underneath are the same packages — see [the apps prove it](../README.md#the-apps-prove-it--two-axes-four-apps).
+
 | App | Framework | Feature subset it mounts | Status |
 |-----|-----------|--------------------------|--------|
 | [`nextjs`](../apps/nextjs/CONTEXT.md) | Next.js (:3000) | chat · ingest · billing · admin · **sidebar** | ✅ full reference |
 | [`tanstack-start`](../apps/tanstack-start/CONTEXT.md) | TanStack Start — Vite + Nitro (:3001) | chat · ingest · billing · admin (app-owned "console shell", no sidebar) | ✅ live, feature parity |
-| `express` | Express + Vite (decoupled BE/FE) | core chat slice only — the minimal-subset proof | 🚧 planned |
+| [`nextjs-slim`](../apps/nextjs-slim/CONTEXT.md) | Next.js (:3002) | chat · ingest — **no auth, no billing** | ✅ |
+| [`tanstack-slim`](../apps/tanstack-slim/CONTEXT.md) | TanStack Start (:3003) | chat · ingest — **no auth, no billing** (app-owned console shell) | ✅ |
 
-`nextjs` and `tanstack-start` mount **the same feature slices** through different framework adapters and different shells — that's the portability proof. They already import *different subsets* (`tanstack-start` drops the `sidebar` composition in favour of an app-owned shell), which is the smaller version of the [subsetting idea](../README.md#the-big-idea). `express` is the planned reduced-subset example (core only, no auth/billing/ingest).
+The **columns** prove portability — the same slices under two frameworks, differing only in the per-app adapter. The **rows** prove subsetting — the slim apps drop Clerk and Stripe *from the dependency graph* (no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`, `@acme/admin`), injecting a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is a *different subset of the same packages*, not a fork.
 
 ---
 
@@ -86,11 +89,15 @@ Status key: ✅ wired & runnable · 🟡 evolving · 🚧 planned / not built ye
 What the monorepo gives you out of the box, beyond the packages themselves.
 
 - **Turborepo** — task graph, remote-cacheable builds, and **layer-boundary enforcement** (`pnpm boundaries`) — a dependency that points the wrong way fails the build, not a review comment.
+- **Eject any app into a standalone repo** — `pnpm prune <app>` ([scripts/extract-app.sh](../scripts/extract-app.sh)) runs `turbo prune` + a config overlay to emit a self-contained single-app repo under `out/` that installs and builds on its own (`pnpm install`), no monorepo required. The slice contract makes an app extractable; this is the proof.
+- **Graph-derived dev infra** — `pnpm dev [app]` starts only the Docker services its targets need: the **union of `acme.infra` over each app's transitive package closure** ([scripts/resolve-infra.mjs](../scripts/resolve-infra.mjs)), waits for health, pushes schema, then runs the servers. No `core` always-on set — a slim app derives no Stripe/Redis container because the graph says so ([ADR 0009](adr/0009-graph-derived-dev-infra.md)).
+- **A test gate you can trust** — every package declares a `testClass` capability in `package.json`; `pnpm test:policy` (in `quality-gate`) asserts each ships the tests it owes, and tracked gaps are explicit `testStatus: "todo"` (list them with `pnpm test:policy --todos`). A green `pnpm test` means "coverage intent satisfied" ([ADR 0007](adr/0007-package-test-policy.md)).
+- **One identity partitions every datastore** — a single `NEXT_PUBLIC_WEBAPP` value namespaces each app's Postgres schema *and* Redis keyspace (via an invisible client `Proxy`), so all four apps share one Postgres + one Redis without collisions, fail-loud if unset ([ADR 0008](adr/0008-per-app-redis-namespace.md)).
 - **pnpm workspaces + catalog** — single-version dependency catalog so packages stay aligned.
-- **Scaffolding** — `pnpm turbo gen` wires a new package/feature with configs, boundary tags, and tRPC plumbing already in place. Never hand-roll a package.
+- **Scaffolding** — `pnpm turbo gen` wires a new package/feature with configs, boundary tags, tRPC plumbing, and a compliant `acme` test-policy block already in place. Never hand-roll a package.
 - **Workspace hygiene** — [sherif](https://github.com/QuiiBz/sherif) (`pnpm lint:ws`) for workspace consistency, [knip](https://knip.dev/) (`pnpm deps:check`) for dead code/deps, [syncpack](https://github.com/JamieMason/syncpack) (`pnpm deps:lint`) for version alignment.
 - **Git hooks** — [lefthook](https://github.com/evilmartians/lefthook) (installed via `pnpm prepare`), plus [gitleaks](https://github.com/gitleaks/gitleaks) secret scanning.
-- **One composite gate** — `pnpm quality-gate` runs lint → format → typecheck → build → boundaries → workspace lint → dep lint → gitleaks → test → audit. The same checks CI runs.
+- **One composite gate** — `pnpm quality-gate` runs lint → format → typecheck → build → boundaries → test-policy → workspace lint → dep lint → gitleaks → test → audit. The same checks CI runs.
 - **Testing** — [Vitest](https://vitest.dev) across the monorepo (`pnpm test`, `turbo run test -F <pkg>` for one package).
 - **Local infra** — `pnpm infra:up` (Docker Compose): Postgres + pgvector, Redis, LocalStack (S3), `localstripe`, Jaeger (OTel), and Ollama. No cloud accounts needed for full-stack local dev.
 - **Database** — [Drizzle](https://orm.drizzle.team) over Postgres + pgvector; `pnpm db:push` / `pnpm db:generate`.
@@ -110,26 +117,25 @@ npm install -g pnpm@latest-10
 pnpm i                       # also runs `postinstall` (builds packages, registers agent skills) + `prepare` (lefthook hooks)
 ```
 
-For full-stack work (real ingest, auth, billing, persistence) — these are **manual-only**, run them yourself:
-
 ```bash
-pnpm infra:up                # Docker: postgres+pgvector, redis, localstack(s3), localstripe, jaeger, ollama
 cp .env.example .env         # local-dev defaults are non-secret and work as-is
-pnpm db:push                 # push the Drizzle schema (confirm prompts)
-pnpm seed:localstripe        # seed dev billing products/plans (only if exercising billing)
 ```
 
-Ollama is the default model provider, so **no cloud API keys are required** to run locally.
+Ollama is the default model provider, so **no cloud API keys are required** to run locally. The *full* apps additionally need [Clerk](getting-started.md#auth-clerk-keys-required-for-the-full-apps) keys; the *slim* apps need no auth/billing credentials at all.
 
-**The daily loop.**
+**The daily loop.** `pnpm dev` is graph-aware — it brings up the Docker infra each target app's dependency closure needs, waits for health, pushes the schema, then runs the dev servers ([ADR 0009](adr/0009-graph-derived-dev-infra.md)):
 
 ```bash
-pnpm dev                     # all apps in watch mode (turbo watch, --continue)
-pnpm dev:nextjs              # just the Next.js app (:3000)
-pnpm dev:tanstack-start      # just the TanStack Start app (:3001)
+pnpm dev                     # every app — starts the union of infra they need, then all servers
+pnpm dev nextjs              # just nextjs (:3000) + only the infra it needs
+pnpm dev tanstack-start      # just tanstack-start (:3001)
+pnpm dev nextjs-slim         # slim Next.js (:3002) — no Stripe/Redis container derived
+pnpm dev tanstack-slim       # slim TanStack Start (:3003)
 ```
 
-After pulling others' changes, re-run whatever changed: `pnpm i` (deps), `pnpm db:push` (schema), `pnpm infra:up` (infra services).
+After pulling others' changes, re-run whatever changed: `pnpm i` (deps), `pnpm db:push` (schema). `pnpm dev` re-derives and re-syncs infra on each run (`infra:up` is idempotent).
+
+> Need infra without the servers, or to seed billing? `pnpm infra:up`, `pnpm db:push`, and `pnpm seed:localstripe` are **manual-only** — agents don't run them; `pnpm dev` covers them for interactive use.
 
 **Before you push** — run the same gate CI runs:
 
@@ -144,6 +150,8 @@ pnpm quality-gate            # lint:fix → format:fix → typecheck+build → b
 | I want to… | Do this |
 |------------|---------|
 | Add a package or feature | `pnpm turbo gen` — never hand-roll one |
+| Eject one app into a standalone repo | `pnpm prune <app>` → self-contained tree in `out/` |
+| List tracked test-coverage gaps | `pnpm test:policy --todos` |
 | Add a shadcn UI component | `pnpm ui-add` |
 | Swap LLM / embedding provider | set `LLM_PROVIDER` / `EMBED_PROVIDER` in `.env` (see [ADR 0003](adr/0003-multi-provider-models.md)) |
 | Change the DB schema | edit Drizzle schema, then `pnpm db:push` |
@@ -160,17 +168,19 @@ Every script in [package.json](../package.json), grouped. ⚠️ = **manual-only
 
 | Command | What it does |
 |---------|--------------|
-| `pnpm dev` | All apps in watch mode (`turbo watch dev --continue`) |
-| `pnpm dev:nextjs` | Next.js app only, with its deps |
-| `pnpm dev:tanstack-start` | TanStack Start app only, with its deps |
+| `pnpm dev [app ...]` | Graph-aware dev: bring up the infra the target apps need (or all apps), wait healthy, push schema, run servers ([ADR 0009](adr/0009-graph-derived-dev-infra.md)) |
 | `pnpm build` | Build everything |
 | `pnpm build:nextjs` | Build the Next.js app + its deps |
+| `pnpm build:nextjs-slim` | Build the slim Next.js app + its deps |
+| `pnpm build:tanstack-slim` | Build the slim TanStack Start app + its deps |
+| `pnpm prune <app>` | Eject a single app into a self-contained repo under `out/` (`turbo prune` + config overlay) |
 | `pnpm clean` | `git clean -xdf node_modules` (nuke installed deps) |
 | `pnpm clean:workspaces` | Run each package's `clean` |
 | `pnpm typecheck` | Type-check all packages |
 | `pnpm test` | Run Vitest across the monorepo |
 | `pnpm test:nextjs` | Tests with the Next.js webapp env |
 | `pnpm test:watch` | Vitest in watch mode |
+| `pnpm test:policy` | Assert every package declares its `testClass` and ships the tests it owes; `--todos` lists tracked gaps ([ADR 0007](adr/0007-package-test-policy.md)) |
 | `pnpm lint` / `pnpm lint:fix` | ESLint (cached); `:fix` autofixes |
 | `pnpm format` / `pnpm format:fix` | Prettier (cached); `:fix` writes |
 | `pnpm boundaries` | Verify layer-boundary rules (`turbo boundaries`) |
@@ -179,7 +189,7 @@ Every script in [package.json](../package.json), grouped. ⚠️ = **manual-only
 | `pnpm deps:check` | Unused deps/exports (knip) |
 | `pnpm deps:lint` / `pnpm deps:format` / `pnpm deps:update` | Version alignment (syncpack) |
 | `pnpm gitleaks` | Secret scan (CI enforces; skips gracefully if not installed) |
-| `pnpm quality-gate` | The full pre-push gate (all of the above + `pnpm audit`) |
+| `pnpm quality-gate` | The full pre-push gate: lint → format → typecheck+build → boundaries → test-policy → lint:ws → deps:lint → gitleaks → test → audit |
 | `pnpm turbo gen` | Scaffold a new package/feature |
 | `pnpm ui-add` | Add a shadcn UI component |
 | `pnpm skills:register` | Re-link vendored agent skills (`.agents/skills/` → `.claude/skills/`); runs on `postinstall` |
@@ -204,7 +214,8 @@ The honest answer to "how easily can I change X?". This is the practical side of
 
 ### Easy — designed to change
 
-- **Add or remove a feature from an app.** Edit the app's dependencies and its adapter wiring (mount the router, render the provider, drop the components). A client build with no billing, or with an extra bespoke feature, is *a new app importing a different subset* — not a fork.
+- **Add or remove a feature from an app.** Edit the app's dependencies and its adapter wiring (mount the router, render the provider, drop the components). A client build with no billing, or with an extra bespoke feature, is *a new app importing a different subset* — not a fork. The **slim apps are the worked proof**: they drop auth + billing entirely and inject a constant principal + `unlimitedEntitlements` ([ADR 0010](adr/0010-slim-no-auth-apps.md)).
+- **Extract an app from the monorepo.** `pnpm prune <app>` emits a standalone repo for one app — installs and builds with no monorepo. The slice contract is what makes this mechanical rather than a manual untangle.
 - **Swap the LLM or embedding provider.** Set `LLM_PROVIDER` / `EMBED_PROVIDER` (chosen independently). Deleting a provider entirely is: delete its file, drop its `case` in `resolve.ts`, `pnpm remove` its SDK. See [ADR 0003](adr/0003-multi-provider-models.md).
 - **App shell / theming.** Each app owns its chrome — compare `tanstack-start`'s dark "console shell" to `nextjs`. Feature components are reused untouched.
 
@@ -219,5 +230,5 @@ The honest answer to "how easily can I change X?". This is the practical side of
 - **Layer dependency direction** (`tooling → platform → shared → features → compositions → apps`). Enforced by Turborepo boundary tags; violations fail the build.
 - **One feature = one package = router + hooks + UI.** The vertical-slice contract is the whole idea — break it and apps can no longer mount features cleanly.
 - **tRPC as the feature transport**, with the shared middleware pipeline (auth / trace / time / rate-limit). Every feature reuses it.
-- **Clerk for auth.** Behind a seam, so swappable *in principle*, but currently coupled across features.
+- **Clerk for auth.** Behind a framework seam and *droppable* (the slim apps run with no Clerk at all), but the *provider* is still coupled across the full apps' features (`@acme/auth` re-exports Clerk React hooks/components). Swapping Clerk for another provider in the full apps is the remaining work.
 - **Stripe for billing** (`localstripe` in dev), **Postgres + pgvector via Drizzle** + **Redis** for persistence, **Mastra** for RAG/memory.

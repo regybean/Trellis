@@ -17,7 +17,7 @@ The fixed `InjectedAuth` injected in place of the deleted Clerk resolver —
 `{ userId: 'local', sessionClaims: { metadata: { role: 'admin' } } }`, with
 `user: null` and `unlimitedEntitlements`. The TanStack Start analogue of
 `apps/nextjs-slim`'s constant principal. See
-[ADR 0008](../../docs/adr/0008-slim-no-auth-apps.md).
+[ADR 0010](../../docs/adr/0010-slim-no-auth-apps.md).
 _Avoid_: "fake user", "mock auth".
 
 **Server route handler**:
