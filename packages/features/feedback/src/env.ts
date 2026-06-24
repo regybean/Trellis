@@ -7,7 +7,14 @@ export function feedbackEnv() {
       NODE_ENV: z
         .enum(['development', 'production', 'test'])
         .default('development'),
-      NEXT_PUBLIC_WEBAPP: z.string().nonempty(),
+      // Per-app identity — Postgres/pgvector schema + Redis prefix. Must be a
+      // valid Postgres identifier: lowercase letter then lowercase/digits/underscores.
+      NEXT_PUBLIC_WEBAPP: z
+        .string()
+        .regex(
+          /^[a-z][a-z0-9_]*$/,
+          'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
+        ),
     },
     server: {
       REDIS_URL: z.url(),

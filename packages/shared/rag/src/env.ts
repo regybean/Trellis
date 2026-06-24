@@ -7,7 +7,14 @@ function ragEnv() {
       NODE_ENV: z
         .enum(['development', 'production', 'test'])
         .default('development'),
-      NEXT_PUBLIC_WEBAPP: z.string().nonempty(),
+      // Per-app identity — names the Postgres/pgvector schema. Must be a valid
+      // Postgres identifier: lowercase letter, then lowercase/digits/underscores.
+      NEXT_PUBLIC_WEBAPP: z
+        .string()
+        .regex(
+          /^[a-z][a-z0-9_]*$/,
+          'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
+        ),
     },
     server: {
       DB_HOST: z.string().nonempty(),

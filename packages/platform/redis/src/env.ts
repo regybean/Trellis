@@ -10,7 +10,15 @@ function redisEnv() {
       // App identity — partitions every shared datastore per app. Mirrors the
       // per-app Postgres schema (see @acme/rag env). Drives the Redis key
       // prefix so the two apps never collide on one shared Redis instance.
-      NEXT_PUBLIC_WEBAPP: z.string().nonempty(),
+      // Must be a valid Postgres identifier — it names a schema and the Redis
+      // key prefix. Lowercase letter, then lowercase/digits/underscores (no
+      // hyphens). Fails loud rather than silently producing a broken schema.
+      NEXT_PUBLIC_WEBAPP: z
+        .string()
+        .regex(
+          /^[a-z][a-z0-9_]*$/,
+          'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
+        ),
     },
     server: {
       REDIS_URL: z.url(),

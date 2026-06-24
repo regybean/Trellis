@@ -12,5 +12,5 @@ import { pgSchema } from 'drizzle-orm/pg-core';
 // Name matches the `schemaFilter` fallback in the drizzle configs so push,
 // generate, and the schema object all resolve to the same Postgres schema.
 export const appSchema = pgSchema(
-  process.env.NEXT_PUBLIC_WEBAPP ?? 'tanstack-slim',
+  process.env.NEXT_PUBLIC_WEBAPP ?? 'tanstack_slim',
 );

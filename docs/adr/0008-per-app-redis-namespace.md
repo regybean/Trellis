@@ -87,3 +87,42 @@ accepted
   schema was never recorded in an ADR; "one app-identity value
   (`NEXT_PUBLIC_WEBAPP`) partitions every shared datastore" is now documented
   here, and a third shared datastore should follow the same pattern.
+
+## Amendment — the identity value: canonical names, fail-loud, and the root `.env` footgun
+
+The construct above is only sound if every app actually resolves a *distinct*
+`NEXT_PUBLIC_WEBAPP`. Two operational facts make that fragile, so they are
+recorded here.
+
+**Canonical identities (one per app, Postgres-identifier-safe):**
+
+| App | `NEXT_PUBLIC_WEBAPP` |
+| --- | --- |
+| `apps/nextjs` | `nextjs` |
+| `apps/nextjs-slim` | `nextjs_slim` |
+| `apps/tanstack-start` | `tanstack_start` |
+| `apps/tanstack-slim` | `tanstack_slim` |
+
+The value names a Postgres schema and a Redis prefix, so it must be a valid
+unquoted Postgres identifier — **underscores, never hyphens** (`tanstack-start`
+would need quoting and breaks `pgSchema()` / `schemaFilter`). The slim apps
+(`*_slim`) carry no Redis or billing, but they *do* take a per-app
+Postgres/pgvector schema, so they need a distinct identity too.
+
+**The footgun: `NEXT_PUBLIC_WEBAPP` must NEVER be set in the root `.env`.** Each
+app loads env via `with-env` = `dotenv -e ../../.env -- dotenv -e ./.env --`.
+Root loads first and `dotenv` does **not** override an already-set variable, so a
+value in root `.env` wins over every app's own `.env` and silently collapses all
+four apps onto one schema/prefix — exactly the collision this ADR exists to
+prevent, but invisible (no error, just shared data). The root `.env` is for
+genuinely shared infra only (DB host, Redis URL, S3, shared Stripe keys);
+per-app values (`NEXT_PUBLIC_WEBAPP`, `PORT`, the port-specific
+`STRIPE_SUCCESS_URL` / `STRIPE_CANCEL_URL` / `NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL`)
+live in each app's own `.env`.
+
+**Enforcement (fail-loud, not convention):** `NEXT_PUBLIC_WEBAPP` is validated as
+`z.string().regex(/^[a-z][a-z0-9_]*$/)` in every package that reads it
+(`@acme/redis`, `@acme/rag`, `chat`, `feedback`, `ingest`). A hyphenated or empty
+value now throws at startup instead of producing a broken schema name. The root
+`.env.example` documents the per-app rule, and the slim apps' `app-schema.ts` /
+`drizzle.config.ts` fallbacks use the underscore form.
