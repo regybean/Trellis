@@ -11,7 +11,12 @@ import base from './drizzle.config';
 // them. With it, push leaves Mastra's tables untouched and manages app-owned
 // tables only. (It does NOT, and cannot, stop push from CREATEing tables you
 // declare in code — keep Mastra tables out of the schema for that.)
+// strict/verbose off so `db:push --force` runs fully non-interactive (used by
+// `pnpm dev`). push is dev-only; dev accepts data loss. Manual prod schema
+// changes go through generate + migrate, not push.
 export default {
   ...base,
   tablesFilter: ['!mastra_*'],
+  strict: false,
+  verbose: false,
 } satisfies Config;

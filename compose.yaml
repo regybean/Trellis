@@ -21,7 +21,7 @@ services:
       retries: 40
       start_period: 5s
     profiles:
-      - infra
+      - postgres
     env_file:
       - ./.env
 
@@ -49,7 +49,7 @@ services:
       retries: 40
       start_period: 3s
     profiles:
-      - infra
+      - redis
     env_file:
       - ./.env
 
@@ -75,7 +75,7 @@ services:
       retries: 10
       start_period: 10s
     profiles:
-      - infra
+      - localstack
     env_file:
       - ./.env
 
@@ -103,7 +103,7 @@ services:
       retries: 40
       start_period: 3s
     profiles:
-      - infra
+      - billing
     env_file:
       - ./.env
 
@@ -132,11 +132,12 @@ services:
       retries: 10
       start_period: 5s
     profiles:
-      - infra
+      - jaeger
 
   # Local LLM / embedding runtime, for dev and test without cloud providers.
-  # Gated behind the `ollama` profile (see scripts/infra.sh): it only starts when
-  # LLM_PROVIDER or EMBED_PROVIDER is `ollama`. A single container serves both
+  # Gated behind the `ollama` profile (see scripts/resolve-infra.mjs): declared by
+  # the model-using packages, then kept only when LLM_PROVIDER or EMBED_PROVIDER is
+  # `ollama`. A single container serves both
   # chat and embeddings over the OpenAI-compatible `/v1` endpoint. Models are
   # pulled on first boot; `$$VAR` defers expansion to the container shell so the
   # names come from env_file, not host interpolation.

@@ -60,7 +60,7 @@
     "clean": "git clean -xdf .cache .next .turbo node_modules",
     "db:generate": "pnpm with-env drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "pnpm drizzle-kit migrate",
-    "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts",
+    "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts --force",
     "dev": "pnpm with-env next dev --turbopack",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",

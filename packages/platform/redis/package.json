@@ -40,6 +40,9 @@
   },
   "type": "module",
   "acme": {
-    "testClass": "backend-library"
+    "testClass": "backend-library",
+    "infra": [
+      "redis"
+    ]
   }
 }

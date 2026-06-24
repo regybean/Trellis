@@ -79,6 +79,10 @@
   },
   "type": "module",
   "acme": {
-    "testClass": "full-stack"
+    "testClass": "full-stack",
+    "infra": [
+      "postgres",
+      "billing"
+    ]
   }
 }

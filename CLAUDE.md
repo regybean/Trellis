@@ -31,7 +31,7 @@ turbo run test -F <pkg>  # Run tests for a single package
 pnpm deps:check          # Check for unused dependencies with knip
 ```
 
-> Dev, infra, env, and database commands are manual-only — do not run them.
+> In a git worktree, dev/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test.
 
 ## Architecture
 

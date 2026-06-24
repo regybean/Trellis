@@ -60,6 +60,10 @@
     "vitest": "catalog:"
   },
   "acme": {
-    "testClass": "backend-library"
+    "testClass": "backend-library",
+    "infra": [
+      "postgres",
+      "ollama"
+    ]
   }
 }

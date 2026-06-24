@@ -51,6 +51,9 @@
   "acme": {
     "testClass": "backend-library",
     "testStatus": "todo",
-    "reason": "OTel init seam; tests not yet written."
+    "reason": "OTel init seam; tests not yet written.",
+    "infra": [
+      "jaeger"
+    ]
   }
 }

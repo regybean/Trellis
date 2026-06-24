@@ -1,15 +1,12 @@
 #!/usr/bin/env bash
-# Bring up local infra with provider-aware profile gating. The `infra` profile
-# (postgres/redis/localstack/jaeger) is always on; the `ollama` profile is added
-# only when a model provider is set to `ollama`, so non-Ollama setups never start
-# (or wait on) the container. Run via `pnpm with-env` so LLM_PROVIDER /
-# EMBED_PROVIDER are loaded from ./.env before this script reads them.
+# Bring up / control local infra WITHOUT any app (postgres/redis/localstack/
+# jaeger + env-gated billing/ollama). Profiles default to the full set every app
+# needs — the union of `acme.infra` across all apps, env-pruned (same resolver
+# dev uses, scripts/resolve-infra.mjs, with no app args). Override by exporting
+# COMPOSE_PROFILES. Run via `pnpm with-env` so env-based prunes see ./.env.
 set -euo pipefail
+cd "$(dirname "$0")/.."
 
-profiles="infra"
-if [ "${LLM_PROVIDER:-ollama}" = "ollama" ] || [ "${EMBED_PROVIDER:-ollama}" = "ollama" ]; then
-  profiles="$profiles,ollama"
-fi
-export COMPOSE_PROFILES="$profiles"
+export COMPOSE_PROFILES="${COMPOSE_PROFILES:-$(node scripts/resolve-infra.mjs)}"
 
 exec ./scripts/compose.sh "$@"

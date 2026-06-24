@@ -70,6 +70,9 @@
   },
   "type": "module",
   "acme": {
-    "testClass": "full-stack"
+    "testClass": "full-stack",
+    "infra": [
+      "localstack"
+    ]
   }
 }
