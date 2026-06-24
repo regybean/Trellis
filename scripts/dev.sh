@@ -6,6 +6,9 @@
 #   pnpm dev nextjs tanstack-start
 #   pnpm dev --no-push nextjs-slim
 #
+# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.mjs
+# normalises them (turbo's -F needs the full @acme/* name).
+#
 # Infra is DERIVED from the dependency graph (scripts/resolve-infra.mjs reads each
 # package's `acme.infra`), unioned across the target apps, then env-pruned. Only
 # that subset is brought up; nothing is assumed on. Infra is left running on exit
@@ -27,7 +30,16 @@ for arg in "$@"; do
   esac
 done
 
-profiles="$(node scripts/resolve-infra.mjs "${apps[@]}")"
+# Resolve canonical app names + the infra profile set. Both default to "all apps"
+# when none are named. Guard the array expansion so an empty list is safe under
+# `set -u` (macOS bash 3.2).
+if [ ${#apps[@]} -gt 0 ]; then
+  app_names="$(node scripts/resolve-infra.mjs --names "${apps[@]}")"
+  profiles="$(node scripts/resolve-infra.mjs "${apps[@]}")"
+else
+  app_names=""
+  profiles="$(node scripts/resolve-infra.mjs)"
+fi
 echo "dev: infra → ${profiles:-(none)}"
 
 if [ -n "$profiles" ]; then
@@ -44,20 +56,22 @@ if [ -n "$profiles" ]; then
   # with no db:push script (e.g. a future DB-less app). Non-interactive (--force +
   # strict:false in drizzle.push.config.ts) — dev accepts data loss.
   if [ "$push" -eq 1 ] && [[ ",$profiles," == *,postgres,* ]]; then
-    if [ ${#apps[@]} -eq 0 ]; then
+    if [ -z "$app_names" ]; then
       pnpm --recursive --if-present run db:push
     else
-      for app in "${apps[@]}"; do
-        pnpm --filter "$app" --if-present run db:push
-      done
+      while IFS= read -r app; do
+        [ -n "$app" ] && pnpm --filter "$app" --if-present run db:push
+      done <<<"$app_names"
     fi
   fi
 fi
 
 # Start dev servers. No app args = all of them.
-if [ ${#apps[@]} -eq 0 ]; then
+if [ -z "$app_names" ]; then
   exec turbo watch dev --continue
 fi
 filters=()
-for app in "${apps[@]}"; do filters+=(-F "$app"); done
+while IFS= read -r app; do
+  [ -n "$app" ] && filters+=(-F "$app")
+done <<<"$app_names"
 exec turbo watch dev --continue "${filters[@]}"

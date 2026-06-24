@@ -53,10 +53,19 @@ const toAppName = (token) => {
   throw new Error(`resolve-infra: unknown app "${token}"`);
 };
 
+const argv = process.argv.slice(2);
+// `--names`: print the resolved canonical @acme/* app names (one per line) and
+// exit — used by dev.sh, since turbo's -F needs full names, not short ones.
+const namesMode = argv.includes('--names');
+const tokens = argv.filter((a) => a !== '--names');
+
 const targets =
-  process.argv.slice(2).length > 0
-    ? process.argv.slice(2).map(toAppName)
-    : [...appsByName.keys()];
+  tokens.length > 0 ? tokens.map(toAppName) : [...appsByName.keys()];
+
+if (namesMode) {
+  process.stdout.write(targets.join('\n'));
+  process.exit(0);
+}
 
 // One pnpm call: the union of every target's transitive workspace closure.
 const filters = targets.flatMap((name) => ['--filter', `${name}...`]);
