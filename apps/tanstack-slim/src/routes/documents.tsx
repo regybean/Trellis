@@ -6,10 +6,10 @@ export const Route = createFileRoute('/documents')({
   component: DocumentsRoute,
 });
 
-// The slim app's documents view. The full app routed "Documents" at `/admin`
-// via `@acme/admin`'s `AdminDashboard` — a non-modular fuse of document
-// management + Clerk user management + Stripe testing. Slim drops that
-// composition and renders the clean `@acme/ingest` document UI directly.
+// The slim app's documents view. The full app routes "Documents" at `/admin`
+// via an app-owned `AdminDashboard` that fuses document management + Clerk user
+// management + Stripe testing. Slim drops all of that and renders the clean
+// `@acme/ingest` document UI directly.
 function DocumentsRoute() {
   return (
     <div className="min-h-full flex-grow space-y-6 p-5">

@@ -3,7 +3,6 @@ packages:
   - packages/platform/*
   - packages/shared/*
   - packages/features/*
-  - packages/compositions/*
   - tooling/*
 
 catalog:

@@ -2,13 +2,13 @@ import { useRouter } from '@tanstack/react-router';
 import { Users } from 'lucide-react';
 
 import type { SerializableUser } from '@acme/auth';
-import { UserManagement } from '@acme/admin';
 import { StripeTesting } from '@acme/billing';
 import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
 import { Card, CardContent, CardHeader } from '@acme/ui';
 
 import { removeUserRole, setUserRole } from '../../lib/admin';
 import { SearchUsers } from './search-users';
+import { UserManagement } from './user-management';
 
 interface AdminDashboardProps {
   users: SerializableUser[];

@@ -2,7 +2,7 @@
 
 A second runnable application built on TanStack Start (Vite + Nitro), at full
 feature parity with `apps/nextjs` — it wires the same feature slices (`@acme/chat`,
-`@acme/ingest`, `@acme/billing`, `@acme/admin`) into a product. It exists to prove
+`@acme/ingest`, `@acme/billing`) into a product. It exists to prove
 the feature slices are framework-portable and to let a divergent shell sit over the
 same business logic. Owns no business logic — it is the integration layer plus an
 app-local shell. Runs on port 3001.
@@ -82,7 +82,8 @@ Mastra owns their DDL at runtime — see
   ([ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md)).
 - `beforeLoad` route guards replace Next.js middleware for auth / admin gating.
 - Framework-coupled glue (admin role mutations, stripe-success redirect) lives in
-  this app, reusing only the neutral presentational components from `@acme/admin`
-  and `@acme/billing`. No new composition package was added.
+  this app. The admin shell is app-owned in `src/components/admin/`, reusing the
+  neutral presentational components and `@acme/billing`
+  ([ADR 0011](../../docs/adr/0011-remove-compositions-layer.md)).
 - `chat.stream` SSE rides the `/api/trpc/chat/$` GET handler through Nitro via
   `httpSubscriptionLink` — no extra wiring.

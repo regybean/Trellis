@@ -38,15 +38,14 @@ pnpm deps:check          # Check for unused dependencies with knip
 ### Layer boundaries
 
 ```
-tooling → platform → shared → features → compositions → apps
+tooling → platform → shared → features → apps
 ```
 
 - **tooling**: Shared configs (ESLint, Prettier, TypeScript, Tailwind, Vitest, test-utils). Depends on tooling only.
 - **platform**: Runtime substrate — the rails features run on (logger, telemetry, redis, subscriptions, trpc). Depends on platform and tooling.
 - **shared**: Reusable primitives (ui, hooks, auth, rag). Depends on shared, platform, and tooling.
 - **features**: Domain modules. Depends on shared, platform, and tooling only.
-- **compositions**: Feature combinations. Depends on features, shared, platform, tooling, other compositions.
-- **apps**: Applications. Depends on all layers.
+- **apps**: Applications. Depends on all layers; own their shell/chrome. The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)) — the boundary tag is `app`.
 
 ### tRPC Architecture (v11)
 
@@ -125,6 +124,6 @@ The north star, to weigh when making changes:
 
 - **Protect the slice contract.** One feature = one package = router + hooks + UI, depending only downward. It's what lets apps mount different subsets — a bespoke client build is a new app importing a different subset, not a fork. Don't leak framework specifics into features; keep them in the app adapter (the honest seam).
 - **Keep seams swappable, name what's coupled.** Providers (`@acme/models`), auth (Clerk behind a seam), billing (Stripe) are meant to be replaceable. When something becomes load-bearing or hard to reverse, write it down (ADR) rather than letting it harden silently.
-- **Prefer app-owned over composition.** Framework-specific shell/chrome lives in the app (see `tanstack-start`'s console shell); reserve `packages/compositions/` for genuine cross-app DRY. The compositions layer is being wound down — don't grow it by default.
+- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app (see `tanstack-start`'s console shell). The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)); shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
 - **Earn the next runtime / the next subset.** The portability and subsetting claims are only as true as the apps that prove them. The 2×2 of apps does both: `nextjs`/`tanstack-start` prove the same slices run on two frameworks; the `*-slim` apps prove a no-auth/no-billing *subset* drops Clerk + Stripe from the graph (ADR 0010). New shared/feature code must stay runtime-agnostic and not re-couple the substrate to auth/billing — design so the next framework or the next reduced subset stays trivial.
 - **Documentation keeps pace with design.** `CONTEXT.md` + ADRs are updated *as* decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.

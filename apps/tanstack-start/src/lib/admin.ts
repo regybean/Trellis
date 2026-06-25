@@ -6,10 +6,10 @@ import { transformUserForClient } from '@acme/auth/server';
 
 /**
  * App-owned admin data + role mutations as TanStack Start server functions —
- * the framework-specific replacement for the Next.js admin composition's RSC
- * data-load + `'use server'` actions. The neutral presentational `UserManagement`
- * component (from `@acme/admin`) is reused unchanged; only this server glue is
- * per-app. See docs/adr/0003-framework-agnostic-auth-seam.md.
+ * the framework-specific counterpart to the Next.js app's RSC data-load +
+ * `'use server'` actions. The neutral presentational `UserManagement` component
+ * (in `src/components/admin/`) is shared by both apps; only this server glue is
+ * per-app. See docs/adr/0003-framework-agnostic-auth-seam.md and ADR 0011.
  */
 async function assertAdmin() {
   const { sessionClaims } = await auth();

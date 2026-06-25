@@ -5,9 +5,9 @@ export const name = 'auth';
 /**
  * Framework-neutral Clerk *client* surface. The *app* owns `<ClerkProvider>`
  * (Next.js via `@clerk/nextjs`, TanStack Start via
- * `@clerk/tanstack-react-start`); features and compositions import auth UI +
- * hooks from here, never from a framework-specific Clerk SDK. This keeps the
- * vertical slices portable across apps.
+ * `@clerk/tanstack-react-start`); features and apps import auth UI + hooks from
+ * here, never from a framework-specific Clerk SDK. This keeps the vertical
+ * slices portable across apps.
  *
  * The `'use client'` directive is load-bearing: it stops the Next RSC graph
  * from evaluating `@clerk/clerk-react` → `@clerk/shared` → `swr`, which under

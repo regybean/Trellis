@@ -251,9 +251,6 @@ importers:
 
   apps/nextjs:
     dependencies:
-      '@acme/admin':
-        specifier: workspace:*
-        version: link:../../packages/compositions/admin
       '@acme/auth':
         specifier: workspace:*
         version: link:../../packages/shared/auth
@@ -659,9 +656,6 @@ importers:
 
   apps/tanstack-start:
     dependencies:
-      '@acme/admin':
-        specifier: workspace:*
-        version: link:../../packages/compositions/admin
       '@acme/auth':
         specifier: workspace:*
         version: link:../../packages/shared/auth
@@ -807,98 +801,6 @@ importers:
       vite-tsconfig-paths:
         specifier: ^6.1.1
         version: 6.1.1(typescript@5.9.3)(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
-
-  packages/compositions/admin:
-    dependencies:
-      '@acme/auth':
-        specifier: workspace:*
-        version: link:../../shared/auth
-      '@acme/billing':
-        specifier: workspace:*
-        version: link:../../features/billing
-      '@acme/ingest':
-        specifier: workspace:*
-        version: link:../../features/ingest
-      '@acme/redis':
-        specifier: workspace:*
-        version: link:../../platform/redis
-      '@acme/ui':
-        specifier: workspace:*
-        version: link:../../shared/ui
-      '@t3-oss/env-nextjs':
-        specifier: 'catalog:'
-        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
-      lucide-react:
-        specifier: 'catalog:'
-        version: 0.475.0(react@19.2.3)
-      react:
-        specifier: 'catalog:'
-        version: 19.2.3
-      server-only:
-        specifier: 'catalog:'
-        version: 0.0.1
-    devDependencies:
-      '@acme/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@acme/prettier-config':
-        specifier: workspace:*
-        version: link:../../../tooling/prettier
-      '@acme/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/typescript
-      eslint:
-        specifier: 'catalog:'
-        version: 9.39.2(jiti@2.7.0)
-      prettier:
-        specifier: 'catalog:'
-        version: 3.7.4
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-
-  packages/compositions/sidebar:
-    dependencies:
-      '@acme/auth':
-        specifier: workspace:*
-        version: link:../../shared/auth
-      '@acme/billing':
-        specifier: workspace:*
-        version: link:../../features/billing
-      '@acme/ui':
-        specifier: workspace:*
-        version: link:../../shared/ui
-      '@clerk/themes':
-        specifier: 'catalog:'
-        version: 2.4.46(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      lucide-react:
-        specifier: 'catalog:'
-        version: 0.475.0(react@19.2.3)
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      react:
-        specifier: 'catalog:'
-        version: 19.2.3
-    devDependencies:
-      '@acme/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@acme/prettier-config':
-        specifier: workspace:*
-        version: link:../../../tooling/prettier
-      '@acme/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/typescript
-      eslint:
-        specifier: 'catalog:'
-        version: 9.39.2(jiti@2.7.0)
-      prettier:
-        specifier: 'catalog:'
-        version: 3.7.4
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
 
   packages/features/billing:
     dependencies:

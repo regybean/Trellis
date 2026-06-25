@@ -1,7 +1,6 @@
 {
   "name": "@acme/nextjs",
   "dependencies": {
-    "@acme/admin": "workspace:*",
     "@acme/auth": "workspace:*",
     "@acme/billing": "workspace:*",
     "@acme/chat": "workspace:*",

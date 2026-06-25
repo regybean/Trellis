@@ -12,9 +12,9 @@ interface NavItem {
   href: string;
 }
 
-// Same destinations as the old sidebar — re-set as a horizontal masthead nav.
-// The shell is app-owned (no `@acme/sidebar`); feature components rendered in
-// `children` are untouched and re-skin via the editorial tokens.
+// Destinations re-set as a horizontal masthead nav. The shell is app-owned
+// (ADR 0011); feature components rendered in `children` are untouched and
+// re-skin via the editorial tokens.
 const navItems: NavItem[] = [
   { title: 'Chat', href: '/chat-assistant' },
   { title: 'Documents', href: '/admin' },
@@ -24,8 +24,8 @@ const navItems: NavItem[] = [
 /**
  * App-owned layout chrome in a print/magazine idiom: a two-tier masthead with a
  * serif wordmark, a meta strip, ruled horizontal navigation and a double rule.
- * This is the divergent shell that replaces the shared `@acme/sidebar` — proof
- * the slice contract holds while the app owns its own identity.
+ * Shell/chrome is always app-owned (ADR 0011) — proof the slice contract holds
+ * while each app owns its own identity.
  */
 export function EditorialShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();

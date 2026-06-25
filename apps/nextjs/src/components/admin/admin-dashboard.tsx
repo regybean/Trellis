@@ -1,5 +1,7 @@
+import 'server-only';
+
 import { redirect } from 'next/navigation';
-import { clerkClient } from '@clerk/nextjs/server';
+import { auth, clerkClient } from '@clerk/nextjs/server';
 import { Users } from 'lucide-react';
 
 import { transformUserForClient } from '@acme/auth/server';
@@ -7,8 +9,7 @@ import { StripeTesting } from '@acme/billing';
 import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
 import { Card, CardContent, CardHeader } from '@acme/ui';
 
-import { removeRole, setRole } from '../utils/actions';
-import { checkRole } from '../utils/roles';
+import { removeRole, setRole } from '~/lib/admin';
 import { SearchUsers } from './search-users';
 import { UserManagement } from './user-management';
 
@@ -18,8 +19,14 @@ interface Props {
   };
 }
 
+/**
+ * App-owned admin shell (Next.js RSC). Reuses the neutral presentational pieces
+ * (`UserManagement`, `StripeTesting`, ingest documents) and supplies the
+ * `'use server'` role mutations from `~/lib/admin`. See ADR 0011.
+ */
 export async function AdminDashboard({ searchParams }: Props) {
-  if (!(await checkRole('admin'))) {
+  const { sessionClaims } = await auth();
+  if (sessionClaims?.metadata.role !== 'admin') {
     redirect('/');
   }
 

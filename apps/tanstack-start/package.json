@@ -16,7 +16,6 @@
     "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
   },
   "dependencies": {
-    "@acme/admin": "workspace:*",
     "@acme/auth": "workspace:*",
     "@acme/billing": "workspace:*",
     "@acme/chat": "workspace:*",
