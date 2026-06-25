@@ -7,7 +7,7 @@
  */
 
 import { memory } from '@acme/rag';
-import { redis } from '@acme/redis';
+import { nsKey, redis } from '@acme/redis';
 
 function generateId(): string {
   return crypto.randomUUID();
@@ -91,6 +91,6 @@ export async function setupTestCredits(
   tier: 'free' | 'pro' | 'enterprise' = 'free',
   remaining = 100,
 ): Promise<void> {
-  const key = `credits:${userId}:${tier}`;
+  const key = nsKey('credits', userId, tier);
   await redis.set(key, remaining.toString());
 }

@@ -1,4 +1,4 @@
-import { redis } from '@acme/redis';
+import { nsKey, redis } from '@acme/redis';
 
 import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
 import {
@@ -27,7 +27,7 @@ function creditLimitFor(tier: SubscriptionTier) {
 }
 
 function creditKey(userId: string | null, tier: SubscriptionTier) {
-  return `credits:${userId}:${tier}`;
+  return nsKey('credits', String(userId), tier);
 }
 
 /**

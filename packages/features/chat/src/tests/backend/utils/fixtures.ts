@@ -7,7 +7,7 @@
  */
 
 import { memory } from '@acme/rag';
-import { redis } from '@acme/redis';
+import { nsKey, redis } from '@acme/redis';
 
 /**
  * Generate a random UUID (v4-like format)
@@ -119,7 +119,7 @@ export async function setupTestCredits(
   tier: 'free' | 'pro' | 'enterprise' = 'free',
   remaining = 100,
 ): Promise<void> {
-  const key = `credits:${userId}:${tier}`;
+  const key = nsKey('credits', userId, tier);
   await redis.set(key, remaining.toString());
 }
 
@@ -130,7 +130,7 @@ export async function getTestCredits(
   userId: string,
   tier: 'free' | 'pro' | 'enterprise' = 'free',
 ): Promise<number> {
-  const key = `credits:${userId}:${tier}`;
+  const key = nsKey('credits', userId, tier);
   const value = await redis.get(key);
   return value ? Number(value) : 0;
 }

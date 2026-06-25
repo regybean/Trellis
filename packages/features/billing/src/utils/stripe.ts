@@ -7,7 +7,11 @@ import type { SubscriptionCache, SubscriptionTier } from '@acme/subscriptions';
 import type { Telemetry } from '@acme/telemetry/server';
 import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
-import { SubscriptionCacheSchema } from '@acme/subscriptions';
+import {
+  stripeCustomerKey,
+  stripeUserKey,
+  SubscriptionCacheSchema,
+} from '@acme/subscriptions';
 
 import { env } from '../env';
 import { buildSubscriptionCache } from './subscription-cache';
@@ -140,7 +144,7 @@ export async function findOrCreateCustomer(
 ): Promise<{ customer: StripeCustomer; isExisting: boolean }> {
   const operation = async () => {
     // Get the stripeCustomerId from Redis KV store
-    const stripeCustomerId = await redis.get(`stripe:user:${userId}`);
+    const stripeCustomerId = await redis.get(stripeUserKey(userId));
 
     // Create a new Stripe customer if this user doesn't have one
     if (!stripeCustomerId) {
@@ -153,7 +157,7 @@ export async function findOrCreateCustomer(
       });
 
       // Store the relation between userId and stripeCustomerId in Redis
-      await redis.set(`stripe:user:${userId}`, newCustomer.id);
+      await redis.set(stripeUserKey(userId), newCustomer.id);
 
       const customer = {
         id: newCustomer.id,
@@ -183,7 +187,7 @@ export async function findOrCreateCustomer(
       });
 
       // Update the relation in Redis
-      await redis.set(`stripe:user:${userId}`, newCustomer.id);
+      await redis.set(stripeUserKey(userId), newCustomer.id);
 
       const customer = {
         id: newCustomer.id,
@@ -420,7 +424,7 @@ export async function syncStripeDataToKV(
 
     if (subscriptions.data.length === 0 || !subscriptions.data[0]) {
       const none = { status: 'none' } as const;
-      await redis.set(`stripe:customer:${customerId}`, JSON.stringify(none));
+      await redis.set(stripeCustomerKey(customerId), JSON.stringify(none));
       telemetry?.set({
         'stripe.sync.result': 'no_subscription',
         'stripe.sync.customer_id': customerId,
@@ -456,7 +460,7 @@ export async function syncStripeDataToKV(
       });
     }
 
-    await redis.set(`stripe:customer:${customerId}`, JSON.stringify(subData));
+    await redis.set(stripeCustomerKey(customerId), JSON.stringify(subData));
 
     return subData;
   };
@@ -479,7 +483,7 @@ async function resolveCustomerId(
   userId: string,
 ): Promise<string> {
   const stripe = getStripe();
-  const existing = await redis.get(`stripe:user:${userId}`);
+  const existing = await redis.get(stripeUserKey(userId));
   if (existing) {
     const customer = await stripe.customers.retrieve(existing);
     if (!customer.deleted) return existing;
@@ -488,7 +492,7 @@ async function resolveCustomerId(
     email,
     metadata: { userId },
   });
-  await redis.set(`stripe:user:${userId}`, created.id);
+  await redis.set(stripeUserKey(userId), created.id);
   return created.id;
 }
 

@@ -7,7 +7,8 @@
 
 import type { Stripe } from 'stripe';
 
-import { redis } from '@acme/redis';
+import { nsKey, redis } from '@acme/redis';
+import { stripeUserKey } from '@acme/subscriptions';
 
 import type { SubscriptionData } from '../../../components/admin/subscription-details-display.tsx';
 
@@ -86,7 +87,7 @@ export async function createTestSubscription(
   };
 
   // Store in Redis
-  const key = `subscription:${opts.userId}`;
+  const key = nsKey('subscription', opts.userId);
   await redis.set(key, JSON.stringify(subscription));
 
   return subscription;
@@ -100,7 +101,7 @@ export async function setupTestCredits(
   tier: 'Basic' | 'Standard' | 'Pro' = 'Basic',
   remaining = 100,
 ): Promise<void> {
-  const key = `credits:${userId}:${tier}`;
+  const key = nsKey('credits', userId, tier);
   await redis.set(key, remaining.toString());
 }
 
@@ -111,7 +112,7 @@ export async function getTestCredits(
   userId: string,
   tier: 'Basic' | 'Standard' | 'Pro' = 'Basic',
 ): Promise<number> {
-  const key = `credits:${userId}:${tier}`;
+  const key = nsKey('credits', userId, tier);
   const value = await redis.get(key);
   return value ? Number(value) : 0;
 }
@@ -124,6 +125,6 @@ export async function setupTestStripeCustomer(
   customerId?: string,
 ): Promise<string> {
   const custId = customerId ?? createTestCustomerId();
-  await redis.set(`stripe:user:${userId}`, custId);
+  await redis.set(stripeUserKey(userId), custId);
   return custId;
 }

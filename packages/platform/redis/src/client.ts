@@ -1,4 +1,5 @@
 /* eslint-disable unicorn/prefer-top-level-await */
+import type { SetOptions } from 'redis';
 import { createClient } from 'redis';
 
 import { logger } from '@acme/logger';
@@ -19,55 +20,78 @@ const redisOptions = {
 // unset (e.g. tests that mock @acme/redis/env without a namespace) — an empty
 // namespace yields raw, app-agnostic keys with NO leading colon.
 const namespace = env.NEXT_PUBLIC_WEBAPP;
-const withPrefix = (key: string): string =>
-  namespace ? `${namespace}:${key}` : key;
 
-// Commands whose first argument is a key/channel we must namespace. node-redis
-// has no built-in keyPrefix (that's an ioredis feature), so we namespace by
-// wrapping the client in a Proxy that rewrites the first string argument.
-//
-// GUARDRAIL: introducing a new key- or channel-bearing Redis command anywhere
-// in the codebase? Add it to the matching set below, or its keys leak
-// UNPREFIXED and collide across both apps.
-const KEY_COMMANDS = new Set<string>([
-  'get',
-  'set',
-  'decrBy',
-  'incrBy',
-  'del',
-  'ttl',
-  'expire',
-  'exists',
-]);
-const CHANNEL_COMMANDS = new Set<string>([
-  'publish',
-  'subscribe',
-  'pSubscribe',
-  'unsubscribe',
-  'pUnsubscribe',
-]);
+/**
+ * A Redis key or pub/sub channel that has already been namespaced for this app.
+ * Branded so the client below accepts *only* keys built by `nsKey` — a raw
+ * string is a compile error, not a silently-unprefixed cross-app collision.
+ * See docs/adr/0008-per-app-redis-namespace.md.
+ */
+export type NamespacedKey = string & { readonly __brand: 'NamespacedKey' };
 
-// Wrap a client so key/channel commands transparently get the app prefix. All
-// other members (flushDb, duplicate, connect, on, multi, ping, …) pass through
-// untouched. Call sites keep using literal keys; prefixing is invisible.
-const withNamespace = <T extends object>(client: T): T =>
-  new Proxy(client, {
-    get(target, prop, receiver) {
-      const value = Reflect.get(target, prop, receiver) as unknown;
-      if (typeof value !== 'function') return value;
-      const command = typeof prop === 'string' ? prop : '';
-      const fn = value as (...args: unknown[]) => unknown;
-      if (KEY_COMMANDS.has(command) || CHANNEL_COMMANDS.has(command)) {
-        return (...args: unknown[]): unknown => {
-          const [first, ...rest] = args;
-          const next =
-            typeof first === 'string' ? [withPrefix(first), ...rest] : args;
-          return fn.apply(target, next);
-        };
-      }
-      return fn.bind(target);
-    },
-  });
+/**
+ * Build a namespaced key from its colon-joined parts. This is the ONE place the
+ * prefix is applied, so it cannot be forgotten: every key-bearing client method
+ * demands a `NamespacedKey`, and this is the only way to make one. An empty
+ * namespace yields the raw key with no leading colon (the test path).
+ *
+ *   nsKey('credits', userId, tier) -> 'nextjs:credits:<user>:<tier>'
+ */
+export const nsKey = (...parts: string[]): NamespacedKey => {
+  const key = parts.join(':');
+  // The single sanctioned cast: branding is a nominal-typing technique and
+  // cannot be expressed without it. Isolated to this one constructor.
+  return (namespace ? `${namespace}:${key}` : key) as NamespacedKey;
+};
+
+type RawClient = ReturnType<typeof createClient>;
+
+/**
+ * Wrap a raw node-redis client in a thin facade whose key/channel commands
+ * accept only a `NamespacedKey`. node-redis has no built-in keyPrefix (that is
+ * an ioredis feature); rather than a Proxy guarded by a hand-maintained command
+ * allow-list (which silently leaked unprefixed keys for any unlisted command —
+ * see ADR 0008), the prefix lives in `nsKey` and the type system enforces that
+ * only prefixed keys reach the client. Infra methods pass through untouched.
+ */
+const namespaced = (raw: RawClient) => ({
+  // Key commands — first argument is a key.
+  get: (key: NamespacedKey) => raw.get(key),
+  set: (key: NamespacedKey, value: string, options?: SetOptions) =>
+    raw.set(key, value, options),
+  decrBy: (key: NamespacedKey, decrement: number) => raw.decrBy(key, decrement),
+  incrBy: (key: NamespacedKey, increment: number) => raw.incrBy(key, increment),
+  del: (key: NamespacedKey) => raw.del(key),
+  ttl: (key: NamespacedKey) => raw.ttl(key),
+  expire: (key: NamespacedKey, seconds: number) => raw.expire(key, seconds),
+  expireAt: (key: NamespacedKey, timestamp: number) =>
+    raw.expireAt(key, timestamp),
+  exists: (key: NamespacedKey) => raw.exists(key),
+  // Channel commands — first argument is a channel.
+  publish: (channel: NamespacedKey, message: string) =>
+    raw.publish(channel, message),
+  subscribe: (
+    channel: NamespacedKey,
+    listener: Parameters<RawClient['subscribe']>[1],
+  ) => raw.subscribe(channel, listener),
+  pSubscribe: (
+    pattern: NamespacedKey,
+    listener: Parameters<RawClient['pSubscribe']>[1],
+  ) => raw.pSubscribe(pattern, listener),
+  unsubscribe: (channel: NamespacedKey) => raw.unsubscribe(channel),
+  pUnsubscribe: (pattern: NamespacedKey) => raw.pUnsubscribe(pattern),
+  // Infra — not key-bearing, passed straight through.
+  get isOpen() {
+    return raw.isOpen;
+  },
+  connect: () => raw.connect(),
+  flushDb: () => raw.flushDb(),
+  ping: () => raw.ping(),
+  quit: () => raw.quit(),
+});
+// `duplicate`/`on` are intentionally NOT surfaced: they hand back the raw,
+// unbranded client and would be a hole in the namespace guarantee. The pub/sub
+// clients are duplicated from the raw client below, then wrapped.
 
 const rawRedis = createClient(redisOptions);
 const rawRedisPub = rawRedis.duplicate();
@@ -97,6 +121,6 @@ if (process.env.IS_NEXT_BUILD !== 'true') {
   });
 }
 
-export const redis = withNamespace(rawRedis);
-export const redisPub = withNamespace(rawRedisPub);
-export const redisSub = withNamespace(rawRedisSub);
+export const redis = namespaced(rawRedis);
+export const redisPub = namespaced(rawRedisPub);
+export const redisSub = namespaced(rawRedisSub);

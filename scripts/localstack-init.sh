@@ -26,7 +26,7 @@ aws --endpoint-url=http://localhost:4566 s3api put-bucket-cors \
   --cors-configuration '{
     "CORSRules": [
       {
-        "AllowedOrigins": ["http://localhost:3000", "http://localhost:3001"],
+        "AllowedOrigins": ["*"],
         "AllowedMethods": ["PUT", "GET", "HEAD", "DELETE"],
         "AllowedHeaders": ["*"],
         "ExposeHeaders": ["ETag", "Content-Length"],

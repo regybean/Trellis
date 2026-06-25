@@ -28,6 +28,7 @@
     "@acme/redis": "workspace:*",
     "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
+    "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
     "@clerk/tanstack-react-start": "catalog:",
     "@clerk/themes": "catalog:",

@@ -1,16 +1,19 @@
 import type { AnyRouter } from '@trpc/server';
-import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+
+import {
+  corsPreflightHeaders,
+  createTRPCFetchHandler,
+} from '@acme/trpc/handler';
 
 import { resolveClerkContext } from '~/lib/clerk-context';
 
 /**
- * App-owned tRPC route-handler seam for TanStack Start. Every feature's
- * `/api/trpc/<feature>` mount shares the same fetch-adapter wiring — Clerk auth
- * resolution (via `resolveClerkContext`), entitlements injection, and error
- * logging — so it lives here once. Feature route files keep only the framework
- * seam (`createFileRoute` with its path literal, which the route-tree codegen
- * statically requires) and a tiny declaration of "this router at this
- * endpoint" (see `createTRPCServerHandlers`).
+ * App-owned tRPC route-handler seam for TanStack Start. The fetch-adapter
+ * wiring, error logging and CORS live once in `@acme/trpc/handler`; this file
+ * owns only the app-specific auth seam (`resolveClerkContext`) and the
+ * framework shape. Feature route files keep only the `createFileRoute` path
+ * literal (which the route-tree codegen statically requires) and a tiny "this
+ * router at this endpoint" declaration.
  *
  * The fetch adapter serves the `chat.stream` SSE subscription over the same GET
  * handler (`httpSubscriptionLink`), so SSE rides this route through Nitro with
@@ -38,21 +41,17 @@ export function createTRPCServerHandlers<TRouter extends AnyRouter>({
   router,
   createContext,
 }: TRPCRouteOptions<TRouter>) {
-  const handler = (req: Request) =>
-    fetchRequestHandler({
-      endpoint,
-      req,
-      router,
-      createContext: async () => createContext(await resolveClerkContext(req)),
-      onError: ({ path, error }) => {
-        console.error(
-          `❌ tRPC failed on ${path ?? '<no-path>'}: ${error.message}`,
-        );
-      },
-    });
+  const handler = createTRPCFetchHandler({
+    endpoint,
+    router,
+    createContext,
+    resolver: resolveClerkContext,
+  });
 
   return {
     GET: ({ request }: { request: Request }) => handler(request),
     POST: ({ request }: { request: Request }) => handler(request),
+    OPTIONS: () =>
+      new Response(null, { status: 204, headers: corsPreflightHeaders }),
   };
 }

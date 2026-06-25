@@ -10,5 +10,7 @@ export {
 export {
   getSubscriptionType,
   getUserSubscriptionFromRedis,
+  stripeCustomerKey,
+  stripeUserKey,
 } from './subscriptions';
 export { isTierAtLeast } from './tiers';

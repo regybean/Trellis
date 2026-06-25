@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { Database, RefreshCw } from 'lucide-react';
 
 import { redis } from '@acme/redis';
+import { stripeUserKey } from '@acme/subscriptions';
 
 import { syncStripeDataToKV } from '../../utils/stripe';
 
@@ -15,7 +16,7 @@ export async function StripeSuccessHandler() {
   }
 
   // Get the stripe customer ID from Redis
-  const stripeCustomerId = await redis.get(`stripe:user:${userId}`);
+  const stripeCustomerId = await redis.get(stripeUserKey(userId));
 
   if (!stripeCustomerId) {
     redirect('/');

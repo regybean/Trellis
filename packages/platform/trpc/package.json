@@ -26,6 +26,10 @@
     "./error": {
       "types": "./dist/error.d.ts",
       "default": "./src/error.ts"
+    },
+    "./handler": {
+      "types": "./dist/handler.d.ts",
+      "default": "./src/handler.ts"
     }
   },
   "license": "MIT",

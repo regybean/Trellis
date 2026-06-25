@@ -4,6 +4,7 @@ import { createServerFn } from '@tanstack/react-start';
 
 import { syncStripeDataToKV } from '@acme/billing/server';
 import { redis } from '@acme/redis';
+import { stripeUserKey } from '@acme/subscriptions';
 
 /**
  * App-owned Stripe-success sync, the framework-specific replacement for the
@@ -18,7 +19,7 @@ export const syncStripeOnSuccess = createServerFn({ method: 'POST' }).handler(
       throw redirect({ to: '/sign-in/$', params: { _splat: '' } });
     }
 
-    const stripeCustomerId = await redis.get(`stripe:user:${userId}`);
+    const stripeCustomerId = await redis.get(stripeUserKey(userId));
     if (!stripeCustomerId) {
       throw redirect({ to: '/' });
     }

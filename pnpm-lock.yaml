@@ -695,6 +695,9 @@ importers:
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../packages/platform/telemetry
+      '@acme/trpc':
+        specifier: workspace:*
+        version: link:../../packages/platform/trpc
       '@acme/ui':
         specifier: workspace:*
         version: link:../../packages/shared/ui

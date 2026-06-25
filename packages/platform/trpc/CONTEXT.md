@@ -36,6 +36,20 @@ Tier-gate middleware factory (`requireTier(minTier)`) that admits a request only
 Billing context — no Redis or Stripe I/O. Composed onto a feature's `protectedProcedure`,
 exactly like `rateLimit`.
 
+**Context resolver**:
+The app-owned function that turns an HTTP `Request` into the neutral context input
+`createTRPCContext` expects (Clerk for the full apps; a constant local principal for
+the slim apps). The _only_ per-app/per-framework piece of the route seam — it stays
+in the app to keep framework + auth specifics out of the platform (ADR 0003 / 0010).
+_Avoid_: "the auth handler", "the context builder"
+
+**tRPC route handler factory** (`@acme/trpc/handler`):
+`createTRPCFetchHandler({ endpoint, router, createContext, resolver })` — the
+framework-parametric fetch-adapter wiring (with `logTRPCError` baked in) every app
+shares. Apps feed it their **Context resolver** and compose the result into their
+framework's handler shape. `corsPreflightHeaders` is the single source of the CORS
+policy; the trivial 204 `Response` is built at each app's `OPTIONS` seam.
+
 ## Relationships
 
 - A **Feature tRPC** is produced by either `createFeatureTRPC()` (no DB) or
@@ -64,3 +78,13 @@ context override. This keeps the type machinery shallow and the build fast.
 **DB is caller-created**: features instantiate their own Drizzle client (from their own
 env/schema) and pass it to `createFeatureTRPCWithDb`. The factory instruments it and
 injects it; features own the connection config and schema.
+
+**Handler plumbing lives once, the resolver stays in the app**: the fetch-adapter
+wiring, `logTRPCError`, and the CORS policy are substrate, not auth — they live in
+`@acme/trpc/handler` so they can't drift per-app (they had: one app hand-rolled
+`console.error` and never depended on `@acme/trpc`; another omitted the OPTIONS
+handler). Only the **Context resolver** — which _is_ auth/framework-specific — stays
+app-owned, satisfying ADR 0003 / 0010. A fifth framework writes one resolver, not the
+whole handler. The 204 `Response` is built in each app because the `Response` global is
+framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM type
+boundary if constructed in the platform package.

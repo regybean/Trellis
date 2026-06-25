@@ -126,3 +126,53 @@ live in each app's own `.env`.
 value now throws at startup instead of producing a broken schema name. The root
 `.env.example` documents the per-app rule, and the slim apps' `app-schema.ts` /
 `drizzle.config.ts` fallbacks use the underscore form.
+
+## Amendment — type-enforced key construction replaces the Proxy + allow-list
+
+Decision 2 above (an allow-list-guarded `Proxy` rewrites the first argument of
+known key/channel commands) was chosen over "an explicit `key()` helper at every
+call site", which this ADR rejected as *leaky*: a missed call site "silently
+writes an unprefixed, cross-app-colliding key." That objection rested on one
+word — **silently**. The allow-list itself turned out to be the leak.
+
+**The allow-list drifted, in shipped code.** `@acme/subscriptions` introduced
+`redis.expireAt(...)` (in `overrideExpiry`) but `expireAt` was never added to
+`KEY_COMMANDS`. So `expireAt` passed through the `Proxy` untouched and operated
+on the **unprefixed** `credits:<user>:<tier>` key, while the value lived at the
+prefixed key — the expiry override silently no-op'd on the real key and poked a
+cross-app-colliding phantom. Exactly the corruption this ADR exists to prevent,
+invisible to single-app tests, caused by the guardrail the ADR relied on.
+
+**The fix turns the rejected alternative into the correct one by making the miss
+a compile error instead of a silent runtime leak.** Keys are now constructed
+through `nsKey(...parts)` (exported from `@acme/redis`), the single place the
+prefix is applied and the only constructor of the branded `NamespacedKey` type.
+Every key/channel command on the exported clients accepts **only** a
+`NamespacedKey`, never a raw `string`. A forgotten prefix no longer compiles.
+
+This supersedes decision 2 (the `Proxy` + `KEY_COMMANDS` / `CHANNEL_COMMANDS`
+allow-list, now deleted). The other load-bearing decisions stand: the namespace
+is still sourced from `NEXT_PUBLIC_WEBAPP` via `@acme/redis/env` (decision 1),
+and an empty namespace still yields raw keys with no leading colon (decision 3) —
+`nsKey` returns the bare key when the namespace is unset, so the test path is
+unchanged.
+
+Consequences:
+
+- **No allow-list to maintain.** A new command cannot leak: it physically will
+  not accept an un-namespaced key. The `expireAt`-class bug is now unrepresentable.
+- **Key formats live in named builders, not inline templates.** `creditKey`
+  (private to `@acme/subscriptions/credits`) and `stripeUserKey` /
+  `stripeCustomerKey` (exported from `@acme/subscriptions`) build their keys
+  through `nsKey`; the ~9 inline `` `stripe:user:${id}` `` call sites across
+  `@acme/billing`, the account router, and the app-owned Stripe sync now route
+  through them.
+- **The namespace test is a pure unit test of `nsKey`** — no fake client, no
+  Proxy behaviour to assert. Prefixing is a property of key construction.
+- **One sanctioned cast.** Branding is a nominal-typing technique and needs a
+  single `as NamespacedKey` inside `nsKey`; it is isolated to that one constructor.
+- **`@acme/redis` exposes a thin typed facade** over the small command surface in
+  use (`get`/`set`/`decrBy`/`incrBy`/`del`/`ttl`/`expire`/`expireAt`/`exists`,
+  the `publish`/`subscribe`/… channel commands, and infra pass-throughs). It does
+  no runtime rewriting — `nsKey` already prefixed the key — it only narrows the
+  key parameter's type.
