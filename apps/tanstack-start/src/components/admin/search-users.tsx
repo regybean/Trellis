@@ -11,10 +11,10 @@ interface SearchUsersProps {
 }
 
 /**
- * App-owned replacement for the Next-coupled `@acme/admin` `SearchUsers`
- * (which reads `next/navigation`). Navigation is lifted to the route via props
- * so this stays framework-neutral; parent keys it on `currentSearch` to reset
- * the input without an effect.
+ * App-owned `SearchUsers`. The Next.js app's version reads `next/navigation`
+ * directly; here navigation is lifted to the route via props so this stays
+ * framework-neutral. Parent keys it on `currentSearch` to reset the input
+ * without an effect.
  */
 export function SearchUsers({
   currentSearch,

@@ -19,7 +19,7 @@ The four apps form a 2×2: framework (column) × feature subset (row). The slice
 | [`nextjs-slim`](../apps/nextjs-slim/CONTEXT.md) | Next.js (:3002) | chat · ingest — **no auth, no billing** | ✅ |
 | [`tanstack-slim`](../apps/tanstack-slim/CONTEXT.md) | TanStack Start (:3003) | chat · ingest — **no auth, no billing** (app-owned console shell) | ✅ |
 
-The **columns** prove portability — the same slices under two frameworks, differing only in the per-app adapter. The **rows** prove subsetting — the slim apps drop Clerk and Stripe *from the dependency graph* (no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`, `@acme/admin`), injecting a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is a *different subset of the same packages*, not a fork.
+The **columns** prove portability — the same slices under two frameworks, differing only in the per-app adapter. The **rows** prove subsetting — the slim apps drop Clerk and Stripe *from the dependency graph* (no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`), injecting a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is a *different subset of the same packages*, not a fork.
 
 ---
 
@@ -57,16 +57,9 @@ The **columns** prove portability — the same slices under two frameworks, diff
 | [`@acme/logger`](../packages/platform/logger/) | Structured logging. | ✅ |
 | [`@acme/redis`](../packages/platform/redis/) | Shared Redis client (rate-limit tokens, subscription cache). | ✅ |
 
-## Compositions — assembled UI
+## Assembled UI — app-owned
 
-`packages/compositions/` · feature combinations.
-
-| Package | What it does | Status |
-|---------|--------------|--------|
-| [`@acme/admin`](../packages/compositions/admin/CONTEXT.md) | Server composition assembling the admin dashboard from `@acme/billing` + `@acme/ingest` + Clerk roles. | ✅ |
-| [`@acme/sidebar`](../packages/compositions/sidebar/CONTEXT.md) | Reusable collapsible sidebar nav shell. Used by `nextjs`; `tanstack-start` deliberately uses its own app-owned shell instead. | 🟡 |
-
-> 🟡 **The compositions layer is being reconsidered.** The working direction is that framework-specific shell/chrome lives in the **app** (as `tanstack-start`'s console shell does), and compositions are reserved for genuine cross-app DRY. Treat `sidebar` as illustrative rather than a rule to follow.
+There is no compositions layer ([ADR 0011](adr/0011-remove-compositions-layer.md)). Framework-specific shell/chrome lives in the **app** (e.g. `tanstack-start`'s console shell). The admin dashboard each app needs assembles `@acme/billing` + `@acme/ingest` + auth-role pieces in its own `src/components/admin/`; genuinely shared, stateless presentational pieces belong in `@acme/ui`. A new shared UI assembly that can't live in an app or `@acme/ui` requires an ADR.
 
 ## Tooling — shared configs & test infra
 
@@ -223,11 +216,10 @@ The honest answer to "how easily can I change X?". This is the practical side of
 
 - **Run a feature on a new React framework.** Features and shared packages are runtime-agnostic, but the **adapter** is per-app and must be written: the route handler that mounts the tRPC router, the client URL resolution, and the auth-context resolver ([ADR 0003 auth seam](adr/0003-framework-agnostic-auth-seam.md)). That's the honest boundary — "framework-agnostic where it counts."
 - **Change the embedding model.** It fixes the vector dimension, so `EMBED_DIMENSIONS` changes mean re-pushing the vector schema (`pnpm db:push`). A mismatch fails up front with an actionable error, not a raw pgvector crash.
-- **The compositions layer.** In flux (see above) — app-owned shells are the current direction.
 
 ### Load-bearing — changing these reshapes the template
 
-- **Layer dependency direction** (`tooling → platform → shared → features → compositions → apps`). Enforced by Turborepo boundary tags; violations fail the build.
+- **Layer dependency direction** (`tooling → platform → shared → features → apps`). Enforced by Turborepo boundary tags; violations fail the build.
 - **One feature = one package = router + hooks + UI.** The vertical-slice contract is the whole idea — break it and apps can no longer mount features cleanly.
 - **tRPC as the feature transport**, with the shared middleware pipeline (auth / trace / time / rate-limit). Every feature reuses it.
 - **Clerk for auth.** Behind a framework seam and *droppable* (the slim apps run with no Clerk at all), but the *provider* is still coupled across the full apps' features (`@acme/auth` re-exports Clerk React hooks/components). Swapping Clerk for another provider in the full apps is the remaining work.

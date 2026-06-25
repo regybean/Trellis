@@ -15,10 +15,10 @@ import {
   Sidebar as SidebarRoot,
 } from '@acme/ui';
 
-// App-owned minimal sidebar. The slim app drops `@acme/sidebar` (its `AppSidebar`
-// hardcodes a Clerk + billing `NavUser`), so this is a thin local shell built
-// straight from the `@acme/ui` sidebar primitives. Two destinations, no user
-// chrome.
+// App-owned minimal sidebar — a thin local shell built straight from the
+// `@acme/ui` sidebar primitives (shell/chrome is always app-owned, ADR 0011).
+// The slim app has no auth/billing, so there's no user chrome — two
+// destinations only.
 const navItems = [
   { title: 'Chat Assistant', url: '/chat-assistant', icon: MessageCircle },
   { title: 'Documents', url: '/documents', icon: FileText },

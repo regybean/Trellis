@@ -8,7 +8,7 @@
           "allow": ["platform", "tooling"]
         },
         "dependents": {
-          "allow": ["platform", "shared", "feature", "composition"]
+          "allow": ["platform", "shared", "feature", "app"]
         }
       },
       "shared": {
@@ -16,7 +16,7 @@
           "allow": ["shared", "platform", "tooling"]
         },
         "dependents": {
-          "allow": ["feature", "composition", "shared"]
+          "allow": ["feature", "app", "shared"]
         }
       },
       "feature": {
@@ -24,12 +24,12 @@
           "allow": ["shared", "platform", "tooling"]
         },
         "dependents": {
-          "allow": ["composition"]
+          "allow": ["app"]
         }
       },
-      "composition": {
+      "app": {
         "dependencies": {
-          "allow": ["feature", "shared", "platform", "tooling", "composition"]
+          "allow": ["feature", "shared", "platform", "tooling", "app"]
         }
       },
       "tooling": {
@@ -37,7 +37,7 @@
           "allow": ["tooling"]
         },
         "dependents": {
-          "allow": ["platform", "shared", "feature", "composition", "tooling"]
+          "allow": ["platform", "shared", "feature", "app", "tooling"]
         }
       }
     }

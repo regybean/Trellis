@@ -38,9 +38,8 @@ const navItems: NavItem[] = [
 
 /**
  * App-owned layout chrome: a fixed left rail + top bar in a dark, dense,
- * monospace "developer console" style. This is the divergent shell — it imports
- * no `@acme/sidebar` composition (that one is Next-coupled); the feature
- * components rendered inside `children` are untouched.
+ * monospace "developer console" style. Shell/chrome is always app-owned
+ * (ADR 0011); the feature components rendered inside `children` are untouched.
  */
 export function ConsoleShell({ children }: { children: ReactNode }) {
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);

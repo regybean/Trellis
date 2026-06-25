@@ -25,7 +25,7 @@ Three properties fall out of that, and they're the whole point:
 3. **The boundaries are enforced, not aspirational.** Dependencies only ever point **down** the layers, checked by Turborepo boundary tags (`pnpm boundaries`) — a violation fails the build, not a review comment.
 
 ```
-tooling  →  platform  →  shared  →  features  →  compositions  →  apps
+tooling  →  platform  →  shared  →  features  →  apps
 ```
 
 | Layer | May depend on | What lives here |
@@ -34,10 +34,9 @@ tooling  →  platform  →  shared  →  features  →  compositions  →  apps
 | [packages/platform/](packages/platform/) | platform, tooling | Runtime substrate: trpc, subscriptions, entitlements, logger, redis, telemetry |
 | [packages/shared/](packages/shared/) | shared, platform, tooling | Primitives: ui, auth, hooks, rag, models |
 | [packages/features/](packages/features/) | shared, platform, tooling | Vertical domain slices: chat, ingest, billing, feedback |
-| [packages/compositions/](packages/compositions/) | + features, other compositions | Feature combinations: admin, sidebar |
-| [apps/](apps/) | everything | The deployable apps |
+| [apps/](apps/) | everything | The deployable apps (own their shell/chrome) |
 
-> **"Where it counts."** Features and shared packages are runtime-agnostic. Compositions (assembled UI) and adapter wiring are app-specific *by design* — that's the honest boundary, not a leak.
+> **"Where it counts."** Features and shared packages are runtime-agnostic. Assembled UI (shell/chrome) and adapter wiring are app-owned *by design* — that's the honest boundary, not a leak ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)).
 
 ## The apps prove it — two axes, four apps
 
@@ -49,7 +48,7 @@ The claim is two-dimensional: the same slices **travel across runtimes** *and* *
 | **Slim** — chat · ingest, *no auth, no billing* | [`nextjs-slim`](apps/nextjs-slim/) :3002 | [`tanstack-slim`](apps/tanstack-slim/) :3003 |
 
 - **Columns prove portability.** Identical slices under two frameworks with deliberately divergent shells — the only per-app code is the adapter (route handler + client URL + auth-context resolver).
-- **Rows prove subsetting.** The slim apps **drop Clerk and Stripe entirely** — they don't depend on `@acme/auth`, `@acme/billing`, `@acme/subscriptions`, or `@acme/admin`, and inject a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](docs/adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is *a different subset of the same packages*, not a fork — and the build enforces it (the dependency graph literally doesn't contain Clerk/Stripe for a slim app).
+- **Rows prove subsetting.** The slim apps **drop Clerk and Stripe entirely** — they don't depend on `@acme/auth`, `@acme/billing`, or `@acme/subscriptions`, and inject a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](docs/adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is *a different subset of the same packages*, not a fork — and the build enforces it (the dependency graph literally doesn't contain Clerk/Stripe for a slim app).
 
 That row is only possible because billing and auth are **injected, not imported**: the platform substrate depends on neutral contracts, and the app chooses the implementation ([auth seam ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md), [entitlements seam ADR 0006](docs/adr/0006-entitlements-injection-seam.md)).
 
@@ -104,7 +103,7 @@ A living template — a few things are mid-transition, flagged honestly:
 - **No zero-Docker path.** Even the slim apps need `pnpm infra:up` — they keep chat + ingest, which need Postgres + pgvector (Mastra) and Ollama. The graph-derived `pnpm dev` starts *less* for a slim app (no Stripe, no Redis), but not *nothing*.
 - **`SECRET_MAP` only maps `nextjs`.** Secrets sync against a pluggable backend ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); opt-in via `SECRETS_BACKEND`, `localstack` for dev or `aws` for a real vault), but the other apps still need adding to `secrets.config.sh`.
 - **Model providers are settling.** Selection lives in [`@acme/models`](packages/shared/models/CONTEXT.md) — `bedrock` / `openrouter` / `ollama` by env ([ADR 0003](docs/adr/0003-multi-provider-models.md)). Ollama is the default so the repo runs with no credentials; dev models are tiny/CPU-only, not production quality.
-- **The compositions layer is being wound down.** Direction is app-owned shells (see `tanstack-start`); compositions reserved for genuine cross-app DRY.
+- **The compositions layer was removed.** Shell/chrome is app-owned ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)); shared UI assemblies belong in `@acme/ui`, not a new composition.
 
 ## Documentation
 

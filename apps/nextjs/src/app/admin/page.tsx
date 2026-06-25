@@ -1,4 +1,4 @@
-import { AdminDashboard } from '@acme/admin/server';
+import { AdminDashboard } from '~/components/admin/admin-dashboard';
 
 export default async function AdminPage(props: {
   searchParams?: Promise<{ search?: string }>;

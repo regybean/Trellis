@@ -42,14 +42,13 @@ for every feature mount.
 | `app/api/trpc/ingest/[trpc]/`             | Route handler for `@acme/ingest` router                                        |
 | `app/api/health/`                         | Health check endpoint                                                          |
 | `src/server/trpc-route.ts`                | Shared route handler — injects the constant principal + unlimited entitlements |
-| `src/components/pages/layout/sidebar.tsx` | App-local minimal sidebar (no `@acme/sidebar`)                                 |
+| `src/components/pages/layout/sidebar.tsx` | App-local minimal sidebar (app-owned shell, ADR 0011)                          |
 
 ## Relationships
 
 - Each feature's `TRPCReactProvider` wraps its page(s) and points to its
   `/api/trpc/{feature}` endpoint.
-- No Clerk middleware, no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`,
-  `@acme/admin`, or `@acme/sidebar`.
+- No Clerk middleware, no `@acme/auth`, `@acme/billing`, or `@acme/subscriptions`.
 - `instrumentation.ts` initialises OpenTelemetry (`trellis-nextjs-slim`) at startup.
 - `db/schema.ts` exports only `appSchema` (no app-owned tables); `db:push` owns the
   per-app `CREATE SCHEMA` that Mastra's memory + vector store need at runtime.
