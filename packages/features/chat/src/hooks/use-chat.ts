@@ -1,6 +1,6 @@
 // hooks/use-chat.ts
 import { useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSubscription } from '@trpc/tanstack-react-query';
 
 import { useGenericErrorHandler } from '@acme/hooks';
@@ -24,6 +24,7 @@ export function useChat(
   const [queryInput, setQueryInput] = useState<string>();
   const genericErrorHandle = useGenericErrorHandler();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
   // Resuming a Conversation: load its persisted Messages. A brand-new
@@ -120,6 +121,9 @@ export function useChat(
                 i === (prev ?? []).length - 1 ? { ...m, loading: false } : m,
               ),
             );
+            // Refresh the history sidebar: a new Conversation now exists (and an
+            // existing one has a fresh updatedAt / generated title).
+            void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
             setQueryInput(undefined);
           }
         },
