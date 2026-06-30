@@ -1,17 +1,17 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { ChatAssistant } from '@acme/chat';
+import { ConversationView } from '@acme/chat';
 
 export const Route = createFileRoute('/chat-assistant')({
   component: ChatRoute,
 });
 
-// Mirrors the Next.js slim chat page: just the chat slice, no auth guard and no
+// Bare route: starts a new Conversation. Slim subset — no auth guard, no
 // billing/feedback wiring (the slim app drops both).
 function ChatRoute() {
   return (
-    <div className="min-h-full flex-grow p-5">
-      <ChatAssistant />
+    <div className="h-[calc(100vh-4rem)]">
+      <ConversationView />
     </div>
   );
 }

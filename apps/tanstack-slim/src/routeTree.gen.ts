@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as ChatAssistantRouteImport } from './routes/chat-assistant'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ChatAssistantSessionIdRouteImport } from './routes/chat-assistant.$sessionId'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiTrpcIngestSplatRouteImport } from './routes/api/trpc/ingest.$'
 import { Route as ApiTrpcChatSplatRouteImport } from './routes/api/trpc/chat.$'
@@ -31,6 +32,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatAssistantSessionIdRoute = ChatAssistantSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => ChatAssistantRoute,
+} as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
@@ -49,26 +55,29 @@ const ApiTrpcChatSplatRoute = ApiTrpcChatSplatRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/chat-assistant': typeof ChatAssistantRoute
+  '/chat-assistant': typeof ChatAssistantRouteWithChildren
   '/documents': typeof DocumentsRoute
   '/api/health': typeof ApiHealthRoute
+  '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/chat-assistant': typeof ChatAssistantRoute
+  '/chat-assistant': typeof ChatAssistantRouteWithChildren
   '/documents': typeof DocumentsRoute
   '/api/health': typeof ApiHealthRoute
+  '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/chat-assistant': typeof ChatAssistantRoute
+  '/chat-assistant': typeof ChatAssistantRouteWithChildren
   '/documents': typeof DocumentsRoute
   '/api/health': typeof ApiHealthRoute
+  '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/chat-assistant'
     | '/documents'
     | '/api/health'
+    | '/chat-assistant/$sessionId'
     | '/api/trpc/chat/$'
     | '/api/trpc/ingest/$'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/chat-assistant'
     | '/documents'
     | '/api/health'
+    | '/chat-assistant/$sessionId'
     | '/api/trpc/chat/$'
     | '/api/trpc/ingest/$'
   id:
@@ -95,13 +106,14 @@ export interface FileRouteTypes {
     | '/chat-assistant'
     | '/documents'
     | '/api/health'
+    | '/chat-assistant/$sessionId'
     | '/api/trpc/chat/$'
     | '/api/trpc/ingest/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ChatAssistantRoute: typeof ChatAssistantRoute
+  ChatAssistantRoute: typeof ChatAssistantRouteWithChildren
   DocumentsRoute: typeof DocumentsRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiTrpcChatSplatRoute: typeof ApiTrpcChatSplatRoute
@@ -131,6 +143,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat-assistant/$sessionId': {
+      id: '/chat-assistant/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/chat-assistant/$sessionId'
+      preLoaderRoute: typeof ChatAssistantSessionIdRouteImport
+      parentRoute: typeof ChatAssistantRoute
+    }
     '/api/health': {
       id: '/api/health'
       path: '/api/health'
@@ -155,9 +174,21 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ChatAssistantRouteChildren {
+  ChatAssistantSessionIdRoute: typeof ChatAssistantSessionIdRoute
+}
+
+const ChatAssistantRouteChildren: ChatAssistantRouteChildren = {
+  ChatAssistantSessionIdRoute: ChatAssistantSessionIdRoute,
+}
+
+const ChatAssistantRouteWithChildren = ChatAssistantRoute._addFileChildren(
+  ChatAssistantRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ChatAssistantRoute: ChatAssistantRoute,
+  ChatAssistantRoute: ChatAssistantRouteWithChildren,
   DocumentsRoute: DocumentsRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiTrpcChatSplatRoute: ApiTrpcChatSplatRoute,
