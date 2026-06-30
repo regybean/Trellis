@@ -20,6 +20,18 @@ _Avoid_: "socket", "websocket", "live update"
 The pattern where the assistant retrieves relevant Chunks from the knowledge base before generating a response, grounding the answer in operator-uploaded Documents. Implemented agentically: the chat Agent is given a Mastra vector-query tool (`@acme/rag`) and decides when to retrieve.
 _Avoid_: "search", "lookup", "context injection"
 
+**Conversation History**:
+The user-facing surface for revisiting past Conversations. A sidebar lists a user's Conversations grouped into **Folders** first, then **Date Buckets**. Selecting a Conversation resumes it (loads its Messages and streams new turns into the same thread).
+_Avoid_: "chat log", "session list"
+
+**Folder**:
+A user-created, named grouping of Conversations, owned by a user. A Conversation belongs to **at most one** Folder at a time (exclusivity). Folder _definitions_ (name, owner) are app-owned rows; the _assignment_ lives in the Conversation's Mastra thread `metadata.folderId`. Deleting a Folder returns its Conversations to their Date Bucket (the dangling `folderId` no longer resolves — no per-Conversation write).
+_Avoid_: "category", "label", "tag" (a Conversation is in one Folder, not many)
+
+**Date Bucket**:
+A derived (not stored) grouping of un-foldered Conversations by last activity (`updatedAt`): **Today** (since local midnight), **This week** (last 7 days), **Older** (everything before). Computed client-side from the flat Conversation list.
+_Avoid_: "archive" as a verb/action — there is no archive action, only the time-derived "Older" bucket.
+
 ## Relationships
 
 - A **Conversation** is ensured (create-or-retrieve, idempotent) by the `stream` procedure itself on the first Message — clients do not call `chat.create` separately. `conversationId` is always supplied by the client (a UUID minted before the first Message) and is required.
