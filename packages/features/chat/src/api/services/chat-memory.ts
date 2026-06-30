@@ -28,6 +28,25 @@ export function toConversation(thread: Conversation) {
   };
 }
 
+// The Folder assignment carried on a thread's metadata. A single scalar, so a
+// Conversation is in at most one Folder. Absent/non-string values read as null
+// (un-foldered) — including a dangling id left behind by a deleted Folder, which
+// the client simply fails to resolve and shows under a Date Bucket.
+function folderIdOf(metadata: Conversation['metadata']) {
+  const value = metadata?.folderId;
+  return typeof value === 'string' ? value : null;
+}
+
+// A thread rendered as a Conversation History list row (no Messages loaded).
+export function toConversationSummary(thread: Conversation) {
+  return {
+    sessionId: thread.id,
+    title: thread.title ?? 'New conversation',
+    updatedAt: thread.updatedAt,
+    folderId: folderIdOf(thread.metadata),
+  };
+}
+
 function partsToText(content: DBMessage['content']) {
   if (typeof content === 'string') return content;
   let text = '';
@@ -127,4 +146,31 @@ export async function listConversations(userId: string) {
     perPage: false,
   });
   return threads;
+}
+
+// The caller's own Conversations for the history sidebar, most-recently-active
+// first. The server owns the sort (`updatedAt DESC`); the client derives Date
+// Buckets from `updatedAt` so the time/timezone-relative labels stay correct
+// without a server round-trip.
+export async function listConversationsForUser(userId: string) {
+  const { threads } = await memory.listThreads({
+    filter: { resourceId: userId },
+    orderBy: { field: 'updatedAt', direction: 'DESC' },
+    perPage: false,
+  });
+  return threads;
+}
+
+// Assign a Conversation to a Folder (or clear it with `folderId: null`). Mastra
+// `updateThread` requires the title, so the loaded thread is passed through to
+// preserve it. Existing metadata is spread so unrelated keys survive.
+export async function setThreadFolder(
+  thread: Conversation,
+  folderId: string | null,
+) {
+  return memory.updateThread({
+    id: thread.id,
+    title: thread.title ?? 'New conversation',
+    metadata: { ...thread.metadata, folderId },
+  });
 }
