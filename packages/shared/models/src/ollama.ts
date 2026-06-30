@@ -18,6 +18,15 @@ export function ollamaChatModel(): LanguageModelV3 {
   return ollamaProvider().chatModel(ollamaEnv().OLLAMA_CHAT_MODEL);
 }
 
+// Cheaper model for thread-title generation. Falls back to the chat model when
+// OLLAMA_TITLE_MODEL is unset.
+export function ollamaTitleModel(): LanguageModelV3 {
+  const env = ollamaEnv();
+  return ollamaProvider().chatModel(
+    env.OLLAMA_TITLE_MODEL ?? env.OLLAMA_CHAT_MODEL,
+  );
+}
+
 export function ollamaEmbedModel(): EmbeddingModelV3 {
   return ollamaProvider().embeddingModel(ollamaEnv().OLLAMA_EMBED_MODEL);
 }

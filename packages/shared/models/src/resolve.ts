@@ -1,9 +1,13 @@
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
 
-import { bedrockChatModel, bedrockEmbedModel } from './bedrock';
+import {
+  bedrockChatModel,
+  bedrockEmbedModel,
+  bedrockTitleModel,
+} from './bedrock';
 import { modelsEnv } from './env';
-import { ollamaChatModel, ollamaEmbedModel } from './ollama';
-import { openrouterChatModel } from './openrouter';
+import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
+import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
 const env = modelsEnv();
 
@@ -24,6 +28,22 @@ function resolveChatModel() {
   }
 }
 
+// The title model follows the chat provider (same family, optionally a cheaper
+// model id). Each factory falls back to the chat model when no title env is set.
+function resolveTitleModel() {
+  switch (env.LLM_PROVIDER) {
+    case 'bedrock': {
+      return bedrockTitleModel();
+    }
+    case 'openrouter': {
+      return openrouterTitleModel();
+    }
+    case 'ollama': {
+      return ollamaTitleModel();
+    }
+  }
+}
+
 function resolveEmbedModel() {
   switch (env.EMBED_PROVIDER) {
     case 'bedrock': {
@@ -39,6 +59,7 @@ function resolveEmbedModel() {
 // missing/invalid env for an active provider blocks here (as the existing env.ts
 // files do) rather than failing deep inside a request.
 export const chatModel = resolveChatModel();
+export const titleModel = resolveTitleModel();
 export const embedModel = resolveEmbedModel();
 
 // Provider options for an embed call, keyed by purpose. Bedrock's Cohere model
