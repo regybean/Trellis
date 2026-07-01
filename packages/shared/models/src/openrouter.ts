@@ -1,7 +1,7 @@
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
-import { openrouterEnv } from './env';
+import { openrouterEnv } from './env-providers';
 
 // OpenRouter chat model. Chat only — OpenRouter exposes no embeddings API, so it
 // is not selectable as EMBED_PROVIDER.

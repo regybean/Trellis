@@ -13,6 +13,10 @@ import { afterEach, beforeEach, inject, vi } from 'vitest';
 
 import { cleanupTestData } from './utils/test-context';
 
+// In-memory userId -> Stripe customer id store backing the @acme/subscriptions
+// mock, so setStripeCustomerId/getStripeCustomerId round-trip within a test.
+const stripeCustomerStore = vi.hoisted(() => new Map<string, string>());
+
 // Mock the env module using factory function pattern
 // The factory function receives the inject values at runtime, not at module load time
 vi.mock('../../env', () => {
@@ -118,6 +122,16 @@ vi.mock('@acme/subscriptions', () => ({
     }),
   },
   getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
+  // userId <-> Stripe customer id mapping, backed by an in-memory store so
+  // fixtures (setStripeCustomerId) and the router (getStripeCustomerId) agree.
+  setStripeCustomerId: vi.fn((userId: string, customerId: string) => {
+    stripeCustomerStore.set(userId, customerId);
+    return Promise.resolve();
+  }),
+  getStripeCustomerId: vi.fn((userId: string | null) =>
+    Promise.resolve(stripeCustomerStore.get(String(userId)) ?? null),
+  ),
+  setSubscriptionCache: vi.fn().mockResolvedValue(undefined),
   getSubscriptionType: vi.fn().mockReturnValue('Basic'),
   // Real tier ordering (Basic < Standard < Pro) so requireTier gates behave
   // correctly under test.
@@ -131,6 +145,7 @@ vi.mock('@acme/subscriptions', () => ({
 beforeEach(() => {
   // Reset all mocks between tests
   vi.clearAllMocks();
+  stripeCustomerStore.clear();
 });
 
 // Clean up after each test

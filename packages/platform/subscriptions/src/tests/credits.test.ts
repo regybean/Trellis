@@ -47,6 +47,8 @@ vi.mock('@acme/redis', () => ({
     }),
     exists: vi.fn((key: string) => Promise.resolve(store.map.has(key) ? 1 : 0)),
   },
+  // Mirror the real nsKey (colon-joined; tests run with an empty namespace).
+  nsKey: (...parts: string[]) => parts.join(':'),
 }));
 
 const subs = vi.hoisted(() => ({

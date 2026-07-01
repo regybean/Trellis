@@ -2,8 +2,7 @@ import { redirect } from 'next/navigation';
 import { auth } from '@clerk/nextjs/server';
 import { Database, RefreshCw } from 'lucide-react';
 
-import { redis } from '@acme/redis';
-import { stripeUserKey } from '@acme/subscriptions';
+import { getStripeCustomerId } from '@acme/subscriptions';
 
 import { syncStripeDataToKV } from '../../utils/stripe';
 
@@ -16,7 +15,7 @@ export async function StripeSuccessHandler() {
   }
 
   // Get the stripe customer ID from Redis
-  const stripeCustomerId = await redis.get(stripeUserKey(userId));
+  const stripeCustomerId = await getStripeCustomerId(userId);
 
   if (!stripeCustomerId) {
     redirect('/');
