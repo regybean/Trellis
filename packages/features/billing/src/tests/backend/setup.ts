@@ -63,27 +63,39 @@ vi.mock('@acme/redis/env', () => {
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 
-// Mock Stripe API utilities
-vi.mock('../../utils/stripe', () => ({
-  getProductWithPrice: vi.fn().mockResolvedValue({
-    defaultPriceId: 'price_12345',
-    productId: 'prod_12345',
-  }),
-  findOrCreateCustomer: vi.fn().mockResolvedValue({
-    customer: { id: 'cus_12345', email: 'test@example.com' },
-    isExisting: false,
-  }),
-  createCheckoutSession: vi.fn().mockResolvedValue({
-    id: 'cs_12345',
-    url: 'https://checkout.stripe.com/test',
-    created: 1_234_567_890,
-  }),
-  createDashboardSession: vi.fn().mockResolvedValue({
-    billingPortalUrl: 'https://billing.stripe.com/test',
-  }),
-  syncStripeDataToKV: vi.fn().mockResolvedValue(null),
-  setUserTier: vi.fn().mockResolvedValue({ status: 'active' }),
-}));
+// Mock the Stripe-calling utilities, but keep the real typed-error seam
+// (billingError / BillingErrorCode / toBillingErrorCode) so the router's error
+// construction is exercised for real rather than stubbed. stripe-errors is a
+// pure, side-effect-free module, so importActual on it is safe (no live
+// Stripe/Redis at import).
+vi.mock('../../utils/stripe', async () => {
+  const errors = await vi.importActual<
+    typeof import('../../utils/stripe-errors')
+  >('../../utils/stripe-errors');
+  return {
+    billingError: errors.billingError,
+    BillingErrorCode: errors.BillingErrorCode,
+    toBillingErrorCode: errors.toBillingErrorCode,
+    getProductWithPrice: vi.fn().mockResolvedValue({
+      defaultPriceId: 'price_12345',
+      productId: 'prod_12345',
+    }),
+    findOrCreateCustomer: vi.fn().mockResolvedValue({
+      customer: { id: 'cus_12345', email: 'test@example.com' },
+      isExisting: false,
+    }),
+    createCheckoutSession: vi.fn().mockResolvedValue({
+      id: 'cs_12345',
+      url: 'https://checkout.stripe.com/test',
+      created: 1_234_567_890,
+    }),
+    createDashboardSession: vi.fn().mockResolvedValue({
+      billingPortalUrl: 'https://billing.stripe.com/test',
+    }),
+    syncStripeDataToKV: vi.fn().mockResolvedValue(null),
+    setUserTier: vi.fn().mockResolvedValue({ status: 'active' }),
+  };
+});
 
 // Mock rate limiting utilities
 vi.mock('@acme/subscriptions', () => ({
@@ -118,6 +130,13 @@ vi.mock('@acme/subscriptions', () => ({
     }),
   },
   getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
+  // Redis key builders used by test fixtures — deterministic, mirror nsKey format.
+  stripeUserKey: vi.fn(
+    (userId: string | null) => `stripe:user:${String(userId)}`,
+  ),
+  stripeCustomerKey: vi.fn(
+    (customerId: string) => `stripe:customer:${customerId}`,
+  ),
   getSubscriptionType: vi.fn().mockReturnValue('Basic'),
   // Real tier ordering (Basic < Standard < Pro) so requireTier gates behave
   // correctly under test.

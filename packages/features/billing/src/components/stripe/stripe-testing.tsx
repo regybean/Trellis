@@ -7,7 +7,6 @@ import { CreditCard, Loader2, TestTube } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useGenericErrorHandler } from '@acme/hooks';
-import { logger } from '@acme/logger';
 import {
   Button,
   Card,
@@ -19,78 +18,61 @@ import {
 
 import { env } from '../../env';
 import { useTRPC } from '../../trpc/react';
+import {
+  BillingErrorCode,
+  toBillingErrorCode,
+} from '../../utils/stripe-errors';
+
+const TOAST_OPTS = { autoClose: 4000, closeButton: true } as const;
+
+// Map each typed billing error code to its user-facing toast. Exhaustive over
+// BillingErrorCode via Record, so adding a code is a compile error until it's
+// handled here — the coupling is now typed, not string-matched.
+const BILLING_ERROR_TOASTS: Record<BillingErrorCode, string> = {
+  [BillingErrorCode.NoDefaultPrice]:
+    '❌ Product configuration error: Missing default price',
+  [BillingErrorCode.ActiveSubscription]:
+    '⚠️ You already have an active subscription',
+  [BillingErrorCode.CustomerManagementFailed]:
+    '❌ Customer account error: Please try again',
+  [BillingErrorCode.NoEmail]:
+    '❌ Account setup required: Please add an email address',
+  [BillingErrorCode.NoCustomer]: '❌ No existing Stripe customer found',
+  [BillingErrorCode.StripeUnavailable]:
+    '❌ Stripe service error: Please try again later',
+  [BillingErrorCode.DevOnly]: '❌ This action is only available in local dev',
+  [BillingErrorCode.MissingPlan]:
+    '❌ Billing plan not configured: run the localstripe seed',
+};
 
 export function StripeTesting() {
   const [activeTest, setActiveTest] = useState<null | 'standard' | 'pro'>(null);
 
   const handleError = useGenericErrorHandler();
 
-  // Custom Stripe error handler that handles specific checkout errors
+  // Custom Stripe error handler. Branches on the TYPED billing error code
+  // carried in the tRPC error message (see stripe-errors.ts) — no substring
+  // matching against prose, so rewording a server message can't silently break
+  // a UI branch.
   const handleStripeError = (error: unknown) => {
-    // Check if it's a TRPC error with specific Stripe-related messages
     if (error instanceof TRPCClientError) {
-      const errorMessage = error.message.toLowerCase();
-
-      // Handle specific Stripe checkout errors defined in stripe-utils
-      if (errorMessage.includes('product does not have a default price')) {
-        toast.error('❌ Product configuration error: Missing default price', {
-          autoClose: 4000,
-          closeButton: true,
-        });
+      const code = toBillingErrorCode(error);
+      if (code) {
+        toast.error(BILLING_ERROR_TOASTS[code], TOAST_OPTS);
         return;
       }
-
-      if (
-        errorMessage.includes('customer already has an active subscription')
-      ) {
-        toast.error('⚠️ You already have an active subscription', {
-          autoClose: 4000,
-          closeButton: true,
-        });
-        return;
-      }
-
-      if (errorMessage.includes('customer management failed')) {
-        toast.error('❌ Customer account error: Please try again', {
-          autoClose: 4000,
-          closeButton: true,
-        });
-        return;
-      }
-
-      if (errorMessage.includes('user does not have a primary email address')) {
-        toast.error('❌ Account setup required: Please add an email address', {
-          autoClose: 4000,
-          closeButton: true,
-        });
-        return;
-      }
-
-      // Handle general internal server errors from Stripe operations
-      if (
-        errorMessage.includes('internal server error') &&
-        (errorMessage.includes('stripe') ||
-          (error.data &&
-            typeof error.data === 'object' &&
-            'code' in error.data &&
-            (error.data as { code: string }).code === 'INTERNAL_SERVER_ERROR'))
-      ) {
-        toast.error('❌ Stripe service error: Please try again later', {
-          autoClose: 4000,
-          closeButton: true,
-        });
-        return;
-      }
+      // Fall back to the generic tRPC error handler (rate-limit, etc.)
+      handleError(error);
+      return;
     }
 
-    // Fall back to generic error handler for all other errors
-    handleError(error as Parameters<typeof handleError>[0]);
+    // Non-tRPC errors: let the generic handler show its default toast.
+    handleError();
   };
   const trpc = useTRPC();
   const createCheckoutSession = useMutation(
     trpc.account.createCheckoutSession.mutationOptions({
       onSuccess: (data) => {
-        logger.debug({ data }, 'checkout session created');
         if (data.checkoutUrl) {
           toast.success('Redirecting to Stripe checkout...', {
             autoClose: 1000,

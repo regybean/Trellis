@@ -9,6 +9,8 @@ import {
 } from '@acme/subscriptions';
 
 import {
+  billingError,
+  BillingErrorCode,
   createCheckoutSession,
   createDashboardSession,
   findOrCreateCustomer,
@@ -48,10 +50,11 @@ export const accountRouter = createTRPCRouter({
 
       if (!email) {
         ctx.telemetry.event('checkout.failed', { reason: 'no_email' });
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'User does not have a primary email address',
-        });
+        throw billingError(
+          BillingErrorCode.NoEmail,
+          'BAD_REQUEST',
+          'User does not have a primary email address',
+        );
       }
 
       // Get product and pricing information
@@ -98,20 +101,22 @@ export const accountRouter = createTRPCRouter({
 
     if (!email) {
       ctx.telemetry.event('dashboard.failed', { reason: 'no_email' });
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'User does not have a primary email address',
-      });
+      throw billingError(
+        BillingErrorCode.NoEmail,
+        'BAD_REQUEST',
+        'User does not have a primary email address',
+      );
     }
 
     // Get the stripeCustomerId from Redis
     const stripeCustomerId = await redis.get(stripeUserKey(userId));
     if (!stripeCustomerId) {
       ctx.telemetry.event('dashboard.failed', { reason: 'no_customer_id' });
-      throw new TRPCError({
-        code: 'BAD_REQUEST',
-        message: 'No existing Stripe customer found',
-      });
+      throw billingError(
+        BillingErrorCode.NoCustomer,
+        'BAD_REQUEST',
+        'No existing Stripe customer found',
+      );
     }
 
     // Create billing portal session - Stripe handles all the logic
