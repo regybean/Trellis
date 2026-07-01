@@ -7,6 +7,7 @@ import { CreditCard, Loader2, TestTube } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 import { useGenericErrorHandler } from '@acme/hooks';
+import { logger } from '@acme/logger';
 import {
   Button,
   Card,
@@ -89,7 +90,7 @@ export function StripeTesting() {
   const createCheckoutSession = useMutation(
     trpc.account.createCheckoutSession.mutationOptions({
       onSuccess: (data) => {
-        console.log(`data:`, data);
+        logger.debug({ data }, 'checkout session created');
         if (data.checkoutUrl) {
           toast.success('Redirecting to Stripe checkout...', {
             autoClose: 1000,

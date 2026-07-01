@@ -2,6 +2,11 @@
 @import 'tw-animate-css';
 @import '@acme/tailwind-config/theme';
 
+/* Variable fonts ship with the app for the neo-brutalist zine aesthetic:
+ * Bricolage Grotesque (chunky display) over Archivo (characterful grotesk body). */
+@import '@fontsource-variable/bricolage-grotesque';
+@import '@fontsource-variable/archivo';
+
 @source '../../../../packages/shared/*/src/**/*.{ts,tsx}';
 @source '../../../../packages/features/*/src/**/*.{ts,tsx}';
 @source '../../../../packages/compositions/*/src/**/*.{ts,tsx}';
@@ -12,21 +17,117 @@
 @custom-variant auto (&:where(.auto, .auto *));
 
 /*
- * Slim-app brand accent. Overrides the shared theme's primary to a distinct
- * indigo/violet so this app is visually distinguishable from tanstack-slim
- * (which uses an amber accent). Only the primary/ring tokens are touched; the
- * rest of the shared light-first Montserrat theme is inherited.
+ * Divergent shell tokens — "Riso Press". Where the Next.js flagship overrides
+ * the shared theme into a warm print-magazine look and the tanstack apps go
+ * dark developer-console, this slim app takes the same token surface fully
+ * neo-brutalist: bone-paper canvas, ink-black text and rules, a single
+ * fluorescent riso-pink accent, hard OFFSET shadows (no soft blur), zero
+ * radius, and Bricolage Grotesque (display, via `font-serif`) over Archivo
+ * (body). Feature components are untouched — they read these tokens and the
+ * hard-shadow / square-corner primitives re-skin automatically. Mirrors how
+ * the other apps diverge, proving the slice contract holds: same routes,
+ * radically different skin.
  */
 :root {
-  --primary: oklch(0.55 0.21 280);
-  --primary-foreground: oklch(0.98 0.01 280);
-  --ring: oklch(0.55 0.21 280);
+  --background: oklch(0.97 0.012 95);
+  --foreground: oklch(0.19 0.015 330);
+  --card: oklch(0.99 0.008 95);
+  --card-foreground: oklch(0.19 0.015 330);
+  --popover: oklch(0.99 0.008 95);
+  --popover-foreground: oklch(0.19 0.015 330);
+  --primary: oklch(0.62 0.25 350);
+  --primary-foreground: oklch(0.98 0.01 95);
+  --on-primary: oklch(0.98 0.01 95);
+  --secondary: oklch(0.94 0.01 95);
+  --secondary-foreground: oklch(0.24 0.015 330);
+  --muted: oklch(0.94 0.01 95);
+  --muted-foreground: oklch(0.46 0.02 330);
+  --accent: oklch(0.92 0.06 350);
+  --accent-foreground: oklch(0.4 0.2 352);
+  --destructive: oklch(0.55 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 95);
+  --border: oklch(0.19 0.015 330);
+  --input: oklch(0.19 0.015 330);
+  --ring: oklch(0.62 0.25 350);
+  --chart-1: oklch(0.62 0.25 350);
+  --chart-2: oklch(0.55 0.2 255);
+  --chart-3: oklch(0.82 0.16 90);
+  --chart-4: oklch(0.62 0.16 150);
+  --chart-5: oklch(0.68 0.19 45);
+  --sidebar: oklch(0.95 0.012 95);
+  --sidebar-foreground: oklch(0.19 0.015 330);
+  --sidebar-primary: oklch(0.62 0.25 350);
+  --sidebar-primary-foreground: oklch(0.98 0.01 95);
+  --sidebar-accent: oklch(0.92 0.06 350);
+  --sidebar-accent-foreground: oklch(0.4 0.2 352);
+  --sidebar-border: oklch(0.19 0.015 330);
+  --sidebar-ring: oklch(0.62 0.25 350);
+
+  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-serif:
+    'Bricolage Grotesque Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --radius: 0rem;
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  /* Hard offset shadows — the brutalist signature. Cards/popovers/menus that
+   * consume the shared shadow scale get a solid ink drop with no blur. */
+  --shadow-color: oklch(0.19 0.015 330);
+  --shadow-2xs: 1px 1px 0 0 var(--shadow-color);
+  --shadow-xs: 2px 2px 0 0 var(--shadow-color);
+  --shadow-sm: 2px 2px 0 0 var(--shadow-color);
+  --shadow: 3px 3px 0 0 var(--shadow-color);
+  --shadow-md: 4px 4px 0 0 var(--shadow-color);
+  --shadow-lg: 6px 6px 0 0 var(--shadow-color);
+  --shadow-xl: 8px 8px 0 0 var(--shadow-color);
+  --shadow-2xl: 10px 10px 0 0 var(--shadow-color);
 }
 
 .dark {
-  --primary: oklch(0.68 0.18 280);
-  --primary-foreground: oklch(0.16 0.02 280);
-  --ring: oklch(0.68 0.18 280);
+  --background: oklch(0.17 0.015 330);
+  --foreground: oklch(0.95 0.008 95);
+  --card: oklch(0.21 0.018 330);
+  --card-foreground: oklch(0.95 0.008 95);
+  --popover: oklch(0.21 0.018 330);
+  --popover-foreground: oklch(0.95 0.008 95);
+  --primary: oklch(0.72 0.24 350);
+  --primary-foreground: oklch(0.15 0.02 330);
+  --on-primary: oklch(0.15 0.02 330);
+  --secondary: oklch(0.25 0.018 330);
+  --secondary-foreground: oklch(0.95 0.008 95);
+  --muted: oklch(0.25 0.018 330);
+  --muted-foreground: oklch(0.74 0.02 330);
+  --accent: oklch(0.3 0.09 350);
+  --accent-foreground: oklch(0.85 0.15 352);
+  --destructive: oklch(0.62 0.22 25);
+  --destructive-foreground: oklch(0.98 0.01 95);
+  --border: oklch(0.44 0.03 330);
+  --input: oklch(0.44 0.03 330);
+  --ring: oklch(0.72 0.24 350);
+  --chart-1: oklch(0.72 0.24 350);
+  --chart-2: oklch(0.65 0.19 255);
+  --chart-3: oklch(0.85 0.16 90);
+  --chart-4: oklch(0.7 0.16 150);
+  --chart-5: oklch(0.74 0.18 45);
+  --sidebar: oklch(0.15 0.015 330);
+  --sidebar-foreground: oklch(0.95 0.008 95);
+  --sidebar-primary: oklch(0.72 0.24 350);
+  --sidebar-primary-foreground: oklch(0.15 0.02 330);
+  --sidebar-accent: oklch(0.3 0.09 350);
+  --sidebar-accent-foreground: oklch(0.85 0.15 352);
+  --sidebar-border: oklch(0.44 0.03 330);
+  --sidebar-ring: oklch(0.72 0.24 350);
+
+  --shadow-color: oklch(0.6 0.02 330);
+}
+
+/* Riso-print texture utilities — used by the app-owned chrome/home to lay a
+ * faint ink dot-grid over paper. Feature routes stay flat. */
+@utility riso-grid {
+  background-image: radial-gradient(var(--border) 0.6px, transparent 0.6px);
+  background-size: 14px 14px;
 }
 
 @layer base {

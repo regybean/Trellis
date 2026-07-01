@@ -14,6 +14,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  Skeleton,
 } from '@acme/ui';
 
 import { SubscriptionCancellation } from './stripe/stripe-cancellation';
@@ -40,6 +41,7 @@ interface SubscriptionDetailsModalProps {
   onOpenChange: (open: boolean) => void;
   subscriptionData: SubscriptionDetails | undefined;
   creditUsageData?: CreditUsage;
+  isLoading?: boolean;
 }
 
 // Format dates for display
@@ -97,6 +99,7 @@ export function SubscriptionDetailsModal({
   onOpenChange,
   subscriptionData,
   creditUsageData,
+  isLoading,
 }: SubscriptionDetailsModalProps) {
   if (!subscriptionData) {
     return (
@@ -104,15 +107,47 @@ export function SubscriptionDetailsModal({
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-red-500" />
-              Unable to Load Details
+              {isLoading ? (
+                <Skeleton className="h-5 w-40" />
+              ) : (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-red-500" />
+                  Unable to Load Details
+                </>
+              )}
             </DialogTitle>
           </DialogHeader>
-          <div className="p-4 text-center">
-            <p className="text-muted-foreground">
-              Unable to load subscription details. Please try again later.
-            </p>
-          </div>
+          {isLoading ? (
+            <div className="space-y-6 p-1">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-5 w-20" />
+                  <Skeleton className="h-4 w-16" />
+                  <Skeleton className="h-5 w-20" />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-full" />
+              </div>
+              <div className="space-y-3">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-2.5 w-full rounded-full" />
+                <div className="flex justify-between">
+                  <Skeleton className="h-3 w-28" />
+                  <Skeleton className="h-3 w-24" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center">
+              <p className="text-muted-foreground">
+                Unable to load subscription details. Please try again later.
+              </p>
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     );

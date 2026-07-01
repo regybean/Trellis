@@ -26,6 +26,7 @@ import {
   DropdownMenuTrigger,
   Input,
   ScrollArea,
+  Skeleton,
 } from '@acme/ui';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
@@ -55,6 +56,7 @@ export function ConversationSidebar({
   const {
     conversations,
     folders,
+    isLoading,
     setFolder,
     deleteConversation,
     createFolder,
@@ -151,32 +153,60 @@ export function ConversationSidebar({
 
         <ScrollArea className="flex-1">
           <div className="flex flex-col gap-4 p-3">
-            {folders.map((folder) => (
-              <FolderSection
-                key={folder.id}
-                folder={folder}
-                conversations={byFolder.get(folder.id) ?? []}
-                currentSessionId={currentSessionId}
-                folders={folders}
-                onSelect={onSelect}
-                onDeleteFolder={deleteFolder}
-                onMove={setFolder}
-                onDeleteConversation={deleteConversation}
-              />
-            ))}
+            {isLoading ? (
+              <ConversationListSkeleton />
+            ) : (
+              <>
+                {folders.map((folder) => (
+                  <FolderSection
+                    key={folder.id}
+                    folder={folder}
+                    conversations={byFolder.get(folder.id) ?? []}
+                    currentSessionId={currentSessionId}
+                    folders={folders}
+                    onSelect={onSelect}
+                    onDeleteFolder={deleteFolder}
+                    onMove={setFolder}
+                    onDeleteConversation={deleteConversation}
+                  />
+                ))}
 
-            <DateBucketsSection
-              buckets={buckets}
-              currentSessionId={currentSessionId}
-              folders={folders}
-              onSelect={onSelect}
-              onMove={setFolder}
-              onDeleteConversation={deleteConversation}
-            />
+                <DateBucketsSection
+                  buckets={buckets}
+                  currentSessionId={currentSessionId}
+                  folders={folders}
+                  onSelect={onSelect}
+                  onMove={setFolder}
+                  onDeleteConversation={deleteConversation}
+                />
+              </>
+            )}
           </div>
         </ScrollArea>
       </div>
     </DndContext>
+  );
+}
+
+function ConversationListSkeleton() {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <Skeleton className="mb-2 h-3 w-16" />
+        <div className="flex flex-col gap-1">
+          <Skeleton className="h-7 w-full" />
+          <Skeleton className="h-7 w-4/5" />
+          <Skeleton className="h-7 w-full" />
+        </div>
+      </div>
+      <div>
+        <Skeleton className="mb-2 h-3 w-10" />
+        <div className="flex flex-col gap-1">
+          <Skeleton className="h-7 w-3/4" />
+          <Skeleton className="h-7 w-full" />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -212,7 +242,12 @@ function FolderSection({
         <span className="truncate">{folder.name}</span>
         <button
           type="button"
-          onClick={() => onDeleteFolder(folder.id)}
+          onClick={(e) => {
+            // Stop the click reaching the enclosing droppable / DndContext so
+            // the delete always fires (not swallowed as a drag interaction).
+            e.stopPropagation();
+            onDeleteFolder(folder.id);
+          }}
           aria-label={`Delete folder ${folder.name}`}
           className="hover:text-foreground"
         >
@@ -260,6 +295,7 @@ function DateBucketsSection({
 }: DateBucketsSectionProps) {
   // Dropping anywhere in the date area removes a Conversation from its Folder.
   const { setNodeRef, isOver } = useDroppable({ id: UNFILED_DROP_ID });
+  // eslint-disable-next-line security/detect-object-injection
   const isEmpty = DATE_BUCKET_ORDER.every((b) => buckets[b].length === 0);
 
   return (
@@ -272,14 +308,18 @@ function DateBucketsSection({
           No conversations yet. Start a new chat.
         </p>
       )}
-      {DATE_BUCKET_ORDER.map((bucket) =>
-        buckets[bucket].length === 0 ? null : (
+      {DATE_BUCKET_ORDER.map((bucket) => {
+        // eslint-disable-next-line security/detect-object-injection
+        const conversations = buckets[bucket];
+        // eslint-disable-next-line security/detect-object-injection
+        const label = DATE_BUCKET_LABELS[bucket];
+        return conversations.length === 0 ? null : (
           <div key={bucket}>
             <p className="text-muted-foreground px-1 py-1 text-xs font-semibold uppercase">
-              {DATE_BUCKET_LABELS[bucket]}
+              {label}
             </p>
             <div className="flex flex-col gap-1">
-              {buckets[bucket].map((c) => (
+              {conversations.map((c) => (
                 <ConversationItem
                   key={c.sessionId}
                   conversation={c}
@@ -292,8 +332,8 @@ function DateBucketsSection({
               ))}
             </div>
           </div>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }

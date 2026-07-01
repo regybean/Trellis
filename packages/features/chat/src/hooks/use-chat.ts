@@ -5,6 +5,7 @@ import { useSubscription } from '@trpc/tanstack-react-query';
 
 import { useGenericErrorHandler } from '@acme/hooks';
 
+import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
 import { useTRPC } from '../trpc/react';
 
@@ -47,6 +48,30 @@ export function useChat(
   const base = pickBase();
 
   const messages = localMessages ?? base;
+
+  // Skeleton the message pane only while a resumed Conversation's history is
+  // loading and the user hasn't started interacting. For a brand-new session
+  // `get` resolves near-instantly (empty / NOT_FOUND) so the greeting follows.
+  const isHistoryLoading = historyQuery.isLoading && localMessages === null;
+
+  // The Conversation History sidebar reads `chat.list`. On the first send of a
+  // new Conversation we prepend a placeholder titled "New chat" so it appears
+  // immediately; a resend bumps the existing row to the top with a fresh
+  // updatedAt. The real (LLM-generated) title arrives when the list is
+  // invalidated on stream settle. Client-optimistic, server reconciles lazily.
+  const listKey = trpc.chat.list.queryKey();
+  const upsertConversationInList = () => {
+    queryClient.setQueryData<SelectConversationSummary[]>(listKey, (old) => {
+      const now = new Date();
+      const existing = old ?? [];
+      const current = existing.find((c) => c.sessionId === sessionId);
+      const rest = existing.filter((c) => c.sessionId !== sessionId);
+      const next: SelectConversationSummary = current
+        ? { ...current, updatedAt: now }
+        : { sessionId, title: 'New chat', updatedAt: now, folderId: null };
+      return [next, ...rest];
+    });
+  };
 
   // Streaming/settle updates only ever run after `send` has seeded
   // `localMessages`, so `prev` is non-null here; `?? []` is just a type guard.
@@ -179,6 +204,9 @@ export function useChat(
       },
     ]);
 
+    // Surface the Conversation in the history sidebar right away.
+    upsertConversationInList();
+
     // Start streaming with the query
     setQueryInput(text);
   };
@@ -204,6 +232,7 @@ export function useChat(
   return {
     messages,
     isLoading: subscription.status === 'connecting',
+    isHistoryLoading,
     send,
     scrollToBottomRef,
     useGetMessages,

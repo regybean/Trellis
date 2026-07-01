@@ -3,10 +3,34 @@
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useRef } from 'react';
 
-import { ScrollArea } from '@acme/ui';
+import { ScrollArea, Skeleton } from '@acme/ui';
 
 import type { Message } from '../api/schemas/message-schema';
 import MessageItem from './message-item';
+
+// Shown while a resumed Conversation's history is still loading (switching to a
+// past chat from the sidebar), so the pane isn't blank. Alternating alignment
+// mimics the user/assistant bubble rhythm.
+export function MessageListSkeleton() {
+  return (
+    <div className="h-[700px] space-y-6 pr-4" data-testid="message-skeleton">
+      {['assistant', 'user', 'assistant'].map((role, i) => (
+        <div
+          key={i}
+          className={
+            role === 'user' ? 'flex justify-end' : 'flex justify-start'
+          }
+        >
+          <div className="w-2/3 space-y-2">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            {role === 'assistant' && <Skeleton className="h-4 w-3/4" />}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 interface MessageListProps {
   messages: Message[];

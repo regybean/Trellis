@@ -19,6 +19,7 @@ import {
   DialogTrigger,
   Input,
   Label,
+  Skeleton,
 } from '@acme/ui';
 
 import { useTRPC } from '../../trpc/react';
@@ -136,7 +137,14 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
           <h4 className="text-foreground font-medium">
             Current Rate Limit Status
           </h4>
-          {rateLimitStatus.data && (
+          {rateLimitStatus.isLoading && (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          )}
+          {!rateLimitStatus.isLoading && rateLimitStatus.data && (
             <RateLimitStatusDisplay
               rateLimitStatus={rateLimitStatus.data}
               isLoading={rateLimitStatus.isLoading}
@@ -149,7 +157,14 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
         {/* Subscription Details */}
         <div className="space-y-3">
           <h4 className="text-foreground font-medium">Subscription Details</h4>
-          {subscription.data && (
+          {subscription.isLoading && (
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+            </div>
+          )}
+          {!subscription.isLoading && subscription.data && (
             <SubscriptionDetailsDisplay
               subscriptionData={subscription.data}
               isLoading={subscription.isLoading}

@@ -44,7 +44,7 @@ export const foldersRouter = createTRPCRouter({
 
       const [created] = await ctx.db
         .insert(chatFolder)
-        .values({ userId, name: input.name })
+        .values({ id: input.id, userId, name: input.name })
         .returning();
 
       if (!created) {

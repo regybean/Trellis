@@ -10,7 +10,7 @@ import { getAppInfo } from '../data/app-info';
 import { env } from '../env';
 import { useChat } from '../hooks/use-chat';
 import ChatFooter from './chat-footer';
-import MessageList from './message-list';
+import MessageList, { MessageListSkeleton } from './message-list';
 
 interface ChatAssistantProps {
   // The Conversation to show. Controlled by the parent (see ConversationView):
@@ -34,6 +34,7 @@ export function ChatAssistant({
   const {
     messages,
     isLoading,
+    isHistoryLoading,
     send: handleSend,
     scrollToBottomRef,
   } = useChat(
@@ -61,11 +62,15 @@ export function ChatAssistant({
       <Card className="border-border mx-auto w-full max-w-7xl overflow-hidden pt-0 shadow-sm">
         <div className="bg-primary h-2"></div>
         <CardContent>
-          <MessageList
-            messages={messages}
-            scrollToBottomRef={scrollToBottomRef}
-            renderMessageActions={renderMessageActions}
-          />
+          {isHistoryLoading ? (
+            <MessageListSkeleton />
+          ) : (
+            <MessageList
+              messages={messages}
+              scrollToBottomRef={scrollToBottomRef}
+              renderMessageActions={renderMessageActions}
+            />
+          )}
           <hr className="border-borderborder-t" />
         </CardContent>
         <CardFooter className="flex-col gap-3">

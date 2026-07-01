@@ -10,6 +10,8 @@
     "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
+    "@fontsource-variable/archivo": "^5.2.5",
+    "@fontsource-variable/bricolage-grotesque": "^5.2.5",
     "@t3-oss/env-nextjs": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@tanstack/react-query": "catalog:",

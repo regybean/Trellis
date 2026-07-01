@@ -11,6 +11,11 @@ import { useFeedback } from '../hooks/use-feedback';
  * access lives in `useFeedback`. Mounted by an app through the chat feature's
  * `renderMessageActions` render-slot, so the chat feature never depends on
  * `@acme/feedback`.
+ *
+ * No loading state: the unselected (blank) buttons *are* the resting UI, and a
+ * message with no rating yet is indistinguishable from one still loading — both
+ * render as unselected. The buttons are disabled only while a rating write is
+ * in flight (`isSaving`).
  */
 export function FeedbackButtons({
   messageId,

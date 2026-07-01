@@ -126,7 +126,7 @@ export async function latestAssistantMessageId(
 ) {
   const messages = await recallMessages(sessionId, userId);
   for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages[i];
+    const message = messages.at(i);
     if (message?.role === 'assistant') return message.id;
   }
   return null;

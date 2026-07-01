@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
 import { getStripe, processEvent, tryCatch } from '@acme/billing/server';
+import { logger } from '@acme/logger';
 
 import { env } from '~/env';
 
@@ -25,7 +26,7 @@ const handler = async (req: Request) => {
   });
 
   if (error) {
-    console.error('[STRIPE HOOK] Error processing event', error);
+    logger.error({ error }, 'stripe webhook processing failed');
   }
 
   return Response.json({ received: true });

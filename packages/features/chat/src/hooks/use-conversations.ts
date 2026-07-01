@@ -67,7 +67,30 @@ export function useConversations() {
 
   const createFolderMutation = useMutation(
     trpc.chat.folders.create.mutationOptions({
-      onError: handleError,
+      // Optimistic: append the Folder with its client-minted id immediately, so
+      // it appears in the sidebar without waiting for the round-trip. The server
+      // inserts the same id, so the row reconciles 1:1 on settle. Appending
+      // matches the server's `createdAt ASC` ordering.
+      onMutate: async ({ id, name }) => {
+        await queryClient.cancelQueries({ queryKey: foldersKey });
+        const previous = queryClient.getQueryData<Folder[]>(foldersKey);
+        const optimistic: Folder = {
+          id,
+          name,
+          userId: '',
+          createdAt: new Date(),
+        };
+        queryClient.setQueryData<Folder[]>(foldersKey, (old) => [
+          ...(old ?? []),
+          optimistic,
+        ]);
+        return { previous };
+      },
+      onError: (error, _vars, context) => {
+        if (context?.previous)
+          queryClient.setQueryData(foldersKey, context.previous);
+        handleError(error);
+      },
       onSettled: () => queryClient.invalidateQueries({ queryKey: foldersKey }),
     }),
   );
@@ -104,7 +127,8 @@ export function useConversations() {
       setFolderMutation.mutate({ sessionId, folderId }),
     deleteConversation: (sessionId: string) =>
       deleteConversationMutation.mutate({ sessionId }),
-    createFolder: (name: string) => createFolderMutation.mutate({ name }),
+    createFolder: (name: string) =>
+      createFolderMutation.mutate({ id: crypto.randomUUID(), name }),
     deleteFolder: (id: string) => deleteFolderMutation.mutate({ id }),
   };
 }

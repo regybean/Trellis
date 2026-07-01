@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
 
 import { getStripe, processEvent, tryCatch } from '@acme/billing/server';
+import { logger } from '@acme/logger';
 
 import { env } from '~/env';
 
@@ -34,7 +35,7 @@ export async function POST(req: NextRequest) {
   const { error } = await tryCatch(doEventProcessing);
 
   if (error) {
-    console.error('[STRIPE HOOK] Error processing event', error);
+    logger.error({ error }, 'stripe webhook processing failed');
   }
 
   return NextResponse.json({ received: true });

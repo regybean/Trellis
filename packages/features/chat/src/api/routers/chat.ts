@@ -152,7 +152,7 @@ export const chatRouter = createTRPCRouter({
       }
     }),
 
-  get: existingConversationProcedure
+  get: ownedConversationProcedure
     .input(z.object({ sessionId: z.uuid() }))
     .query(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
@@ -161,6 +161,9 @@ export const chatRouter = createTRPCRouter({
         'user.id': userId,
         'input.sessionId': input.sessionId,
       });
+
+      // New session: thread doesn't exist yet, no messages to return.
+      if (!ctx.conversation) return [];
 
       try {
         logger.info(

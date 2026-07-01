@@ -37,6 +37,7 @@ export function NavUserSubscription({
       onOpenChange={onOpenChange}
       subscriptionData={subscription.data}
       creditUsageData={creditUsage.data}
+      isLoading={subscription.isPending || creditUsage.isPending}
     />
   );
 }

@@ -38,7 +38,8 @@ export function StripeSuccessRedirect() {
     const timer = setTimeout(() => invalidateAndRedirect(), 2000);
 
     return () => clearTimeout(timer);
-  }, [router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return null; // This component doesn't render anything
 }

@@ -37,8 +37,12 @@ export const selectFolderSchema = createSelectSchema(chatFolder, {
 export type SelectFolder = z.infer<typeof selectFolderSchema>;
 
 // Procedure input schemas. Folder names are trimmed and capped; duplicates are
-// allowed (no uniqueness constraint) per the v1 decision.
+// allowed (no uniqueness constraint) per the v1 decision. The `id` is minted by
+// the client so the Folder can be created optimistically (instant in the
+// sidebar) and still reconcile 1:1 with the server row — the same id is used
+// for a subsequent delete, whether or not the create has settled.
 export const CreateFolderRequest = z.object({
+  id: z.uuid(),
   name: z.string().trim().min(1, 'Required').max(50, 'Too long'),
 });
 
