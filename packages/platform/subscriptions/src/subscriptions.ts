@@ -10,14 +10,51 @@ import { SubscriptionCacheSchema } from './subscription-cache';
 /**
  * The Stripe cache keys, namespaced per app. The single home for the
  * `stripe:user:<id>` (userId -> Stripe customer id) and
- * `stripe:customer:<id>` (cached subscription) key formats: every caller —
- * this module, `@acme/billing`'s webhook sync, the account router — builds keys
- * through these, so the prefix can never be forgotten and the format lives once.
+ * `stripe:customer:<id>` (cached subscription) key formats. These are
+ * **internal** to this package: the key shape is a Redis-storage detail that
+ * must not leak past the seam, so callers reach the values through the
+ * functions below (`getStripeCustomerId`, `setStripeCustomerId`,
+ * `getUserSubscriptionFromRedis`, `setSubscriptionCache`) rather than building
+ * keys themselves. A replacement store can change the layout without touching
+ * any caller.
  */
-export const stripeUserKey = (userId: string | null) =>
+const stripeUserKey = (userId: string | null) =>
   nsKey('stripe', 'user', String(userId));
-export const stripeCustomerKey = (customerId: string) =>
+const stripeCustomerKey = (customerId: string) =>
   nsKey('stripe', 'customer', customerId);
+
+/**
+ * Resolve a user's Stripe customer id from Redis (the `stripe:user:<id>`
+ * mapping), or `null` when the user has no customer yet. Hides the key shape.
+ */
+export async function getStripeCustomerId(
+  userId: string | null,
+): Promise<string | null> {
+  return redis.get(stripeUserKey(userId));
+}
+
+/**
+ * Persist the userId -> Stripe customer id mapping. Owned by the billing
+ * feature's customer-creation flow; the key shape stays internal here.
+ */
+export async function setStripeCustomerId(
+  userId: string,
+  customerId: string,
+): Promise<void> {
+  await redis.set(stripeUserKey(userId), customerId);
+}
+
+/**
+ * Persist the cached subscription for a customer (the `stripe:customer:<id>`
+ * value). Serialization and key shape are owned here; callers pass the typed
+ * cache. Written by `@acme/billing`'s webhook sync.
+ */
+export async function setSubscriptionCache(
+  customerId: string,
+  cache: SubscriptionCache,
+): Promise<void> {
+  await redis.set(stripeCustomerKey(customerId), JSON.stringify(cache));
+}
 
 export async function getUserSubscriptionFromRedis(
   userId: string | null,

@@ -2,8 +2,7 @@ import type Stripe from 'stripe';
 
 import type { SubscriptionTier } from '@acme/subscriptions';
 import type { Telemetry } from '@acme/telemetry/server';
-import { redis } from '@acme/redis';
-import { stripeUserKey } from '@acme/subscriptions';
+import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 
 import type { STRIPE_SUB_CACHE } from './stripe-client';
 import { env } from '../env';
@@ -21,7 +20,7 @@ async function resolveCustomerId(
   userId: string,
 ): Promise<string> {
   const stripe = getStripe();
-  const existing = await redis.get(stripeUserKey(userId));
+  const existing = await getStripeCustomerId(userId);
   if (existing) {
     const customer = await stripe.customers.retrieve(existing);
     if (!customer.deleted) return existing;
@@ -30,7 +29,7 @@ async function resolveCustomerId(
     email,
     metadata: { userId },
   });
-  await redis.set(stripeUserKey(userId), created.id);
+  await setStripeCustomerId(userId, created.id);
   return created.id;
 }
 

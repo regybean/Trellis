@@ -2,8 +2,7 @@ import type Stripe from 'stripe';
 
 import type { Telemetry } from '@acme/telemetry/server';
 import { logger } from '@acme/logger';
-import { redis } from '@acme/redis';
-import { stripeUserKey } from '@acme/subscriptions';
+import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 
 import type { StripeCustomer } from './stripe-client';
 import { env } from '../env';
@@ -82,7 +81,7 @@ export async function findOrCreateCustomer(
 ): Promise<{ customer: StripeCustomer; isExisting: boolean }> {
   const operation = async () => {
     // Get the stripeCustomerId from Redis KV store
-    const stripeCustomerId = await redis.get(stripeUserKey(userId));
+    const stripeCustomerId = await getStripeCustomerId(userId);
 
     // Create a new Stripe customer if this user doesn't have one
     if (!stripeCustomerId) {
@@ -95,7 +94,7 @@ export async function findOrCreateCustomer(
       });
 
       // Store the relation between userId and stripeCustomerId in Redis
-      await redis.set(stripeUserKey(userId), newCustomer.id);
+      await setStripeCustomerId(userId, newCustomer.id);
 
       const customer = {
         id: newCustomer.id,
@@ -125,7 +124,7 @@ export async function findOrCreateCustomer(
       });
 
       // Update the relation in Redis
-      await redis.set(stripeUserKey(userId), newCustomer.id);
+      await setStripeCustomerId(userId, newCustomer.id);
 
       const customer = {
         id: newCustomer.id,

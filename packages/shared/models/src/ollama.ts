@@ -1,7 +1,7 @@
 import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
-import { ollamaEnv } from './env';
+import { ollamaEnv } from './env-providers';
 
 // Ollama speaks the OpenAI-compatible API on `/v1`, which covers both chat and
 // embeddings, so one provider instance serves both. Dev/test default: tiny

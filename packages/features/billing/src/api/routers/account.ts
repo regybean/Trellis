@@ -1,11 +1,10 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod/v4';
 
-import { redis } from '@acme/redis';
 import {
   credits,
+  getStripeCustomerId,
   getUserSubscriptionFromRedis,
-  stripeUserKey,
 } from '@acme/subscriptions';
 
 import {
@@ -109,7 +108,7 @@ export const accountRouter = createTRPCRouter({
     }
 
     // Get the stripeCustomerId from Redis
-    const stripeCustomerId = await redis.get(stripeUserKey(userId));
+    const stripeCustomerId = await getStripeCustomerId(userId);
     if (!stripeCustomerId) {
       ctx.telemetry.event('dashboard.failed', { reason: 'no_customer_id' });
       throw billingError(

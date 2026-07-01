@@ -1,7 +1,7 @@
 import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 
-import { bedrockEnv } from './env';
+import { bedrockEnv } from './env-providers';
 
 // Mastra's model router has no native Bedrock entry, so we pass an
 // `@ai-sdk/amazon-bedrock` provider instance directly. Region from env;
