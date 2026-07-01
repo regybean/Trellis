@@ -51,6 +51,11 @@ package) — not to create a new composition that will accumulate framework coup
 A new `packages/compositions/` entry requires an explicit ADR justifying why the
 assembly genuinely cannot live in an app or in `@acme/ui`.
 
+[ADR 0013](0013-admin-user-widgets-to-ui.md) later applied this escape hatch: the
+two admin user widgets folded in here turned out to be byte-identical and
+framework-free, so they were promoted into `@acme/ui`. That refines this ADR for
+those two files; it does not reopen wholesale composition.
+
 ## Status
 
 accepted

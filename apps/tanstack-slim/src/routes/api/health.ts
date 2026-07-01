@@ -10,7 +10,7 @@ const handler = () => {
       {
         status: 'ok',
         timestamp,
-        service: 'trellis-tanstack',
+        service: 'trellis-tanstack-slim',
         pid: process.pid,
       },
       { status: 200 },
@@ -19,7 +19,7 @@ const handler = () => {
     const errorResponse = {
       status: 'error',
       timestamp,
-      service: 'trellis-tanstack',
+      service: 'trellis-tanstack-slim',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
     logger.error(`Health check failed ${JSON.stringify(errorResponse)}`);
