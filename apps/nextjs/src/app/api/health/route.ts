@@ -11,7 +11,7 @@ export function GET() {
     const response = {
       status: 'ok',
       timestamp,
-      service: 'trellis-webapp',
+      service: 'trellis-nextjs',
       pid: process.pid,
     };
 
@@ -20,7 +20,7 @@ export function GET() {
     const errorResponse = {
       status: 'error',
       timestamp,
-      service: 'trellis-webapp',
+      service: 'trellis-nextjs',
       error: error instanceof Error ? error.message : 'Unknown error',
     };
 

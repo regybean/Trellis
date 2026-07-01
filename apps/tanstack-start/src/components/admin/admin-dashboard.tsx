@@ -2,13 +2,16 @@ import { useRouter } from '@tanstack/react-router';
 import { Users } from 'lucide-react';
 
 import type { SerializableUser } from '@acme/auth';
-import { StripeTesting } from '@acme/billing';
+import {
+  RateLimitManagement,
+  StripeTesting,
+  TierManagement,
+} from '@acme/billing';
 import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
-import { Card, CardContent, CardHeader } from '@acme/ui';
+import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { removeUserRole, setUserRole } from '../../lib/admin';
 import { SearchUsers } from './search-users';
-import { UserManagement } from './user-management';
 
 interface AdminDashboardProps {
   users: SerializableUser[];
@@ -88,6 +91,12 @@ export function AdminDashboard({
               users={users}
               setRole={setRole}
               removeRole={removeRole}
+              renderBillingPanels={(user) => (
+                <>
+                  <RateLimitManagement user={user} />
+                  <TierManagement user={user} />
+                </>
+              )}
             />
           )}
 

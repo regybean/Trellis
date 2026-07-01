@@ -5,13 +5,16 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { Users } from 'lucide-react';
 
 import { transformUserForClient } from '@acme/auth/server';
-import { StripeTesting } from '@acme/billing';
+import {
+  RateLimitManagement,
+  StripeTesting,
+  TierManagement,
+} from '@acme/billing';
 import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
-import { Card, CardContent, CardHeader } from '@acme/ui';
+import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { removeRole, setRole } from '~/lib/admin';
 import { SearchUsers } from './search-users';
-import { UserManagement } from './user-management';
 
 interface Props {
   searchParams?: {
@@ -76,6 +79,12 @@ export async function AdminDashboard({ searchParams }: Props) {
               users={serializableUsers}
               setRole={setRole}
               removeRole={removeRole}
+              renderBillingPanels={(user) => (
+                <>
+                  <RateLimitManagement user={user} />
+                  <TierManagement user={user} />
+                </>
+              )}
             />
           )}
 
