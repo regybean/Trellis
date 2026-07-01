@@ -16,6 +16,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { TestContextOptions } from '@acme/test-utils';
 
 import { appRouter } from '../../../api/root';
+import { BillingErrorCode } from '../../../utils/stripe-errors';
 import {
   createTestSubscription,
   createTestUserId,
@@ -181,7 +182,7 @@ describe('accountRouter', () => {
         caller.account.createDashboardSession(),
       ).rejects.toMatchObject({
         code: 'BAD_REQUEST',
-        message: expect.stringContaining('No existing Stripe customer'),
+        message: BillingErrorCode.NoCustomer,
       });
     });
   });

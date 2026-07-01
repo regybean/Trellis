@@ -9,7 +9,7 @@ export const MaxOutRateLimitRequest = z.object({
 });
 
 export const OverrideExpiryRequest = z.object({
-  userId: z.string().min(0, 'User ID is required'),
+  userId: z.string().min(1, 'User ID is required'),
   expiryTimestamp: z
     .number()
     .int()
