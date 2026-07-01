@@ -2,25 +2,18 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useQueryClient } from '@tanstack/react-query';
 
-import { useTRPC } from '../../trpc/react';
+import { useBillingSync } from '../../hooks/use-billing-sync';
 
 export function StripeSuccessRedirect() {
   const router = useRouter();
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const { invalidateSubscription } = useBillingSync();
 
   useEffect(() => {
     // Invalidate the relevant queries after the server has synced the data
     const invalidateAndRedirect = () => {
       try {
-        void queryClient.invalidateQueries(
-          trpc.account.getCreditUsage.pathFilter(),
-        );
-        void queryClient.invalidateQueries(
-          trpc.account.getSubscriptionDetails.pathFilter(),
-        );
+        invalidateSubscription();
 
         // Wait a bit more to ensure invalidation is complete
         setTimeout(() => {

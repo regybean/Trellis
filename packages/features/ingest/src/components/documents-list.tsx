@@ -1,29 +1,13 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Trash2 } from 'lucide-react';
-import { toast } from 'react-toastify';
 
 import { Button } from '@acme/ui';
 
-import { useTRPC } from '../trpc/react';
+import { useDocuments } from '../hooks/use-documents';
 
 export function DocumentsList() {
-  const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const { data: documents = [], isLoading } = useQuery(
-    trpc.documents.list.queryOptions(),
-  );
-
-  const deleteDocument = useMutation(
-    trpc.documents.delete.mutationOptions({
-      onSuccess: () => {
-        void queryClient.invalidateQueries(trpc.documents.list.pathFilter());
-        toast.success('Document deleted');
-      },
-      onError: () => toast.error('Failed to delete document'),
-    }),
-  );
+  const { documents, isLoading, deleteDocument, isDeleting } = useDocuments();
 
   if (isLoading) {
     return <p className="text-muted-foreground text-sm">Loading documents…</p>;
@@ -51,8 +35,8 @@ export function DocumentsList() {
           <Button
             variant="ghost"
             size="sm"
-            disabled={deleteDocument.isPending}
-            onClick={() => deleteDocument.mutate({ filename: doc.filename })}
+            disabled={isDeleting}
+            onClick={() => deleteDocument(doc.filename)}
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">Delete {doc.filename}</span>

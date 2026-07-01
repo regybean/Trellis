@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CreditCard } from 'lucide-react';
 
 import type { SerializableUser } from '@acme/auth';
@@ -25,44 +24,30 @@ import {
   SelectValue,
 } from '@acme/ui';
 
-import { useTRPC } from '../../trpc/react';
+import type { Tier } from '../../hooks/use-tier-admin';
+import { TIERS, useTierAdmin } from '../../hooks/use-tier-admin';
 
 interface TierManagementProps {
   user: SerializableUser;
 }
 
-const TIERS = ['Basic', 'Standard', 'Pro'] as const;
-type Tier = (typeof TIERS)[number];
-
 export function TierManagement({ user }: TierManagementProps) {
   const [tier, setTier] = useState<Tier>('Standard');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const trpc = useTRPC();
-  const queryclient = useQueryClient();
 
   const primaryEmail =
     user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId)
       ?.emailAddress ?? '';
 
-  const setUserTier = useMutation(
-    trpc.account.setUserTier.mutationOptions({
-      onSuccess: () => {
-        void queryclient.invalidateQueries(
-          trpc.account.getUserSubscription.pathFilter(),
-        );
-        void queryclient.invalidateQueries(
-          trpc.account.getUserRateLimitStatus.pathFilter(),
-        );
-        void queryclient.invalidateQueries(
-          trpc.account.getCreditUsage.pathFilter(),
-        );
-        setIsDialogOpen(false);
-      },
-    }),
-  );
+  const {
+    setTier: applyTier,
+    isPending,
+    error,
+    isSuccess,
+  } = useTierAdmin({ id: user.id, email: primaryEmail });
 
   const handleApply = () => {
-    setUserTier.mutate({ userId: user.id, email: primaryEmail, tier });
+    applyTier(tier, () => setIsDialogOpen(false));
   };
 
   return (
@@ -121,27 +106,27 @@ export function TierManagement({ user }: TierManagementProps) {
               <Button
                 variant="outline"
                 onClick={() => setIsDialogOpen(false)}
-                disabled={setUserTier.isPending}
+                disabled={isPending}
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleApply}
-                disabled={setUserTier.isPending}
+                disabled={isPending}
                 className="bg-primary text-on-primary hover:bg-primary/90"
               >
-                {setUserTier.isPending ? 'Applying...' : `Set to ${tier}`}
+                {isPending ? 'Applying...' : `Set to ${tier}`}
               </Button>
             </div>
           </DialogContent>
         </Dialog>
 
-        {setUserTier.error && (
+        {error && (
           <div className="text-error-text-red text-sm">
-            Error setting tier: {setUserTier.error.message}
+            Error setting tier: {error.message}
           </div>
         )}
-        {setUserTier.isSuccess && (
+        {isSuccess && (
           <div className="text-sm text-green-600">
             Tier successfully updated!
           </div>

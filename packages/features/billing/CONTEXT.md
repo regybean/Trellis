@@ -43,6 +43,8 @@ _Avoid_: "dashboard", "account page"
 
 ## Design decisions
 
+**Business logic lives in `src/hooks/`, components are UI-only** (slice contract, CLAUDE.md): components no longer call `useTRPC()` directly. The tRPC data access + flows are deep modules behind small hooks — `usePricing` (Subscription read + plan selection → Checkout/Billing-portal routing), `useCheckout` (Checkout/portal sessions + redirect), `useSubscriptionDetails`, `useRateLimitAdmin`, `useTierAdmin`, `useStripeTesting`, `useBillingSync`. The plan-selection decision tree (the Tier hierarchy `Basic < Standard < Pro`) is pure and unit-tested in `src/lib/plan-selection.ts` (`getButtonState`); `src/data/pricing-data.ts` holds pure data (plans, colours, examples) only. Hooks navigate via `globalThis.location` (runtime-agnostic), not `next/navigation` — the one remaining `next/navigation` use is in `StripeSuccessRedirect`, the app-facing seam.
+
 **Credits are not Stripe metered billing**: The credit system is a Redis token bucket, not a Stripe usage record. Credits reset on a per-billing-window schedule but are not billed per-credit.
 
 **Local dev runs on localstripe, not real Stripe**: When `STRIPE_API_BASE` is set, `getStripe()` retargets the SDK at a fake stateful Stripe server (the default dev config). localstripe predates the Prices API, so it serves the legacy `plan` shape — `buildSubscriptionCache` reads `price ?? plan` and `syncStripeDataToKV` skips the unsupported expands. Tiers are granted from the admin page (`setUserTier`) rather than Checkout. See [`docs/adr/0003-localstripe-dev-billing.md`](../../../docs/adr/0003-localstripe-dev-billing.md).
