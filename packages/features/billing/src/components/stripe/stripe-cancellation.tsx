@@ -1,15 +1,11 @@
 'use client';
 
-import React from 'react';
-import { useMutation } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { AlertCircle, CreditCard, Loader2, RefreshCw } from 'lucide-react';
-import { toast } from 'react-toastify';
+import { AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 
-import { useGenericErrorHandler } from '@acme/hooks';
 import { Button } from '@acme/ui';
 
-import { useTRPC } from '../../trpc/react';
+import { useCheckout } from '../../hooks/use-checkout';
 
 interface SubscriptionCancellationProps {
   subscriptionType?: string;
@@ -34,43 +30,11 @@ export function SubscriptionCancellation({
   isCancelledAtPeriodEnd = false,
   currentPeriodEnd = null,
 }: SubscriptionCancellationProps) {
-  const handleError = useGenericErrorHandler();
+  const { openBillingPortal, isPending } = useCheckout();
 
-  const [redirectUrl, setRedirectUrl] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (redirectUrl) {
-      globalThis.location.href = redirectUrl;
-    }
-  }, [redirectUrl]);
-
-  // Check if user has an active subscription (not Basic)
+  // Cancel and reactivate both route through the Stripe billing portal.
   const hasActiveSubscription =
     subscriptionType && subscriptionType !== 'Basic';
-  const trpc = useTRPC();
-
-  const createDashboardSession = useMutation(
-    trpc.account.createDashboardSession.mutationOptions({
-      onSuccess: (data) => {
-        toast.success('Redirecting to Stripe dashboard...', {
-          autoClose: 1000,
-          closeButton: true,
-          icon: () => <CreditCard className="h-4 w-4" />,
-        });
-        setRedirectUrl(data.billingPortalUrl);
-      },
-      onError: handleError,
-    }),
-  );
-
-  const handleCancellation = () => {
-    createDashboardSession.mutate();
-  };
-
-  // Named separately for clarity even though do same thing
-  const handleReactivation = () => {
-    createDashboardSession.mutate();
-  };
 
   // Don't show the component if user doesn't have an active subscription
   if (!hasActiveSubscription) {
@@ -105,10 +69,10 @@ export function SubscriptionCancellation({
                 variant="outline"
                 size="sm"
                 className="border-amber-300 text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 dark:hover:bg-amber-900/40"
-                onClick={handleReactivation}
-                disabled={createDashboardSession.isPending}
+                onClick={openBillingPortal}
+                disabled={isPending}
               >
-                {createDashboardSession.isPending ? (
+                {isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Processing...
@@ -130,10 +94,10 @@ export function SubscriptionCancellation({
             <Button
               variant="link"
               className="text-muted-foreground/60 hover:text-muted-foreground h-auto p-0 text-xs underline"
-              onClick={handleCancellation}
-              disabled={createDashboardSession.isPending}
+              onClick={openBillingPortal}
+              disabled={isPending}
             >
-              {createDashboardSession.isPending ? (
+              {isPending ? (
                 <>
                   <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   Processing...

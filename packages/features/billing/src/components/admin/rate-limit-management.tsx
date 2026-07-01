@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, Clock, RotateCcw, Timer } from 'lucide-react';
 
 import type { SerializableUser } from '@acme/auth';
@@ -22,7 +21,7 @@ import {
   Skeleton,
 } from '@acme/ui';
 
-import { useTRPC } from '../../trpc/react';
+import { useRateLimitAdmin } from '../../hooks/use-rate-limit-admin';
 import { RateLimitStatusDisplay } from './rate-limit-status-display';
 import { SubscriptionDetailsDisplay } from './subscription-details-display';
 
@@ -42,74 +41,16 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
   const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const [isMaxOutDialogOpen, setIsMaxOutDialogOpen] = useState(false);
   const [isOverrideDialogOpen, setIsOverrideDialogOpen] = useState(false);
-  const trpc = useTRPC();
-  const queryclient = useQueryClient();
 
-  // Queries
-  const rateLimitStatus = useQuery(
-    trpc.account.getUserRateLimitStatus.queryOptions({ userId: user.id }),
-  );
-
-  const subscription = useQuery(
-    trpc.account.getUserSubscription.queryOptions({ userId: user.id }),
-  );
-
-  const resetRateLimit = useMutation(
-    trpc.account.resetUserRateLimit.mutationOptions({
-      onSuccess: () => {
-        void queryclient.invalidateQueries(
-          trpc.account.getUserRateLimitStatus.pathFilter(),
-        );
-        void queryclient.invalidateQueries(
-          trpc.account.getCreditUsage.pathFilter(),
-        );
-        setIsResetDialogOpen(false);
-      },
-    }),
-  );
-
-  const maxOutRateLimit = useMutation(
-    trpc.account.maxOutUserRateLimit.mutationOptions({
-      onSuccess: () => {
-        void queryclient.invalidateQueries(
-          trpc.account.getUserRateLimitStatus.pathFilter(),
-        );
-        void queryclient.invalidateQueries(
-          trpc.account.getCreditUsage.pathFilter(),
-        );
-        setIsMaxOutDialogOpen(false);
-      },
-    }),
-  );
-
-  const overrideExpiry = useMutation(
-    trpc.account.overrideUserRateLimitExpiry.mutationOptions({
-      onSuccess: () => {
-        void queryclient.invalidateQueries(
-          trpc.account.getUserRateLimitStatus.pathFilter(),
-        );
-        void queryclient.invalidateQueries(
-          trpc.account.getCreditUsage.pathFilter(),
-        );
-        setIsOverrideDialogOpen(false);
-      },
-    }),
-  );
-
-  const handleResetRateLimit = () => {
-    resetRateLimit.mutate({ userId: user.id });
-  };
-
-  const handleMaxOutRateLimit = () => {
-    maxOutRateLimit.mutate({ userId: user.id });
-  };
+  const { rateLimitStatus, subscription, reset, maxOut, override } =
+    useRateLimitAdmin(user.id);
 
   const handleOverrideExpiry = () => {
     const hours = Number.parseInt(overrideHours, 10);
     if (Number.isNaN(hours) || hours < 0) return;
 
     const expiryTimestamp = Math.floor(Date.now() / 1000) + hours * 3600;
-    overrideExpiry.mutate({ userId: user.id, expiryTimestamp });
+    override.run(expiryTimestamp, () => setIsOverrideDialogOpen(false));
   };
 
   const formatDate = (timestamp: number) => {
@@ -196,16 +137,16 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
                 <Button
                   variant="outline"
                   onClick={() => setIsResetDialogOpen(false)}
-                  disabled={resetRateLimit.isPending}
+                  disabled={reset.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleResetRateLimit}
-                  disabled={resetRateLimit.isPending}
+                  onClick={() => reset.run(() => setIsResetDialogOpen(false))}
+                  disabled={reset.isPending}
                   className="bg-primary text-on-primary hover:bg-primary/90"
                 >
-                  {resetRateLimit.isPending ? 'Resetting...' : 'Reset'}
+                  {reset.isPending ? 'Resetting...' : 'Reset'}
                 </Button>
               </div>
             </DialogContent>
@@ -238,16 +179,16 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
                 <Button
                   variant="outline"
                   onClick={() => setIsMaxOutDialogOpen(false)}
-                  disabled={maxOutRateLimit.isPending}
+                  disabled={maxOut.isPending}
                 >
                   Cancel
                 </Button>
                 <Button
-                  onClick={handleMaxOutRateLimit}
-                  disabled={maxOutRateLimit.isPending}
+                  onClick={() => maxOut.run(() => setIsMaxOutDialogOpen(false))}
+                  disabled={maxOut.isPending}
                   variant="destructive"
                 >
-                  {maxOutRateLimit.isPending ? 'Maxing Out...' : 'Max Out'}
+                  {maxOut.isPending ? 'Maxing Out...' : 'Max Out'}
                 </Button>
               </div>
             </DialogContent>
@@ -297,16 +238,16 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
                   <Button
                     variant="outline"
                     onClick={() => setIsOverrideDialogOpen(false)}
-                    disabled={overrideExpiry.isPending}
+                    disabled={override.isPending}
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handleOverrideExpiry}
-                    disabled={overrideExpiry.isPending || !overrideHours}
+                    disabled={override.isPending || !overrideHours}
                     className="bg-primary text-on-primary hover:bg-primary/90"
                   >
-                    {overrideExpiry.isPending ? 'Setting...' : 'Set Override'}
+                    {override.isPending ? 'Setting...' : 'Set Override'}
                   </Button>
                 </div>
               </div>
@@ -315,32 +256,32 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
         </div>
 
         {/* Error/Success Messages */}
-        {resetRateLimit.error && (
+        {reset.error && (
           <div className="text-error-text-red text-sm">
-            Error resetting rate limit: {resetRateLimit.error.message}
+            Error resetting rate limit: {reset.error.message}
           </div>
         )}
-        {maxOutRateLimit.error && (
+        {maxOut.error && (
           <div className="text-error-text-red text-sm">
-            Error maxing out rate limit: {maxOutRateLimit.error.message}
+            Error maxing out rate limit: {maxOut.error.message}
           </div>
         )}
-        {overrideExpiry.error && (
+        {override.error && (
           <div className="text-error-text-red text-sm">
-            Error overriding expiry: {overrideExpiry.error.message}
+            Error overriding expiry: {override.error.message}
           </div>
         )}
-        {resetRateLimit.isSuccess && (
+        {reset.isSuccess && (
           <div className="text-sm text-green-600">
             Rate limit successfully reset!
           </div>
         )}
-        {maxOutRateLimit.isSuccess && (
+        {maxOut.isSuccess && (
           <div className="text-sm text-green-600">
             Rate limit successfully maxed out!
           </div>
         )}
-        {overrideExpiry.isSuccess && (
+        {override.isSuccess && (
           <div className="text-sm text-green-600">
             Expiry successfully overridden!
           </div>
