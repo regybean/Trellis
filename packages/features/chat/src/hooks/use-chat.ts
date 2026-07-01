@@ -6,11 +6,9 @@ import { useSubscription } from '@trpc/tanstack-react-query';
 import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
+import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
 import { useTRPC } from '../trpc/react';
-
-// Keep in sync with server-side validation in chat router
-const MAX_MESSAGE_LENGTH = 5000;
 
 export function useChat(
   initial: Message[],

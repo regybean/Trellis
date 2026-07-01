@@ -1,5 +1,4 @@
 import { TRPCError } from '@trpc/server';
-import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { logger } from '@acme/logger';
@@ -11,7 +10,7 @@ import {
   selectChatSchema,
   selectConversationSummarySchema,
 } from '../schemas/chat-schema';
-import { chatFolder, SetFolderRequest } from '../schemas/folder-schema';
+import { SetFolderRequest } from '../schemas/folder-schema';
 import { selectMessageSchema } from '../schemas/message-schema';
 import { chatAgent } from '../services/chat-agent';
 import {
@@ -35,7 +34,7 @@ import {
   protectedProcedure,
   rateLimit,
 } from '../trpc';
-import { foldersRouter } from './folders';
+import { assertFolderOwned, foldersRouter } from './folders';
 
 export const chatRouter = createTRPCRouter({
   // Streamed query using async generator (tRPC v11 httpBatchStreamLink).
@@ -273,24 +272,11 @@ export const chatRouter = createTRPCRouter({
         'input.folderId': input.folderId ?? '',
       });
 
+      // The target Folder, when given, must belong to the caller. Ownership is
+      // asserted through the folders module so `chat_folder` is only ever
+      // queried there — no naked Drizzle query in this router body.
       if (input.folderId) {
-        const [folder] = await ctx.db
-          .select({ id: chatFolder.id })
-          .from(chatFolder)
-          .where(
-            and(
-              eq(chatFolder.id, input.folderId),
-              eq(chatFolder.userId, userId),
-            ),
-          )
-          .limit(1);
-
-        if (!folder) {
-          throw new TRPCError({
-            code: 'NOT_FOUND',
-            message: 'Folder not found',
-          });
-        }
+        await assertFolderOwned(ctx.db, input.folderId, userId);
       }
 
       try {

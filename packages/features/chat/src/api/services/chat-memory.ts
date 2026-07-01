@@ -1,6 +1,5 @@
-import { TRPCError } from '@trpc/server';
-
-import { assertThreadOwned, memory, ThreadOwnershipError } from '@acme/rag';
+import { memory } from '@acme/rag';
+import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 
 import type { Message } from '../schemas/message-schema';
 
@@ -77,20 +76,11 @@ export function toMessages(
 // not exist yet (the stream/create procedures operate before the thread is
 // stamped). Throws FORBIDDEN when the thread is owned by another user — the
 // security invariant the ownership middleware seats at the request pipeline.
-// The ownership rule itself lives in `@acme/rag` (transport-agnostic); this
-// thin caller maps its error onto tRPC's FORBIDDEN.
+// The ownership rule and its single tRPC mapping both live in `@acme/rag`
+// (`assertOwnedThreadForTRPC`), so a new ownership variant is handled in one
+// place shared with the feedback feature.
 export async function loadOwnedConversation(sessionId: string, userId: string) {
-  try {
-    return await assertThreadOwned(sessionId, userId);
-  } catch (error) {
-    if (error instanceof ThreadOwnershipError) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'You do not have access to this chat session',
-      });
-    }
-    throw error;
-  }
+  return assertOwnedThreadForTRPC(sessionId, userId);
 }
 
 export async function createConversation(sessionId: string, userId: string) {

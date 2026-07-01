@@ -25,8 +25,13 @@ export type SelectConversationSummary = z.infer<
   typeof selectConversationSummarySchema
 >;
 
+// The single source of truth for the maximum Message length. The server schema
+// (`ChatRequest`) and the client-side pre-send guard (`useChat`) both read this
+// one constant, so they cannot drift.
+export const MAX_MESSAGE_LENGTH = 10_000;
+
 export const ChatRequest = z.object({
-  query: z.string().max(10_000, 'Message too long'),
+  query: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long'),
   sessionId: z.uuid(),
 });
 

@@ -93,6 +93,7 @@ vi.mock('server-only', () => ({}));
 // is spied on below — so stub the whole module to avoid the env validation throw.
 vi.mock('@acme/models', () => ({
   chatModel: {},
+  titleModel: {},
   embedModel: {},
   embedProviderOptions: vi.fn().mockReturnValue({}),
 }));
