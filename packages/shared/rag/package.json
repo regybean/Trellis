@@ -16,6 +16,10 @@
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
     },
+    "./ownership-trpc": {
+      "types": "./dist/ownership-trpc.d.ts",
+      "default": "./src/ownership-trpc.ts"
+    },
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"
@@ -40,6 +44,7 @@
     "@mastra/pg": "catalog:",
     "@mastra/rag": "catalog:",
     "@t3-oss/env-nextjs": "catalog:",
+    "@trpc/server": "catalog:",
     "ai": "catalog:",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "catalog:",

@@ -168,7 +168,11 @@ describe('chatRouter', () => {
         ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       });
 
-      it('returns NOT_FOUND when reading an absent conversation', async () => {
+      it('returns empty history when reading a not-yet-created conversation', async () => {
+        // `get` treats an absent thread as a brand-new session (no messages
+        // yet) and returns [], rather than 404 — see chat.ts. A foreign
+        // *existing* conversation is still rejected FORBIDDEN by the ownership
+        // middleware; `delete` (below) is the one that 404s on absence.
         const caller = createCaller({
           userId: createTestUserId(),
           role: 'user',
@@ -178,7 +182,7 @@ describe('chatRouter', () => {
 
         await expect(
           caller.chat.get({ sessionId: createTestSessionId() }),
-        ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+        ).resolves.toEqual([]);
       });
 
       it('returns NOT_FOUND when deleting an absent conversation', async () => {

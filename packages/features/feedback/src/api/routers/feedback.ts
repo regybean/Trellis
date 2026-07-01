@@ -2,7 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { and, eq } from 'drizzle-orm';
 
 import { logger } from '@acme/logger';
-import { assertThreadOwned, ThreadOwnershipError } from '@acme/rag';
+import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 import { mastraMessages } from '@acme/rag/schema';
 
 import {
@@ -20,8 +20,9 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
  * that annotates Mastra-owned identifiers, with integrity enforced in code
  * rather than by a database foreign key.
  *
- *   1. The thread must be owned by the caller — checked through the
- *      transport-agnostic `assertThreadOwned` rule in `@acme/rag`.
+ *   1. The thread must be owned by the caller — checked (and its FORBIDDEN
+ *      mapping applied) through `assertOwnedThreadForTRPC` in `@acme/rag`, the
+ *      single tRPC adapter for the ownership rule shared with the chat feature.
  *   2. The message must exist in that thread — read from Mastra-owned data via
  *      the `@acme/rag` Drizzle mirror of `mastra_messages`.
  *   3. The feedback is upserted, one row per (user, message).
@@ -69,19 +70,10 @@ export const feedbackRouter = createTRPCRouter({
         'input.rating': input.rating,
       });
 
-      // 1. Thread ownership — the Mastra-owned ownership fact, mapped to FORBIDDEN.
-      let thread;
-      try {
-        thread = await assertThreadOwned(input.threadId, userId);
-      } catch (error) {
-        if (error instanceof ThreadOwnershipError) {
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'You do not have access to this conversation',
-          });
-        }
-        throw error;
-      }
+      // 1. Thread ownership — the Mastra-owned ownership fact. Foreign ownership
+      // is mapped to FORBIDDEN inside the shared adapter; absence is a NOT_FOUND
+      // here (feedback requires an existing conversation).
+      const thread = await assertOwnedThreadForTRPC(input.threadId, userId);
       if (!thread) {
         throw new TRPCError({
           code: 'NOT_FOUND',
