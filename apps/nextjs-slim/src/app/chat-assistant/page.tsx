@@ -1,11 +1,13 @@
 'use client';
 
-import { ChatAssistant } from '@acme/chat';
+import { ConversationView } from '@acme/chat';
 
+// Bare route: starts a new Conversation. Slim subset — no billing/feedback
+// wiring (the app drops both).
 function ChatPage() {
   return (
-    <div className="bg-muted min-h-screen flex-grow p-5">
-      <ChatAssistant />
+    <div className="bg-muted h-[calc(100vh-4rem)]">
+      <ConversationView />
     </div>
   );
 }

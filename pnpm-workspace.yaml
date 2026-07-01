@@ -16,6 +16,7 @@ catalog:
   '@clerk/nextjs': 6.32.2
   '@clerk/tanstack-react-start': ^0.29.13
   '@clerk/themes': ^2.4.19
+  '@dnd-kit/core': ^6.3.1
   '@eslint/js': ^9.39.1
   '@kubiks/otel-drizzle': ^2.1.0
   '@mastra/core': ^1.42.0

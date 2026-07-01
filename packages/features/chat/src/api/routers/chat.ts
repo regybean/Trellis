@@ -1,4 +1,5 @@
 import { TRPCError } from '@trpc/server';
+import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 
 import { logger } from '@acme/logger';
@@ -8,7 +9,9 @@ import {
   ChatRequest,
   DeleteChatRequest,
   selectChatSchema,
+  selectConversationSummarySchema,
 } from '../schemas/chat-schema';
+import { chatFolder, SetFolderRequest } from '../schemas/folder-schema';
 import { selectMessageSchema } from '../schemas/message-schema';
 import { chatAgent } from '../services/chat-agent';
 import {
@@ -17,8 +20,11 @@ import {
   getConversationUnchecked,
   latestAssistantMessageId,
   listConversations,
+  listConversationsForUser,
   recallMessages,
+  setThreadFolder,
   toConversation,
+  toConversationSummary,
   toMessages,
 } from '../services/chat-memory';
 import {
@@ -26,8 +32,10 @@ import {
   createTRPCRouter,
   existingConversationProcedure,
   ownedConversationProcedure,
+  protectedProcedure,
   rateLimit,
 } from '../trpc';
+import { foldersRouter } from './folders';
 
 export const chatRouter = createTRPCRouter({
   // Streamed query using async generator (tRPC v11 httpBatchStreamLink).
@@ -220,6 +228,86 @@ export const chatRouter = createTRPCRouter({
         });
       }
     }),
+
+  // The caller's Conversations for the history sidebar — a flat list ordered
+  // `updatedAt DESC`. The client groups it into Folders and Date Buckets.
+  list: protectedProcedure.query(async ({ ctx }) => {
+    const { userId } = ctx.auth;
+    ctx.telemetry.set({ 'user.id': userId });
+
+    try {
+      const threads = await listConversationsForUser(userId);
+      ctx.telemetry.set({ 'result.chatCount': threads.length });
+
+      return threads.map((thread) =>
+        ctx.telemetry.parseWithTelemetry(
+          selectConversationSummarySchema,
+          toConversationSummary(thread),
+          'selectConversationSummarySchema',
+        ),
+      );
+    } catch (error) {
+      logger.error({ error, userId }, 'Failed to list conversations');
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to list conversations',
+        cause: error,
+      });
+    }
+  }),
+
+  // Move a Conversation into a Folder, or out of one with `folderId: null`. The
+  // assignment is a single scalar on the thread metadata (exclusivity by
+  // construction). Ownership of the Conversation is enforced by the builder; the
+  // Folder, when given, must also belong to the caller.
+  setFolder: existingConversationProcedure
+    .input(SetFolderRequest)
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      ctx.telemetry.set({
+        'user.id': userId,
+        'input.sessionId': input.sessionId,
+        'input.folderId': input.folderId ?? '',
+      });
+
+      if (input.folderId) {
+        const [folder] = await ctx.db
+          .select({ id: chatFolder.id })
+          .from(chatFolder)
+          .where(
+            and(
+              eq(chatFolder.id, input.folderId),
+              eq(chatFolder.userId, userId),
+            ),
+          )
+          .limit(1);
+
+        if (!folder) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Folder not found',
+          });
+        }
+      }
+
+      try {
+        await setThreadFolder(ctx.conversation, input.folderId);
+        return { sessionId: input.sessionId, folderId: input.folderId };
+      } catch (error) {
+        logger.error(
+          { error, userId, sessionId: input.sessionId },
+          'Failed to set conversation folder',
+        );
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to set conversation folder',
+          cause: error,
+        });
+      }
+    }),
+
+  // Folder CRUD (definitions only — the assignment is `setFolder` above).
+  folders: foldersRouter,
 
   adminGet: adminProcedure
     .input(z.object({ sessionId: z.uuid() }))

@@ -38,6 +38,9 @@ _Avoid_: "archive" as a verb/action — there is no archive action, only the tim
 - A **Stream** is initiated with `chat.stream(query, conversationId)` — the procedure ensures the Conversation exists, saves the user Message, streams the assistant response, then saves the completed assistant Message
 - `chat.get(conversationId)` returns all Messages in a Conversation in order
 - `chat.delete(conversationId)` removes the Conversation and all its Messages
+- `chat.list()` returns the caller's Conversations as flat summaries (`sessionId`, `title`, `updatedAt`, `folderId`) ordered `updatedAt DESC` — the Conversation History list. The server sorts; the client derives Date Buckets.
+- `chat.setFolder(conversationId, folderId)` moves a Conversation into a Folder, or out of one with `folderId: null`
+- `chat.folders.list / create / delete` manage Folder definitions, scoped to the caller
 - Admin procedures (`adminGet`, `adminList`) can access any user's Conversations
 
 ## Design decisions
@@ -53,3 +56,9 @@ _Avoid_: "archive" as a verb/action — there is no archive action, only the tim
 **The ownership rule itself lives in `@acme/rag`**: the builders call `assertThreadOwned(threadId, userId)` from `@acme/rag` rather than reading `resourceId` inline. The thread-ownership fact has one definition, reused by the feedback feature's `submit` mutation — a feature that annotates Mastra data inherits the rule instead of copying it.
 
 **Message actions are an app-wired render-slot, not a feature dependency**: `ChatAssistant` accepts `renderMessageActions(message)` and renders its result beneath each settled assistant Message. Apps mount per-message UI (e.g. `FeedbackButtons` from `@acme/feedback`) through that slot, so chat never depends on feedback and stays mountable without it. The slot only fires for settled assistant Messages that have a real `id` — which is why the `done` Stream event carries `messageId`.
+
+**Folder storage is split; deletion is lazy**: a Folder _definition_ lives in `chat_folder` (an app-owned, drizzle-kit-managed table re-exported by each app's `db/schema.ts`, like `message_feedback`); the _assignment_ lives on the Mastra thread as `metadata.folderId`, a single scalar so a Conversation is in at most one Folder by construction. Deleting a Folder removes only its row — member threads keep a dangling `folderId` that the client fails to resolve, returning them to their Date Bucket with no per-Conversation write. See [0012](docs/adr/0012-folder-storage-split.md).
+
+**Thread titles are auto-generated**: Mastra Memory's `generateTitle` (a cheap `titleModel` from `@acme/models`, falling back to the chat model) names a thread from its first user Message asynchronously, so the history list shows meaningful titles rather than a hardcoded placeholder.
+
+**ChatAssistant is controlled; ConversationView owns navigation**: `ChatAssistant` takes a `sessionId` prop and derives its messages from loaded history (or the greeting for a new Conversation) — no effect copies server data into state. `ConversationView` owns the current sessionId and keeps the deep-link URL in sync via the History API (not the framework router), so switching Conversations or stamping a freshly minted id never triggers a route remount that would tear the SSE stream. It is keyed by sessionId, so resuming a past Conversation deliberately remounts to load history.

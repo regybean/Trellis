@@ -2,7 +2,6 @@
 'use client';
 
 import type React from 'react';
-import { useMemo } from 'react';
 
 import { Card, CardContent, CardFooter, MessageInput } from '@acme/ui';
 
@@ -14,6 +13,10 @@ import ChatFooter from './chat-footer';
 import MessageList from './message-list';
 
 interface ChatAssistantProps {
+  // The Conversation to show. Controlled by the parent (see ConversationView):
+  // resuming a past Conversation or starting a new one is a sessionId change.
+  // Mounting keyed by this id loads the right history without tearing a stream.
+  sessionId: string;
   onTokensConsumed?: () => void;
   // Optional render-slot seam: an app supplies per-message actions (e.g.
   // feedback buttons from `@acme/feedback`) without the chat feature depending
@@ -22,11 +25,11 @@ interface ChatAssistantProps {
 }
 
 export function ChatAssistant({
+  sessionId,
   onTokensConsumed,
   renderMessageActions,
 }: ChatAssistantProps) {
   const info = getAppInfo(env.NEXT_PUBLIC_WEBAPP);
-  const sessionId = useMemo(() => crypto.randomUUID(), []);
 
   const {
     messages,

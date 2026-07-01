@@ -11,3 +11,8 @@
 //
 // App-owned tables go here, namespaced on `appSchema`.
 export { appSchema } from '../app-schema';
+
+// App-owned, drizzle-kit-managed table from the chat feature. The slim subset
+// drops auth/billing but keeps Conversation History; Folders are scoped to the
+// local principal's userId. Re-exported so push/generate own its DDL (ADR-0002).
+export { chatFolder } from '@acme/chat/schema';

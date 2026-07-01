@@ -3,7 +3,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { ChatView } from '../components/chat-view';
 import { getAuthState } from '../lib/auth';
 
-export const Route = createFileRoute('/chat-assistant')({
+export const Route = createFileRoute('/chat-assistant/$sessionId')({
   beforeLoad: async ({ location }) => {
     const { userId } = await getAuthState();
     if (!userId) {
@@ -14,11 +14,11 @@ export const Route = createFileRoute('/chat-assistant')({
       });
     }
   },
-  component: ChatRoute,
+  component: ChatSessionRoute,
 });
 
-// Bare route: starts a new Conversation (id minted client-side, URL stamped on
-// first interaction). Reuses the `@acme/chat` + `@acme/billing` slices unchanged.
-function ChatRoute() {
-  return <ChatView />;
+// Deep-link route: resumes the Conversation named by the `sessionId` segment.
+function ChatSessionRoute() {
+  const { sessionId } = Route.useParams();
+  return <ChatView initialSessionId={sessionId} />;
 }

@@ -52,7 +52,9 @@ describe('ChatAssistant', () => {
   });
 
   beforeEach(() => {
-    renderWithProviders(<ChatAssistant />);
+    renderWithProviders(
+      <ChatAssistant sessionId="00000000-0000-4000-8000-000000000000" />,
+    );
   });
 
   it('should display message correctly on valid input', async () => {

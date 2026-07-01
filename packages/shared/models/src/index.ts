@@ -1,1 +1,6 @@
-export { chatModel, embedModel, embedProviderOptions } from './resolve';
+export {
+  chatModel,
+  titleModel,
+  embedModel,
+  embedProviderOptions,
+} from './resolve';

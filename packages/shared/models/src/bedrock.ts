@@ -13,6 +13,15 @@ export function bedrockChatModel(): LanguageModelV3 {
   );
 }
 
+// Cheaper model for thread-title generation. Falls back to the chat model when
+// BEDROCK_TITLE_MODEL is unset, so titles work out of the box.
+export function bedrockTitleModel(): LanguageModelV3 {
+  const env = bedrockEnv();
+  return createAmazonBedrock({ region: env.AWS_REGION })(
+    env.BEDROCK_TITLE_MODEL ?? env.BEDROCK_CHAT_MODEL,
+  );
+}
+
 export function bedrockEmbedModel(): EmbeddingModelV3 {
   const env = bedrockEnv();
   return createAmazonBedrock({ region: env.AWS_REGION }).embedding(

@@ -10,6 +10,21 @@ export const selectChatSchema = z.object({
 
 export type SelectChatSchema = z.infer<typeof selectChatSchema>;
 
+// A row in the Conversation History list: enough to render the sidebar without
+// loading any Messages. `folderId` is the Folder assignment read from the
+// thread's `metadata.folderId` (null when un-foldered). Date Buckets are derived
+// client-side from `updatedAt`, so the server only sorts — it sends no bucket.
+export const selectConversationSummarySchema = z.object({
+  sessionId: z.uuid(),
+  title: z.string(),
+  updatedAt: z.coerce.date(),
+  folderId: z.uuid().nullable(),
+});
+
+export type SelectConversationSummary = z.infer<
+  typeof selectConversationSummarySchema
+>;
+
 export const ChatRequest = z.object({
   query: z.string().max(10_000, 'Message too long'),
   sessionId: z.uuid(),

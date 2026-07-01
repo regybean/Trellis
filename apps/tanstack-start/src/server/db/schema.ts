@@ -12,8 +12,9 @@
 // App-owned tables go here, namespaced on `appSchema`.
 export { appSchema } from '../app-schema';
 
-// First app-owned, drizzle-kit-managed table. Re-exported from `@acme/feedback`
-// so push/generate own its DDL (the feature package defines the columns; the app
-// decides to manage them). It carries Mastra-owned ids by value with no FK — see
-// the feedback schema notes and ADR-0002.
+// App-owned, drizzle-kit-managed tables. Re-exported from their feature packages
+// so push/generate own their DDL (the feature defines the columns; the app
+// decides to manage them). They carry Mastra-owned ids by value with no FK — see
+// the feature schema notes and ADR-0002.
 export { feedbackRating, messageFeedback } from '@acme/feedback/schema';
+export { chatFolder } from '@acme/chat/schema';

@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as StripeSuccessRouteImport } from './routes/stripe.success'
 import { Route as SignUpSplatRouteImport } from './routes/sign-up.$'
 import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
+import { Route as ChatAssistantSessionIdRouteImport } from './routes/chat-assistant.$sessionId'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiTrpcIngestSplatRouteImport } from './routes/api/trpc/ingest.$'
@@ -70,6 +71,11 @@ const SignInSplatRoute = SignInSplatRouteImport.update({
   path: '/sign-in/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatAssistantSessionIdRoute = ChatAssistantSessionIdRouteImport.update({
+  id: '/$sessionId',
+  path: '/$sessionId',
+  getParentRoute: () => ChatAssistantRoute,
+} as any)
 const ApiStripeRoute = ApiStripeRouteImport.update({
   id: '/api/stripe',
   path: '/api/stripe',
@@ -104,12 +110,13 @@ const ApiTrpcBillingSplatRoute = ApiTrpcBillingSplatRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/chat-assistant': typeof ChatAssistantRoute
+  '/chat-assistant': typeof ChatAssistantRouteWithChildren
   '/pricing': typeof PricingRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/api/health': typeof ApiHealthRoute
   '/api/stripe': typeof ApiStripeRoute
+  '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/stripe/success': typeof StripeSuccessRoute
@@ -121,12 +128,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/chat-assistant': typeof ChatAssistantRoute
+  '/chat-assistant': typeof ChatAssistantRouteWithChildren
   '/pricing': typeof PricingRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/api/health': typeof ApiHealthRoute
   '/api/stripe': typeof ApiStripeRoute
+  '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/stripe/success': typeof StripeSuccessRoute
@@ -139,12 +147,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/admin': typeof AdminRoute
-  '/chat-assistant': typeof ChatAssistantRoute
+  '/chat-assistant': typeof ChatAssistantRouteWithChildren
   '/pricing': typeof PricingRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/api/health': typeof ApiHealthRoute
   '/api/stripe': typeof ApiStripeRoute
+  '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/sign-in/$': typeof SignInSplatRoute
   '/sign-up/$': typeof SignUpSplatRoute
   '/stripe/success': typeof StripeSuccessRoute
@@ -164,6 +173,7 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/api/health'
     | '/api/stripe'
+    | '/chat-assistant/$sessionId'
     | '/sign-in/$'
     | '/sign-up/$'
     | '/stripe/success'
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/api/health'
     | '/api/stripe'
+    | '/chat-assistant/$sessionId'
     | '/sign-in/$'
     | '/sign-up/$'
     | '/stripe/success'
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/terms-of-service'
     | '/api/health'
     | '/api/stripe'
+    | '/chat-assistant/$sessionId'
     | '/sign-in/$'
     | '/sign-up/$'
     | '/stripe/success'
@@ -210,7 +222,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminRoute: typeof AdminRoute
-  ChatAssistantRoute: typeof ChatAssistantRoute
+  ChatAssistantRoute: typeof ChatAssistantRouteWithChildren
   PricingRoute: typeof PricingRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
@@ -290,6 +302,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignInSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat-assistant/$sessionId': {
+      id: '/chat-assistant/$sessionId'
+      path: '/$sessionId'
+      fullPath: '/chat-assistant/$sessionId'
+      preLoaderRoute: typeof ChatAssistantSessionIdRouteImport
+      parentRoute: typeof ChatAssistantRoute
+    }
     '/api/stripe': {
       id: '/api/stripe'
       path: '/api/stripe'
@@ -335,10 +354,22 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface ChatAssistantRouteChildren {
+  ChatAssistantSessionIdRoute: typeof ChatAssistantSessionIdRoute
+}
+
+const ChatAssistantRouteChildren: ChatAssistantRouteChildren = {
+  ChatAssistantSessionIdRoute: ChatAssistantSessionIdRoute,
+}
+
+const ChatAssistantRouteWithChildren = ChatAssistantRoute._addFileChildren(
+  ChatAssistantRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminRoute: AdminRoute,
-  ChatAssistantRoute: ChatAssistantRoute,
+  ChatAssistantRoute: ChatAssistantRouteWithChildren,
   PricingRoute: PricingRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,

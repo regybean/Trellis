@@ -11,3 +11,12 @@ export function openrouterChatModel(): LanguageModelV3 {
     env.OPENROUTER_CHAT_MODEL,
   );
 }
+
+// Cheaper model for thread-title generation. Falls back to the chat model when
+// OPENROUTER_TITLE_MODEL is unset.
+export function openrouterTitleModel(): LanguageModelV3 {
+  const env = openrouterEnv();
+  return createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(
+    env.OPENROUTER_TITLE_MODEL ?? env.OPENROUTER_CHAT_MODEL,
+  );
+}
