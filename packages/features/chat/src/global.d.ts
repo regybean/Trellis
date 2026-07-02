@@ -1,6 +1,6 @@
-// Global type declarations for Clerk auth
-// Create a type for the roles
-export type Roles = 'admin' | 'user';
+// Global type declarations for Clerk auth.
+// Roles is owned by @acme/auth — import it rather than redeclaring.
+import type { Roles } from '@acme/auth';
 
 declare global {
   interface CustomJwtSessionClaims {

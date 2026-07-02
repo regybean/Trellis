@@ -1,6 +1,11 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod/v4';
 
+const skipValidation =
+  !!process.env.CI ||
+  process.env.npm_lifecycle_event === 'lint' ||
+  process.env.NEXT_PHASE === 'phase-production-build';
+
 function ragEnv() {
   return createEnv({
     shared: {
@@ -42,10 +47,7 @@ function ragEnv() {
       CHUNK_OVERLAP: process.env.CHUNK_OVERLAP,
       CHUNK_SIZE: process.env.CHUNK_SIZE,
     },
-    skipValidation:
-      !!process.env.CI ||
-      process.env.npm_lifecycle_event === 'lint' ||
-      process.env.NEXT_PHASE === 'phase-production-build',
+    skipValidation,
   });
 }
 

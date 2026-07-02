@@ -28,6 +28,7 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@acme/entitlements": "workspace:*",
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
     "@acme/test-utils": "workspace:*",

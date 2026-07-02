@@ -1,6 +1,6 @@
 // Global type declarations for Clerk auth.
-// Augments Clerk's session claims so `auth().sessionClaims.metadata.role` is typed.
-export type Roles = 'admin' | 'user';
+// Roles is owned by @acme/auth — import it rather than redeclaring.
+import type { Roles } from '@acme/auth';
 
 declare global {
   interface CustomJwtSessionClaims {

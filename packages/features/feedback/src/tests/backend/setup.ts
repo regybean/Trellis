@@ -68,22 +68,24 @@ vi.mock('@acme/redis/env', () => {
   return { env: { REDIS_URL } };
 });
 
-vi.mock('@acme/subscriptions', () => ({
-  credits: {
-    read: vi.fn().mockResolvedValue({
-      remaining: 100,
-      limit: 250,
-      resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-    }),
-    consume: vi.fn().mockResolvedValue(undefined),
-  },
-  getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
-  getSubscriptionType: vi.fn().mockReturnValue('Basic'),
-  isTierAtLeast: vi.fn((tier: string, minTier: string) => {
-    const rank: Record<string, number> = { Basic: 0, Standard: 1, Pro: 2 };
-    return (rank[tier] ?? 0) >= (rank[minTier] ?? 0);
-  }),
-}));
+// isTierAtLeast delegates to the real implementation from @acme/entitlements
+// so requireTier gates behave correctly under test.
+vi.mock('@acme/subscriptions', async () => {
+  const { isTierAtLeast } = await import('@acme/entitlements');
+  return {
+    credits: {
+      read: vi.fn().mockResolvedValue({
+        remaining: 100,
+        limit: 250,
+        resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
+      }),
+      consume: vi.fn().mockResolvedValue(undefined),
+    },
+    getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
+    getSubscriptionType: vi.fn().mockReturnValue('Basic'),
+    isTierAtLeast: vi.fn().mockImplementation(isTierAtLeast),
+  };
+});
 
 // Allow importing server components in vitest.
 vi.mock('server-only', () => ({}));

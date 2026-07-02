@@ -4,6 +4,10 @@ import { billingEnv } from '@acme/billing/env';
 import { chatEnv } from '@acme/chat/env';
 import { ingestEnv } from '@acme/ingest/env';
 
+// TanStack Start has no Next.js build phase, so NEXT_PHASE is omitted.
+const skipValidation =
+  !!process.env.CI || process.env.npm_lifecycle_event === 'lint';
+
 /**
  * Server env for the TanStack Start app. Composes the same feature env presets
  * the Next.js app uses, so both apps validate the identical runtime surface.
@@ -18,6 +22,5 @@ export const env = createEnv({
   server: {},
   client: {},
   runtimeEnv: {},
-  skipValidation:
-    !!process.env.CI || process.env.npm_lifecycle_event === 'lint',
+  skipValidation,
 });
