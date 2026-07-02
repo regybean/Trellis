@@ -8,7 +8,7 @@
 import type { Stripe } from 'stripe';
 
 import { nsKey, redis } from '@acme/redis';
-import { stripeUserKey } from '@acme/subscriptions';
+import { setStripeCustomerId } from '@acme/subscriptions';
 
 import type { SubscriptionData } from '../../../components/admin/subscription-details-display.tsx';
 
@@ -125,6 +125,6 @@ export async function setupTestStripeCustomer(
   customerId?: string,
 ): Promise<string> {
   const custId = customerId ?? createTestCustomerId();
-  await redis.set(stripeUserKey(userId), custId);
+  await setStripeCustomerId(userId, custId);
   return custId;
 }

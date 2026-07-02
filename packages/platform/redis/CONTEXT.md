@@ -24,9 +24,10 @@ is applied, so it cannot be forgotten.
 
 **Key builder**:
 A domain-specific function that composes a **Namespaced key** via `nsKey` —
-`creditKey` (private to `@acme/subscriptions`), `stripeUserKey` /
-`stripeCustomerKey` (exported from `@acme/subscriptions`). Call sites build keys
-through these, never inline templates.
+`creditKey`, `stripeUserKey` / `stripeCustomerKey` (all private to
+`@acme/subscriptions`). The stripe key shape is a storage detail hidden behind
+`getStripeCustomerId` / `setStripeCustomerId` / `setSubscriptionCache`, so call
+sites never build these keys themselves.
 
 ## Relationships
 

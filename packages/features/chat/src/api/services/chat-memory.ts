@@ -1,3 +1,4 @@
+import type { OwnedThread } from '@acme/rag';
 import { memory } from '@acme/rag';
 import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 
@@ -10,11 +11,11 @@ import type { Message } from '../schemas/message-schema';
 // (thread, resource) is confined to this module; everything above speaks
 // Conversation.
 
-// A loaded Mastra thread. Exposed so the ownership middleware can inject the
-// verified thread into the procedure context.
-export type Conversation = NonNullable<
-  Awaited<ReturnType<typeof memory.getThreadById>>
->;
+// A loaded, owned thread rendered in the chat feature's vocabulary. Aliases
+// `@acme/rag`'s owned domain shape (`OwnedThread`) — the seam type, not a Mastra
+// type — so the ownership middleware can inject the verified thread into the
+// procedure context without the Mastra vocabulary crossing the boundary.
+export type Conversation = OwnedThread;
 
 type DBMessage = Awaited<ReturnType<typeof memory.recall>>['messages'][number];
 

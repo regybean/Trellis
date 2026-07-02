@@ -2,9 +2,8 @@ import { z } from 'zod/v4';
 
 import type { Telemetry } from '@acme/telemetry/server';
 import { logger } from '@acme/logger';
-import { redis } from '@acme/redis';
 import {
-  stripeCustomerKey,
+  setSubscriptionCache,
   SubscriptionCacheSchema,
 } from '@acme/subscriptions';
 
@@ -38,7 +37,7 @@ export async function syncStripeDataToKV(
 
     if (subscriptions.data.length === 0 || !subscriptions.data[0]) {
       const none = { status: 'none' } as const;
-      await redis.set(stripeCustomerKey(customerId), JSON.stringify(none));
+      await setSubscriptionCache(customerId, none);
       telemetry?.set({
         'stripe.sync.result': 'no_subscription',
         'stripe.sync.customer_id': customerId,
@@ -74,7 +73,7 @@ export async function syncStripeDataToKV(
       });
     }
 
-    await redis.set(stripeCustomerKey(customerId), JSON.stringify(subData));
+    await setSubscriptionCache(customerId, subData);
 
     return subData;
   };

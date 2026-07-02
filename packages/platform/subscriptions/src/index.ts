@@ -8,9 +8,10 @@ export {
   type SubscriptionTier,
 } from './subscription-cache';
 export {
+  getStripeCustomerId,
   getSubscriptionType,
   getUserSubscriptionFromRedis,
-  stripeCustomerKey,
-  stripeUserKey,
+  setStripeCustomerId,
+  setSubscriptionCache,
 } from './subscriptions';
 export { isTierAtLeast } from './tiers';
