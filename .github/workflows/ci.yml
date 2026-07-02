@@ -65,6 +65,28 @@ jobs:
       - name: Format
         run: pnpm format
 
+  test-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup
+        uses: ./tooling/github/setup
+
+      - name: Test policy
+        run: pnpm test:policy
+
+  deps-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup
+        uses: ./tooling/github/setup
+
+      - name: Deps lint (syncpack)
+        run: pnpm deps:lint
+
   # Mirrors Bitbucket "Testing Code"
   test:
     runs-on: ubuntu-latest

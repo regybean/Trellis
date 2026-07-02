@@ -1,6 +1,11 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod/v4';
 
+const skipValidation =
+  !!process.env.CI ||
+  process.env.npm_lifecycle_event === 'lint' ||
+  process.env.NEXT_PHASE === 'phase-production-build';
+
 export function ingestEnv() {
   return createEnv({
     shared: {
@@ -34,10 +39,7 @@ export function ingestEnv() {
       S3_ENDPOINT: process.env.S3_ENDPOINT,
       S3_UPLOAD_BUCKET: process.env.S3_UPLOAD_BUCKET,
     },
-    skipValidation:
-      !!process.env.CI ||
-      process.env.npm_lifecycle_event === 'lint' ||
-      process.env.NEXT_PHASE === 'phase-production-build',
+    skipValidation,
   });
 }
 

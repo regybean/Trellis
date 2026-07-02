@@ -1,5 +1,7 @@
-// Global type declarations for Clerk auth
-// Create a type for the roles
+// Global type declarations for Clerk auth.
+// NOTE: @acme/trpc is a platform package; it cannot depend on @acme/auth (shared
+// layer). Roles and CustomJwtSessionClaims must be redeclared here. Features that
+// can depend on @acme/auth should import Roles from there instead of redeclaring.
 export type Roles = 'admin' | 'user';
 
 declare global {
