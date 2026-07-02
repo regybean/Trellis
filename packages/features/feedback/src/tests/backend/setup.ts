@@ -2,71 +2,24 @@
 /**
  * Backend Test Setup
  *
- * Runs before each test file. Mocks env + external services so the feedback
- * router can run against the testcontainer DB/Redis, and provisions the
+ * Runs before each test file (after `@acme/test-utils/hydrate-env`, which has
+ * already populated `process.env` with the testcontainer DB/Redis details).
+ * Every `env.ts` therefore validates against the real running services — no env
+ * mocks. Only behavioral/external-service mocks live here. Also provisions the
  * app-owned `message_feedback` table (drizzle-kit owns its DDL in production;
  * tests create it directly). Mastra's `mastra_*` tables are created lazily by
  * the memory fixtures.
  */
 import { sql } from 'drizzle-orm';
-import { afterEach, beforeAll, inject, vi } from 'vitest';
+import { afterEach, beforeAll, vi } from 'vitest';
 
 import { cleanupTestData } from './utils/test-context';
 
-// Dedicated Postgres schema so a parallel suite's cleanup (unscoped DELETE on
-// the Mastra `mastra_*` tables) can't wipe this suite's threads mid-test. turbo
-// runs feature backend suites concurrently against one shared database; without
-// per-package schemas they all share `nextjs.mastra_threads`. This is the
-// Postgres analogue of the per-package Redis logical DB pinned below.
-const { TEST_SCHEMA } = vi.hoisted(() => ({ TEST_SCHEMA: 'feedback_test' }));
-
-vi.mock('../../env', () => {
-  const REDIS_URL = inject('REDIS_URL');
-  const DB_HOST = inject('DB_HOST');
-  const DB_PORT = inject('DB_PORT');
-  const DB_USER = inject('DB_USER');
-  const DB_PASSWORD = inject('DB_PASSWORD');
-  const DB_NAME = inject('DB_NAME');
-
-  return {
-    env: {
-      NODE_ENV: 'test',
-      NEXT_PUBLIC_WEBAPP: TEST_SCHEMA,
-      DB_HOST,
-      DB_PORT,
-      DB_USER,
-      DB_PASSWORD,
-      DB_NAME,
-      REDIS_URL,
-    },
-  };
-});
-
-// Point @acme/rag at the test database (it resolves the same `./env` file).
-vi.mock('@acme/rag/env', () => ({
-  env: {
-    NODE_ENV: 'test',
-    NEXT_PUBLIC_WEBAPP: TEST_SCHEMA,
-    DB_HOST: inject('DB_HOST'),
-    DB_PORT: Number(inject('DB_PORT')),
-    DB_USER: inject('DB_USER'),
-    DB_PASSWORD: inject('DB_PASSWORD'),
-    DB_NAME: inject('DB_NAME'),
-    DB_VECTOR_NAME: 'vectordb',
-    CHUNK_SIZE: 768,
-    CHUNK_OVERLAP: 20,
-    AWS_REGION: 'eu-west-2',
-    BEDROCK_CHAT_MODEL: 'test-model',
-  },
-}));
-
-vi.mock('@acme/redis/env', () => {
-  // Dedicated Redis logical DB so a parallel suite's flushDb() can't wipe ours.
-  const injected = inject('REDIS_URL');
-  if (!injected) throw new Error('REDIS_URL not provided to test workers');
-  const REDIS_URL = `${injected.replace(/\/+$/, '')}/3`;
-  return { env: { REDIS_URL } };
-});
+// Dedicated Postgres schema (set via vitest.config.backend.ts → NEXT_PUBLIC_WEBAPP)
+// so a parallel suite's cleanup (unscoped DELETE on the Mastra `mastra_*`
+// tables) can't wipe this suite's threads mid-test. Matches the schema the db
+// client connects to via env.
+const TEST_SCHEMA = process.env.NEXT_PUBLIC_WEBAPP ?? 'feedback_test';
 
 // isTierAtLeast delegates to the real implementation from @acme/entitlements
 // so requireTier gates behave correctly under test.
@@ -90,27 +43,8 @@ vi.mock('@acme/subscriptions', async () => {
 // Allow importing server components in vitest.
 vi.mock('server-only', () => ({}));
 
-// Prevent @acme/models's eager model resolution (resolve.ts runs at import time)
-// from calling ollamaEnv() / bedrockEnv() without real provider env vars.
-vi.mock('@acme/models', () => ({
-  chatModel: {},
-  titleModel: {},
-  embedModel: {},
-  embedProviderOptions: vi.fn().mockReturnValue({}),
-}));
-
-// @acme/rag's documents-schema reads EMBED_DIMENSIONS from @acme/models/env at
-// load time; provide a fixed value so the schema builds without a real provider.
-vi.mock('@acme/models/env', () => ({
-  modelsEnv: vi.fn().mockReturnValue({
-    LLM_PROVIDER: 'ollama',
-    EMBED_PROVIDER: 'ollama',
-    EMBED_DIMENSIONS: 768,
-  }),
-}));
-
 // Create the app-owned table the way drizzle-kit would in production. Idempotent
-// so it can run once per test file. Imported after the env mocks so `db`
+// so it can run once per test file. Imported after env hydration so `db`
 // connects to the testcontainer.
 beforeAll(async () => {
   const { db } = await import('../../api/trpc');

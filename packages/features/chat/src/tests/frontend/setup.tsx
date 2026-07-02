@@ -18,12 +18,6 @@ export const mockMessages: Message[] = [
     role: 'assistant',
   },
 ];
-// might need to test different webapp env later too
-vi.mock('../../env', () => ({
-  env: {
-    NEXT_PUBLIC_WEBAPP: 'nextjs',
-  },
-}));
 vi.mock('../../hooks/use-chat', () => {
   // Return a hook implementation that uses React state so `send` triggers a re-render
   return {

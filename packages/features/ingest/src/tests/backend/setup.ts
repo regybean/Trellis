@@ -1,36 +1,17 @@
-/* eslint-disable no-restricted-properties */
 /**
  * Backend Test Setup
  *
- * Runs before each backend test file. Ingest has no DB/Redis of its own, so this
- * only:
- * - mocks env.ts so createEnv validation never runs
- * - mocks server-only so server modules import under vitest
- * - mocks the document store (@acme/rag/server) and S3 client — the two
- *   external services the documents router talks to
+ * Runs before each backend test file. Ingest has no DB/Redis of its own and env
+ * is real (validated by env.ts against staticTestEnv), so this only mocks the
+ * behavioral boundaries:
+ * - server-only so server modules import under vitest
+ * - the document store (@acme/rag/server) and S3 client — the two external
+ *   services the documents router talks to
  *
  * Tests set per-case return values via vi.mocked(...) on these mocks.
  */
 
 import { beforeEach, vi } from 'vitest';
-
-vi.mock('../../env', () => ({
-  env: {
-    NODE_ENV: 'test',
-    NEXT_PUBLIC_WEBAPP: 'http://localhost:3000',
-    AWS_REGION: 'eu-west-2',
-    AWS_ACCESS_KEY_ID: 'test',
-    AWS_SECRET_ACCESS_KEY: 'test',
-    S3_UPLOAD_BUCKET: 'test-bucket',
-  },
-}));
-
-// @acme/trpc constructs a Redis client at import time; mock its env so the
-// import resolves. The documents router never consumes rateLimit, so Redis is
-// never actually contacted.
-vi.mock('@acme/redis/env', () => ({
-  env: { REDIS_URL: 'redis://localhost:6379' },
-}));
 
 // Allow importing server-only modules under vitest.
 vi.mock('server-only', () => ({}));

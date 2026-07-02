@@ -9,6 +9,7 @@ import userEvent from '@testing-library/user-event';
 import { useAuth } from '@acme/auth';
 
 import { PricingPage } from '../../components/pricing';
+import { env } from '../../env';
 import { renderWithProviders } from './setup';
 
 // Helper: get all plan buttons by role + text heuristics
@@ -306,7 +307,9 @@ describe('Pricing Page', () => {
       const arg: unknown = createCheckoutSpy.mock.calls[0]?.[0];
       // If arg is defined ensure productId matches
       if (arg && typeof arg === 'object' && 'productId' in arg) {
-        expect(arg).toEqual({ productId: 'standard_plan_12345' });
+        expect(arg).toEqual({
+          productId: env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID,
+        });
       }
     });
   });

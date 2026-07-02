@@ -1,22 +1,17 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
 
-import baseConfig from '@acme/vitest-config/base';
+import { backendProject } from '@acme/test-utils/vitest';
 
+// NEXT_PUBLIC_WEBAPP only drives the @acme/redis key namespace here (billing's
+// own env has no webapp; its DB tables aren't schema-scoped by it), so any valid
+// identifier works — `billing_test` doubles as Redis-prefix isolation alongside
+// the dedicated logical DB. mockReset stays off: this suite relies on mock
+// implementations persisting across tests (see setup.ts).
 export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    test: {
-      name: 'backend',
-      environment: 'node',
-      include: ['src/tests/backend/**/*.test.ts'],
-      setupFiles: ['./src/tests/backend/setup.ts'],
-      globalSetup: ['./src/tests/backend/global-setup.ts'],
-      testTimeout: 60000,
-      hookTimeout: 60000,
-      pool: 'forks',
-      maxWorkers: 1,
-      isolate: false,
-      mockReset: false,
-    },
+  backendProject({
+    webapp: 'billing_test',
+    redisDb: '1',
+    setupFiles: ['./src/tests/backend/setup.ts'],
   }),
+  defineConfig({ test: { mockReset: false } }),
 );

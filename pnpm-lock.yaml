@@ -1942,6 +1942,9 @@ importers:
 
   tooling/test-utils:
     dependencies:
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
@@ -1976,9 +1979,6 @@ importers:
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../typescript
-      '@acme/vitest-config':
-        specifier: workspace:*
-        version: link:../vitest
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)

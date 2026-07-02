@@ -21,6 +21,12 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 | `packages/features/feedback/` | [`packages/features/feedback/CONTEXT.md`](packages/features/feedback/CONTEXT.md) | [`packages/features/feedback/docs/adr/`](packages/features/feedback/docs/adr/) |
 | `packages/features/ingest/` | [`packages/features/ingest/CONTEXT.md`](packages/features/ingest/CONTEXT.md) | — |
 
+## Tooling
+
+| Package | Context | ADRs |
+| --- | --- | --- |
+| `tooling/test-utils/` | [`tooling/test-utils/CONTEXT.md`](tooling/test-utils/CONTEXT.md) | [`docs/adr/0014-tests-validate-real-env.md`](docs/adr/0014-tests-validate-real-env.md) |
+
 ## Apps
 
 | App | Context | ADRs |

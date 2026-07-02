@@ -1,68 +1,20 @@
-/* eslint-disable no-restricted-properties */
 /**
  * Backend Test Setup
  *
- * This file runs before each test file. It's responsible for:
- * - Mocking env.ts to provide test configuration
- * - Setting up mocks for external services (Stripe, Redis, etc.)
- * - Configuring test-specific behavior based on environment variables
- * - Cleaning up data between tests
+ * Runs before each test file (after `@acme/test-utils/hydrate-env`, which has
+ * populated `process.env` with the testcontainer DB/Redis details). Every
+ * `env.ts` validates against the real running services — no env mocks. Only the
+ * behavioral boundaries are mocked here: the Stripe-calling utilities (keeping
+ * the real typed-error seam), `@acme/subscriptions`, and `server-only`.
  */
 
-import { afterEach, beforeEach, inject, vi } from 'vitest';
+import { afterEach, beforeEach, vi } from 'vitest';
 
 import { cleanupTestData } from './utils/test-context';
 
 // In-memory userId -> Stripe customer id store backing the @acme/subscriptions
 // mock, so setStripeCustomerId/getStripeCustomerId round-trip within a test.
 const stripeCustomerStore = vi.hoisted(() => new Map<string, string>());
-
-// Mock the env module using factory function pattern
-// The factory function receives the inject values at runtime, not at module load time
-vi.mock('../../env', () => {
-  const REDIS_URL = inject('REDIS_URL');
-  const DB_HOST = inject('DB_HOST');
-  const DB_PORT = inject('DB_PORT');
-  const DB_USER = inject('DB_USER');
-  const DB_PASSWORD = inject('DB_PASSWORD');
-  const DB_NAME = inject('DB_NAME');
-
-  return {
-    env: {
-      NODE_ENV: 'test',
-      DB_HOST: DB_HOST,
-      DB_PORT: DB_PORT,
-      DB_USER: DB_USER,
-      DB_PASSWORD: DB_PASSWORD,
-      DB_NAME: DB_NAME,
-      REDIS_URL: REDIS_URL,
-      STRIPE_SECRET_KEY: 'sk_test_12345',
-      STRIPE_WEBHOOK_SECRET: 'whsec_test_12345',
-      STRIPE_SUCCESS_URL: 'http://localhost:3000/success',
-      STRIPE_CANCEL_URL: 'http://localhost:3000/cancel',
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_12345',
-      NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL: 'https://billing.example.com',
-      NEXT_PUBLIC_STRIPE_PRO_PLAN_ID: 'prod_pro_12345',
-      NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID: 'prod_standard_12345',
-    },
-  };
-});
-
-vi.mock('@acme/redis/env', () => {
-  // Pin this package's tests to a dedicated Redis logical DB. cleanupTestData
-  // calls flushDb(), which clears the whole selected DB — turbo runs feature
-  // test suites in parallel against one shared Redis, so without per-package
-  // DBs one suite's flush wipes another's keys mid-test.
-  const injected = inject('REDIS_URL');
-  if (!injected) throw new Error('REDIS_URL not provided to test workers');
-  const REDIS_URL = `${injected.replace(/\/+$/, '')}/1`;
-
-  return {
-    env: {
-      REDIS_URL: REDIS_URL,
-    },
-  };
-});
 
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));

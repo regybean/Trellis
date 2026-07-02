@@ -1,21 +1,8 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { backendProject } from '@acme/test-utils/vitest';
 
-import baseConfig from '@acme/vitest-config/base';
-
-export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    test: {
-      name: 'backend',
-      environment: 'node',
-      include: ['src/tests/backend/**/*.test.ts'],
-      setupFiles: ['./src/tests/backend/setup.ts'],
-      globalSetup: ['./src/tests/backend/global-setup.ts'],
-      testTimeout: 60000,
-      hookTimeout: 60000,
-      pool: 'forks',
-      maxWorkers: 1,
-      isolate: false,
-    },
-  }),
-);
+// NEXT_PUBLIC_WEBAPP names the Postgres/pgvector schema (kept as `nextjs`, where
+// the Mastra Memory + knowledge-base tables are provisioned). No Redis here.
+export default backendProject({
+  webapp: 'nextjs',
+  setupFiles: ['./src/tests/backend/setup.ts'],
+});

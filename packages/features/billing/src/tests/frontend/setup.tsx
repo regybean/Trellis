@@ -8,18 +8,6 @@ import { vi } from 'vitest';
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
-// Internal code imports `../env` (e.g. from `src/trpc/react.tsx`).
-// Mock it too so createEnv validation never runs during tests.
-vi.mock('../../env', () => ({
-  env: {
-    NODE_ENV: 'test',
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_12345',
-    NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL: 'https://billing.example.com',
-    NEXT_PUBLIC_STRIPE_PRO_PLAN_ID: 'pro_plan_12345',
-    NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID: 'standard_plan_12345',
-  },
-}));
-
 // Mock next/navigation if any internal navigation used (not strictly needed but safe)
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),

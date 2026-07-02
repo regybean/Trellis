@@ -20,6 +20,10 @@
       "types": "./dist/hydrate-env.d.ts",
       "default": "./src/hydrate-env.ts"
     },
+    "./vitest": {
+      "types": "./dist/vitest.d.ts",
+      "default": "./src/vitest.ts"
+    },
     "./mocks": {
       "types": "./dist/mocks.d.ts",
       "default": "./src/mocks.ts"
@@ -36,6 +40,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@acme/vitest-config": "workspace:*",
     "@opentelemetry/api": "catalog:",
     "@testcontainers/postgresql": "^10.25.0",
     "@testcontainers/redis": "^10.25.0",
@@ -49,7 +54,6 @@
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
     "@acme/tsconfig": "workspace:*",
-    "@acme/vitest-config": "workspace:*",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:"

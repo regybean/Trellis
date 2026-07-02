@@ -6,14 +6,6 @@ import { vi } from 'vitest';
 
 import '@testing-library/jest-dom';
 
-// src/trpc/react.tsx reads `../env`; mock it so createEnv validation never runs.
-vi.mock('../../env', () => ({
-  env: {
-    NODE_ENV: 'test',
-    NEXT_PUBLIC_WEBAPP: 'http://localhost:3000',
-  },
-}));
-
 // Toasts are asserted in tests.
 vi.mock('react-toastify', () => ({
   toast: { success: vi.fn(), error: vi.fn() },

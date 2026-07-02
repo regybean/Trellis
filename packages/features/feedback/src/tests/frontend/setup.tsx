@@ -3,16 +3,13 @@ import type { ReactElement } from 'react';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
-import { vi } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
-// NODE_ENV='test' makes the provider use a plain httpLink (see trpc/react.tsx),
-// which msw-trpc can intercept.
-vi.mock('../../env', () => ({
-  env: { NODE_ENV: 'test', NEXT_PUBLIC_WEBAPP: 'nextjs' },
-}));
+// NODE_ENV='test' (from the shared vitest base env) makes the provider use a
+// plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
+// real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (
