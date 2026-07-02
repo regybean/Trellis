@@ -6,8 +6,8 @@ import { useSubscription } from '@trpc/tanstack-react-query';
 import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
-import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
+import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
 import { useTRPC } from '../trpc/react';
 
 export function useChat(

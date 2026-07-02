@@ -43,6 +43,7 @@
     "db:push": "turbo db:push",
     "db:studio": "echo 'Run per-app: pnpm --filter <app> db:studio (drizzle-kit studio)'",
     "deps:check": "pnpm dlx knip",
+    "dup": "pnpm dlx jscpd",
     "deps:format": "pnpm exec syncpack format",
     "deps:lint": "pnpm exec syncpack lint",
     "deps:update": "pnpm exec syncpack update",

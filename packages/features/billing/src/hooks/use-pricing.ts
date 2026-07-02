@@ -88,8 +88,7 @@ export function usePricing() {
         toast.success('Redirecting to Stripe dashboard...', {
           autoClose: 1000,
           closeButton: true,
-          icon: () =>
-            React.createElement(CreditCard, { className: 'h-4 w-4' }),
+          icon: () => React.createElement(CreditCard, { className: 'h-4 w-4' }),
         });
         setRedirectUrl(data.billingPortalUrl);
       },

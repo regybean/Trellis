@@ -1,4 +1,8 @@
 import { redirect } from 'next/navigation';
+// Blessed Next-coupled adapter: this RSC is exported only via
+// @acme/billing/server-next (the app-facing Next surface), never the neutral
+// seam. See ADR 0003.
+// eslint-disable-next-line no-restricted-imports
 import { auth } from '@clerk/nextjs/server';
 import { Database, RefreshCw } from 'lucide-react';
 

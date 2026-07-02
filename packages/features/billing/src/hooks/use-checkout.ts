@@ -36,7 +36,8 @@ export function useCheckout() {
           toast.success('Redirecting to checkout...', {
             autoClose: 1000,
             closeButton: true,
-            icon: () => React.createElement(CreditCard, { className: 'h-4 w-4' }),
+            icon: () =>
+              React.createElement(CreditCard, { className: 'h-4 w-4' }),
           });
           setRedirectUrl(data.checkoutUrl);
         } else {

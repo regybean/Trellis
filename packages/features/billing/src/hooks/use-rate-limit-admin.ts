@@ -19,7 +19,9 @@ export function useRateLimitAdmin(userId: string) {
     void queryClient.invalidateQueries(
       trpc.account.getUserRateLimitStatus.pathFilter(),
     );
-    void queryClient.invalidateQueries(trpc.account.getCreditUsage.pathFilter());
+    void queryClient.invalidateQueries(
+      trpc.account.getCreditUsage.pathFilter(),
+    );
   };
 
   const rateLimitStatus = useQuery(

@@ -79,6 +79,34 @@ Tokens are tier-based (free/standard/pro) stored in Redis. Available via tRPC mi
 
 `@acme/rag` provides document upload (officeparser), pgvector storage, retrieval, and Mastra Memory — all on Mastra wired to AWS Bedrock. Used by the chat and ingest features. The chat Agent + Mastra instance live in `@acme/chat`; the root `pnpm studio` / `pnpm lint:mastra` scripts point the Mastra CLI at `packages/features/chat/src/mastra`. See [`docs/adr/0002-mastra-rag-and-memory.md`](docs/adr/0002-mastra-rag-and-memory.md). OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
 
+### Slice contract enforcement
+
+Inside `packages/features/*/src/components/`, components **must not** import a
+feature's tRPC client (`../trpc/react`, `../trpc/server`) or `@trpc/*`. All tRPC
+calls belong in `src/hooks/`; components stay presentational. Enforced by ESLint
+(`no-restricted-imports` on component paths in `tooling/eslint/base.ts`).
+
+### Vendor-type containment
+
+Framework/vendor SDKs are contained to named homes, enforced by ESLint
+(`no-restricted-imports`, `tooling/eslint/base.ts`). Default: every package bans
+them; blessed homes opt back in via `containmentOverride(...)` in their own
+`eslint.config.ts`.
+
+- **`@mastra/*`** — only `@acme/rag` and `@acme/chat` (ADR 0002).
+- **Framework-specific Clerk** (`@clerk/nextjs/server`,
+  `@clerk/tanstack-react-start/server`) — only apps and `@acme/auth` (ADR 0003).
+  The one blessed feature-level exception is `@acme/billing`'s `server-next`
+  adapter (`stripe-success-handler.tsx`), which carries an inline
+  `eslint-disable` citing ADR 0003. Type-only Clerk imports are allowed.
+
+Adding a new blessed home means editing that package's `eslint.config.ts`, not
+weakening the default.
+
+`stripe` is not guarded by ESLint — it is contained to `@acme/billing` by the
+dependency graph (billing is the only package that declares it), which `knip`
+and `syncpack` keep honest.
+
 ## Development Patterns
 
 ### Adding a New Package

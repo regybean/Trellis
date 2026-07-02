@@ -3,6 +3,9 @@
   "workspaces": {
     "apps/tanstack-start": {
       "entry": ["src/router.tsx", "src/start.ts"]
+    },
+    "apps/tanstack-slim": {
+      "entry": ["src/router.tsx", "src/start.ts"]
     }
   }
 }

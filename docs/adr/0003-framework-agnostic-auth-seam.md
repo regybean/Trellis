@@ -62,3 +62,18 @@ accepted
   build fails. Backend code (`transformUserForClient`) must stay out of the
   `'use client'` barrel because it has to *run* on the server, not become a
   client reference.
+- The seam is guarded by ESLint (`no-restricted-imports` in
+  `tooling/eslint/base.ts`): `@clerk/nextjs/server` and
+  `@clerk/tanstack-react-start/server` are banned in every package by default;
+  apps opt back in via `containmentOverride({ allowClerk: true })`. `@acme/auth`
+  needs no exception — it uses `@clerk/clerk-react` / `@clerk/backend`, not the
+  framework server SDKs. Type-only imports are allowed (they don't couple
+  runtime).
+- **One blessed feature-level exception:** `@acme/billing` ships a Next-coupled
+  RSC (`stripe-success-handler.tsx`, exported only via `@acme/billing/server-next`,
+  never the neutral `@acme/billing/server`). It resolves Clerk directly and
+  carries an inline `eslint-disable` citing this ADR. This is a *named* Next
+  adapter living in the package, not a leak into the neutral surface — the
+  TanStack app reimplements the same flow with a server function over
+  `syncStripeDataToKV`. Any future feature-level Clerk use must clear the same
+  bar (isolated behind a framework-specific entry point) or be injected instead.

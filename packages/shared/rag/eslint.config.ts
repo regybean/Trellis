@@ -1,4 +1,8 @@
-import { baseConfig, restrictEnvAccess } from '@acme/eslint-config/base';
+import {
+  baseConfig,
+  containmentOverride,
+  restrictEnvAccess,
+} from '@acme/eslint-config/base';
 import { securityConfig } from '@acme/eslint-config/security';
 
 export default [
@@ -8,4 +12,6 @@ export default [
   ...baseConfig,
   ...securityConfig,
   ...restrictEnvAccess,
+  // Blessed Mastra home (ADR 0002).
+  ...containmentOverride({ allowMastra: true }),
 ];

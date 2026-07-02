@@ -1,7 +1,8 @@
 // Global type declarations for Clerk auth.
 // Roles is owned by @acme/auth — import it rather than redeclaring.
-import type { Roles } from '@acme/auth';
 import type { User } from '@clerk/nextjs/server';
+
+import type { Roles } from '@acme/auth';
 
 declare global {
   interface CustomJwtSessionClaims {

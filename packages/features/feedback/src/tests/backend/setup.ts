@@ -90,6 +90,15 @@ vi.mock('@acme/subscriptions', async () => {
 // Allow importing server components in vitest.
 vi.mock('server-only', () => ({}));
 
+// Prevent @acme/models's eager model resolution (resolve.ts runs at import time)
+// from calling ollamaEnv() / bedrockEnv() without real provider env vars.
+vi.mock('@acme/models', () => ({
+  chatModel: {},
+  titleModel: {},
+  embedModel: {},
+  embedProviderOptions: vi.fn().mockReturnValue({}),
+}));
+
 // @acme/rag's documents-schema reads EMBED_DIMENSIONS from @acme/models/env at
 // load time; provide a fixed value so the schema builds without a real provider.
 vi.mock('@acme/models/env', () => ({

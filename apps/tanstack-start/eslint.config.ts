@@ -1,4 +1,8 @@
-import { baseConfig, restrictEnvAccess } from '@acme/eslint-config/base';
+import {
+  baseConfig,
+  containmentOverride,
+  restrictEnvAccess,
+} from '@acme/eslint-config/base';
 import { reactConfig } from '@acme/eslint-config/react';
 import { securityConfig } from '@acme/eslint-config/security';
 
@@ -50,4 +54,6 @@ export default [
       ],
     },
   },
+  // The app owns the Clerk auth boundary (ADR 0003); Mastra stays banned.
+  ...containmentOverride({ allowClerk: true }),
 ];

@@ -87,6 +87,32 @@ jobs:
       - name: Deps lint (syncpack)
         run: pnpm deps:lint
 
+  # Report-only: surfaces dead code / unused deps. Non-blocking until baselined.
+  deps-check:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup
+        uses: ./tooling/github/setup
+
+      - name: Dead code / unused deps (knip)
+        run: pnpm deps:check
+
+  # Report-only: surfaces copy-paste within packages/. Non-blocking.
+  duplication:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Setup
+        uses: ./tooling/github/setup
+
+      - name: Duplication (jscpd)
+        run: pnpm dup
+
   # Mirrors Bitbucket "Testing Code"
   test:
     runs-on: ubuntu-latest

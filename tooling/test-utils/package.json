@@ -16,6 +16,10 @@
       "types": "./dist/setup.d.ts",
       "default": "./src/setup.ts"
     },
+    "./hydrate-env": {
+      "types": "./dist/hydrate-env.d.ts",
+      "default": "./src/hydrate-env.ts"
+    },
     "./mocks": {
       "types": "./dist/mocks.d.ts",
       "default": "./src/mocks.ts"
