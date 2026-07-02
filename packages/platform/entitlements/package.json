@@ -15,6 +15,7 @@
       "default": "./src/index.ts"
     }
   },
+  "sideEffects": false,
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,

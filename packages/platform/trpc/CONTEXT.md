@@ -88,3 +88,14 @@ app-owned, satisfying ADR 0003 / 0010. A fifth framework writes one resolver, no
 whole handler. The 204 `Response` is built in each app because the `Response` global is
 framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM type
 boundary if constructed in the platform package.
+
+**`@acme/trpc/testing` is the one home for a test caller context**: `createTestContext`
+(+ `createMockEntitlements`, `createMockAuth`, `createMockUser`, `createNoopTelemetry`)
+live here — beside the `BaseContext` they must match — so every feature builds a caller
+from the real platform types, not the structural `as any` a tooling package below
+`platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
+The context is synchronous but its `subscription`/`tier`/`credits` are derived from the
+same mock `EntitlementsProvider.resolve` the real `createTRPCContext` would call, so a
+test context cannot drift from production. `createMockUser` is typed as the augmentable
+`InjectedUser` so a feature that sharpens it to a Clerk `User` (billing) sees the richer
+type without this package importing any Clerk SDK. See [docs/TESTING.md](../../../docs/TESTING.md).

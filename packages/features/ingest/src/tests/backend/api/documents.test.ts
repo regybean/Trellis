@@ -10,9 +10,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { TestContextOptions } from '@acme/test-utils';
 import { deleteByFilename, listDocuments, uploadDocs } from '@acme/rag/server';
 
+import type { TestContextOptions } from '../utils/test-context';
 import { appRouter } from '../../../api/root';
 import {
   deleteFilesFromS3,

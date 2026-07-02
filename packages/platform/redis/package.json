@@ -23,8 +23,13 @@
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./src/testing.ts"
     }
   },
+  "sideEffects": false,
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,

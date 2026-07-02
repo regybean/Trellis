@@ -3,30 +3,15 @@
  *
  * @module @acme/test-utils
  *
- * This package provides:
- * - Mock helpers for Clerk, Telemetry, Stripe (./mocks)
- * - Testcontainers for PostgreSQL and Redis (./containers)
- * - Global setup/teardown for vitest (./setup)
+ * Infra-only test tooling: testcontainers, global setup/teardown, env
+ * hydration, and the shared vitest backend preset (`./vitest`). The tRPC caller
+ * context + mocks live in `@acme/trpc/testing`; Redis flush helpers in
+ * `@acme/redis/testing` — owned by the packages whose real types they need,
+ * since this tooling package sits below `platform` and cannot import them.
  */
 
 // Types
 export type { TestContainers } from './containers';
-export type {
-  CreditInfo,
-  MockSubscription,
-  SubscriptionTier,
-  TestContextOptions,
-} from './mocks';
-
-// Mock functions
-export {
-  createDefaultCredits,
-  createMockAuth,
-  createMockEntitlements,
-  createMockStripe,
-  createMockUser,
-  createNoopTelemetry,
-} from './mocks';
 
 // Containers
 export {

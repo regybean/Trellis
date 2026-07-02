@@ -41,3 +41,5 @@ The `reset`/`maxOut`/`overrideExpiry`/`status` operations fetch the **Subscripti
 **Eager credit initialisation**: If `credits:{userId}:{tier}` does not exist when `credits.read()` is called, it is created immediately with the full limit and set to expire at the end of the billing window. This avoids a separate "provision credits" step on first use.
 
 **Atomic set + expiry**: Every credit write (`read` eager-init, `reset`, `maxOut`, the missing-key branch of `overrideExpiry`) sets the value and its expiry in a single Redis command (`SET … EXAT`). A value written without an expiry would be an immortal key that never resets — so the value and expiry are never two separate round-trips.
+
+**Pure policy split from storage** (`credit-policy.ts`): the per-tier limits and the billing-window computation are pure functions with no Redis, extracted so they can be unit-tested in isolation (`tests/domain`) while the Redis-backed operations in `credits.ts` are tested against a real Redis (`tests/service`) — the API→Service→Domain taxonomy in [docs/TESTING.md](../../../docs/TESTING.md). `credits.ts` remains the sole owner of the key format and every mutation.

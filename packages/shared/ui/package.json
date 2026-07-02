@@ -47,6 +47,7 @@
       "default": "./src/index.ts"
     }
   },
+  "sideEffects": false,
   "license": "MIT",
   "peerDependencies": {
     "react": "catalog:",

@@ -22,9 +22,14 @@ behavioral/IO boundaries (`@acme/subscriptions`, `server-only`, `next/navigation
 
 ## Consequences
 
-- No `@acme/models` mock is needed: ai-sdk provider factories only build config
-  objects at import (no network), so `resolve.ts` constructs fine from
-  `staticTestEnv`. Dropping it is deliberate; re-adding it re-hides that seam.
+- No `@acme/models` mock is needed **for env reasons**: ai-sdk provider factories
+  only build config objects at import (no network), so `resolve.ts` constructs
+  fine from `staticTestEnv` — an env-shaped mock of it would only re-hide that
+  seam. This is separate from a _behavioral_ mock: a suite that must avoid a real
+  Bedrock call still mocks `@acme/models`' model behavior (e.g. `@acme/rag` swaps
+  in a fixed-vector embed model). The rule is precise — never mock `env` or
+  in-repo infra (Postgres/Redis); do mock true externals (LLM/Bedrock, Stripe,
+  S3) for behavior. See [docs/TESTING.md](../TESTING.md).
 - Backend suites need Docker/podman (testcontainers) to hydrate DB/Redis — the
   price of validating connection env for real. In CI, `env.ts`'s own
   `skipValidation` short-circuits on `CI`, but `hydrate-env` still populates the

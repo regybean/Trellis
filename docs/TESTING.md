@@ -1,226 +1,184 @@
 # Testing Guide
 
-This document provides concise guidance for writing tests in the Trellis monorepo.
+How tests work in the Trellis monorepo — the layer taxonomy, the fixtures, and
+the rules. This is the canonical reference; `docs/agents/testing.md` is the short
+agent-facing pointer to it.
 
-## Quick Start
+## Quick start
 
 ```bash
-# Run all tests with test environment
-pnpm --filter @acme/chat test
-
-# Backend tests only
-pnpm --filter @acme/chat test:backend
-
-# Frontend tests only
-pnpm --filter @acme/chat test:frontend
-
-# Watch mode
+pnpm --filter @acme/chat test            # a package's full suite
+pnpm --filter @acme/chat test:backend    # backend only
+pnpm --filter @acme/chat test:frontend   # frontend only
 pnpm --filter @acme/chat test:backend:watch
+pnpm test                                # everything (turbo)
 ```
 
-### Testcontainers vs Docker Compose
+Backend suites need Postgres + Redis. **Locally** they must already be running
+(`pnpm infra:up`) on the standard ports (5432 / 6379); the global-setup checks
+the ports and fails loudly if they're down. **In CI** (`CI=true`) the same
+global-setup starts throwaway testcontainers and runs migrations, then tears
+them down. Infra-less suites (see `infra: false` below) need neither.
 
-| Mode           | When Used                   | Ports      |
-| -------------- | --------------------------- | ---------- |
-| Docker Compose | Local development (default) | 5432, 6379 |
-| Testcontainers | CI                          | 5432, 6379 |
+## The test taxonomy: API → Service → Domain
 
-## Test Structure
+Backend tests are grouped by **the seam under test**, one folder each under
+`src/tests/backend/`:
 
-```
-packages/features/chat/src/tests/
-├── backend/
-│   ├── globalSetup.ts        # Starts testcontainers (if needed) and stops on close
-│   ├── setup.ts              # Mocks (env, LLM, Clerk, etc.)
-│   ├── routers/              # tRPC router tests
-│   └── utils/                # Test context & fixtures
-└── frontend/
-    ├── setup.tsx             # React test setup
-    └── *.test.tsx            # Component tests
-```
+| Folder     | Seam under test                                                                                       | Infra                   | Examples                                                                                      |
+| ---------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
+| `api/`     | The tRPC **router** — the feature's public interface, through all middleware (auth, tier, rate-limit) | Real DB/Redis           | `api/account.test.ts`, `api/chat.test.ts`                                                     |
+| `service/` | A **service/module** that hits real infra directly (not through the router)                           | Real DB/Redis           | `service/credits.test.ts`, `service/document-uploader.test.ts`                                |
+| `domain/`  | **Pure logic** — transforms, policy, parsing                                                          | None (no I/O, no mocks) | `domain/credit-policy.test.ts`, `domain/chat-memory.test.ts`, `domain/stripe-webhook.test.ts` |
 
-## Core Principles
+Rules of thumb:
 
-### 1. Mock env.ts, Not process.env
+- Goes through `appRouter.createCaller(...)` → **api**.
+- Touches Redis/Postgres/vector-store directly → **service**.
+- Pure function, no I/O to mock away → **domain**. A domain test that needs a
+  mock to run is usually mis-placed (it's really a service test) or is testing
+  the wrong seam.
+
+When a module has both a pure core and an I/O shell, **split it** — extract the
+pure part and test it in `domain/`, test the I/O in `service/`. `credits` is the
+worked example: `credit-policy.ts` (pure limits + billing window) is tested in
+`domain/`, while the Redis-backed operations are tested against a real Redis in
+`service/`.
+
+Frontend tests live under `src/tests/frontend/` (`*.test.tsx`, jsdom + Testing
+Library + MSW).
+
+## What is real vs mocked
+
+Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
+`env.ts` and exercise real in-repo infrastructure. Never mock either.**
+
+| Dependency                | Approach                                                                                                                                                 |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `env.ts` (every package)  | **Real** — validated against `createEnv`, never mocked. Static values come from `staticTestEnv`; live DB/Redis details are hydrated from the containers. |
+| PostgreSQL / pgvector     | **Real** (testcontainers in CI, docker-compose locally).                                                                                                 |
+| Redis                     | **Real** — same.                                                                                                                                         |
+| Clerk auth                | Stubbed via the test context (`@acme/trpc/testing`) — we don't test Clerk.                                                                               |
+| LLM / Bedrock, embeddings | Mocked — a true external. Behavioral fake (e.g. rag's fixed embed vector).                                                                               |
+| Stripe, S3                | Mocked — true externals.                                                                                                                                 |
+| OpenTelemetry             | Noop telemetry from the test context.                                                                                                                    |
+
+The one rule that resolves every "should I mock this?": **mock true externals
+(third-party network services); never mock `env` or in-repo infra.** Mocking a
+third-party SDK for _behavior_ (e.g. `@acme/models`' embed model) is expected and
+different from mocking `env` for _shape_ — the latter is what ADR 0014 forbids.
+
+> Reaching a branch that a validated `env` can't produce? Configure the real env
+> to reach it — don't mock the env module. Example: `redis`'s `namespace.test.ts`
+> exercises the empty-namespace branch via `vi.stubEnv('CI','true')` (the real
+> `skipValidation` path), not `vi.mock('../env')`.
+
+## The tRPC test context
+
+There is **one** canonical context builder, shipped from `@acme/trpc/testing` (a
+dedicated export subpath — prod code never imports it). It is typed against the
+real platform contract, and its `subscription`/`tier`/`credits` are derived from
+the same mock `EntitlementsProvider` the real `createTRPCContext` would resolve,
+so a test context can't drift from production.
 
 ```typescript
-// setup.ts - Mock the env module directly
-vi.mock("../../env", () => ({
-  env: {
-    DB_HOST: "localhost",
-    DB_PORT: 5432,
-  },
-}));
-```
+// src/tests/backend/utils/test-context.ts re-exports it + owns feature cleanup:
+export { createTestContext } from "@acme/trpc/testing";
+export type { TestContextOptions } from "@acme/trpc/testing";
 
-### 2. Test Middleware Once
+// In a test:
+import { createTestContext } from "../utils/test-context";
+import { appRouter } from "../../../api/root";
 
-Since all procedures share the same middleware, test auth/validation once (per package):
-
-```typescript
-describe("middleware (tested once)", () => {
-  it("rejects unauthenticated requests", async () => {
-    const caller = createCaller({ auth: { userId: null } });
-    await expect(caller.chat.getProjects()).rejects.toMatchObject({
-      code: "INTERNAL_SERVER_ERROR",
-    });
-  });
-});
-```
-
-### 3. Focus on Business Logic
-
-Test the actual behavior with real database state:
-
-```typescript
-describe("get", () => {
-  it("returns empty array for chat with no messages (zero)", async () => {
-    const userId = createTestUserId();
-    const chat = await createTestChat({ userId });
-    const caller = createCaller({ auth: { userId } });
-
-    const result = await caller.chat.get({ sessionId: chat.sessionId });
-
-    expect(result).toEqual([]);
-  });
-
-  it("returns all messages in order (many)", async () => {
-    const userId = createTestUserId();
-    const { chat } = await createTestChatWithMessages({
-      userId,
-      messageCount: 10,
-    });
-    const caller = createCaller({ auth: { userId } });
-
-    const result = await caller.chat.get({ sessionId: chat.sessionId });
-
-    expect(result).toHaveLength(10);
-  });
-});
-```
-
-### 4. Zero, One, Many Pattern
-
-Always test with different amounts of data:
-
-```typescript
-it('returns empty array when user has no chats (zero)', ...);
-it('returns single chat (one)', ...);
-it('returns all chats for specified user only (many)', ...);
-```
-
-### 5. Real DB, Mocked External Services
-
-| Service       | Approach                                    |
-| ------------- | ------------------------------------------- |
-| PostgreSQL    | Real (via testcontainers or docker-compose) |
-| Redis         | Real (via testcontainers or docker-compose) |
-| Clerk Auth    | Mocked (never test Clerk itself)            |
-| LLM/Bedrock   | Mocked                                      |
-| Stripe        | Mocked                                      |
-| OpenTelemetry | Noop implementation                         |
-
-## Shared Test Utilities
-
-The `@acme/test-utils` package provides:
-
-### Testcontainers
-
-```typescript
-import { startContainers, stopContainers } from "@acme/test-utils/containers";
-
-// In globalSetup.ts
-export async function setup() {
-  if (process.env.USE_TESTCONTAINERS === "true") {
-    await startContainers();
-  }
-}
-```
-
-### Mocks
-
-```typescript
-import { createNoopTelemetry, createMockAuth } from "@acme/test-utils";
-```
-
-## Creating Test Context
-
-Use the test context factory for tRPC testing:
-
-```typescript
-import { createTestContext, createTestUserId } from "../utils";
-
-function createCaller(opts: TestContextOptions = {}) {
-  const ctx = createTestContext(opts);
-  return appRouter.createCaller(ctx);
+function createCaller(opts: TestContextOptions) {
+  return appRouter.createCaller(createTestContext(opts));
 }
 
-// Authenticated user
-const caller = createCaller({ auth: { userId: createTestUserId() } });
-
-// Admin user
 const caller = createCaller({
-  auth: { userId: createTestUserId(), role: "admin" },
-});
-
-// Rate-limited user
-const caller = createCaller({
-  auth: { userId: createTestUserId() },
-  tokens: { remaining: 0 },
+  userId: createTestUserId(),
+  role: "user", // 'user' | 'admin'
+  tier: "Basic", // 'Basic' | 'Standard' | 'Pro' → derives the subscription
+  credits: { remaining: 250, limit: 250, resetAt: Date.now() },
 });
 ```
 
-## Test Fixtures
+`db` is **not** passed in the context — it's bound at the feature tRPC instance
+by `createFeatureTRPCWithDb(db)` middleware. Tests never inject it.
 
-Use fixtures to create test data:
+### Data cleanup
+
+Each feature's `utils/test-context.ts` owns a `cleanupTestData()` that deletes
+its own tables and flushes Redis via `flushTestDb` from `@acme/redis/testing`.
+Call it in `beforeEach`/`afterEach`. Per-suite isolation makes this safe: each
+backend suite gets a **dedicated Postgres schema** (`webapp`) and a **dedicated
+Redis logical DB** (`redisDb`), so a parallel suite's flush can't wipe yours.
+
+## The vitest backend preset
+
+`backendProject` (`@acme/test-utils/vitest`) folds the shared backend wiring into
+one call; a package's `vitest.config.backend.ts` declares only what's unique:
 
 ```typescript
-import {
-  createTestChat,
-  createTestChatWithMessages,
-  createTestUserId,
-  createTestSessionId,
-} from "../utils";
+import { backendProject } from "@acme/test-utils/vitest";
 
-// Create a chat
-const chat = await createTestChat({ userId: "user_123" });
-
-// Create a chat with messages
-const { chat, messages } = await createTestChatWithMessages({
-  userId: "user_123",
-  messageCount: 5,
+export default backendProject({
+  webapp: "chat", // Postgres schema + Redis key namespace for the suite
+  redisDb: "2", // dedicated Redis logical DB (isolation)
+  setupFiles: ["./src/tests/backend/setup.ts"],
+  // infra: false,             // opt out of containers entirely (see below)
+  // globalSetup: './src/tests/backend/global-setup.ts', // override only if you need custom provisioning
 });
 ```
 
-## What to Test
+It sets: `staticTestEnv` + per-suite `NEXT_PUBLIC_WEBAPP`/`TEST_REDIS_DB`, the
+`@acme/test-utils/hydrate-env` setup file (copies container connection details
+into `process.env` before any `env.ts` loads), the shared testcontainer
+`globalSetup`, and a single non-isolated forked worker with generous timeouts (a
+real DB means tests share one deterministic connection space).
 
-### ✅ Do Test
+**`infra: false`** — for a suite whose externals are all mocked and touches no
+DB/Redis (e.g. `ingest`): no containers start and env isn't hydrated, so it runs
+anywhere. Env is still real, satisfied by `staticTestEnv`.
 
-- Business logic (CRUD operations, data transformations)
-- Authorization/ownership checks (can user X access resource Y?)
-- Edge cases (empty data, large data sets, invalid states)
-- Database state changes (verify data is persisted correctly)
+## Provisioning app-owned tables (DDL)
 
-### ❌ Don't Test
+Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. Derive
+it from the **same Drizzle schema production uses**. `feedback`'s `setup.ts` is
+the pattern: in `beforeAll`, `drizzle-kit/api`'s `generateMigration` diffs an
+empty DB against the feature schema and applies the resulting `CREATE`
+statements. It runs in-worker (where `NEXT_PUBLIC_WEBAPP` names the isolated
+schema the table lives in), is idempotent (tolerates "already exists" across
+runs), and — being an empty→schema diff — never inspects or drops Mastra's
+runtime `mastra_*` tables. Mastra's own tables are created lazily by the memory
+fixtures.
 
-- Clerk authentication (it's mocked, test middleware behavior instead)
-- External service implementations (Stripe API, LLM responses)
-- Framework behavior (tRPC routing, Zod validation internals)
+## Mocking conventions
 
-## Running Tests in CI
+- **`mockReset: true`** is the base default — mock implementations are wiped
+  before each test. Establish per-test default behavior in a `beforeEach` (chat's
+  `chatAgent.stream` spy is the pattern).
+- A suite with a large set of **stable stub implementations** may instead set
+  `mockReset: false` and clear only call history with `vi.clearAllMocks()` in
+  `beforeEach` (billing's Stripe/subscriptions stubs). If you do, say why in the
+  config comment.
+- `server-only` is mocked (`vi.mock('server-only', () => ({}))`) so server
+  modules import under vitest.
 
-CI automatically:
+## Test style
 
-2. Starts PostgreSQL container on port 5432
-3. Starts Redis container on port 6379
-4. Runs migrations
-5. Executes tests
-6. Stops containers
+- **Test middleware once.** Every procedure shares the auth/tier/rate-limit
+  stack; assert the unauthorized/forbidden paths once per package, not per
+  procedure.
+- **Zero, one, many.** Cover empty, single, and multiple-row cases.
+- **Assert real state.** Read data back through the same API/DB, not through the
+  mock.
+- **Don't test the framework** (tRPC routing, Zod internals) or mocked services
+  (Stripe API, LLM output).
 
 ## Package test policy
 
-The root `pnpm test` is a trustworthy gate: every workspace package declares
-its test capability so "no test script" is never ambiguous. Each `package.json`
+The root `pnpm test` is a trustworthy gate: every workspace package declares its
+test capability so "no test script" is never ambiguous. Each `package.json`
 carries an `acme` block, enforced by `pnpm test:policy`
 ([`scripts/check-test-policy.mjs`](../scripts/check-test-policy.mjs), wired into
 `quality-gate`):
@@ -250,57 +208,25 @@ carries an `acme` block, enforced by `pnpm test:policy`
   yet. The gate stays green; the gap is tracked, not lost. Requires a `reason`.
   List all gaps with `pnpm test:policy --todos`.
 - `reason` is **required** when `testStatus` is `todo`, or when `testClass` is
-  `app` or `none` (document why it's intentionally test-free).
+  `app` or `none`.
 
 The checker also warns when a `none` package ships `.tsx` (UI) or `src/api` (a
 router) — a contradiction signalling it's mis-classified.
 
-Closing a gap = write the tests, add the class's scripts, and delete the
-`testStatus`/`reason` keys.
-
-## Adding Tests to a New Package
+## Adding tests to a new package
 
 > New packages scaffolded via `pnpm turbo gen` already include a compliant
-> `acme` block; the steps below are for retrofitting an existing package.
+> `acme` block; the steps below are for retrofitting.
 
-1. Add dev dependency on `@acme/test-utils`
-2. Create `vitest.config.backend.ts`:
-
-```typescript
-import { defineConfig, mergeConfig } from "vitest/config";
-import baseConfig from "@acme/vitest-config/base";
-
-export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    test: {
-      name: "backend",
-      environment: "node",
-      include: ["src/tests/backend/**/*.test.ts"],
-      setupFiles: ["./src/tests/backend/setup.ts"],
-      globalSetup: ["./src/tests/backend/globalSetup.ts"],
-      env: {
-        REDIS_URL: "redis://localhost:6379", // need this annoyingly when redis in context
-        NODE_ENV: "test",
-      },
-    },
-  }),
-);
-```
-
-3. Create `globalSetup.ts` and `globalTeardown.ts` using `@acme/test-utils`
-4. Create `setup.ts` with mocks for your package's env.ts and external services
-5. Add test scripts to package.json:
-
-```json
-{
-  "scripts": {
-    "test": "pnpm test:backend",
-    "test:backend": "vitest run --config vitest.config.backend.ts",
-    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts"
-  }
-}
-```
-
-6. Drop the `acme.testStatus`/`reason` keys once the scripts and tests exist, so
-   the package counts as conforming (`pnpm test:policy`).
+1. Add a dev dependency on `@acme/test-utils` (and `@acme/trpc` if you build a
+   tRPC caller context).
+2. Create `vitest.config.backend.ts` with `backendProject({ webapp, redisDb? })`
+   — pick an unused `redisDb` and a valid-identifier `webapp`. Use
+   `infra: false` if the suite touches no DB/Redis.
+3. Create `src/tests/backend/setup.ts` for behavioral mocks (LLM/Stripe/S3,
+   `server-only`) and any DDL provisioning. Do **not** mock `env`.
+4. Create `src/tests/backend/utils/test-context.ts` re-exporting
+   `createTestContext` from `@acme/trpc/testing` and owning `cleanupTestData`.
+5. Place tests under `api/`, `service/`, or `domain/` per the taxonomy above.
+6. Add the class's `test*` scripts to `package.json` and drop any
+   `acme.testStatus`/`reason` once real tests exist.

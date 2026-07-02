@@ -13,8 +13,7 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { TestContextOptions } from '@acme/test-utils';
-
+import type { TestContextOptions } from '../utils/test-context';
 import { appRouter } from '../../../api/root';
 import { BillingErrorCode } from '../../../utils/stripe-errors';
 import {

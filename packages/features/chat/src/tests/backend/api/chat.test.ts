@@ -14,9 +14,9 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { TestContextOptions } from '@acme/test-utils';
 import { memory } from '@acme/rag';
 
+import type { TestContextOptions } from '../utils/test-context';
 import { appRouter } from '../../../api/root';
 import { chatAgent } from '../../../api/services/chat-agent';
 import { throwingAgentStream } from '../setup';

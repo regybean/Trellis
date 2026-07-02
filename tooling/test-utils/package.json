@@ -23,10 +23,6 @@
     "./vitest": {
       "types": "./dist/vitest.d.ts",
       "default": "./src/vitest.ts"
-    },
-    "./mocks": {
-      "types": "./dist/mocks.d.ts",
-      "default": "./src/mocks.ts"
     }
   },
   "scripts": {

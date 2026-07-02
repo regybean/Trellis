@@ -1,14 +1,10 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { backendProject } from '@acme/test-utils/vitest';
 
-import baseConfig from '@acme/vitest-config/base';
-
-export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    test: {
-      name: 'subscriptions',
-      environment: 'node',
-      include: ['src/tests/**/*.test.ts'],
-    },
-  }),
-);
+// Credits storage is tested against a REAL Redis (see tests/service), so this
+// suite needs the shared testcontainer infra + an isolated logical Redis DB. The
+// pure policy tests (tests/domain) run under the same config but touch nothing.
+export default backendProject({
+  webapp: 'subscriptions_test',
+  redisDb: '5',
+  include: ['src/tests/**/*.test.ts'],
+});

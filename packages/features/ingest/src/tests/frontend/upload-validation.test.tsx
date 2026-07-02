@@ -30,13 +30,15 @@ describe('validateFiles', () => {
   });
 
   it('rejects files over the size limit', () => {
-    expect(validateFiles([fileOf('big.pdf', MAX_FILE_SIZE_BYTES + 1)])).toEqual([
-      'File too large (max 50MB): big.pdf',
-    ]);
+    expect(validateFiles([fileOf('big.pdf', MAX_FILE_SIZE_BYTES + 1)])).toEqual(
+      ['File too large (max 50MB): big.pdf'],
+    );
   });
 
   it('accepts a file exactly at the size limit', () => {
-    expect(validateFiles([fileOf('edge.pdf', MAX_FILE_SIZE_BYTES)])).toEqual([]);
+    expect(validateFiles([fileOf('edge.pdf', MAX_FILE_SIZE_BYTES)])).toEqual(
+      [],
+    );
   });
 
   it('reports one error per rejected file and skips valid ones', () => {

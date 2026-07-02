@@ -11,6 +11,7 @@
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
+    "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
     "@acme/vitest-config": "workspace:*",
     "eslint": "catalog:",
@@ -28,6 +29,9 @@
       "default": "./src/env.ts"
     }
   },
+  "sideEffects": [
+    "**/index.ts"
+  ],
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,
@@ -43,6 +47,9 @@
   },
   "type": "module",
   "acme": {
-    "testClass": "backend-library"
+    "testClass": "backend-library",
+    "infra": [
+      "redis"
+    ]
   }
 }

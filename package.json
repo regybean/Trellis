@@ -31,6 +31,7 @@
   "private": true,
   "scripts": {
     "boundaries": "turbo boundaries",
+    "check:exports": "node scripts/check-exports.mjs",
     "build": "turbo run build",
     "build:nextjs": "turbo run build -F @acme/nextjs...",
     "build:nextjs-slim": "turbo run build -F @acme/nextjs-slim...",
@@ -57,7 +58,7 @@
     "infra:down": "pnpm with-env ./scripts/infra.sh down",
     "infra:up": "./scripts/infra-up.sh",
     "infra:logs": "pnpm with-env ./scripts/infra.sh logs -f",
-    "lint": "turbo run lint --continue -- --cache --cache-location .cache/.eslintcache",
+    "lint": "pnpm check:exports && turbo run lint --continue -- --cache --cache-location .cache/.eslintcache",
     "lint:fix": "turbo run lint --continue -- --fix --cache --cache-location .cache/.eslintcache",
     "lint:mastra": "pnpm --filter @acme/chat lint:mastra",
     "lint:ws": "pnpm dlx sherif@latest",

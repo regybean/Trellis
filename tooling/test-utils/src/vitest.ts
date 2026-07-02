@@ -63,6 +63,7 @@ interface BackendProjectOptions {
   /**
    * Dedicated Postgres schema for this suite (parallel cleanup isolation).
    * turbo runs feature backend suites concurrently against one shared database.
+   * Also drives the per-app Redis key namespace.
    */
   webapp: string;
   /**
@@ -73,7 +74,18 @@ interface BackendProjectOptions {
   /** The package's own setup file(s), run after hydrate-env. */
   setupFiles?: string[];
   include?: string[];
+  /**
+   * The testcontainer global-setup. Defaults to the shared
+   * `@acme/test-utils/setup` — a package only needs to override this when it has
+   * extra provisioning to do (e.g. a drizzle-kit push of its own schema).
+   */
   globalSetup?: string;
+  /**
+   * Whether this suite needs the DB/Redis testcontainers. Default `true`. Set
+   * `false` for a suite that touches no infra (its externals are all mocked):
+   * no containers are started and env is not hydrated — the tests run anywhere.
+   */
+  infra?: boolean;
 }
 
 export function backendProject({
@@ -81,7 +93,8 @@ export function backendProject({
   redisDb,
   setupFiles = [],
   include = ['src/tests/backend/**/*.test.ts'],
-  globalSetup = './src/tests/backend/global-setup.ts',
+  globalSetup = '@acme/test-utils/setup',
+  infra = true,
 }: BackendProjectOptions) {
   return mergeConfig(
     baseConfig,
@@ -95,11 +108,14 @@ export function backendProject({
           ...(redisDb ? { TEST_REDIS_DB: redisDb } : {}),
         },
         include,
-        // hydrate-env runs first: copies testcontainer connection details into
-        // process.env so every env.ts validates against the real DB/Redis.
-        setupFiles: ['@acme/test-utils/hydrate-env', ...setupFiles],
+        // With infra, hydrate-env runs first: copies testcontainer connection
+        // details into process.env so every env.ts validates against the real
+        // DB/Redis. Infra-less suites skip it (their externals are mocked).
+        setupFiles: infra
+          ? ['@acme/test-utils/hydrate-env', ...setupFiles]
+          : setupFiles,
         // Starts/stops the PostgreSQL + Redis testcontainers (needs Docker).
-        globalSetup: [globalSetup],
+        ...(infra ? { globalSetup: [globalSetup] } : {}),
         // Real DB means generous timeouts and a single, non-isolated worker so
         // tests share one connection/transaction space deterministically.
         testTimeout: 60_000,

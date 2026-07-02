@@ -37,6 +37,10 @@
       "default": "./src/register.ts"
     }
   },
+  "sideEffects": [
+    "**/index-server.ts",
+    "**/register.ts"
+  ],
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,

@@ -19,10 +19,11 @@
       "default": "./src/index.ts"
     },
     "./server": {
-      "types": "./dist/server.d.ts",
-      "default": "./src/server.ts"
+      "types": "./dist/index-server.d.ts",
+      "default": "./src/index-server.ts"
     }
   },
+  "sideEffects": false,
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,

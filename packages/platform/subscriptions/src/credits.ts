@@ -1,68 +1,22 @@
 import { nsKey, redis } from '@acme/redis';
 
 import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
+import { billingWindow, creditLimitFor } from './credit-policy';
 import {
   getSubscriptionType,
   getUserSubscriptionFromRedis,
 } from './subscriptions';
 
 /**
- * The one home for the Credit balance policy: the Redis key format, the
- * per-tier limits, the billing-window expiry, and every credit mutation. The
- * key format and limits are module-private — callers (the rate-limit
- * middleware, the billing admin router) invoke operations and never assemble
- * `credits:{userId}:{tier}` themselves.
+ * The storage layer for the Credit balance policy: the Redis key format and
+ * every credit mutation. The per-tier limits and billing window are the pure
+ * policy in `credit-policy.ts`. The key format is module-private — callers (the
+ * rate-limit middleware, the billing admin router) invoke operations and never
+ * assemble `credits:{userId}:{tier}` themselves.
  */
-
-const DEFAULT_LIMIT = 250;
-
-const CREDIT_LIMITS = new Map<SubscriptionTier, number>([
-  ['Basic', 250],
-  ['Standard', 350],
-  ['Pro', 1600],
-]);
-
-function creditLimitFor(tier: SubscriptionTier) {
-  return CREDIT_LIMITS.get(tier) ?? DEFAULT_LIMIT;
-}
 
 function creditKey(userId: string | null, tier: SubscriptionTier) {
   return nsKey('credits', String(userId), tier);
-}
-
-/**
- * The `{ start, end }` Unix-timestamp window credits live in. Active
- * subscriptions use the Stripe period; everything else falls back to the
- * current calendar month. `end` is the Redis expiry, so credits reset
- * automatically.
- */
-function billingWindow(subscription: SubscriptionCache) {
-  if (
-    subscription.status !== 'active' ||
-    !('currentPeriodStart' in subscription) ||
-    !subscription.currentPeriodStart ||
-    !subscription.currentPeriodEnd
-  ) {
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), 1);
-    const end = new Date(
-      now.getFullYear(),
-      now.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999,
-    );
-    return {
-      start: Math.floor(start.getTime() / 1000),
-      end: Math.floor(end.getTime() / 1000),
-    };
-  }
-  return {
-    start: subscription.currentPeriodStart,
-    end: subscription.currentPeriodEnd,
-  };
 }
 
 /**

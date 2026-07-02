@@ -4,17 +4,12 @@ import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Mail, Settings, Shield, UserIcon } from 'lucide-react';
 
+import type { UserManagementUser } from './user-detailed-management';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
-import type { UserManagementUser } from './user-detailed-management';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
 import { UserDetailedManagement } from './user-detailed-management';
 
 const getRoleBadgeVariant = (role?: 'user' | 'admin') =>

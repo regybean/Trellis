@@ -107,6 +107,28 @@ weakening the default.
 dependency graph (billing is the only package that declares it), which `knip`
 and `syncpack` keep honest.
 
+### Package exports convention
+
+Every runtime package (`packages/platform|shared|features`) has a
+`package.json` `exports` map following a bounded, concern-driven convention,
+enforced by `scripts/check-exports.mjs` (hard-fails `pnpm lint`).
+`tooling/*` config packages are out of scope. See
+[ADR 0015](docs/adr/0015-package-exports-convention.md).
+
+- **Entry shape:** `{ "types": "./dist/<name>.d.ts", "default": "./src/<name>.ts" }`
+  (JIT source, compiled types). Never point `default` at `dist` or `types` at `src`.
+- **Bounded keys:** roles `.`, `./server`, `./schema`, `./env`, `./testing` +
+  registered seams (`./handler`, `./register`, `./server-next`,
+  `./ownership-trpc`). A new key is a deliberate edit to `ALLOWED_KEYS` in the
+  checker.
+- **Concern-driven presence:** export a role when the package has that concern,
+  not when a consumer imports it today; never fabricate empty modules.
+- **Naming:** role barrel (≥2 re-exports) → `index-<role>.ts`; single-concern
+  module → `<name>.ts`.
+- **`sideEffects`:** every package declares it. `false` for pure/leaf packages;
+  array form listing files that hold a bare `import 'server-only'` guard or a
+  side-effecting entry (so tree-shaking can't elide them).
+
 ## Development Patterns
 
 ### Adding a New Package

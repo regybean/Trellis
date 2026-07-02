@@ -25,6 +25,10 @@
       "default": "./src/env.ts"
     }
   },
+  "sideEffects": [
+    "**/index-schema.ts",
+    "**/index-server.ts"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
@@ -50,6 +54,7 @@
     "drizzle-zod": "catalog:",
     "officeparser": "catalog:",
     "postgres": "catalog:",
+    "server-only": "catalog:",
     "uuid": "catalog:",
     "zod": "catalog:"
   },

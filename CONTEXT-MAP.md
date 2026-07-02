@@ -5,6 +5,7 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 ## System-wide
 
 - ADRs: [`docs/adr/`](docs/adr/)
+- Package `exports` convention: [`docs/adr/0015-package-exports-convention.md`](docs/adr/0015-package-exports-convention.md) (enforced by `scripts/check-exports.mjs` via `pnpm lint`)
 
 ## Packages
 

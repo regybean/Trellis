@@ -5,6 +5,12 @@ lets suites validate real `env.ts` instead of mocking it (ADR 0014). It owns
 _how_ tests get a running DB/Redis and a populated `process.env` — not _what_
 any feature asserts.
 
+This package is **infra-only**. The tRPC caller context + mocks live in
+`@acme/trpc/testing`, and the Redis flush helper in `@acme/redis/testing` —
+owned by the packages whose real types they need, since this tooling package
+sits below `platform` and cannot import those types. `@acme/test-utils` no longer
+ships a `./mocks` entrypoint.
+
 ## Language
 
 **`staticTestEnv`** (`@acme/test-utils/vitest`):
@@ -24,10 +30,15 @@ _Avoid_: "the env mock", "the env setup"
 
 **`backendProject(...)`** (`@acme/test-utils/vitest`):
 The backend Vitest config preset. Folds the identical wiring — `staticTestEnv`
-spread, `hydrate-env` ordering, testcontainer `globalSetup`, single non-isolated
-forked worker, generous timeouts — behind one call, so a package's
+spread, `hydrate-env` ordering, testcontainer `globalSetup` (defaults to the
+shared `@acme/test-utils/setup`, so a package needs no re-export file), single
+non-isolated forked worker, generous timeouts — behind one call, so a package's
 `vitest.config.backend.ts` declares only what's unique to it (`webapp`,
-`redisDb`, its own setup file).
+`redisDb`, its own setup file). A package overrides `globalSetup` only when it
+has extra provisioning to do.
+_`infra: false`_ opts a suite out of containers + env hydration entirely, for
+suites whose externals are all mocked and that touch no DB/Redis (e.g. `ingest`):
+env is still real, satisfied by `staticTestEnv` alone.
 
 **Per-suite isolation knobs**:
 `NEXT_PUBLIC_WEBAPP` (a dedicated Postgres schema) and `TEST_REDIS_DB` (a
@@ -57,9 +68,13 @@ _Avoid_: "the test schema" (be specific: schema vs Redis DB)
 details lived in `inject()`, not `process.env`. Hydration removes the reason to
 mock, so every `env.ts` runs for real and a missing var fails loud at the seam.
 
-**No `@acme/models` mock**: ai-sdk provider factories build config objects at
-import with no network, so `resolve.ts` constructs fine from `staticTestEnv`.
-Mocking it would only re-hide a seam that already works under real validation.
+**No `@acme/models` mock _for env reasons_**: ai-sdk provider factories build
+config objects at import with no network, so `resolve.ts` constructs fine from
+`staticTestEnv`; an env-shaped mock would only re-hide a seam that works under
+real validation. A _behavioral_ mock is a different thing and still allowed — a
+suite avoiding a real Bedrock call mocks the model's behavior (`@acme/rag`'s
+fixed-vector embed model). The line: never mock `env` or in-repo infra; do mock
+true externals for behavior.
 
 **Static env is a plain string map, not derived from schemas**: `staticTestEnv`
 is a hand-maintained record. Under loud validation (ADR 0014) drift is

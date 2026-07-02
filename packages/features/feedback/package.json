@@ -21,6 +21,11 @@
       "default": "./src/env.ts"
     }
   },
+  "sideEffects": [
+    "**/index-schema.ts",
+    "**/index-server.ts",
+    "**/trpc/server.tsx"
+  ],
   "scripts": {
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
@@ -69,6 +74,7 @@
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "@vitejs/plugin-react": "catalog:",
+    "drizzle-kit": "^0.31.8",
     "eslint": "catalog:",
     "jsdom": "catalog:",
     "msw": "catalog:",
@@ -81,7 +87,8 @@
   "acme": {
     "testClass": "full-stack",
     "infra": [
-      "postgres"
+      "postgres",
+      "redis"
     ]
   }
 }

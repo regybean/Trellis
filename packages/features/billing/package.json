@@ -61,6 +61,11 @@
       "default": "./src/env.ts"
     }
   },
+  "sideEffects": [
+    "**/index-server.ts",
+    "**/index-server-next.ts",
+    "**/trpc/server.tsx"
+  ],
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,

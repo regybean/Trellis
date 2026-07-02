@@ -1,25 +1,30 @@
-/* eslint-disable no-restricted-properties */
 /**
  * Backend Test Setup
  *
  * Runs before each test file (after `@acme/test-utils/hydrate-env`, which has
  * already populated `process.env` with the testcontainer DB/Redis details).
  * Every `env.ts` therefore validates against the real running services — no env
- * mocks. Only behavioral/external-service mocks live here. Also provisions the
- * app-owned `message_feedback` table (drizzle-kit owns its DDL in production;
- * tests create it directly). Mastra's `mastra_*` tables are created lazily by
- * the memory fixtures.
+ * mocks. Only behavioral/external-service mocks live here. `beforeAll` provisions
+ * the app-owned `message_feedback` table by deriving its DDL from the SAME
+ * Drizzle schema production uses, so test DDL can never drift from the schema.
+ * Mastra's `mastra_*` tables are created lazily by the memory fixtures.
  */
+import { generateDrizzleJson, generateMigration } from 'drizzle-kit/api';
 import { sql } from 'drizzle-orm';
 import { afterEach, beforeAll, vi } from 'vitest';
 
 import { cleanupTestData } from './utils/test-context';
 
-// Dedicated Postgres schema (set via vitest.config.backend.ts → NEXT_PUBLIC_WEBAPP)
-// so a parallel suite's cleanup (unscoped DELETE on the Mastra `mastra_*`
-// tables) can't wipe this suite's threads mid-test. Matches the schema the db
-// client connects to via env.
-const TEST_SCHEMA = process.env.NEXT_PUBLIC_WEBAPP ?? 'feedback_test';
+// drizzle wraps the driver error, so the "already exists" text is on the cause
+// chain, not the top-level message. Walk it. Covers duplicate schema/type/table.
+function isAlreadyExists(error: unknown) {
+  let current: unknown = error;
+  while (current instanceof Error) {
+    if (/already exists/i.test(current.message)) return true;
+    current = current.cause;
+  }
+  return false;
+}
 
 // isTierAtLeast delegates to the real implementation from @acme/entitlements
 // so requireTier gates behave correctly under test.
@@ -43,33 +48,31 @@ vi.mock('@acme/subscriptions', async () => {
 // Allow importing server components in vitest.
 vi.mock('server-only', () => ({}));
 
-// Create the app-owned table the way drizzle-kit would in production. Idempotent
-// so it can run once per test file. Imported after env hydration so `db`
-// connects to the testcontainer.
+// Provision the app-owned table the way drizzle-kit would in production, but
+// driven by the Drizzle schema itself rather than hand-written SQL: a diff from
+// an empty database to the code schema. It runs in-worker, where
+// NEXT_PUBLIC_WEBAPP names this suite's isolated Postgres schema — the same value
+// `feedback-schema.ts` reads to place the table — and `db` connects to the
+// testcontainer. Because the diff is empty -> schema, it only ever emits CREATE
+// statements and never inspects (or drops) Mastra's runtime `mastra_*` tables.
 beforeAll(async () => {
   const { db } = await import('../../api/trpc');
-  const schema = TEST_SCHEMA;
-  await db.execute(sql.raw(`CREATE SCHEMA IF NOT EXISTS "${schema}"`));
-  await db.execute(
-    sql.raw(
-      `DO $$ BEGIN CREATE TYPE "${schema}"."feedback_rating" AS ENUM ('up', 'down'); EXCEPTION WHEN duplicate_object THEN null; END $$;`,
-    ),
+  const schema = await import('../../api/schemas/feedback-schema');
+
+  const statements = await generateMigration(
+    generateDrizzleJson({}),
+    generateDrizzleJson(schema),
   );
-  await db.execute(
-    sql.raw(
-      `CREATE TABLE IF NOT EXISTS "${schema}"."message_feedback" (
-        "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-        "message_id" text NOT NULL,
-        "thread_id" text NOT NULL,
-        "user_id" text NOT NULL,
-        "rating" "${schema}"."feedback_rating" NOT NULL,
-        "comment" text,
-        "created_at" timestamptz NOT NULL DEFAULT now(),
-        "updated_at" timestamptz NOT NULL DEFAULT now(),
-        CONSTRAINT "message_feedback_message_user_unique" UNIQUE ("message_id", "user_id")
-      )`,
-    ),
-  );
+
+  for (const statement of statements) {
+    try {
+      await db.execute(sql.raw(statement));
+    } catch (error) {
+      // Idempotent across runs: the shared local DB persists, so the schema /
+      // enum / table may already exist — only "already exists" is tolerated.
+      if (!isAlreadyExists(error)) throw error;
+    }
+  }
 });
 
 afterEach(async () => {

@@ -23,15 +23,18 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
-    "./error": {
-      "types": "./dist/error.d.ts",
-      "default": "./src/error.ts"
-    },
     "./handler": {
       "types": "./dist/handler.d.ts",
       "default": "./src/handler.ts"
+    },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./src/testing.ts"
     }
   },
+  "sideEffects": [
+    "**/index.ts"
+  ],
   "license": "MIT",
   "prettier": "@acme/prettier-config",
   "private": true,
