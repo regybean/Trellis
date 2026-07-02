@@ -3,6 +3,7 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import { logger } from '@acme/logger';
 
+import type { db } from '../trpc';
 import {
   chatFolder,
   CreateFolderRequest,
@@ -10,6 +11,28 @@ import {
   selectFolderSchema,
 } from '../schemas/folder-schema';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
+
+// The Folder-ownership rule, owned by the folders module. A caller may only
+// reference their own Folder. Kept here (not inlined in `chat.setFolder`) so the
+// `chat_folder` table is only ever queried through this module — `setFolder`
+// asserts ownership through this helper rather than a naked Drizzle query in the
+// router body. Throws NOT_FOUND when the Folder does not exist for the caller.
+export async function assertFolderOwned(
+  database: db,
+  folderId: string,
+  userId: string,
+) {
+  const [folder] = await database
+    .select({ id: chatFolder.id })
+    .from(chatFolder)
+    .where(and(eq(chatFolder.id, folderId), eq(chatFolder.userId, userId)))
+    .limit(1);
+
+  if (!folder) {
+    throw new TRPCError({ code: 'NOT_FOUND', message: 'Folder not found' });
+  }
+  return folder;
+}
 
 // Folder CRUD. Folders are app-owned `chat_folder` rows scoped to the caller;
 // the Conversation→Folder assignment lives on the Mastra thread metadata and is
