@@ -1,25 +1,20 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Mail, Settings, Shield, UserIcon } from 'lucide-react';
 
-import type { SerializableUser } from '@acme/auth';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from '@acme/ui';
-
+} from '../ui/dialog';
+import type { UserManagementUser } from './user-detailed-management';
 import { UserDetailedManagement } from './user-detailed-management';
 
 const getRoleBadgeVariant = (role?: 'user' | 'admin') =>
@@ -32,7 +27,7 @@ const getRoleIcon = (role?: 'user' | 'admin') =>
     <UserIcon className="text-foreground h-3 w-3" />
   );
 
-const getUserRole = (user: SerializableUser): 'user' | 'admin' =>
+const getUserRole = (user: UserManagementUser): 'user' | 'admin' =>
   user.publicMetadata.role ?? 'user';
 
 const getEmailInitials = (email: string): string => {
@@ -41,15 +36,22 @@ const getEmailInitials = (email: string): string => {
 };
 
 interface UserManagementProps {
-  users: SerializableUser[];
+  users: UserManagementUser[];
   setRole: (formData: FormData) => Promise<void>;
   removeRole: (formData: FormData) => Promise<void>;
+  /**
+   * App-supplied billing panels for the selected user, injected so `@acme/ui`
+   * (shared) stays free of the `@acme/billing` feature dependency. Rendered
+   * inside `UserDetailedManagement`; slim apps can omit it.
+   */
+  renderBillingPanels?: (user: UserManagementUser) => ReactNode;
 }
 
 export function UserManagement({
   users,
   setRole,
   removeRole,
+  renderBillingPanels,
 }: UserManagementProps) {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -152,6 +154,7 @@ export function UserManagement({
               user={selectedUser}
               setRole={setRole}
               removeRole={removeRole}
+              billingPanels={renderBillingPanels?.(selectedUser)}
             />
           )}
         </DialogContent>

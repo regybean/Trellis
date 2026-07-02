@@ -94,9 +94,17 @@ export { MarkdownContent } from './widgets/markdown-content';
 export { SearchBar } from './widgets/search-bar';
 export { MessageInput } from './widgets/message-input';
 export { LoadingSpinner } from './widgets/loading-spinner';
+export { UserManagement } from './widgets/user-management';
+export {
+  UserDetailedManagement,
+  type UserManagementUser,
+} from './widgets/user-detailed-management';
 
 export { ToastThemeClient } from './providers/toast-theme-client';
 export { NextThemeProvider } from './providers/theme-provider';
+// Re-export the theme hook so apps read `resolvedTheme` through the same seam
+// that owns NextThemeProvider, instead of depending on next-themes directly.
+export { useTheme } from 'next-themes';
 
 export { StripeIcon } from './icons/stripe-icon';
 

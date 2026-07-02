@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import {
   Mail,
   MoreHorizontal,
@@ -9,29 +10,50 @@ import {
   Users,
 } from 'lucide-react';
 
-import type { SerializableUser } from '@acme/auth';
-import { RateLimitManagement, TierManagement } from '@acme/billing';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Badge } from '../ui/badge';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-  Badge,
-  Button,
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@acme/ui';
+} from '../ui/dropdown-menu';
+
+/**
+ * Minimal, UI-owned view of an admin-managed user. Structurally compatible with
+ * `@acme/auth`'s `SerializableUser`, but declared here so `@acme/ui` (shared)
+ * takes no dependency on the auth seam — keeping the slim apps' graph free of
+ * `@acme/auth` (ADR 0010). Callers pass their own serializable user.
+ */
+export interface UserManagementUser {
+  id: string;
+  imageUrl: string;
+  primaryEmailAddressId: string | null;
+  emailAddresses: {
+    id: string;
+    emailAddress: string;
+  }[];
+  publicMetadata: {
+    role?: 'user' | 'admin';
+  };
+  createdAt: number;
+  lastSignInAt: number | null;
+}
 
 interface UserDetailedManagementProps {
-  user: SerializableUser;
+  user: UserManagementUser;
   setRole: (formData: FormData) => Promise<void>;
   removeRole: (formData: FormData) => Promise<void>;
+  /**
+   * App-supplied billing panels (e.g. `@acme/billing`'s `RateLimitManagement` /
+   * `TierManagement`). Injected via prop so `@acme/ui` stays free of the billing
+   * feature dependency — the exact coupling ADR 0011 folded these back into apps
+   * over. Slim apps can omit it.
+   */
+  billingPanels?: ReactNode;
 }
 
 const getRoleBadgeVariant = (role?: 'user' | 'admin') =>
@@ -44,7 +66,7 @@ const getRoleIcon = (role?: 'user' | 'admin') =>
     <UserIcon className="text-foreground h-3 w-3" />
   );
 
-const getUserRole = (user: SerializableUser): 'user' | 'admin' =>
+const getUserRole = (user: UserManagementUser): 'user' | 'admin' =>
   user.publicMetadata.role ?? 'user';
 
 const getEmailInitials = (email: string): string => {
@@ -56,6 +78,7 @@ export function UserDetailedManagement({
   user,
   setRole,
   removeRole,
+  billingPanels,
 }: UserDetailedManagementProps) {
   const primaryEmail =
     user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId)
@@ -204,9 +227,7 @@ export function UserDetailedManagement({
           </CardContent>
         </Card>
 
-        <RateLimitManagement user={user} />
-
-        <TierManagement user={user} />
+        {billingPanels}
       </div>
     </div>
   );
