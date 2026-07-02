@@ -32,6 +32,9 @@ _Gotcha_: the `S3Client` sets `requestChecksumCalculation: 'WHEN_REQUIRED'`. AWS
 
 **Browser-direct S3 upload**: Files are too large to route through Next.js request bodies. The two-step presign → upload → `uploadFromS3` flow keeps the server stateless and avoids timeouts on large PDFs.
 
+**Upload protocol lives in a hook**: The three-step client protocol (presign → S3 PUT → index) is a deep module behind `useDocumentUpload` (`src/hooks/`), exposing `{ upload, status, accept }`. Components stay UI-only (see CLAUDE.md). Pure file validation is split into `src/lib/upload-validation.ts` (no React/tRPC — unit-tested directly). One derived `status` (`'idle' | 'uploading'`) replaces the previous doubled `isUploading` state + per-mutation `isPending`.
+_Gotcha_: on partial S3-PUT failure the hook aborts before indexing (never indexes a partial Document set) and reports which files failed; objects uploaded before the failure are orphaned in S3 and reaped by the bucket lifecycle rule — there is no client-callable S3 cleanup procedure.
+
 **Local parsing via officeparser**: Document text is extracted in-process (`@acme/rag`) rather than through a hosted parsing service — no LlamaParse/LlamaCloud dependency. Indexing (chunk → embed → upsert) runs on Mastra against the Bedrock Cohere embedder.
 _Gotcha_: officeparser must stay an unbundled server-external in each app (`serverExternalPackages: ['officeparser']` in Next; Vite externalizes node_modules for SSR). Its ESM wrapper destructures named exports off the CJS default import; when a bundler resolves that default to `exports.default` (the `OfficeParser` class), `convert` becomes `undefined` → "convert is not a function" at indexing time. Node's native loader resolves it correctly.
 

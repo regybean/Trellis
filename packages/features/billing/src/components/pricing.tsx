@@ -1,13 +1,8 @@
 'use client';
 
-import React from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
 import { Check, CreditCard, Loader2, Star, Users, X } from 'lucide-react';
-import { toast } from 'react-toastify';
 
-import { useAuth } from '@acme/auth';
-import { useGenericErrorHandler } from '@acme/hooks';
 import {
   Button,
   Card,
@@ -17,126 +12,12 @@ import {
   CardTitle,
 } from '@acme/ui';
 
-import {
-  getButtonState,
-  getTierColors,
-  pricingPlans,
-} from '../data/pricing-data';
-import { env } from '../env';
-import { useTRPC } from '../trpc/react';
+import { getTierColors } from '../data/pricing-data';
+import { usePricing } from '../hooks/use-pricing';
 import { ButtonSkeleton } from './pricing-components';
 
-// In dev we run against localstripe, which has no Checkout Sessions API — the
-// pricing CTAs can't create a checkout. Tiers are granted from the admin page
-// (account.setUserTier) instead. See docs/adr/0003.
-const isDev = env.NODE_ENV === 'development';
-
 export function PricingPage() {
-  const handleError = useGenericErrorHandler();
-
-  // Check authentication status with Clerk
-  const { isSignedIn, isLoaded } = useAuth();
-  const trpc = useTRPC();
-
-  // Get current user's subscription details - only if signed in and Clerk has loaded
-  const subscription = useQuery(
-    trpc.account.getSubscriptionDetails.queryOptions(undefined, {
-      enabled: isLoaded && isSignedIn,
-    }),
-  );
-
-  // Track which plan is currently processing
-  const [processingPlanId, setProcessingPlanId] = React.useState<string | null>(
-    null,
-  );
-
-  const [redirectUrl, setRedirectUrl] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (redirectUrl) {
-      globalThis.location.href = redirectUrl;
-    }
-  }, [redirectUrl]);
-  const createCheckoutSession = useMutation(
-    trpc.account.createCheckoutSession.mutationOptions({
-      onSuccess: (data) => {
-        if (data.checkoutUrl) {
-          toast.success('Redirecting to checkout...', {
-            autoClose: 1000,
-            closeButton: true,
-            icon: () => <CreditCard className="h-4 w-4" />,
-          });
-          setRedirectUrl(data.checkoutUrl);
-        } else {
-          toast.error('Failed to create checkout session');
-        }
-      },
-      onError: (err) => {
-        setProcessingPlanId(null);
-        handleError(err);
-      },
-      onSettled: () => {
-        // If redirect didn't happen (e.g., error), clear processing state
-        setTimeout(() => setProcessingPlanId(null), 1500);
-      },
-    }),
-  );
-  const createDashboardSession = useMutation(
-    trpc.account.createDashboardSession.mutationOptions({
-      onSuccess: (data) => {
-        toast.success('Redirecting to Stripe dashboard...', {
-          autoClose: 1000,
-          closeButton: true,
-          icon: () => <CreditCard className="h-4 w-4" />,
-        });
-        setRedirectUrl(data.billingPortalUrl);
-      },
-      onError: (err) => {
-        setProcessingPlanId(null);
-        handleError(err);
-      },
-      onSettled: () => {
-        setTimeout(() => setProcessingPlanId(null), 1500);
-      },
-    }),
-  );
-  // Determine if a specific plan should show its own processing state
-  const getPlanLoading = (planId: string) => processingPlanId === planId;
-
-  const handlePlanSelect = (plan: (typeof pricingPlans)[0]) => {
-    // If Clerk is still loading, don't proceed
-    if (!isLoaded) {
-      return;
-    }
-
-    // If user is not authenticated, redirect to sign-in
-    if (!isSignedIn) {
-      setRedirectUrl('/sign-in');
-      return;
-    }
-
-    // localstripe has no Checkout/billing-portal API, so the CTAs can't work in
-    // dev — grant tiers from the admin page instead.
-    if (isDev) {
-      toast.info('Checkout is unavailable in dev — set tiers from /admin.');
-      return;
-    }
-
-    // Check if this is the user's current plan
-    const currentSubscription = subscription.data?.subscription ?? 'Basic';
-
-    // For all paid plans, decide between checkout (new subscription) or dashboard (existing subscription)
-    // Set which plan is being processed so only that button shows spinner
-    setProcessingPlanId(plan.id);
-
-    if (currentSubscription === 'Basic') {
-      // User has no paid subscription, use regular checkout
-      createCheckoutSession.mutate({ productId: plan.id });
-    } else {
-      // User has a paid subscription, use Stripe dashboard for all changes
-      createDashboardSession.mutate();
-    }
-  };
+  const { cards, selectPlan, isDev } = usePricing();
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -176,16 +57,8 @@ export function PricingPage() {
         transition={{ duration: 0.6, delay: 0.4 }}
         className="mx-auto grid max-w-7xl grid-cols-1 gap-8 lg:grid-cols-3"
       >
-        {pricingPlans.map((plan, index) => {
+        {cards.map(({ plan, buttonState, isProcessing }, index) => {
           const colors = getTierColors(plan.id, plan.popular, plan.highlight);
-          const buttonState = getButtonState(
-            plan,
-            subscription.data?.subscription,
-            subscription.isPending,
-            isSignedIn,
-            isLoaded,
-          );
-          const planIsLoading = getPlanLoading(plan.id);
 
           return (
             <motion.div
@@ -264,10 +137,10 @@ export function PricingPage() {
                           ? `${colors.button} cursor-default opacity-75`
                           : colors.button
                       }`}
-                      onClick={() => handlePlanSelect(plan)}
-                      disabled={planIsLoading || buttonState.disabled}
+                      onClick={() => selectPlan(plan)}
+                      disabled={isProcessing || buttonState.disabled}
                     >
-                      {planIsLoading ? (
+                      {isProcessing ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Processing...

@@ -1,4 +1,5 @@
-// Pricing data, types, and utility functions
+// Pure pricing data + presentational (colour) helpers. The plan-selection
+// decision tree (getButtonState) lives in the hooks layer (lib/plan-selection).
 import { BarChart3, FileText, HelpCircle, MessageSquare } from 'lucide-react';
 
 import { env } from '../env';
@@ -9,7 +10,7 @@ export interface PricingFeature {
   description?: string;
 }
 
-interface PricingPlan {
+export interface PricingPlan {
   id: string;
   name: string;
   description: string;
@@ -237,117 +238,4 @@ export const getTierColors = (
       };
     }
   }
-};
-
-const getPlanHierarchy = (planName: string): number => {
-  switch (planName) {
-    case 'Basic': {
-      return 0;
-    }
-    case 'Standard': {
-      return 1;
-    }
-    case 'Pro': {
-      return 2;
-    }
-    case 'Enterprise': {
-      return 3;
-    }
-    default: {
-      return 0;
-    }
-  }
-};
-
-const getPlanChangeType = (
-  currentPlan: string,
-  targetPlan: string,
-): 'upgrade' | 'downgrade' | 'same' => {
-  const currentLevel = getPlanHierarchy(currentPlan);
-  const targetLevel = getPlanHierarchy(targetPlan);
-
-  if (targetLevel > currentLevel) return 'upgrade';
-  if (targetLevel < currentLevel) return 'downgrade';
-  return 'same';
-};
-
-export const getButtonState = (
-  plan: PricingPlan,
-  currentSubscription: string | undefined = 'Basic',
-  isSubscriptionLoading = false,
-  isAuthenticated = true,
-  isAuthLoaded = true,
-) => {
-  if (!isAuthLoaded) {
-    return {
-      text: 'Loading...',
-      disabled: true,
-      variant: 'loading' as const,
-    };
-  }
-  if (!isAuthenticated) {
-    return {
-      text: plan.id === 'basic' ? 'Login to Start' : `Choose ${plan.name}`,
-      disabled: false,
-      variant: 'signin' as const,
-    };
-  }
-  if (isSubscriptionLoading) {
-    return {
-      text: 'Loading...',
-      disabled: true,
-      variant: 'loading' as const,
-    };
-  }
-  const current = currentSubscription;
-  if (plan.name === current) {
-    return {
-      text: 'Current Plan',
-      disabled: true,
-      variant: 'selected' as const,
-    };
-  }
-  if (current !== 'Basic' && plan.id === 'basic') {
-    return {
-      text: 'Downgrade to Basic',
-      disabled: true,
-      variant: 'downgrade' as const,
-    };
-  }
-  if (
-    current === 'Basic' &&
-    plan.monthlyPrice !== null &&
-    plan.monthlyPrice > 0
-  ) {
-    return {
-      text: `Choose ${plan.name}`,
-      disabled: false,
-      variant: 'purchase' as const,
-    };
-  }
-  if (
-    current !== 'Basic' &&
-    plan.monthlyPrice !== null &&
-    plan.monthlyPrice > 0
-  ) {
-    const changeType = getPlanChangeType(current, plan.name);
-    if (changeType === 'upgrade') {
-      return {
-        text: `Upgrade to ${plan.name}`,
-        disabled: false,
-        variant: 'upgrade' as const,
-      };
-    } else if (changeType === 'downgrade') {
-      return {
-        text: `Downgrade to ${plan.name}`,
-        disabled: false,
-        variant: 'downgrade' as const,
-      };
-    }
-  }
-  return {
-    text: plan.cta,
-    disabled: false,
-    variant: 'default' as const,
-  };
 };

@@ -1,10 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
-
-import { useAuth } from '@acme/auth';
-
-import { useTRPC } from '../index';
+import { useSubscriptionDetails } from '../hooks/use-subscription-details';
 import { SubscriptionDetailsModal } from './subscription-details-modal';
 
 interface NavUserSubscriptionProps {
@@ -16,28 +12,16 @@ export function NavUserSubscription({
   isOpen,
   onOpenChange,
 }: NavUserSubscriptionProps) {
-  const { isSignedIn, isLoaded } = useAuth();
-  const trpc = useTRPC();
-
-  const subscription = useQuery(
-    trpc.account.getSubscriptionDetails.queryOptions(undefined, {
-      enabled: isLoaded && isSignedIn,
-    }),
-  );
-
-  const creditUsage = useQuery(
-    trpc.account.getCreditUsage.queryOptions(undefined, {
-      enabled: isLoaded && isSignedIn,
-    }),
-  );
+  const { subscriptionData, creditUsageData, isLoading } =
+    useSubscriptionDetails();
 
   return (
     <SubscriptionDetailsModal
       isOpen={isOpen}
       onOpenChange={onOpenChange}
-      subscriptionData={subscription.data}
-      creditUsageData={creditUsage.data}
-      isLoading={subscription.isPending || creditUsage.isPending}
+      subscriptionData={subscriptionData}
+      creditUsageData={creditUsageData}
+      isLoading={isLoading}
     />
   );
 }
