@@ -23,6 +23,9 @@ pnpm boundaries          # Verify layer boundary violations
 pnpm build               # Build all packages
 pnpm typecheck           # Type check all packages
 pnpm test                # Run all tests via Vitest
+pnpm test:backend        # Backend tests only (real Postgres/Redis via testcontainers)
+pnpm test:frontend       # Frontend tests only (jsdom + MSW at HTTP boundary)
+pnpm test:watch          # Run tests in watch mode
 turbo run test -F <pkg>  # Run tests for a single package
 pnpm test:policy         # Enforce per-package acme.testClass coverage
 ```
@@ -32,11 +35,20 @@ Tests split into `test:backend` (real Postgres/Redis via testcontainers) and
 backend taxonomy in [docs/agents/testing.md](docs/agents/testing.md), frontend
 doctrine in [ADR 0018](docs/adr/0018-frontend-test-doctrine.md). Rule of thumb:
 **test the contract, not the internals** — the tRPC procedure on the backend, the
-hook on the frontend; never `vi.mock` a seam the feature owns.
+hook on the frontend; never `vi.mock` a seam the feature owns. Frontend: assert rendered DOM and hook state, never mock call counts; toasts go through `<ToastContainer />` in the test wrapper, asserted through the DOM. Env is never mocked — tests run against real env values ([ADR 0014](docs/adr/0014-tests-validate-real-env.md)).
 
-### Dependencies
+### Infrastructure & Database
 ```bash
-pnpm deps:check          # Check for unused dependencies with knip
+pnpm infra:up            # Start local services — profile derived from acme.infra package metadata (ADR 0009)
+pnpm infra:down          # Stop services
+pnpm infra:logs          # Tail compose logs
+pnpm with-env <cmd>      # Run cmd with .env hydrated
+pnpm db:push             # Push schema changes, dev only (run)
+```
+
+### Full Validation
+```bash
+pnpm quality-gate        # lint + format + typecheck + build + boundaries + test:policy + gitleaks + test
 ```
 
 > In a git worktree, dev/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test.
@@ -49,9 +61,9 @@ pnpm deps:check          # Check for unused dependencies with knip
 tooling → platform → shared → features → apps
 ```
 
-- **tooling**: Shared configs (ESLint, Prettier, TypeScript, Tailwind, Vitest, test-utils). Depends on tooling only.
-- **platform**: Runtime substrate — the rails features run on (logger, telemetry, redis, subscriptions, trpc). Depends on platform and tooling.
-- **shared**: Reusable primitives (ui, hooks, auth, rag). Depends on shared, platform, and tooling.
+- **tooling**: Shared configs (ESLint, Prettier, TypeScript, Tailwind, Vitest, test-utils, github). Depends on tooling only.
+- **platform**: Runtime substrate — the rails features run on (logger, telemetry, redis, subscriptions, trpc, db, entitlements). Depends on platform and tooling.
+- **shared**: Reusable primitives (ui, hooks, auth, rag, models). Depends on shared, platform, and tooling.
 - **features**: Domain modules. Depends on shared, platform, and tooling only.
 - **apps**: Applications. Depends on all layers; own their shell/chrome. The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)) — the boundary tag is `app`.
 
@@ -75,6 +87,12 @@ const subscription = useSubscription(trpc.chat.stream.subscriptionOptions(input)
 - Components UI-focused only — don't call tRPC directly from components
 - Server-side: import from `src/trpc/server.tsx` for direct tRPC calls
 
+**Injection seams** — apps own these, packages must not implement them:
+- **Auth**: resolved at the app boundary (Clerk for full apps; constant `LOCAL_PRINCIPAL` for slim apps), injected as `{ auth, user }` into `createTRPCContext`. Packages never import `@clerk/nextjs/server` or `@clerk/tanstack-react-start/server`.
+- **Entitlements**: injected as `subscriptionsEntitlements` (full) or `unlimitedEntitlements` (slim) — no implicit default; a missing provider silently grants Pro access to every caller.
+- **Billing context**: fetched eagerly from Redis on every procedure — there is no per-feature opt-out.
+- **Telemetry**: `createTelemetryContext()` returns a noop; OTel SDK is initialized per-app in `instrumentation.ts` (Next.js) or a Nitro plugin (TanStack Start).
+
 ### Rate Limiting
 
 ```typescript
@@ -83,16 +101,28 @@ const subscription = useSubscription(trpc.chat.stream.subscriptionOptions(input)
 
 Tokens are tier-based (free/standard/pro) stored in Redis. Available via tRPC middleware.
 
+### Redis
+
+All keys must be created via `nsKey(key)` from `@acme/redis` — produces a branded `NamespacedKey` type; passing a raw `string` is a compile error. Key builders (e.g. `creditKey`) live in domain packages, not in `@acme/redis`. Namespace is derived from `NEXT_PUBLIC_WEBAPP`.
+
+### Database
+
+All app-owned tables live under `pgSchema(NEXT_PUBLIC_WEBAPP)` — per-app Postgres schema isolation. `@acme/db` exports the sole connection factory (`createDb()`); features import it rather than declaring their own DB env. Migrations are app-owned (`db:push` / `db:migrate` run from the app, not the platform).
+
 ### RAG / Mastra
 
-`@acme/rag` provides document upload (officeparser), pgvector storage, retrieval, and Mastra Memory — all on Mastra wired to AWS Bedrock. Used by the chat and ingest features. The chat Agent + Mastra instance live in `@acme/chat`; the root `pnpm studio` / `pnpm lint:mastra` scripts point the Mastra CLI at `packages/features/chat/src/mastra`. See [`docs/adr/0002-mastra-rag-and-memory.md`](docs/adr/0002-mastra-rag-and-memory.md). OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
+`@acme/rag` provides document upload, pgvector storage, retrieval, and Mastra Memory — wired to AWS Bedrock via `@acme/models`. Chat Agent lives in `@acme/chat`; `pnpm studio` / `pnpm lint:mastra` target `packages/features/chat/src/mastra`. See [ADR 0002](docs/adr/0002-mastra-rag-and-memory.md).
+
+Critical constraints:
+- `mastra_*` tables are DDL-owned by Mastra at runtime — **never manage them with drizzle-kit**; `db:push` explicitly scopes them out.
+- `ensureVectorIndex()` runs at app boot (`instrumentation.ts`) — PgVector creates the table lazily on first upsert, so reads break on a fresh DB without it.
+- Thread ownership is a rule not a DB constraint — `assertThreadOwned` (from `@acme/rag`) is reused by both `@acme/chat` and `@acme/feedback`; Mastra rows carry no row-level auth.
+- `EMBED_DIMENSIONS` in `@acme/models` is the single source of truth for both the PgVector index size and the Drizzle mirror — change it in one place.
+- OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
 
 ### Feature package structure
 
-For the full anatomy of a `packages/features/*` package — directory layout, the
-two contracts (tRPC procedure / hook), exports, and the test taxonomy — see
-[docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md). Scaffold new
-features with `pnpm turbo gen feature`, never by hand.
+For the full anatomy of a `packages/features/*` package — directory layout, the two contracts (tRPC procedure / hook), exports, and the test taxonomy — see [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md). Scaffold new features with `pnpm turbo gen feature`, never by hand.
 
 ### Slice contract enforcement
 
