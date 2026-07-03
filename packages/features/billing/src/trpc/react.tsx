@@ -52,10 +52,6 @@ export function TRPCReactProvider(
         env.NODE_ENV === 'test'
           ? [
               // In tests, prefer simple HTTP to work with MSW easily
-              loggerLink({
-                enabled: (op) =>
-                  op.direction === 'down' && op.result instanceof Error,
-              }),
               httpLink({
                 transformer: SuperJSON,
                 url: getBaseUrl() + '/api/trpc/billing',

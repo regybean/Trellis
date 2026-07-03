@@ -33,8 +33,11 @@
     "@acme/vitest-config": "workspace:*",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
+    "msw": "catalog:",
+    "msw-trpc": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"

@@ -51,10 +51,6 @@ export function TRPCReactProvider(
       links:
         env.NODE_ENV === 'test'
           ? [
-              loggerLink({
-                enabled: (op) =>
-                  op.direction === 'down' && op.result instanceof Error,
-              }),
               httpLink({
                 transformer: SuperJSON,
                 url: getBaseUrl() + '/api/trpc/{{ kebabCase name }}',

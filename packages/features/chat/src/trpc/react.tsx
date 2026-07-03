@@ -57,10 +57,6 @@ export function TRPCReactProvider(
               // - subscriptions go through httpSubscriptionLink (won't throw;
               //   MSW can't intercept SSE but the link stays silent while
               //   connecting — tests assert the synchronous optimistic state).
-              loggerLink({
-                enabled: (op) =>
-                  op.direction === 'down' && op.result instanceof Error,
-              }),
               splitLink({
                 condition: (op) => op.type === 'subscription',
                 true: httpSubscriptionLink({
