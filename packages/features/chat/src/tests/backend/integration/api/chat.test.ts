@@ -357,6 +357,128 @@ describe('chatRouter', () => {
   });
 
   // ==========================================================================
+  // BUSINESS LOGIC: list
+  // ==========================================================================
+  describe('list', () => {
+    it('returns empty array for a user with no conversations (zero)', async () => {
+      const userId = createTestUserId();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      const result = await caller.chat.list();
+
+      expect(result).toEqual([]);
+    });
+
+    it("returns only the caller's own conversations (many)", async () => {
+      const userId = createTestUserId();
+      const otherUserId = createTestUserId('other');
+
+      const chat1 = await createTestChat({ userId });
+      const chat2 = await createTestChat({ userId });
+      await createTestChat({ userId: otherUserId });
+
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      const result = await caller.chat.list();
+
+      expect(result).toHaveLength(2);
+      const sessionIds = result.map((c) => c.sessionId);
+      expect(sessionIds).toContain(chat1.sessionId);
+      expect(sessionIds).toContain(chat2.sessionId);
+    });
+  });
+
+  // ==========================================================================
+  // BUSINESS LOGIC: setFolder
+  // ==========================================================================
+  describe('setFolder', () => {
+    it('assigns a conversation to an owned folder', async () => {
+      const userId = createTestUserId();
+      const chat = await createTestChat({ userId });
+      const folderId = createTestSessionId();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      await caller.chat.folders.create({ id: folderId, name: 'My Folder' });
+      const result = await caller.chat.setFolder({
+        sessionId: chat.sessionId,
+        folderId,
+      });
+
+      expect(result).toEqual({ sessionId: chat.sessionId, folderId });
+
+      const listed = await caller.chat.list();
+      const conv = listed.find((c) => c.sessionId === chat.sessionId);
+      expect(conv?.folderId).toBe(folderId);
+    });
+
+    it('clears a folder assignment with folderId: null', async () => {
+      const userId = createTestUserId();
+      const chat = await createTestChat({ userId });
+      const folderId = createTestSessionId();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      await caller.chat.folders.create({ id: folderId, name: 'My Folder' });
+      await caller.chat.setFolder({ sessionId: chat.sessionId, folderId });
+
+      const result = await caller.chat.setFolder({
+        sessionId: chat.sessionId,
+        folderId: null,
+      });
+
+      expect(result).toEqual({ sessionId: chat.sessionId, folderId: null });
+
+      const listed = await caller.chat.list();
+      const conv = listed.find((c) => c.sessionId === chat.sessionId);
+      expect(conv?.folderId).toBeNull();
+    });
+
+    it('rejects a folder owned by another user', async () => {
+      const userId = createTestUserId();
+      const otherUserId = createTestUserId('other');
+      const chat = await createTestChat({ userId });
+      const folderId = createTestSessionId();
+
+      const otherCaller = createCaller({
+        userId: otherUserId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+      await otherCaller.chat.folders.create({ id: folderId, name: 'Theirs' });
+
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+      await expect(
+        caller.chat.setFolder({ sessionId: chat.sessionId, folderId }),
+      ).rejects.toMatchObject({ code: 'NOT_FOUND' });
+    });
+  });
+
+  // ==========================================================================
   // BUSINESS LOGIC: adminList
   // ==========================================================================
   describe('adminList', () => {

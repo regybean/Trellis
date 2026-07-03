@@ -47,6 +47,32 @@ describe('feedbackRouter', () => {
     await cleanupTestData();
   });
 
+  // ==========================================================================
+  // MIDDLEWARE TESTS (test once since all procedures share the same middleware)
+  // ==========================================================================
+  describe('middleware (tested once)', () => {
+    it('rejects unauthenticated callers', async () => {
+      const ctx = {
+        ...createTestContext({
+          userId: 'dummy',
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        }),
+        auth: { userId: null, sessionClaims: null },
+      };
+      const caller = appRouter.createCaller(ctx);
+
+      await expect(
+        caller.feedback.submit({
+          messageId: createTestSessionId(),
+          threadId: createTestSessionId(),
+          rating: 'up',
+        }),
+      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    });
+  });
+
   describe('submit', () => {
     it('rejects feedback on a thread owned by another user (FORBIDDEN)', async () => {
       const owner = createTestUserId('owner');

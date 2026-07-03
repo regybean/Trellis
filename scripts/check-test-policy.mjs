@@ -237,6 +237,39 @@ for (const pkg of findPackages()) {
   }
 }
 
+// Unit purity check: a unit test that imports or uses vi.mock / vi.spyOn /
+// vi.fn is mis-filed — it needs collaborators and belongs in integration/.
+const MOCK_CALL_PATTERNS = ["vi.mock(", "vi.spyOn(", "vi.fn("];
+for (const pkg of findPackages()) {
+  const isRuntimeLayer =
+    pkg.rel.startsWith("packages/platform/") ||
+    pkg.rel.startsWith("packages/shared/") ||
+    pkg.rel.startsWith("packages/features/");
+  if (!isRuntimeLayer) continue;
+
+  // Platform packages: src/tests/unit/   Feature packages: src/tests/backend/unit/
+  const unitDirs = [
+    join(pkg.dir, "src", "tests", "unit"),
+    join(pkg.dir, "src", "tests", "backend", "unit"),
+  ];
+
+  for (const unitDir of unitDirs) {
+    const unitTests = collectFiles(unitDir, (f) => f.endsWith(".test.ts"));
+    for (const file of unitTests) {
+      const content = readFileSync(file, "utf8");
+      for (const pattern of MOCK_CALL_PATTERNS) {
+        if (content.includes(pattern)) {
+          const rel = file.slice(file.indexOf("/src/tests/"));
+          errors.push(
+            `${pkg.name}: unit test uses mock/spy (${pattern}) — move to integration/: ${rel}`,
+          );
+          break;
+        }
+      }
+    }
+  }
+}
+
 if (process.argv.includes("--todos")) {
   if (todos.length === 0) {
     console.log("No tracked test gaps — every library package is conforming.");

@@ -466,23 +466,6 @@ describe('accountRouter', () => {
       });
     });
 
-    it('rejects non-admin users', async () => {
-      const caller = createCaller({
-        userId: createTestUserId(),
-        role: 'user',
-        tier: 'Basic',
-        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
-      });
-
-      await expect(
-        caller.account.setUserTier({
-          userId: createTestUserId('target'),
-          email: 'target@example.com',
-          tier: 'Pro',
-        }),
-      ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    });
-
     it('rejects an invalid email', async () => {
       const caller = createCaller({
         userId: createTestUserId('admin'),

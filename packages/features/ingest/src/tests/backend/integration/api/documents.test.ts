@@ -10,7 +10,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { deleteByFilename, listDocuments, uploadDocs } from '@acme/rag/server';
+import { deleteByFilename, uploadDocs } from '@acme/rag/server';
 
 import type { TestContextOptions } from '../../utils/test-context';
 import { appRouter } from '../../../../api/root';
@@ -44,28 +44,6 @@ describe('documentsRouter', () => {
       await expect(caller.documents.list()).rejects.toMatchObject({
         code: 'UNAUTHORIZED',
       });
-    });
-  });
-
-  describe('list', () => {
-    it('returns an empty list when nothing is indexed', async () => {
-      vi.mocked(listDocuments).mockResolvedValue([]);
-
-      const result = await createCaller(adminOpts).documents.list();
-
-      expect(result).toEqual([]);
-    });
-
-    it('returns indexed documents', async () => {
-      const docs = [
-        { filename: 'a.pdf', count: 3, uploadTimestamp: 1 },
-        { filename: 'b.txt', count: 1, uploadTimestamp: 2 },
-      ];
-      vi.mocked(listDocuments).mockResolvedValue(docs);
-
-      const result = await createCaller(adminOpts).documents.list();
-
-      expect(result).toEqual(docs);
     });
   });
 

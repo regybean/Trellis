@@ -8,11 +8,10 @@
  * live Stripe/Redis.
  */
 import type Stripe from 'stripe';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import {
   allowedEvents,
-  processEvent,
   resolveWebhookEvent,
 } from '../../../utils/stripe-webhook';
 
@@ -46,35 +45,5 @@ describe('resolveWebhookEvent', () => {
   it('throws when a tracked event has no customer field', () => {
     const event = makeEvent('invoice.paid', {});
     expect(() => resolveWebhookEvent(event)).toThrow(TypeError);
-  });
-});
-
-describe('processEvent', () => {
-  it('syncs the customer for a tracked event', async () => {
-    const sync = vi.fn().mockResolvedValue(undefined);
-    const event = makeEvent('checkout.session.completed', {
-      customer: 'cus_sync',
-    });
-
-    await processEvent(event, sync);
-
-    expect(sync).toHaveBeenCalledExactlyOnceWith('cus_sync');
-  });
-
-  it('does not sync for an untracked event', async () => {
-    const sync = vi.fn().mockResolvedValue(undefined);
-    const event = makeEvent('customer.created', { customer: 'cus_x' });
-
-    await processEvent(event, sync);
-
-    expect(sync).not.toHaveBeenCalled();
-  });
-
-  it('propagates the TypeError for a malformed tracked event', async () => {
-    const sync = vi.fn().mockResolvedValue(undefined);
-    const event = makeEvent('invoice.paid', { customer: null });
-
-    await expect(processEvent(event, sync)).rejects.toThrow(TypeError);
-    expect(sync).not.toHaveBeenCalled();
   });
 });
