@@ -1,18 +1,7 @@
-import { drizzle } from 'drizzle-orm/postgres-js';
-
+import { createDb } from '@acme/db';
 import { createFeatureTRPCWithDb } from '@acme/trpc';
 
-import { env } from '../env';
-
-const _db = drizzle({
-  connection: {
-    host: env.DB_HOST,
-    port: env.DB_PORT,
-    user: env.DB_USER,
-    password: env.DB_PASSWORD,
-    database: env.DB_NAME,
-  },
-});
+const _db = createDb();
 
 export const db = _db;
 export type db = typeof _db;

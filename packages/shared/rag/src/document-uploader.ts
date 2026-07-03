@@ -1,9 +1,9 @@
 import { MDocument } from '@mastra/rag';
 import { embedMany } from 'ai';
 import { sql } from 'drizzle-orm';
-import { drizzle } from 'drizzle-orm/postgres-js';
 import { v5 as uuidv5 } from 'uuid';
 
+import { createDb } from '@acme/db';
 import { logger } from '@acme/logger';
 import { embedModel, embedProviderOptions } from '@acme/models';
 
@@ -52,15 +52,7 @@ export function dedupeChunks(parsed: ParsedDocument[]) {
 // Drizzle client against the vector database, for direct reads/deletes that
 // don't need the vector store (listing and deletion by filename). Module-private
 // so callers can't run arbitrary SQL against the knowledge base.
-const vdb = drizzle({
-  connection: {
-    host: env.DB_HOST,
-    port: Number(env.DB_PORT),
-    user: env.DB_USER,
-    password: env.DB_PASSWORD,
-    database: env.DB_VECTOR_NAME,
-  },
-});
+const vdb = createDb({ database: env.DB_VECTOR_NAME });
 
 export interface DocumentFilenameSummary {
   filename: string;

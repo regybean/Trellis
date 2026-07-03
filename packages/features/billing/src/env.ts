@@ -22,11 +22,6 @@ export function billingEnv() {
       STRIPE_SUCCESS_URL: z.url(),
       STRIPE_CANCEL_URL: z.url(),
       REDIS_URL: z.url(),
-      DB_HOST: z.string().nonempty(),
-      DB_PORT: z.coerce.number(),
-      DB_USER: z.string().nonempty(),
-      DB_PASSWORD: z.string().nonempty(),
-      DB_NAME: z.string().nonempty(),
     },
     client: {
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string(),
@@ -50,11 +45,6 @@ export function billingEnv() {
       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
       REDIS_URL: process.env.REDIS_URL,
-      DB_HOST: process.env.DB_HOST,
-      DB_PORT: process.env.DB_PORT,
-      DB_USER: process.env.DB_USER,
-      DB_PASSWORD: process.env.DB_PASSWORD,
-      DB_NAME: process.env.DB_NAME,
     },
     skipValidation,
   });

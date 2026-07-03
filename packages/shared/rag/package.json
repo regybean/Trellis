@@ -41,6 +41,7 @@
   },
   "prettier": "@acme/prettier-config",
   "dependencies": {
+    "@acme/db": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
     "@mastra/core": "catalog:",
@@ -53,7 +54,6 @@
     "drizzle-orm": "catalog:",
     "drizzle-zod": "catalog:",
     "officeparser": "catalog:",
-    "postgres": "catalog:",
     "server-only": "catalog:",
     "uuid": "catalog:",
     "zod": "catalog:"

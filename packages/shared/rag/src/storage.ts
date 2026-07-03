@@ -1,6 +1,7 @@
 import { PostgresStore } from '@mastra/pg';
 
-import { env } from './env';
+import { env as dbEnv } from '@acme/db/env';
+
 import { RAG_SCHEMA } from './vector';
 
 // Storage backing Mastra Memory (threads/messages/resources), in the app
@@ -8,10 +9,10 @@ import { RAG_SCHEMA } from './vector';
 // to the per-app schema so multiple apps can share one database.
 export const postgresStore = new PostgresStore({
   id: 'rag-pg-storage',
-  host: env.DB_HOST,
-  port: env.DB_PORT,
-  database: env.DB_NAME,
-  user: env.DB_USER,
-  password: env.DB_PASSWORD,
+  host: dbEnv.DB_HOST,
+  port: dbEnv.DB_PORT,
+  database: dbEnv.DB_NAME,
+  user: dbEnv.DB_USER,
+  password: dbEnv.DB_PASSWORD,
   schemaName: RAG_SCHEMA,
 });

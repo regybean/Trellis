@@ -1,21 +1,12 @@
 import { TRPCError } from '@trpc/server';
-import { drizzle } from 'drizzle-orm/postgres-js';
 import { z } from 'zod';
 
+import { createDb } from '@acme/db';
 import { createFeatureTRPCWithDb } from '@acme/trpc';
 
-import { env } from '../env';
 import { loadOwnedConversation } from './services/chat-memory';
 
-const _db = drizzle({
-  connection: {
-    host: env.DB_HOST,
-    port: env.DB_PORT,
-    user: env.DB_USER,
-    password: env.DB_PASSWORD,
-    database: env.DB_NAME,
-  },
-});
+const _db = createDb();
 
 export const db = _db;
 export type db = typeof _db;

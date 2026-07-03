@@ -8,6 +8,6 @@ import { backendProject } from '@acme/test-utils/vitest';
 // REDIS_URL) that @acme/trpc constructs at import.
 export default backendProject({
   webapp: 'ingest_test',
-  infra: false,
+  infra: [],
   setupFiles: ['./src/tests/backend/setup.ts'],
 });

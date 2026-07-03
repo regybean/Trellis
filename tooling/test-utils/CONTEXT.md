@@ -1,15 +1,20 @@
 # Test Utils (`@acme/test-utils`)
 
-Shared testing substrate: the testcontainer lifecycle and the env plumbing that
-lets suites validate real `env.ts` instead of mocking it (ADR 0014). It owns
-_how_ tests get a running DB/Redis and a populated `process.env` — not _what_
-any feature asserts.
+Shared testing substrate: a generic testcontainer **engine** and the env
+plumbing that lets suites validate real `env.ts` instead of mocking it (ADR
+0014). It owns the _mechanism_ — turning a descriptor into a running container
+and a populated `process.env` — not the knowledge of _which_ package needs what
+infra (that's the suite) or _how_ each infra is built (that's the owner, via a
+descriptor). See ADR 0017.
 
-This package is **infra-only**. The tRPC caller context + mocks live in
-`@acme/trpc/testing`, and the Redis flush helper in `@acme/redis/testing` —
-owned by the packages whose real types they need, since this tooling package
-sits below `platform` and cannot import those types. `@acme/test-utils` no longer
-ships a `./mocks` entrypoint.
+This package is **infra-only** and carries no per-infra knowledge: no pinned
+Postgres/Redis image, no credentials, and (since ADR 0017) not even the
+`@testcontainers/*` typed subpackages — it drives everything through
+`testcontainers`' `GenericContainer` from descriptor data. The tRPC caller
+context + mocks live in `@acme/trpc/testing`, the Redis flush helper +
+`redisContainer` descriptor in `@acme/redis/testing`, and the `postgresContainer`
+descriptor in `@acme/db/testing` — owned by the packages whose infra they
+describe, since this tooling package sits below `platform`.
 
 ## Language
 
@@ -34,11 +39,23 @@ spread, `hydrate-env` ordering, testcontainer `globalSetup` (defaults to the
 shared `@acme/test-utils/setup`, so a package needs no re-export file), single
 non-isolated forked worker, generous timeouts — behind one call, so a package's
 `vitest.config.backend.ts` declares only what's unique to it (`webapp`,
-`redisDb`, its own setup file). A package overrides `globalSetup` only when it
-has extra provisioning to do.
-_`infra: false`_ opts a suite out of containers + env hydration entirely, for
-suites whose externals are all mocked and that touch no DB/Redis (e.g. `ingest`):
-env is still real, satisfied by `staticTestEnv` alone.
+`redisDb`, its own setup file, and its `infra`).
+_`infra`_ is a **required** `InfraDescriptor[]` — the suite states the infra it
+touches explicitly (see **Infra descriptor**). `[]` opts a suite out of
+containers + env hydration entirely, for suites whose externals are all mocked
+and that touch no DB/Redis (e.g. `ingest`): env is still real, satisfied by
+`staticTestEnv` alone.
+
+**Infra descriptor** (`InfraDescriptor`, `@acme/test-utils/infra`):
+Pure, serialisable data describing one test container — image, ports, container
+env, wait strategy, repo-relative bind mounts, and `provides` (a template map,
+`{host}`/`{port}` interpolated, of the `process.env` keys this infra populates).
+Owned by the infra package (`postgresContainer`, `redisContainer`), consumed by
+the engine. A suite composes them at its `vitest.config`; `backendProject`
+JSON-encodes them into the test env (`ACME_TEST_INFRA`) so the global-setup can
+read them back from `project.config.env` (the config-eval realm doesn't share a
+process with global-setup — data crosses as JSON, not a shared singleton).
+_Avoid_: "the container config", "the infra registry"
 
 **Per-suite isolation knobs**:
 `NEXT_PUBLIC_WEBAPP` (a dedicated Postgres schema) and `TEST_REDIS_DB` (a

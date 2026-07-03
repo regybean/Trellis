@@ -23,22 +23,12 @@ export function chatEnv() {
     },
     server: {
       REDIS_URL: z.url(),
-      DB_HOST: z.string().nonempty(),
-      DB_PORT: z.coerce.number(),
-      DB_USER: z.string().nonempty(),
-      DB_PASSWORD: z.string().nonempty(),
-      DB_NAME: z.string().nonempty(),
     },
     client: {},
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
       REDIS_URL: process.env.REDIS_URL,
-      DB_HOST: process.env.DB_HOST,
-      DB_PORT: process.env.DB_PORT,
-      DB_USER: process.env.DB_USER,
-      DB_PASSWORD: process.env.DB_PASSWORD,
-      DB_NAME: process.env.DB_NAME,
     },
     skipValidation,
   });

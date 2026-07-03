@@ -816,6 +816,9 @@ importers:
       '@acme/auth':
         specifier: workspace:*
         version: link:../../shared/auth
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../platform/db
       '@acme/hooks':
         specifier: workspace:*
         version: link:../../shared/hooks
@@ -858,9 +861,6 @@ importers:
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7)
       framer-motion:
         specifier: 'catalog:'
         version: 12.23.26(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -934,6 +934,9 @@ importers:
 
   packages/features/chat:
     dependencies:
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../platform/db
       '@acme/hooks':
         specifier: workspace:*
         version: link:../../shared/hooks
@@ -1067,6 +1070,9 @@ importers:
 
   packages/features/feedback:
     dependencies:
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../platform/db
       '@acme/hooks':
         specifier: workspace:*
         version: link:../../shared/hooks
@@ -1298,6 +1304,46 @@ importers:
         specifier: ^4.0.1
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/platform/db:
+    dependencies:
+      '@t3-oss/env-nextjs':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
+      drizzle-orm:
+        specifier: 'catalog:'
+        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7)
+      postgres:
+        specifier: 'catalog:'
+        version: 3.4.7
+    devDependencies:
+      '@acme/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@acme/prettier-config':
+        specifier: workspace:*
+        version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
+      '@acme/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.7.0)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.7.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.1
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
+
   packages/platform/entitlements:
     devDependencies:
       '@acme/eslint-config':
@@ -1362,6 +1408,9 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
@@ -1641,6 +1690,9 @@ importers:
 
   packages/shared/rag:
     dependencies:
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../platform/db
       '@acme/logger':
         specifier: workspace:*
         version: link:../../platform/logger
@@ -1677,9 +1729,6 @@ importers:
       officeparser:
         specifier: 'catalog:'
         version: 7.2.1
-      postgres:
-        specifier: 'catalog:'
-        version: 3.4.7
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
@@ -1957,18 +2006,6 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
-      '@testcontainers/postgresql':
-        specifier: ^10.25.0
-        version: 10.28.0
-      '@testcontainers/redis':
-        specifier: ^10.25.0
-        version: 10.28.0
-      drizzle-orm:
-        specifier: 'catalog:'
-        version: 0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7)
-      postgres:
-        specifier: 'catalog:'
-        version: 3.4.7
       testcontainers:
         specifier: ^10.25.0
         version: 10.28.0
@@ -6144,12 +6181,6 @@ packages:
   '@tanstack/virtual-file-routes@1.162.0':
     resolution: {integrity: sha512-uhOeFyxLcU41HzvrxsGpiWdcMbScY1EDgbZ5K7DVRMYInbLYWAC0EA/kx9wXAoSM8q82bUG2hRl8+EAjE6XAbA==}
     engines: {node: '>=20.19'}
-
-  '@testcontainers/postgresql@10.28.0':
-    resolution: {integrity: sha512-NN25rruG5D4Q7pCNIJuHwB+G85OSeJ3xHZ2fWx0O6sPoPEfCYwvpj8mq99cyn68nxFkFYZeyrZJtSFO+FnydiA==}
-
-  '@testcontainers/redis@10.28.0':
-    resolution: {integrity: sha512-xDNKSJTBmQca/3v5sdHmqSCYr68vjvAGSxoHCuWylha77gAYn88g5nUZK0ocNbUZgBq69KhIzj/f9zlHkw34uA==}
 
   '@testing-library/dom@10.4.1':
     resolution: {integrity: sha512-o4PXJQidqJl82ckFaXUeoAW+XysPLauYI43Abki5hABd853iMhitooc6znOnczgbTYmEP6U6/y1ZyKAIsvMKGg==}
@@ -15506,24 +15537,6 @@ snapshots:
   '@tanstack/store@0.9.3': {}
 
   '@tanstack/virtual-file-routes@1.162.0': {}
-
-  '@testcontainers/postgresql@10.28.0':
-    dependencies:
-      testcontainers: 10.28.0
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
-
-  '@testcontainers/redis@10.28.0':
-    dependencies:
-      testcontainers: 10.28.0
-    transitivePeerDependencies:
-      - bare-abort-controller
-      - bare-buffer
-      - react-native-b4a
-      - supports-color
 
   '@testing-library/dom@10.4.1':
     dependencies:

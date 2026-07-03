@@ -22,13 +22,9 @@ function ragEnv() {
         ),
     },
     server: {
-      DB_HOST: z.string().nonempty(),
-      DB_PORT: z.coerce.number(),
-      DB_USER: z.string().nonempty(),
-      DB_PASSWORD: z.string().nonempty(),
-      // App database — Mastra Memory (threads/messages/resources) lives here.
-      DB_NAME: z.string().nonempty(),
-      // Dedicated vector database — the knowledge base lives here.
+      // Dedicated vector database name — the knowledge base lives here. The
+      // connection host/port/creds are owned by `@acme/db/env`; this stays here
+      // as a rag-specific value (its only consumer). See docs/adr/0016.
       DB_VECTOR_NAME: z.string().nonempty(),
       CHUNK_SIZE: z.coerce.number().default(1024),
       CHUNK_OVERLAP: z.coerce.number().default(20),
@@ -37,11 +33,6 @@ function ragEnv() {
     runtimeEnv: {
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
       NODE_ENV: process.env.NODE_ENV,
-      DB_HOST: process.env.DB_HOST,
-      DB_PORT: process.env.DB_PORT,
-      DB_USER: process.env.DB_USER,
-      DB_PASSWORD: process.env.DB_PASSWORD,
-      DB_NAME: process.env.DB_NAME,
       // Use the dedicated vector database name; do NOT alias to DB_NAME
       DB_VECTOR_NAME: process.env.DB_VECTOR_NAME,
       CHUNK_OVERLAP: process.env.CHUNK_OVERLAP,

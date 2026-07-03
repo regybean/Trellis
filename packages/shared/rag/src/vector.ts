@@ -1,5 +1,7 @@
 import { PgVector } from '@mastra/pg';
 
+import { env as dbEnv } from '@acme/db/env';
+
 import { env } from './env';
 import {
   EMBED_DIMENSIONS,
@@ -18,11 +20,11 @@ export const RAG_SCHEMA = env.NEXT_PUBLIC_WEBAPP;
 // Vector store backing the knowledge base, in the dedicated vector database.
 export const pgVector = new PgVector({
   id: 'rag-pg-vector',
-  host: env.DB_HOST,
-  port: env.DB_PORT,
+  host: dbEnv.DB_HOST,
+  port: dbEnv.DB_PORT,
   database: env.DB_VECTOR_NAME,
-  user: env.DB_USER,
-  password: env.DB_PASSWORD,
+  user: dbEnv.DB_USER,
+  password: dbEnv.DB_PASSWORD,
   schemaName: RAG_SCHEMA,
 });
 

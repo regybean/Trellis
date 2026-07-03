@@ -15,6 +15,7 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 | `packages/platform/entitlements/` | [`packages/platform/entitlements/CONTEXT.md`](packages/platform/entitlements/CONTEXT.md) | [`docs/adr/0006-entitlements-injection-seam.md`](docs/adr/0006-entitlements-injection-seam.md) |
 | `packages/platform/subscriptions/` | [`packages/platform/subscriptions/CONTEXT.md`](packages/platform/subscriptions/CONTEXT.md) | [`docs/adr/0006-entitlements-injection-seam.md`](docs/adr/0006-entitlements-injection-seam.md) |
 | `packages/platform/redis/` | [`packages/platform/redis/CONTEXT.md`](packages/platform/redis/CONTEXT.md) | [`docs/adr/0008-per-app-redis-namespace.md`](docs/adr/0008-per-app-redis-namespace.md) |
+| `packages/platform/db/` | [`packages/platform/db/CONTEXT.md`](packages/platform/db/CONTEXT.md) | [`docs/adr/0016-db-connection-platform-package.md`](docs/adr/0016-db-connection-platform-package.md) |
 | `packages/shared/models/` | [`packages/shared/models/CONTEXT.md`](packages/shared/models/CONTEXT.md) | [`docs/adr/0003-multi-provider-models.md`](docs/adr/0003-multi-provider-models.md) |
 | `packages/shared/rag/` | [`packages/shared/rag/CONTEXT.md`](packages/shared/rag/CONTEXT.md) | [`docs/adr/0002-mastra-rag-and-memory.md`](docs/adr/0002-mastra-rag-and-memory.md) |
 | `packages/features/billing/` | [`packages/features/billing/CONTEXT.md`](packages/features/billing/CONTEXT.md) | — |
@@ -26,7 +27,7 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 
 | Package | Context | ADRs |
 | --- | --- | --- |
-| `tooling/test-utils/` | [`tooling/test-utils/CONTEXT.md`](tooling/test-utils/CONTEXT.md) | [`docs/adr/0014-tests-validate-real-env.md`](docs/adr/0014-tests-validate-real-env.md) |
+| `tooling/test-utils/` | [`tooling/test-utils/CONTEXT.md`](tooling/test-utils/CONTEXT.md) | [`docs/adr/0014-tests-validate-real-env.md`](docs/adr/0014-tests-validate-real-env.md), [`docs/adr/0017-test-infra-owned-by-infra-package.md`](docs/adr/0017-test-infra-owned-by-infra-package.md) |
 
 ## Apps
 

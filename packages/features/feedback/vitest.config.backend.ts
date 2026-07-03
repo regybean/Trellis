@@ -1,3 +1,5 @@
+import { postgresContainer } from '@acme/db/testing';
+import { redisContainer } from '@acme/redis/testing';
 import { backendProject } from '@acme/test-utils/vitest';
 
 // Per-suite isolation on the shared testcontainer DB/Redis (turbo runs feature
@@ -7,5 +9,6 @@ import { backendProject } from '@acme/test-utils/vitest';
 export default backendProject({
   webapp: 'feedback_test',
   redisDb: '3',
+  infra: [postgresContainer, redisContainer],
   setupFiles: ['./src/tests/backend/setup.ts'],
 });

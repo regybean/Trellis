@@ -1,110 +1,207 @@
 /**
- * Testcontainers Setup
+ * Testcontainers engine.
  *
- * Automatically detects if docker-compose infrastructure is running (via pnpm infra:up).
- * If services are detected on standard ports (5432, 6379), uses them.
- * Otherwise, starts testcontainers on alternative ports (15432, 16379).
+ * Generic: given an `InfraDescriptor` (pure data owned by the infra package —
+ * see `@acme/db/testing`, `@acme/redis/testing`), start the matching container
+ * and project its host/port into the `process.env` keys that infra validates.
+ * This module holds no per-infra knowledge (no pinned Postgres/Redis image, no
+ * credentials) — that lives with each owner. See docs/adr/0017.
+ *
+ * In CI a real container is started per descriptor; locally we assume a
+ * docker-compose stack (`pnpm infra:up`) is already listening on the standard
+ * port. LocalStack (for the secrets-backend test) keeps its own bespoke helpers
+ * below — a single consumer that never composes with the descriptor set.
  */
 
 /* eslint-disable no-restricted-syntax, turbo/no-undeclared-env-vars */
 
-import { spawn } from 'child_process';
-import { resolve } from 'node:path';
-import type { StartedPostgreSqlContainer } from '@testcontainers/postgresql';
-import type { StartedRedisContainer } from '@testcontainers/redis';
+import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import type { StartedTestContainer } from 'testcontainers';
-import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import { RedisContainer } from '@testcontainers/redis';
 import { GenericContainer, Wait } from 'testcontainers';
 
-const TEST_POSTGRES_PORT = 5432;
-const TEST_REDIS_PORT = 6379;
+import type { InfraDescriptor } from './infra';
+
 const TEST_LOCALSTACK_PORT = 4566;
 // Pin to a community image — `:latest` can resolve to a license-gated build.
 const LOCALSTACK_IMAGE = 'localstack/localstack:3.8.1';
-const DB_USER = 'postgres';
-const DB_PASSWORD = 'password123';
-const DB_NAME = 'testdb';
-const DB_VECTOR_NAME = 'vectordb';
 
-// Migration mutex to prevent concurrent migrations from the same app directory
+// Walk up to the monorepo root (the dir with pnpm-workspace.yaml) so a
+// descriptor's repo-relative bind mount resolves regardless of whether this
+// module runs from `src` (JIT) or `dist`.
+function findRepoRoot(start: string): string {
+  let dir = start;
+  let parent = dirname(dir);
+  while (parent !== dir) {
+    if (existsSync(resolve(dir, 'pnpm-workspace.yaml'))) return dir;
+    dir = parent;
+    parent = dirname(dir);
+  }
+  return start;
+}
+const REPO_ROOT = findRepoRoot(__dirname);
+
+// Migration mutex to prevent concurrent migrations from the same app directory.
 let migrationPromise: Promise<void> | null = null;
 
-export interface TestContainers {
-  postgres: StartedPostgreSqlContainer;
-  redis: StartedRedisContainer;
-  usingDockerCompose: boolean;
+export interface StartedInfra {
+  descriptor: InfraDescriptor;
+  /** Present only when a real testcontainer was started (CI path). */
+  container?: StartedTestContainer;
+  /** Resolved `process.env` values this infra contributes for test workers. */
+  env: Record<string, string>;
 }
 
-let containersInstance: TestContainers | null = null;
+let startedInfra: StartedInfra[] = [];
 
-/**
- * Start PostgreSQL container with pgvector extension for tests.
- * Uses port 5432 to match docker-compose.
- */
-export async function startPostgresContainer() {
-  // Resolve the absolute path to the db-init directory
-  const dbInitPath = resolve(__dirname, '../../../../ops/db-init');
-  console.log('   📁 DB init scripts path:', dbInitPath);
+/** Interpolate `{host}`/`{port}` into a descriptor's `provides` templates. */
+function resolveProvides(
+  descriptor: InfraDescriptor,
+  host: string,
+  port: number,
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, template] of Object.entries(descriptor.provides)) {
+    out[key] = template
+      .replaceAll('{host}', host)
+      .replaceAll('{port}', String(port));
+  }
+  return out;
+}
 
-  // Use pgvector image to match production
-  // Use the proper PostgreSqlContainer methods for credentials instead of withEnvironment
-  const container = await new PostgreSqlContainer('pgvector/pgvector:pg17')
-    .withExposedPorts(TEST_POSTGRES_PORT)
-    .withUsername(DB_USER)
-    .withPassword(DB_PASSWORD)
-    .withDatabase(DB_NAME)
-    .withEnvironment({
-      // Only set additional env vars, not credentials
-      DB_VECTOR_NAME: DB_VECTOR_NAME,
-    })
-    .withBindMounts([
-      {
-        source: dbInitPath,
-        target: '/docker-entrypoint-initdb.d',
-        mode: 'ro',
-      },
-    ])
-    .withWaitStrategy(
-      Wait.forLogMessage(/database system is ready to accept connections/),
-    )
-    .start();
-
-  // Use the container's getter methods to ensure we get the correct values
-  process.env.DB_HOST = container.getHost();
-  process.env.DB_PORT = String(container.getMappedPort(TEST_POSTGRES_PORT));
-  process.env.DB_USER = container.getUsername();
-  process.env.DB_PASSWORD = container.getPassword();
-  process.env.DB_NAME = container.getDatabase();
-
-  console.log(
-    '🐘 Starting PostgreSQL testcontainer on host port',
-    process.env.DB_PORT,
+/** CI path: start a real container described by the descriptor. */
+async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
+  let builder = new GenericContainer(descriptor.image).withExposedPorts(
+    descriptor.containerPort,
+  );
+  if (descriptor.containerEnv) {
+    builder = builder.withEnvironment(descriptor.containerEnv);
+  }
+  if (descriptor.bindMounts?.length) {
+    builder = builder.withBindMounts(
+      descriptor.bindMounts.map((mount) => ({
+        source: resolve(REPO_ROOT, mount.repoPath),
+        target: mount.target,
+        mode: mount.mode ?? 'ro',
+      })),
+    );
+  }
+  builder = builder.withWaitStrategy(
+    Wait.forLogMessage(
+      new RegExp(descriptor.waitLogRegex),
+      descriptor.waitLogTimes ?? 1,
+    ),
   );
 
-  // Create a wrapper that matches the PostgreSqlContainer interface
-  return container;
+  const container = await builder.start();
+  const env = resolveProvides(
+    descriptor,
+    container.getHost(),
+    container.getMappedPort(descriptor.containerPort),
+  );
+  console.log(`   🐳 ${descriptor.name} testcontainer ready:`, env);
+  return { descriptor, container, env };
+}
+
+/** Local path: resolve against a docker-compose service already listening. */
+function resolveLocal(descriptor: InfraDescriptor): StartedInfra {
+  return {
+    descriptor,
+    env: resolveProvides(descriptor, 'localhost', descriptor.localPort),
+  };
 }
 
 /**
- * Start Redis container for tests.
- * Uses port 16379 to not conflict with docker-compose (6379).
+ * Bring up the given infra and return the merged `process.env` contribution.
+ * `useTestcontainers` picks the CI (real container) vs local (compose) path.
  */
-export async function startRedisContainer() {
-  const container = await new RedisContainer()
-    .withExposedPorts(TEST_REDIS_PORT)
-    .start();
+export async function startInfra(
+  descriptors: InfraDescriptor[],
+  { useTestcontainers }: { useTestcontainers: boolean },
+): Promise<Record<string, string>> {
+  startedInfra = useTestcontainers
+    ? await Promise.all(descriptors.map(startOne))
+    : descriptors.map(resolveLocal);
 
-  process.env.REDIS_URL = `redis://${container.getHost()}:${String(container.getMappedPort(TEST_REDIS_PORT))}`;
-  console.log('🔴 Starting Redis testcontainer on url ', process.env.REDIS_URL);
+  const env: Record<string, string> = {};
+  for (const started of startedInfra) {
+    Object.assign(env, started.env);
+  }
+  return env;
+}
 
-  return container;
+/** Stop every real container started by `startInfra` (no-op for local). */
+export async function stopInfra(): Promise<void> {
+  const running = startedInfra
+    .map((s) => s.container)
+    .filter((c): c is StartedTestContainer => c !== undefined);
+  await Promise.all(running.map((c) => c.stop()));
+  startedInfra = [];
+}
+
+/**
+ * Push database schemas by delegating to the app's own migration.
+ *
+ * The `apps/$WEBAPP db:migrate` reach is intentionally left here rather than in
+ * `@acme/db` (see docs/adr/0016 — migration ownership is a separate, later
+ * decision). Gated by the caller on Postgres being in the infra set. Uses a
+ * mutex so migrations from the same app directory don't run concurrently.
+ */
+export async function pushDatabaseSchemas(webapp: string): Promise<void> {
+  console.log('📊 Pushing database schemas...');
+  console.log(
+    `   DB credentials: ${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+  );
+
+  if (migrationPromise) {
+    console.log('   ⏳ Waiting for concurrent migration to complete...');
+    await migrationPromise;
+  }
+
+  migrationPromise = new Promise((resolvePromise, reject) => {
+    try {
+      const child = spawn(
+        `cd ../../../apps/${webapp} && pnpm`,
+        ['db:migrate'],
+        {
+          stdio: 'inherit',
+          cwd: process.cwd(),
+          shell: true,
+          env: { ...process.env },
+        },
+      );
+
+      child.on('close', (code) => {
+        migrationPromise = null;
+        if (code === 0) {
+          console.log('✅ pnpm db:migrate completed successfully');
+          resolvePromise();
+        } else {
+          console.error(`❌ pnpm db:migrate failed with code ${code}`);
+          reject(new Error(`db:migrate failed with code ${code}`));
+        }
+      });
+
+      child.on('error', (error) => {
+        console.warn('   ⚠ Schema push encountered an issue:', error);
+        migrationPromise = null;
+        reject(error);
+      });
+    } catch (error) {
+      console.warn('   ⚠ Schema push encountered an issue:', error);
+      migrationPromise = null;
+      reject(error instanceof Error ? error : new Error(String(error)));
+    }
+  });
+
+  await migrationPromise;
 }
 
 /**
  * Start a LocalStack container exposing Secrets Manager (and S3) for tests of
- * the `aws` secrets backend. Independent of the Postgres/Redis lifecycle so a
- * test can bring up only the infra it needs.
+ * the `aws` secrets backend. Independent of the descriptor set so that test can
+ * bring up only the infra it needs.
  */
 let localstackInstance: StartedTestContainer | null = null;
 
@@ -137,137 +234,4 @@ export async function stopLocalstackContainer(): Promise<void> {
   }
   await localstackInstance.stop();
   localstackInstance = null;
-}
-
-/**
- * Push database schemas using drizzle-kit.
- * This creates the necessary tables in the test database.
- * Returns a promise that resolves when migration is complete.
- * Uses a mutex to ensure migrations from the same app directory don't run concurrently.
- */
-async function pushDatabaseSchemas(): Promise<void> {
-  console.log('📊 Pushing database schemas...');
-  console.log(
-    `   DB credentials: ${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
-  );
-
-  // Wait for any in-progress migration to complete before starting a new one
-  if (migrationPromise) {
-    console.log('   ⏳ Waiting for concurrent migration to complete...');
-    await migrationPromise;
-  }
-
-  // Create and store new migration promise
-  migrationPromise = new Promise((resolve, reject) => {
-    try {
-      const child = spawn(
-        `cd ../../../apps/${process.env.NEXT_PUBLIC_WEBAPP} && pnpm`,
-        ['db:migrate'],
-        {
-          stdio: 'inherit',
-          cwd: process.cwd(), // ensure you're in the project root
-          shell: true, // important on Windows
-          env: {
-            ...process.env,
-            // All DB credentials should already be in process.env from startPostgresContainer
-            // but we explicitly pass them to ensure they're in the child process
-          },
-        },
-      );
-
-      child.on('close', (code) => {
-        if (code === 0) {
-          console.log('✅ pnpm db:migrate completed successfully');
-          migrationPromise = null; // Clear the mutex
-          resolve();
-        } else {
-          console.error(`❌ pnpm db:migrate failed with code ${code}`);
-          migrationPromise = null; // Clear the mutex
-          reject(new Error(`db:migrate failed with code ${code}`));
-        }
-      });
-
-      child.on('error', (error) => {
-        console.warn('   ⚠ Schema push encountered an issue:', error);
-        migrationPromise = null; // Clear the mutex
-        reject(error);
-      });
-
-      console.log(
-        '   ℹ Database ready. Tests should set up their own tables as needed.',
-      );
-    } catch (error) {
-      console.warn('   ⚠ Schema push encountered an issue:', error);
-      console.log('   → Tests may need to set up schemas manually');
-      migrationPromise = null; // Clear the mutex
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
-  });
-
-  await migrationPromise;
-}
-
-/**
- * Start all test containers.
- * Automatically detects if docker-compose services are running:
- * - If found on ports 5432/6379, uses them
- * - Otherwise starts testcontainers on ports 15432/16379
- *
- * Call this from globalSetup in your vitest config.
- */
-export async function startContainers(): Promise<TestContainers> {
-  if (containersInstance) {
-    return containersInstance;
-  }
-  console.log('⚠️  Docker-compose services not found.');
-
-  const [postgres, redis] = await Promise.all([
-    startPostgresContainer(),
-    startRedisContainer(),
-  ]);
-
-  containersInstance = { postgres, redis, usingDockerCompose: false };
-
-  // Set additional env vars (credentials already set in startPostgresContainer)
-  process.env.DB_VECTOR_NAME = DB_VECTOR_NAME;
-
-  console.log('\n✅ Testcontainers started:');
-  console.log(`   PostgreSQL: ${process.env.DB_HOST}:${process.env.DB_PORT}`);
-  console.log(`   Redis: ${process.env.REDIS_URL}\n`);
-
-  // Push database schemas and wait for completion
-  await pushDatabaseSchemas();
-
-  return containersInstance;
-}
-
-/**
- * Stop all test containers.
- * Only stops testcontainers, not docker-compose services.
- * Call this from globalTeardown in your vitest config.
- */
-export async function stopContainers(): Promise<void> {
-  if (!containersInstance) {
-    return;
-  }
-
-  // Don't stop docker-compose services
-  if (containersInstance.usingDockerCompose) {
-    console.log(
-      '\n✅ Tests complete. Docker-compose services remain running.\n',
-    );
-    containersInstance = null;
-    return;
-  }
-
-  console.log('\n🛑 Stopping testcontainers...\n');
-
-  await Promise.all([
-    containersInstance.postgres.stop(),
-    containersInstance.redis.stop(),
-  ]);
-
-  containersInstance = null;
-
-  console.log('✅ Testcontainers stopped.\n');
 }

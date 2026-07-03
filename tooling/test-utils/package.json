@@ -20,6 +20,10 @@
       "types": "./dist/hydrate-env.d.ts",
       "default": "./src/hydrate-env.ts"
     },
+    "./infra": {
+      "types": "./dist/infra.d.ts",
+      "default": "./src/infra.ts"
+    },
     "./vitest": {
       "types": "./dist/vitest.d.ts",
       "default": "./src/vitest.ts"
@@ -38,10 +42,6 @@
   "dependencies": {
     "@acme/vitest-config": "workspace:*",
     "@opentelemetry/api": "catalog:",
-    "@testcontainers/postgresql": "^10.25.0",
-    "@testcontainers/redis": "^10.25.0",
-    "drizzle-orm": "catalog:",
-    "postgres": "catalog:",
     "testcontainers": "^10.25.0",
     "vitest": "catalog:",
     "zod": "catalog:"

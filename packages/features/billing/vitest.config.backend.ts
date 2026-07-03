@@ -1,5 +1,7 @@
 import { defineConfig, mergeConfig } from 'vitest/config';
 
+import { postgresContainer } from '@acme/db/testing';
+import { redisContainer } from '@acme/redis/testing';
 import { backendProject } from '@acme/test-utils/vitest';
 
 // NEXT_PUBLIC_WEBAPP only drives the @acme/redis key namespace here (billing's
@@ -11,6 +13,7 @@ export default mergeConfig(
   backendProject({
     webapp: 'billing_test',
     redisDb: '1',
+    infra: [postgresContainer, redisContainer],
     setupFiles: ['./src/tests/backend/setup.ts'],
   }),
   defineConfig({ test: { mockReset: false } }),
