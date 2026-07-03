@@ -6,9 +6,12 @@ import { flushTestDb } from '@acme/redis/testing';
 import type {
   SubscriptionCache,
   SubscriptionTier,
-} from '../../subscription-cache';
-import { credits } from '../../credits';
-import { setStripeCustomerId, setSubscriptionCache } from '../../subscriptions';
+} from '../../../subscription-cache';
+import { credits } from '../../../credits';
+import {
+  setStripeCustomerId,
+  setSubscriptionCache,
+} from '../../../subscriptions';
 
 /**
  * Service tests for the Credit storage layer against a REAL Redis (the isolated

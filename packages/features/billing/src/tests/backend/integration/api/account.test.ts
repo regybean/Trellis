@@ -13,15 +13,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { TestContextOptions } from '../utils/test-context';
-import { appRouter } from '../../../api/root';
-import { BillingErrorCode } from '../../../utils/stripe-errors';
+import type { TestContextOptions } from '../../utils/test-context';
+import { appRouter } from '../../../../api/root';
+import { BillingErrorCode } from '../../../../utils/stripe-errors';
 import {
   createTestSubscription,
   createTestUserId,
   setupTestStripeCustomer,
-} from '../utils/fixtures';
-import { cleanupTestData, createTestContext } from '../utils/test-context';
+} from '../../utils/fixtures';
+import { cleanupTestData, createTestContext } from '../../utils/test-context';
 
 // Helper to create a tRPC caller with the given context options
 function createCaller(opts: TestContextOptions) {

@@ -16,17 +16,17 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { memory } from '@acme/rag';
 
-import type { TestContextOptions } from '../utils/test-context';
-import { appRouter } from '../../../api/root';
-import { chatAgent } from '../../../api/services/chat-agent';
-import { throwingAgentStream } from '../setup';
+import type { TestContextOptions } from '../../utils/test-context';
+import { appRouter } from '../../../../api/root';
+import { chatAgent } from '../../../../api/services/chat-agent';
+import { throwingAgentStream } from '../../setup';
 import {
   createTestChat,
   createTestChatWithMessages,
   createTestSessionId,
   createTestUserId,
-} from '../utils/fixtures';
-import { cleanupTestData, createTestContext } from '../utils/test-context';
+} from '../../utils/fixtures';
+import { cleanupTestData, createTestContext } from '../../utils/test-context';
 
 // Helper to create a tRPC caller with the given context options
 function createCaller(opts: TestContextOptions) {

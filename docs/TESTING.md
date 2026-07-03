@@ -20,30 +20,59 @@ the ports and fails loudly if they're down. **In CI** (`CI=true`) the same
 global-setup starts throwaway testcontainers and runs migrations, then tears
 them down. Infra-less suites (see `infra: false` below) need neither.
 
-## The test taxonomy: API → Service → Domain
+## Test the contract, not the internals
 
-Backend tests are grouped by **the seam under test**, one folder each under
-`src/tests/backend/`:
+The one principle everything else follows from: **each test targets the seam that
+owns a contract and asserts what's observable at that seam — never re-asserts a
+contract owned upstream, never reaches past the seam to check a mechanism.**
 
-| Folder     | Seam under test                                                                                       | Infra                   | Examples                                                                                      |
-| ---------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------------- |
-| `api/`     | The tRPC **router** — the feature's public interface, through all middleware (auth, tier, rate-limit) | Real DB/Redis           | `api/account.test.ts`, `api/chat.test.ts`                                                     |
-| `service/` | A **service/module** that hits real infra directly (not through the router)                           | Real DB/Redis           | `service/credits.test.ts`, `service/document-uploader.test.ts`                                |
-| `domain/`  | **Pure logic** — transforms, policy, parsing                                                          | None (no I/O, no mocks) | `domain/credit-policy.test.ts`, `domain/chat-memory.test.ts`, `domain/stripe-webhook.test.ts` |
+- Assert the **outcome**, not the call. `expect(mock).toHaveBeenCalledWith(...)`
+  is the smell that you've dropped below the contract into an internal.
+- **One contract, one owner, one layer.** If the api test already proves "webhook
+  event → correct tier in Redis," don't _also_ unit-test the private mapper it
+  uses. If every feature's api suite proves auth rejects, don't re-test the
+  middleware in `@acme/trpc`.
+- **Test where the contract becomes observable.** A platform module whose only
+  contract surfaces through a consuming feature is tested at that feature's
+  boundary — not given a redundant suite of its own.
 
-Rules of thumb:
+## The test taxonomy: unit / integration(api · service)
 
-- Goes through `appRouter.createCaller(...)` → **api**.
-- Touches Redis/Postgres/vector-store directly → **service**.
-- Pure function, no I/O to mock away → **domain**. A domain test that needs a
-  mock to run is usually mis-placed (it's really a service test) or is testing
-  the wrong seam.
+Backend tests are filed by **test type**, then by **the seam under test**. Two
+top-level folders under `src/tests/backend/` (`src/tests/` for platform packages):
 
-When a module has both a pure core and an I/O shell, **split it** — extract the
-pure part and test it in `domain/`, test the I/O in `service/`. `credits` is the
-worked example: `credit-policy.ts` (pure limits + billing window) is tested in
-`domain/`, while the Redis-backed operations are tested against a real Redis in
-`service/`.
+| Folder                | Type                                    | Seam under test                                                                                       | Infra                   | Examples                                                                       |
+| --------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------ |
+| `unit/`               | **Unit** (solitary — no collaborators)  | **Pure logic** — transforms, policy, parsing                                                          | None (no I/O, no mocks) | `unit/credit-policy.test.ts`, `unit/chat-memory.test.ts`, `unit/stripe-webhook.test.ts` |
+| `integration/api/`    | **Subcutaneous** (through the router)   | The tRPC **router** — the feature's public interface, through all middleware (auth, tier, rate-limit) | Real DB/Redis           | `integration/api/account.test.ts`, `integration/api/chat.test.ts`             |
+| `integration/service/`| **Integration** (one module ↔ infra)    | A **service/module** that hits real infra directly (not through the router)                           | Real DB/Redis           | `integration/service/credits.test.ts`, `integration/service/document-uploader.test.ts` |
+
+The top axis is the **test type** (unit vs integration); `integration/`
+subdivides by **seam** (through the router = `api/`, direct to infra =
+`service/`). `unit/` is _solitary_ (Fowler's term — no collaborators); the
+`integration/` tests are _sociable_ (real router, real infra).
+
+Rules of thumb — **the seam decides placement**, not ceremony:
+
+- Goes through `appRouter.createCaller(...)` → **integration/api**.
+- Touches Redis/Postgres/vector-store directly, not reachable through a router →
+  **integration/service**.
+- Pure function, no I/O to mock away → **unit**. A unit test that needs a mock to
+  run is mis-placed (it's really an integration test) or is testing the wrong
+  seam. If a "pure" function's _only_ observable effect is a call to an injected
+  dependency, it's delegation — don't unit-test it; assert the real effect in
+  `integration/`.
+- If a procedure can reach it, prefer **api** (you get the middleware for free).
+  If only non-tRPC callers reach it (e.g. `syncStripeDataToKV`, called by the
+  webhook handler + dev tooling), it's a **service** test.
+
+**Split a pure core from its I/O shell _only when the pure part is independently a
+contract_** — a policy/parse/transform a domain expert would name. `credits` is
+the worked example: `credit-policy.ts` (per-tier limits + billing window — a real
+policy) is tested in `unit/`, while the Redis-backed operations are tested against
+a real Redis in `integration/service/`. Don't mint a `unit/` test for a private
+mapper (e.g. billing's `buildSubscriptionCache`) — its branches are driven by
+_input shape_ through the service test that owns the outcome.
 
 Frontend tests live under `src/tests/frontend/` (`*.test.tsx`, jsdom + Testing
 Library + MSW).
@@ -170,8 +199,11 @@ fixtures.
   stack; assert the unauthorized/forbidden paths once per package, not per
   procedure.
 - **Zero, one, many.** Cover empty, single, and multiple-row cases.
-- **Assert real state.** Read data back through the same API/DB, not through the
-  mock.
+- **Assert the outcome, not the mechanism.** Read data back through the same
+  API/DB and assert real state; never assert `mock.toHaveBeenCalledWith(...)` —
+  that tests an internal, not the contract.
+- **Don't re-test an upstream contract.** Middleware once per package; don't
+  re-assert a pure helper the owning service already covers by input shape.
 - **Don't test the framework** (tRPC routing, Zod internals) or mocked services
   (Stripe API, LLM output).
 
@@ -227,6 +259,7 @@ router) — a contradiction signalling it's mis-classified.
    `server-only`) and any DDL provisioning. Do **not** mock `env`.
 4. Create `src/tests/backend/utils/test-context.ts` re-exporting
    `createTestContext` from `@acme/trpc/testing` and owning `cleanupTestData`.
-5. Place tests under `api/`, `service/`, or `domain/` per the taxonomy above.
+5. Place tests under `unit/`, `integration/api/`, or `integration/service/` per
+   the taxonomy above.
 6. Add the class's `test*` scripts to `package.json` and drop any
    `acme.testStatus`/`reason` once real tests exist.

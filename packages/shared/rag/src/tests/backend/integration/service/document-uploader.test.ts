@@ -13,7 +13,7 @@ import {
   deleteByFilename,
   listDocuments,
   uploadDocs,
-} from '../../../document-uploader';
+} from '../../../../document-uploader';
 
 function txtFile(name: string, content: string) {
   return new File([content], name, { type: 'text/plain' });

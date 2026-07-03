@@ -3,16 +3,31 @@
 The full reference is [**docs/TESTING.md**](../TESTING.md). This is the
 one-screen version: the rules an agent must not get wrong.
 
+## The one principle
+
+**Test the contract, not the internals.** Assert what's observable at the seam
+that owns the behaviour (caller result + real DB/Redis state); never
+`expect(mock).toHaveBeenCalledWith(...)`. One contract, one owner, one layer —
+don't re-test middleware per-procedure, don't unit-test a private helper the
+owning service already covers, don't give a platform module its own suite when
+its contract is observable through a consuming feature.
+
 ## Where a test goes (backend, under `src/tests/backend/`)
 
-Group by the **seam under test**:
+Filed by **test type**, then **seam**. `unit/` is solitary; `integration/` is
+sociable:
 
-- **`api/`** — through the tRPC **router** (auth/tier/rate-limit middleware). Real DB/Redis.
-- **`service/`** — a module hitting real infra **directly** (Redis, Postgres, vector store).
-- **`domain/`** — **pure** logic, no I/O, no mocks. If a domain test needs a mock, it's mis-placed.
+- **`unit/`** — **pure** logic, no I/O, no mocks. If it needs a mock, it's
+  mis-placed. If its only effect is calling an injected dep, it's delegation —
+  don't unit-test it.
+- **`integration/api/`** — through the tRPC **router** (auth/tier/rate-limit middleware). Real DB/Redis.
+- **`integration/service/`** — a module hitting real infra **directly** (Redis, Postgres, vector store), not reachable through a router.
 
-Module with a pure core and an I/O shell? **Split it**: pure → `domain/`, I/O →
-`service/` (see `subscriptions`' `credit-policy.ts` + `credits.ts`).
+Module with a pure core and an I/O shell? **Split it _only if the pure part is
+independently a contract_** (a named policy/transform): pure → `unit/`, I/O →
+`integration/service/` (see `subscriptions`' `credit-policy.ts` + `credits.ts`).
+A private mapper isn't a contract — drive its branches by input shape through the
+service test that owns the outcome.
 
 ## The rules
 

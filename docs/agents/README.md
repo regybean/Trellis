@@ -24,7 +24,7 @@ Before exploring, agents consult the repo's own documentation — domain languag
 - [**CONTEXT-MAP.md**](../../CONTEXT-MAP.md) — index of per-package `CONTEXT.md` files (the ubiquitous language).
 - [**docs/adr/**](../adr/) — architectural decision records: the choices that are hard to reverse and would otherwise be surprising.
 - [**domain.md**](domain.md) — how the skills should consume the above when exploring.
-- [**testing.md**](testing.md) — how tests work: the API→Service→Domain taxonomy and the mocking rules (full detail in [docs/TESTING.md](../TESTING.md)).
+- [**testing.md**](testing.md) — how tests work: the unit / integration(api·service) taxonomy, "test the contract not the internals", and the mocking rules (full detail in [docs/TESTING.md](../TESTING.md)).
 
 ## Tracking work
 

@@ -4,8 +4,8 @@ import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
  * The pure Credit policy: per-tier limits and the billing-window that bounds a
  * balance. No Redis, no I/O — just the numbers and dates the storage layer in
  * `credits.ts` reads and writes. Split out so it can be unit-tested in isolation
- * (`tests/domain`) while the storage operations are tested against real Redis
- * (`tests/service`).
+ * (`tests/unit`) while the storage operations are tested against real Redis
+ * (`tests/integration/service`).
  */
 
 const DEFAULT_LIMIT = 250;

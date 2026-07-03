@@ -12,15 +12,15 @@
 
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { TestContextOptions } from '../utils/test-context';
-import { appRouter } from '../../../api/root';
+import type { TestContextOptions } from '../../utils/test-context';
+import { appRouter } from '../../../../api/root';
 import {
   createTestSessionId,
   createTestThread,
   createTestThreadWithMessage,
   createTestUserId,
-} from '../utils/fixtures';
-import { cleanupTestData, createTestContext } from '../utils/test-context';
+} from '../../utils/fixtures';
+import { cleanupTestData, createTestContext } from '../../utils/test-context';
 
 function createCaller(opts: TestContextOptions) {
   const ctx = createTestContext(opts);

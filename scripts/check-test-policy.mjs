@@ -22,7 +22,7 @@
  *   node scripts/check-test-policy.mjs --todos   # list tracked test gaps, exit 0
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -103,6 +103,32 @@ function hasFile(dir, predicate) {
   return false;
 }
 
+/** Recursively collect every file under `dir` matching `predicate`. */
+function collectFiles(dir, predicate, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir)) {
+    if (entry === "node_modules" || entry === "dist" || entry === ".turbo") {
+      continue;
+    }
+    const full = join(dir, entry);
+    if (statSync(full).isDirectory()) collectFiles(full, predicate, out);
+    else if (predicate(full)) out.push(full);
+  }
+  return out;
+}
+
+/**
+ * The only folders a *backend* test (`*.test.ts`) may live in — the unit /
+ * integration(api·service) taxonomy from docs/TESTING.md. Frontend tests
+ * (`*.test.tsx`, under `tests/frontend/`) are out of scope. Keeps the taxonomy
+ * from silently regressing to the old flat `api/`/`service/`/`domain/` names.
+ */
+const ALLOWED_TEST_SEGMENTS = [
+  "/unit/",
+  "/integration/api/",
+  "/integration/service/",
+];
+
 const errors = [];
 const warnings = [];
 const todos = [];
@@ -165,6 +191,31 @@ for (const pkg of findPackages()) {
     } else if (missing.length > 0) {
       errors.push(
         `${name}: ${testClass} package is missing scripts: ${missing.join(", ")} (add them, or mark "acme.testStatus: todo" with a reason)`,
+      );
+    }
+  }
+
+  // Taxonomy filing: every backend test in a runtime layer must sit under
+  // unit/ or integration/{api,service}/ (docs/TESTING.md). Catches a test left
+  // in a stray old-name folder or loose under src/tests. Scoped to the runtime
+  // layers; tooling/apps are out of scope (as with check-exports).
+  const isRuntimeLayer =
+    pkg.rel.startsWith("packages/platform/") ||
+    pkg.rel.startsWith("packages/shared/") ||
+    pkg.rel.startsWith("packages/features/");
+  const testsDir = join(pkg.dir, "src", "tests");
+  const backendTests = isRuntimeLayer
+    ? collectFiles(
+        testsDir,
+        (f) => f.endsWith(".test.ts") && !f.includes(`${sep}frontend${sep}`),
+      )
+    : [];
+  for (const file of backendTests) {
+    const posix = file.replaceAll(sep, "/");
+    if (!ALLOWED_TEST_SEGMENTS.some((seg) => posix.includes(seg))) {
+      const rel = posix.slice(posix.indexOf("/src/tests/"));
+      errors.push(
+        `${name}: backend test outside the taxonomy: ${rel} — move under unit/, integration/api/, or integration/service/`,
       );
     }
   }

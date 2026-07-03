@@ -12,14 +12,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { deleteByFilename, listDocuments, uploadDocs } from '@acme/rag/server';
 
-import type { TestContextOptions } from '../utils/test-context';
-import { appRouter } from '../../../api/root';
+import type { TestContextOptions } from '../../utils/test-context';
+import { appRouter } from '../../../../api/root';
 import {
   deleteFilesFromS3,
   downloadFileFromS3,
   generatePresignedUploadUrl,
-} from '../../../utils/s3-client';
-import { createTestContext } from '../utils/test-context';
+} from '../../../../utils/s3-client';
+import { createTestContext } from '../../utils/test-context';
 
 const adminOpts: TestContextOptions = {
   userId: 'user_admin',
