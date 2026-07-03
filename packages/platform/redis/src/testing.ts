@@ -1,9 +1,9 @@
 /**
  * Redis test helpers — shipped as the `@acme/redis/testing` export subpath.
  *
- * The single place a backend suite flushes its data, plus the pure-data
- * `redisContainer` descriptor a suite opts into via
- * `backendProject({ infra: [redisContainer] })`. The descriptor is owned here,
+ * The single place a backend suite flushes its data, plus the
+ * `redisContainer` descriptor a suite opts into from its per-suite global-setup
+ * file via `runInfraSetup([redisContainer])`. The descriptor is owned here,
  * beside the client it serves; `@acme/test-utils` is the engine that starts it
  * (this package carries no `testcontainers` dependency). See docs/adr/0017.
  *
@@ -20,9 +20,9 @@ export const redisContainer: InfraDescriptor = {
   containerPort: 6379,
   localPort: 6379,
   waitLogRegex: 'Ready to accept connections',
-  provides: {
-    REDIS_URL: 'redis://{host}:{port}',
-  },
+  provides: (host, port) => ({
+    REDIS_URL: `redis://${host}:${port}`,
+  }),
 };
 
 /**

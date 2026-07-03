@@ -1,11 +1,13 @@
 # A suite declares its test infra explicitly; the descriptor is owned by the infra package
 
-A backend suite starts exactly the containers it names in `backendProject({ infra:
-[…] })`. The descriptors are **pure data** exported by the package that owns the
-infra (`@acme/redis/testing`, `@acme/db/testing`), and `@acme/test-utils` is a
-generic engine that turns a descriptor into a running container. The non-obvious
-part is that test infra is **declared per-suite, not derived from the dependency
-graph** — the deliberate opposite of dev infra ([ADR 0009](0009-graph-derived-dev-infra.md)).
+A backend suite starts exactly the containers it names in a tiny per-suite
+global-setup file: `export default runInfraSetup([postgresContainer,
+redisContainer])`. The descriptors are **live objects** exported by the package
+that owns the infra (`@acme/redis/testing`, `@acme/db/testing`); the suite
+imports them directly and `@acme/test-utils` is a generic engine that turns a
+descriptor into a running container. The non-obvious part is that test infra is
+**declared per-suite, not derived from the dependency graph** — the deliberate
+opposite of dev infra ([ADR 0009](0009-graph-derived-dev-infra.md)).
 
 ## Why not graph-derive it, like dev does
 
@@ -24,38 +26,45 @@ mock). Rather than invent a second derivation that guesses the mock boundary, th
 suite states its infra outright. The test-real vocabulary is tiny — in practice
 `postgres` and `redis` — so an explicit list is both clearer and honest.
 
-## Descriptor is data, owned by the infra package
+## Descriptor owned by the infra package
 
-`@acme/redis/testing` and `@acme/db/testing` export plain-data descriptors — image,
-port, the env keys the container populates, any init bind — and nothing else. The
-feature's `vitest.config.backend.ts` (which sits above `platform` and may import
-these) composes them: `backendProject({ infra: [pgContainer, redisContainer] })`.
+`@acme/redis/testing` and `@acme/db/testing` export descriptors — image, port,
+container env, any init bind, and a `provides(host, port)` function projecting the
+running container into the `process.env` keys that infra validates. The suite
+composes them in a per-suite global-setup file (which sits above `platform` and
+may import these): `export default runInfraSetup([postgresContainer,
+redisContainer])`, wired via
+`backendProject({ globalSetup: './src/tests/backend/global-setup.ts' })`.
 
-- **Keeps `@testcontainers/*` out of `platform`.** The descriptor is data, so
-  `@acme/redis`/`@acme/db` gain no test-runner dependency; only `@acme/test-utils`
-  builds the container from the data.
+- **Keeps `@testcontainers/*` out of `platform`.** The descriptor is a plain
+  object, so `@acme/redis`/`@acme/db` gain no test-runner dependency; only
+  `@acme/test-utils` builds the container from it.
 - **`@acme/test-utils` owns only the mechanism.** `staticTestEnv`, env hydration,
-  the `backendProject` preset, and the data→container/hydrate engine. It no longer
-  encodes *which package needs what* (that's the suite) or *how each infra is built*
-  (that's the owner). This is what the package's own CONTEXT calls being
-  "infra-only", finished.
+  the `backendProject` preset, and the `runInfraSetup` engine. It no longer
+  encodes *which package needs what* (that's the suite's global-setup) or *how each
+  infra is built* (that's the owner's descriptor). This is what the package's own
+  CONTEXT calls being "infra-only", finished.
 - **This resolves the layer boundary.** `@acme/test-utils` is `tooling` and cannot
-  import `platform`; composing descriptors at the feature config (not inside
-  test-utils) is what lets ownership move down to the infra package without an
-  upward import.
+  import `platform`; importing the descriptors in the suite's own global-setup
+  (not inside test-utils) is what lets ownership move down to the infra package
+  without an upward import.
+- **One record crosses to workers.** `runInfraSetup` merges every descriptor's
+  `provides(...)` and publishes it as a single `infraEnv` record via
+  `project.provide`; `hydrate-env` copies it into `process.env`. No per-key list
+  to maintain.
 
 ## Status
 
 accepted
 
-## Implementation note
+## LocalStack folds into the same model
 
-`backendProject({ infra })` JSON-encodes the (pure-data) descriptors into the
-suite's test env under `ACME_TEST_INFRA`; the shared global-setup reads them from
-the resolved project config (`project.config.env`) — the config-eval module realm
-does not share singletons with, nor propagate `process.env` to, the global-setup
-main process, so the descriptors travel as serialised data rather than a shared
-registry. Being pure data (no functions) is what makes that possible.
+The `aws` secrets-backend test (in `@acme/test-utils`) needs LocalStack and
+nothing else. It is expressed as a `localstackContainer` descriptor and run
+through the same `runInfraSetup([localstackContainer])` — no bespoke start/stop
+helpers. The descriptor lives beside that test (its sole consumer) rather than in
+an owner package, since the backend under test is the repo's root `scripts/`, not
+a package.
 
 ## Considered and rejected
 
@@ -67,4 +76,10 @@ registry. Being pure data (no functions) is what makes that possible.
   queries, yet genuinely needs Postgres only to satisfy env validation).
 - **Keep a central string-keyed registry in `@acme/test-utils`.** Rejected as the
   end state — it keeps the "how to build each infra" in tooling; owning the
-  descriptor as data beside the client keeps the image pinned next to what it serves.
+  descriptor beside the client keeps the image pinned next to what it serves.
+- **Serialise descriptors through the test env to keep one shared global-setup.**
+  Rejected — the descriptors would have to be pure JSON (forcing a `{host}`/`{port}`
+  template DSL instead of a `provides` function) and travel through an
+  `ACME_TEST_INFRA` env channel read back from `project.config.env`. A ~5-line
+  per-suite global-setup file that imports the descriptors as live objects is
+  simpler, needs no serialisation or DSL, and unifies with the LocalStack path.

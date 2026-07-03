@@ -1,16 +1,15 @@
 /**
  * Testcontainers engine.
  *
- * Generic: given an `InfraDescriptor` (pure data owned by the infra package —
- * see `@acme/db/testing`, `@acme/redis/testing`), start the matching container
- * and project its host/port into the `process.env` keys that infra validates.
- * This module holds no per-infra knowledge (no pinned Postgres/Redis image, no
+ * Generic: given an `InfraDescriptor` (owned by the infra package — see
+ * `@acme/db/testing`, `@acme/redis/testing`), start the matching container and
+ * ask the descriptor to project its host/port into the `process.env` keys that
+ * infra validates. This module holds no per-infra knowledge (no pinned image, no
  * credentials) — that lives with each owner. See docs/adr/0017.
  *
  * In CI a real container is started per descriptor; locally we assume a
  * docker-compose stack (`pnpm infra:up`) is already listening on the standard
- * port. LocalStack (for the secrets-backend test) keeps its own bespoke helpers
- * below — a single consumer that never composes with the descriptor set.
+ * port.
  */
 
 /* eslint-disable no-restricted-syntax, turbo/no-undeclared-env-vars */
@@ -22,10 +21,6 @@ import type { StartedTestContainer } from 'testcontainers';
 import { GenericContainer, Wait } from 'testcontainers';
 
 import type { InfraDescriptor } from './infra';
-
-const TEST_LOCALSTACK_PORT = 4566;
-// Pin to a community image — `:latest` can resolve to a license-gated build.
-const LOCALSTACK_IMAGE = 'localstack/localstack:3.8.1';
 
 // Walk up to the monorepo root (the dir with pnpm-workspace.yaml) so a
 // descriptor's repo-relative bind mount resolves regardless of whether this
@@ -42,9 +37,6 @@ function findRepoRoot(start: string): string {
 }
 const REPO_ROOT = findRepoRoot(__dirname);
 
-// Migration mutex to prevent concurrent migrations from the same app directory.
-let migrationPromise: Promise<void> | null = null;
-
 export interface StartedInfra {
   descriptor: InfraDescriptor;
   /** Present only when a real testcontainer was started (CI path). */
@@ -54,21 +46,6 @@ export interface StartedInfra {
 }
 
 let startedInfra: StartedInfra[] = [];
-
-/** Interpolate `{host}`/`{port}` into a descriptor's `provides` templates. */
-function resolveProvides(
-  descriptor: InfraDescriptor,
-  host: string,
-  port: number,
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [key, template] of Object.entries(descriptor.provides)) {
-    out[key] = template
-      .replaceAll('{host}', host)
-      .replaceAll('{port}', String(port));
-  }
-  return out;
-}
 
 /** CI path: start a real container described by the descriptor. */
 async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
@@ -95,8 +72,7 @@ async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
   );
 
   const container = await builder.start();
-  const env = resolveProvides(
-    descriptor,
+  const env = descriptor.provides(
     container.getHost(),
     container.getMappedPort(descriptor.containerPort),
   );
@@ -108,7 +84,10 @@ async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
 function resolveLocal(descriptor: InfraDescriptor): StartedInfra {
   return {
     descriptor,
-    env: resolveProvides(descriptor, 'localhost', descriptor.localPort),
+    env: descriptor.provides(
+      'localhost',
+      descriptor.localPort ?? descriptor.containerPort,
+    ),
   };
 }
 
@@ -145,8 +124,7 @@ export async function stopInfra(): Promise<void> {
  *
  * The `apps/$WEBAPP db:migrate` reach is intentionally left here rather than in
  * `@acme/db` (see docs/adr/0016 — migration ownership is a separate, later
- * decision). Gated by the caller on Postgres being in the infra set. Uses a
- * mutex so migrations from the same app directory don't run concurrently.
+ * decision). Gated by the caller on Postgres being in the infra set.
  */
 export async function pushDatabaseSchemas(webapp: string): Promise<void> {
   console.log('📊 Pushing database schemas...');
@@ -154,84 +132,22 @@ export async function pushDatabaseSchemas(webapp: string): Promise<void> {
     `   DB credentials: ${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   );
 
-  if (migrationPromise) {
-    console.log('   ⏳ Waiting for concurrent migration to complete...');
-    await migrationPromise;
-  }
-
-  migrationPromise = new Promise((resolvePromise, reject) => {
-    try {
-      const child = spawn(
-        `cd ../../../apps/${webapp} && pnpm`,
-        ['db:migrate'],
-        {
-          stdio: 'inherit',
-          cwd: process.cwd(),
-          shell: true,
-          env: { ...process.env },
-        },
-      );
-
-      child.on('close', (code) => {
-        migrationPromise = null;
-        if (code === 0) {
-          console.log('✅ pnpm db:migrate completed successfully');
-          resolvePromise();
-        } else {
-          console.error(`❌ pnpm db:migrate failed with code ${code}`);
-          reject(new Error(`db:migrate failed with code ${code}`));
-        }
-      });
-
-      child.on('error', (error) => {
-        console.warn('   ⚠ Schema push encountered an issue:', error);
-        migrationPromise = null;
-        reject(error);
-      });
-    } catch (error) {
-      console.warn('   ⚠ Schema push encountered an issue:', error);
-      migrationPromise = null;
-      reject(error instanceof Error ? error : new Error(String(error)));
-    }
+  await new Promise<void>((resolvePromise, reject) => {
+    const child = spawn(`cd ../../../apps/${webapp} && pnpm`, ['db:migrate'], {
+      stdio: 'inherit',
+      cwd: process.cwd(),
+      shell: true,
+      env: { ...process.env },
+    });
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolvePromise();
+      } else {
+        reject(new Error(`db:migrate failed with code ${code}`));
+      }
+    });
+    child.on('error', reject);
   });
 
-  await migrationPromise;
-}
-
-/**
- * Start a LocalStack container exposing Secrets Manager (and S3) for tests of
- * the `aws` secrets backend. Independent of the descriptor set so that test can
- * bring up only the infra it needs.
- */
-let localstackInstance: StartedTestContainer | null = null;
-
-export async function startLocalstackContainer() {
-  if (localstackInstance) {
-    return localstackInstance;
-  }
-  const container = await new GenericContainer(LOCALSTACK_IMAGE)
-    .withExposedPorts(TEST_LOCALSTACK_PORT)
-    .withEnvironment({ SERVICES: 's3,secretsmanager' })
-    .withWaitStrategy(Wait.forLogMessage('Ready.'))
-    .start();
-
-  localstackInstance = container;
-  const url = `http://${container.getHost()}:${String(container.getMappedPort(TEST_LOCALSTACK_PORT))}`;
-  console.log('🟣 Starting LocalStack testcontainer on', url);
-  return container;
-}
-
-export function getLocalstackUrl(): string {
-  if (!localstackInstance) {
-    throw new Error('LocalStack container has not been started');
-  }
-  return `http://${localstackInstance.getHost()}:${String(localstackInstance.getMappedPort(TEST_LOCALSTACK_PORT))}`;
-}
-
-export async function stopLocalstackContainer(): Promise<void> {
-  if (!localstackInstance) {
-    return;
-  }
-  await localstackInstance.stop();
-  localstackInstance = null;
+  console.log('✅ pnpm db:migrate completed successfully');
 }

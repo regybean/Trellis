@@ -26,35 +26,41 @@ a per-suite mock.
 _Avoid_: "the env defaults", "the fake env"
 
 **Env hydration** (`@acme/test-utils/hydrate-env`):
-A backend setupFile that copies the testcontainer connection details published by
-`global-setup` (`inject(...)`) into `process.env` _before any test module — and
-therefore any `env.ts` — is imported_. This is what makes `createEnv()` validate
-against the real running DB/Redis. Listed first in `setupFiles`, ahead of the
-package's own setup.
+A backend setupFile that copies the connection details `global-setup` published as
+one `infraEnv` record (`inject('infraEnv')`) into `process.env` _before any test
+module — and therefore any `env.ts` — is imported_. This is what makes
+`createEnv()` validate against the real running DB/Redis. Listed first in
+`setupFiles`, ahead of the package's own setup.
 _Avoid_: "the env mock", "the env setup"
+
+**`runInfraSetup(descriptors)`** (`@acme/test-utils/setup`):
+Returns a Vitest `globalSetup` function that starts exactly the named infra
+(testcontainers in CI, an assumed compose stack locally), publishes the merged
+connection env as one `infraEnv` record, and tears the containers down. A suite
+calls it from a ~5-line per-suite `global-setup.ts` that imports its descriptors
+as live objects.
+_Avoid_: "the setup harness", "the container bootstrap"
 
 **`backendProject(...)`** (`@acme/test-utils/vitest`):
 The backend Vitest config preset. Folds the identical wiring — `staticTestEnv`
-spread, `hydrate-env` ordering, testcontainer `globalSetup` (defaults to the
-shared `@acme/test-utils/setup`, so a package needs no re-export file), single
-non-isolated forked worker, generous timeouts — behind one call, so a package's
+spread, `hydrate-env` ordering, the suite's `globalSetup`, single non-isolated
+forked worker, generous timeouts — behind one call, so a package's
 `vitest.config.backend.ts` declares only what's unique to it (`webapp`,
-`redisDb`, its own setup file, and its `infra`).
-_`infra`_ is a **required** `InfraDescriptor[]` — the suite states the infra it
-touches explicitly (see **Infra descriptor**). `[]` opts a suite out of
-containers + env hydration entirely, for suites whose externals are all mocked
-and that touch no DB/Redis (e.g. `ingest`): env is still real, satisfied by
-`staticTestEnv` alone.
+`redisDb`, its own setup file, and its `globalSetup` path).
+_`globalSetup`_ points at the suite's per-suite `global-setup.ts` (see
+**Infra descriptor**); its presence _is_ the signal the suite uses real infra
+(hydrate-env is added, the container global-setup runs). Omit it for a suite whose
+externals are all mocked and that touches no DB/Redis (e.g. `ingest`): env is
+still real, satisfied by `staticTestEnv` alone.
 
 **Infra descriptor** (`InfraDescriptor`, `@acme/test-utils/infra`):
-Pure, serialisable data describing one test container — image, ports, container
-env, wait strategy, repo-relative bind mounts, and `provides` (a template map,
-`{host}`/`{port}` interpolated, of the `process.env` keys this infra populates).
-Owned by the infra package (`postgresContainer`, `redisContainer`), consumed by
-the engine. A suite composes them at its `vitest.config`; `backendProject`
-JSON-encodes them into the test env (`ACME_TEST_INFRA`) so the global-setup can
-read them back from `project.config.env` (the config-eval realm doesn't share a
-process with global-setup — data crosses as JSON, not a shared singleton).
+A plain object describing one test container — image, ports, container env, wait
+strategy, repo-relative bind mounts, and `provides(host, port)` (a function
+mapping the running container to the `process.env` keys this infra populates).
+Owned by the infra package (`postgresContainer`, `redisContainer`) and consumed
+by the engine. A suite imports the descriptors it needs in its per-suite
+`global-setup.ts` and hands them to `runInfraSetup([...])` — as live objects, so
+no serialisation is involved.
 _Avoid_: "the container config", "the infra registry"
 
 **Per-suite isolation knobs**:

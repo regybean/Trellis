@@ -38,7 +38,7 @@ const scriptsDir = join(repoRoot, 'scripts');
 
 const awsEnv = {
   ...process.env,
-  AWS_ENDPOINT_URL: inject('AWS_ENDPOINT_URL'),
+  AWS_ENDPOINT_URL: inject('infraEnv').AWS_ENDPOINT_URL,
   AWS_ACCESS_KEY_ID: 'test',
   AWS_SECRET_ACCESS_KEY: 'test',
   AWS_REGION: 'us-east-1',

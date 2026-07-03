@@ -16,12 +16,6 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 
 import baseConfig from '@acme/vitest-config/base';
 
-// Self-referenced via the package subpath (not a relative `./infra`): this
-// module is imported while Vitest resolves the config under native Node ESM,
-// which can't resolve extensionless relative paths — the exports map can.
-import type { InfraDescriptor } from './infra';
-import { INFRA_ENV_KEY } from './infra';
-
 /**
  * Static, non-secret env shared by every suite. Values only need to satisfy
  * each `env.ts` schema — they are never used to reach a real service.
@@ -81,21 +75,14 @@ interface BackendProjectOptions {
   setupFiles?: string[];
   include?: string[];
   /**
-   * The testcontainer global-setup. Defaults to the shared
-   * `@acme/test-utils/setup` — a package only needs to override this when it has
-   * extra provisioning to do (e.g. a drizzle-kit push of its own schema).
+   * Path to this suite's per-suite global-setup file, which imports its
+   * `InfraDescriptor`s (as live objects) and hands them to `runInfraSetup`
+   * (see docs/adr/0017). Its presence *is* the signal that the suite uses real
+   * infra: hydrate-env is prepended to `setupFiles` and the container
+   * global-setup runs. Omit for a suite whose externals are all mocked (e.g.
+   * `ingest`): no containers, no hydration, so the tests run anywhere.
    */
   globalSetup?: string;
-  /**
-   * The infra this suite needs, as pure-data descriptors owned by the infra
-   * package (`postgresContainer` from `@acme/db/testing`, `redisContainer` from
-   * `@acme/redis/testing`). Required and explicit — a suite states what it
-   * touches rather than inheriting it from its dependency graph (a suite that
-   * mocks a stateful dep needs less than its closure; see docs/adr/0017). Pass
-   * `[]` for a suite whose externals are all mocked: no containers are started
-   * and env is not hydrated, so the tests run anywhere.
-   */
-  infra: InfraDescriptor[];
 }
 
 export function backendProject({
@@ -103,10 +90,9 @@ export function backendProject({
   redisDb,
   setupFiles = [],
   include = ['src/tests/backend/**/*.test.ts'],
-  globalSetup = '@acme/test-utils/setup',
-  infra,
+  globalSetup,
 }: BackendProjectOptions) {
-  const hasInfra = infra.length > 0;
+  const hasInfra = globalSetup !== undefined;
   return mergeConfig(
     baseConfig,
     defineConfig({
@@ -117,10 +103,6 @@ export function backendProject({
           ...staticTestEnv,
           NEXT_PUBLIC_WEBAPP: webapp,
           ...(redisDb ? { TEST_REDIS_DB: redisDb } : {}),
-          // The global-setup is a module path and can't receive live objects, so
-          // the suite's (serialisable, pure-data) descriptors ride through the
-          // test env — the same channel `NEXT_PUBLIC_WEBAPP` uses to reach it.
-          ...(hasInfra ? { [INFRA_ENV_KEY]: JSON.stringify(infra) } : {}),
         },
         include,
         // With infra, hydrate-env runs first: copies testcontainer connection
@@ -130,7 +112,7 @@ export function backendProject({
           ? ['@acme/test-utils/hydrate-env', ...setupFiles]
           : setupFiles,
         // Starts/stops the declared testcontainers (needs Docker).
-        ...(hasInfra ? { globalSetup: [globalSetup] } : {}),
+        ...(globalSetup ? { globalSetup: [globalSetup] } : {}),
         // Real DB means generous timeouts and a single, non-isolated worker so
         // tests share one connection/transaction space deterministically.
         testTimeout: 60_000,

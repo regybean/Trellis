@@ -4,8 +4,8 @@
  * Pure data describing the Postgres container a backend suite starts, owned here
  * beside the connection it serves (image pinned next to what it connects to).
  * `@acme/test-utils` is the engine that turns this into a running container; it
- * carries no knowledge of Postgres. A suite opts in via
- * `backendProject({ infra: [postgresContainer] })`. See docs/adr/0017.
+ * carries no knowledge of Postgres. A suite opts in from its per-suite
+ * global-setup file via `runInfraSetup([postgresContainer])`. See docs/adr/0017.
  */
 import type { InfraDescriptor } from '@acme/test-utils/infra';
 
@@ -39,11 +39,11 @@ export const postgresContainer: InfraDescriptor = {
       mode: 'ro',
     },
   ],
-  provides: {
-    DB_HOST: '{host}',
-    DB_PORT: '{port}',
+  provides: (host, port) => ({
+    DB_HOST: host,
+    DB_PORT: String(port),
     DB_USER: TEST_USER,
     DB_PASSWORD: TEST_SECRET,
     DB_NAME: TEST_DB,
-  },
+  }),
 };
