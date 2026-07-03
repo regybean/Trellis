@@ -56,3 +56,22 @@ infra? })` from `@acme/test-utils/vitest`. Static env is `staticTestEnv`; live
 DB/Redis details are hydrated by `@acme/test-utils/hydrate-env`.
 
 Every package declares an `acme.testClass` block; `pnpm test:policy` enforces it.
+
+## Frontend (under `src/tests/frontend/`)
+
+Full doctrine: [**ADR 0018**](../adr/0018-frontend-test-doctrine.md) +
+[docs/TESTING.md](../TESTING.md). The one rule: **fake the network at the HTTP
+boundary (MSW); assert what renders.** The hook is the contract (logic lives in
+`src/hooks/`).
+
+- **Where it goes:** `unit/` (pure, no React), `integration/hooks/` (a hook via
+  real `QueryClient` + MSW), `integration/components/` (component through its
+  providers). Same words as the backend, weaker meaning — **MSW is the frontier,
+  there's no real infra**.
+- **Never** `vi.mock('../trpc/react')`, a feature hook, or `react-toastify` —
+  ESLint blocks all three. Assert toasts via a real `<ToastContainer />`.
+- **Never** `expect(spy).toHaveBeenCalledWith(...)` on the data layer — read the
+  DOM/hook state. Framework externals (`next/navigation`, `@acme/auth`) stay
+  mockable.
+- **Reference:** `feedback` (setup + `feedback-buttons` + `use-feedback`);
+  `ingest/documents-list` for the MSW-over-shallow-mock rewrite.

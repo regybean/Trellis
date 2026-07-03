@@ -23,7 +23,10 @@ src/
   trpc/                     # client (react.tsx), RSC (server.tsx), query-client
 {{/if}}  index.ts{{#if api}} | index-server.ts | index-schema.ts{{/if}}   # public entrypoints
 {{#if backendTests}}  tests/backend/            # setup, global-setup (testcontainers), utils, router tests
-{{/if}}{{#if frontendTests}}  tests/frontend/           # renderWithProviders + trpcMsw + component tests
+{{/if}}{{#if frontendTests}}  tests/frontend/           # setup (renderWithProviders + trpcMsw), then per ADR 0018:
+    unit/                   #   pure logic, no React tree
+    integration/hooks/      #   hook via real QueryClient + MSW (the contract)
+    integration/components/ #   component through its providers, assert DOM
 {{/if}}```
 {{#if anyTests}}
 ## Testing
@@ -41,14 +44,22 @@ throwaway PostgreSQL + Redis containers. **Docker/Podman must be running.**
 - Test shared middleware (auth, rate limit) **once**; cover business logic with the
   **zero / one / many** pattern; seed data with `fixtures.ts`.
 {{/if}}{{#if frontendTests}}
-### Frontend (`test:frontend`) — mocked tRPC, no DB
+### Frontend (`test:frontend`) — MSW at the HTTP boundary, no DB
 
-Uses **msw-trpc** + a real MSW `setupServer` to intercept the tRPC HTTP calls.
-The provider switches to a plain `httpLink` when `NODE_ENV==='test'`.
+Doctrine: [ADR 0018](../../../docs/adr/0018-frontend-test-doctrine.md) — **fake the
+network at the HTTP boundary (msw-trpc + `setupServer`), assert what renders.**
+Never `vi.mock` the tRPC client, a feature hook, or `react-toastify`; assert the
+observable outcome (DOM / returned hook state), never `expect(mock).toHaveBeenCalled`.
+The provider switches to a plain `httpLink` when `NODE_ENV==='test'` so MSW can
+intercept.
 
 ```ts
+// integration/components/{{ kebabCase name }}-list.test.tsx
 server.use(trpcMsw.{{ camelCase name }}.list.query(() => [/* rows */]));
 renderWithProviders(<{{ pascalCase name }}List />);
+
+// integration/hooks/use-{{ kebabCase name }}.test.tsx — the hook is the contract
+const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Providers });
 ```
 {{/if}}{{/if}}
 {{#if api}}

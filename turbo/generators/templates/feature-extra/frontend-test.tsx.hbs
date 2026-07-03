@@ -1,30 +1,29 @@
 /**
- * {{ pascalCase name }}List component tests.
+ * {{ pascalCase name }}List component test (integration/components).
  *
- * Demonstrates the frontend testing setup:
- * - `renderWithProviders` wraps the component in the tRPC + React Query providers.
- * - `trpcMsw` (msw-trpc) provides type-safe mocks for this feature's procedures.
- * - A real MSW `setupServer` intercepts the HTTP calls the tRPC client makes.
+ * Doctrine: ADR 0018 — fake the network at the HTTP boundary, assert what
+ * renders.
+ * - `renderWithProviders` wraps the component in the real tRPC + React Query
+ *   providers; the real hook + `QueryClient` run beneath.
+ * - `trpcMsw` (msw-trpc) + a real `setupServer` intercept the tRPC HTTP calls.
+ * - Assert the observable outcome (DOM), never `expect(mock).toHaveBeenCalled`.
  *
- * No database or network is touched — only the tRPC HTTP layer is mocked.
+ * No database or network is touched — MSW is the frontier.
  */
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import '@testing-library/jest-dom';
 
-import { {{ pascalCase name }}List } from '../../components/{{ kebabCase name }}-list';
-import { renderWithProviders, trpcMsw } from './setup';
+import { {{ pascalCase name }}List } from '../../../../components/{{ kebabCase name }}-list';
+import { renderWithProviders, trpcMsw } from '../../../setup';
 
 const server = setupServer();
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => {
-  server.resetHandlers();
-  vi.clearAllMocks();
-});
+afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 const fakeItem = (text: string) => ({

@@ -38,7 +38,7 @@ describe('resolveWebhookEvent', () => {
   });
 
   it('throws when a tracked event carries a non-string customer id', () => {
-    const event = makeEvent('invoice.paid', { customer: 12345 });
+    const event = makeEvent('invoice.paid', { customer: 12_345 });
     expect(() => resolveWebhookEvent(event)).toThrow(TypeError);
   });
 

@@ -10,6 +10,7 @@
 
 import { afterEach, beforeEach, vi } from 'vitest';
 
+import type * as StripeErrors from '../../utils/stripe-errors';
 import { cleanupTestData } from './utils/test-context';
 
 // In-memory userId -> Stripe customer id store backing the @acme/subscriptions
@@ -25,9 +26,9 @@ vi.mock('server-only', () => ({}));
 // pure, side-effect-free module, so importActual on it is safe (no live
 // Stripe/Redis at import).
 vi.mock('../../utils/stripe', async () => {
-  const errors = await vi.importActual<
-    typeof import('../../utils/stripe-errors')
-  >('../../utils/stripe-errors');
+  const errors = await vi.importActual<typeof StripeErrors>(
+    '../../utils/stripe-errors',
+  );
   return {
     billingError: errors.billingError,
     BillingErrorCode: errors.BillingErrorCode,
@@ -64,7 +65,7 @@ vi.mock('@acme/subscriptions', async () => {
         limit: 250,
         resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
       }),
-      consume: vi.fn().mockResolvedValue(undefined),
+      consume: vi.fn(() => Promise.resolve()),
       reset: vi.fn().mockResolvedValue({
         tier: 'Basic',
         limit: 250,
@@ -98,7 +99,7 @@ vi.mock('@acme/subscriptions', async () => {
     getStripeCustomerId: vi.fn((userId: string | null) =>
       Promise.resolve(stripeCustomerStore.get(String(userId)) ?? null),
     ),
-    setSubscriptionCache: vi.fn().mockResolvedValue(undefined),
+    setSubscriptionCache: vi.fn(() => Promise.resolve()),
     getSubscriptionType: vi.fn().mockReturnValue('Basic'),
     isTierAtLeast: vi.fn().mockImplementation(isTierAtLeast),
   };

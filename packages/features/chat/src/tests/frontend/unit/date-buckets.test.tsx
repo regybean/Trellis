@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { bucketOf } from '../../lib/date-buckets';
+import { bucketOf } from '../../../lib/date-buckets';
 
 // `now` is fixed mid-afternoon so "today" clearly starts at an earlier local
 // midnight and the 7-day window is unambiguous.

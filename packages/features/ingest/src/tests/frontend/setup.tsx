@@ -1,36 +1,74 @@
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
-import { vi } from 'vitest';
+import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
+import { ToastContainer } from 'react-toastify';
+import superjson from 'superjson';
+
+import type { AppRouter } from '../../api/root';
+import { TRPCReactProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
 
-// Toasts are asserted in tests.
-vi.mock('react-toastify', () => ({
-  toast: { success: vi.fn(), error: vi.fn() },
-}));
+// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
+// msw-trpc can intercept. Env is real (validated by ../../env). We fake the
+// network at the HTTP boundary with MSW and assert what renders — never mock the
+// tRPC client, a feature hook, or react-toastify (ADR 0018).
 
-// useGenericErrorHandler just surfaces a toast in real code; stub it.
-vi.mock('@acme/hooks', () => ({
-  useGenericErrorHandler: () => vi.fn(),
-}));
+/**
+ * Providers every ingest frontend test renders under: the feature's tRPC +
+ * React Query provider, plus a real `<ToastContainer />` so success/error
+ * toasts are asserted as DOM text (ADR 0018), not via a mocked `toast`.
+ */
+export const Providers = ({ children }: { children: ReactNode }) => (
+  <TRPCReactProvider>
+    {children}
+    <ToastContainer />
+  </TRPCReactProvider>
+);
 
-// Each test gets a fresh QueryClient so caches never leak across tests.
+/** Render a component wrapped in the feature's providers + ToastContainer. */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) => {
-  const queryClient = new QueryClient({
-    defaultOptions: {
-      queries: { retry: false },
-      mutations: { retry: false },
-    },
-  });
+) => render(ui, { wrapper: Providers, ...options });
 
-  const Wrapper = ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
+/**
+ * Type-safe MSW request handlers for this feature's router. Use in tests like:
+ *   server.use(trpcMsw.documents.list.query(() => [...]));
+ */
+export const trpcMsw = createTRPCMsw<AppRouter>({
+  links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/ingest' })],
+  transformer: { input: superjson, output: superjson },
+});
 
-  return render(ui, { wrapper: Wrapper, ...options });
-};
+// --- jsdom gaps some UI primitives rely on -------------------------------
+class ResizeObserverMock {
+  observe() {
+    // no-op
+  }
+  unobserve() {
+    // no-op
+  }
+  disconnect() {
+    // no-op
+  }
+}
+globalThis.ResizeObserver = ResizeObserverMock;
+
+if (!('hasPointerCapture' in Element.prototype)) {
+  // @ts-expect-error - jsdom doesn't implement this API
+  Element.prototype.hasPointerCapture = () => false;
+}
+if (!('setPointerCapture' in Element.prototype)) {
+  // @ts-expect-error - jsdom doesn't implement this API
+  Element.prototype.setPointerCapture = () => {
+    // no-op
+  };
+}
+if (!('releasePointerCapture' in Element.prototype)) {
+  // @ts-expect-error - jsdom doesn't implement this API
+  Element.prototype.releasePointerCapture = () => {
+    // no-op
+  };
+}

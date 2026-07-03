@@ -119,14 +119,26 @@ function collectFiles(dir, predicate, out = []) {
 
 /**
  * The only folders a *backend* test (`*.test.ts`) may live in — the unit /
- * integration(api·service) taxonomy from docs/TESTING.md. Frontend tests
- * (`*.test.tsx`, under `tests/frontend/`) are out of scope. Keeps the taxonomy
+ * integration(api·service) taxonomy from docs/TESTING.md. Keeps the taxonomy
  * from silently regressing to the old flat `api/`/`service/`/`domain/` names.
  */
 const ALLOWED_TEST_SEGMENTS = [
   "/unit/",
   "/integration/api/",
   "/integration/service/",
+];
+
+/**
+ * The only folders a *frontend* test (`*.test.tsx`, under `tests/frontend/`) may
+ * live in — the unit / integration(hooks·components) taxonomy from
+ * docs/TESTING.md + ADR 0018. "integration" on the frontend means a React tree
+ * wired to a real QueryClient with the network faked at the HTTP boundary (MSW);
+ * there is no real-infra tier, so the term is weaker here than on the backend.
+ */
+const ALLOWED_FRONTEND_SEGMENTS = [
+  "/unit/",
+  "/integration/hooks/",
+  "/integration/components/",
 ];
 
 const errors = [];
@@ -220,6 +232,21 @@ for (const pkg of findPackages()) {
     }
   }
 
+  // Same taxonomy filing for frontend tests (`*.test.tsx`): unit/ or
+  // integration/{hooks,components}/ (docs/TESTING.md + ADR 0018).
+  const frontendTests = isRuntimeLayer
+    ? collectFiles(testsDir, (f) => f.endsWith(".test.tsx"))
+    : [];
+  for (const file of frontendTests) {
+    const posix = file.replaceAll(sep, "/");
+    if (!ALLOWED_FRONTEND_SEGMENTS.some((seg) => posix.includes(seg))) {
+      const rel = posix.slice(posix.indexOf("/src/tests/"));
+      errors.push(
+        `${name}: frontend test outside the taxonomy: ${rel} — move under unit/, integration/hooks/, or integration/components/`,
+      );
+    }
+  }
+
   // Contradiction tripwire: a package asserted test-free that nonetheless
   // ships UI or an API router is mis-classified.
   if (testClass === "none") {
@@ -248,13 +275,18 @@ for (const pkg of findPackages()) {
   if (!isRuntimeLayer) continue;
 
   // Platform packages: src/tests/unit/   Feature packages: src/tests/backend/unit/
+  // Frontend pure logic: src/tests/frontend/unit/ (also solitary — no mocks).
   const unitDirs = [
     join(pkg.dir, "src", "tests", "unit"),
     join(pkg.dir, "src", "tests", "backend", "unit"),
+    join(pkg.dir, "src", "tests", "frontend", "unit"),
   ];
 
   for (const unitDir of unitDirs) {
-    const unitTests = collectFiles(unitDir, (f) => f.endsWith(".test.ts"));
+    const unitTests = collectFiles(
+      unitDir,
+      (f) => f.endsWith(".test.ts") || f.endsWith(".test.tsx"),
+    );
     for (const file of unitTests) {
       const content = readFileSync(file, "utf8");
       for (const pattern of MOCK_CALL_PATTERNS) {
@@ -265,6 +297,49 @@ for (const pkg of findPackages()) {
           );
           break;
         }
+      }
+    }
+  }
+}
+
+// Frontend seam-mock ban (ADR 0018): a frontend test/setup must not `vi.mock`
+// a seam the feature owns — the tRPC client, its own hooks, or react-toastify.
+// Fake the network at the HTTP boundary (MSW) and assert what renders. ESLint
+// can't carry this rule because `**/tests/**` is globally ignored (tests read
+// process.env), so it lives here beside the unit-purity scan. Framework
+// externals (`next/navigation`, `@acme/auth`) stay mockable and aren't matched.
+const FRONTEND_SEAM_MOCKS = [
+  {
+    re: /vi\.mock\(\s*['"][^'"]*trpc\/react['"]/,
+    why: "mocks the tRPC client you own — use trpcMsw + setupServer (MSW)",
+  },
+  {
+    re: /vi\.mock\(\s*['"]\.\.?\/[^'"]*hooks[^'"]*['"]/,
+    why: "mocks a feature's own hook — the hook is the contract; drive it through MSW",
+  },
+  {
+    re: /vi\.mock\(\s*['"]react-toastify['"]/,
+    why: "mocks react-toastify — assert toasts via a real <ToastContainer /> in the DOM",
+  },
+];
+for (const pkg of findPackages()) {
+  const isRuntimeLayer =
+    pkg.rel.startsWith("packages/platform/") ||
+    pkg.rel.startsWith("packages/shared/") ||
+    pkg.rel.startsWith("packages/features/");
+  if (!isRuntimeLayer) continue;
+
+  const frontendDir = join(pkg.dir, "src", "tests", "frontend");
+  const frontendFiles = collectFiles(
+    frontendDir,
+    (f) => f.endsWith(".ts") || f.endsWith(".tsx"),
+  );
+  for (const file of frontendFiles) {
+    const content = readFileSync(file, "utf8");
+    for (const { re, why } of FRONTEND_SEAM_MOCKS) {
+      if (re.test(content)) {
+        const rel = file.slice(file.indexOf("/src/tests/"));
+        errors.push(`${pkg.rel}: frontend test ${why} (ADR 0018): ${rel}`);
       }
     }
   }

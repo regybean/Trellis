@@ -47,6 +47,39 @@ const banFeatureTrpc = {
     'Feature components must not call tRPC directly — put data access in src/hooks/ (see CLAUDE.md → Slice contract enforcement).',
 };
 
+// Frontend test doctrine (ADR 0018): fake the data layer at the HTTP boundary
+// with MSW, never `vi.mock` a seam the feature owns. Banning the mocks forces
+// MSW and makes data-layer `toHaveBeenCalledWith(...)` assertions impossible
+// (the spy can't be created). Framework externals (next/navigation, @acme/auth)
+// stay mockable, mirroring the backend's blessed mock list (ADR 0014).
+// `no-restricted-syntax` is flat-config replace (last match wins), so the
+// override re-declares the shared console ban to keep it in force.
+const banConsole = {
+  selector: "CallExpression[callee.object.name='console']",
+  message:
+    "Direct console usage is not allowed. Use `import { logger } from '@acme/logger'` instead for structured logging.",
+};
+const banFrontendSeamMocks = [
+  {
+    selector:
+      "CallExpression[callee.object.name='vi'][callee.property.name='mock'] > Literal[value=/trpc\\u002Freact$/]",
+    message:
+      'Frontend tests mock the network at the HTTP boundary (MSW), not the tRPC client you own (ADR 0018). Use trpcMsw + setupServer from your feature setup.',
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='vi'][callee.property.name='mock'] > Literal[value=/^\\.\\.?\\u002F.*hooks/]",
+    message:
+      "Frontend tests must not mock a feature's own hook — the hook is the contract under test (ADR 0018). Drive it through MSW and assert the observable outcome.",
+  },
+  {
+    selector:
+      "CallExpression[callee.object.name='vi'][callee.property.name='mock'] > Literal[value=/^react-toastify$/]",
+    message:
+      'Assert toasts via a real <ToastContainer /> in the DOM, not a mocked react-toastify (ADR 0018). Toast output is user-visible, not a true external.',
+  },
+];
+
 type ImportPattern = {
   group: string[];
   message: string;
@@ -127,9 +160,6 @@ export const restrictEnvAccess = defineConfig(
       // of the public env.ts seam); it is an env-config file and reads
       // process.env just like env.ts.
       '**/env-providers.ts',
-      '**/tests/**',
-      '**/*.test.ts',
-      '**/*.test.tsx',
     ],
   },
   {
@@ -158,6 +188,19 @@ export const restrictEnvAccess = defineConfig(
   // Spread last so vendor/slice containment wins over the env-import ban above
   // for the files it matches (see the note on `defaultContainment`).
   ...defaultContainment,
+  // Tests legitimately read process.env (setup files, vi.stubEnv, hydrate-env),
+  // so exempt them from the env-access rule — but keep them fully linted by
+  // everything else. This replaces the previous *global* ignore of `tests/**`,
+  // which silently removed every test file from linting (and killed the
+  // test-scoped configs, e.g. eslint-plugin-testing-library).
+  {
+    files: ['**/tests/**/*.{js,ts,tsx}', '**/*.test.{js,ts,tsx}'],
+    rules: {
+      // Only the process.env property rule is relaxed; vendor/slice containment
+      // (`no-restricted-imports`) stays in force for tests.
+      'no-restricted-properties': 'off',
+    },
+  },
 );
 
 export const baseConfig = defineConfig(
@@ -215,6 +258,13 @@ export const baseConfig = defineConfig(
         projectService: true,
         tsconfigRootDir: import.meta.dirname,
       },
+    },
+  },
+  // Frontend test doctrine: ban mocking the seams a feature owns (ADR 0018).
+  {
+    files: ['**/tests/frontend/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-syntax': ['error', banConsole, ...banFrontendSeamMocks],
     },
   },
   // Vendor/slice containment (also spread into restrictEnvAccess; see note).

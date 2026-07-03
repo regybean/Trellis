@@ -1,57 +1,72 @@
 import type { RenderOptions } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
+import { ToastContainer } from 'react-toastify';
 import superjson from 'superjson';
 import { vi } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
-// Mock next/navigation if any internal navigation used (not strictly needed but safe)
+import '@testing-library/jest-dom';
+
+// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
+// msw-trpc can intercept. Env is real (validated by ../../env). We fake the
+// network at the HTTP boundary with MSW and assert what renders — never mock the
+// tRPC client, a feature hook, or react-toastify (ADR 0018).
+
+// Mock next/navigation — an allowed framework external (ADR 0018 / ADR 0014).
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-// Mock Clerk (now consumed via the neutral @acme/auth surface)
+// Mock the neutral @acme/auth surface — allowed framework external (ADR 0018).
 vi.mock('@acme/auth', () => ({
   useAuth: vi.fn(),
 }));
 
+/**
+ * Providers every billing frontend test renders under: the feature's tRPC +
+ * React Query provider, plus a real `<ToastContainer />` so success/error
+ * toasts are asserted as DOM text (ADR 0018), not via a mocked `toast`.
+ */
+export const Providers = ({ children }: { children: ReactNode }) => (
+  <TRPCReactProvider>
+    {children}
+    <ToastContainer />
+  </TRPCReactProvider>
+);
+
+/** Render a component wrapped in the feature's providers + ToastContainer. */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) => {
-  return render(ui, {
-    wrapper: () => <TRPCReactProvider>{ui}</TRPCReactProvider>,
-    ...options,
-  });
-};
+) => render(ui, { wrapper: Providers, ...options });
 
+/**
+ * Type-safe MSW request handlers for this feature's router. Use in tests like:
+ *   server.use(trpcMsw.account.getSubscriptionDetails.query(() => ({...})));
+ */
 export const trpcMsw = createTRPCMsw<AppRouter>({
-  links: [
-    mswHttpLink({
-      url: 'http://localhost:3000/api/trpc/billing',
-    }),
-  ],
+  links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/billing' })],
   transformer: { input: superjson, output: superjson },
 });
 
+// --- jsdom gaps some UI primitives rely on -------------------------------
 class ResizeObserverMock {
   observe() {
-    // Mock implementation - no-op
+    // no-op
   }
   unobserve() {
-    // Mock implementation - no-op
+    // no-op
   }
   disconnect() {
-    // Mock implementation - no-op
+    // no-op
   }
 }
-
 globalThis.ResizeObserver = ResizeObserverMock;
 
-// Radix UI and other libraries may expect these Pointer Events APIs
 if (!('hasPointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.hasPointerCapture = () => false;
@@ -59,12 +74,12 @@ if (!('hasPointerCapture' in Element.prototype)) {
 if (!('setPointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.setPointerCapture = () => {
-    // Mock implementation - no-op
+    // no-op
   };
 }
 if (!('releasePointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.releasePointerCapture = () => {
-    // Mock implementation - no-op
+    // no-op
   };
 }

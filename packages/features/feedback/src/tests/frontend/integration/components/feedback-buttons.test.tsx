@@ -22,8 +22,8 @@ import {
 
 import '@testing-library/jest-dom';
 
-import { FeedbackButtons } from '../../components/feedback-buttons';
-import { renderWithProviders, trpcMsw } from './setup';
+import { FeedbackButtons } from '../../../../components/feedback-buttons';
+import { renderWithProviders, trpcMsw } from '../../setup';
 
 const server = setupServer();
 

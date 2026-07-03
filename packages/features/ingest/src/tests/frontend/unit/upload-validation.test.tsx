@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   MAX_FILE_SIZE_BYTES,
   validateFiles,
-} from '../../lib/upload-validation';
+} from '../../../lib/upload-validation';
 
 // A File whose reported size we can control without allocating bytes.
 const fileOf = (name: string, size = 1, type = '') => {

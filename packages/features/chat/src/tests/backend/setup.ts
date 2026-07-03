@@ -30,7 +30,8 @@ function asAgentStream(textStream: AsyncIterable<string>) {
 export function fakeAgentStream(chunks: string[]) {
   return asAgentStream(
     (async function* () {
-      for (const chunk of chunks) yield chunk;
+      // await keeps this a genuine async stream (chunks arrive over the wire).
+      for (const chunk of chunks) yield await Promise.resolve(chunk);
     })(),
   );
 }
@@ -38,7 +39,7 @@ export function fakeAgentStream(chunks: string[]) {
 export function throwingAgentStream(chunks: string[], error: Error) {
   return asAgentStream(
     (async function* () {
-      for (const chunk of chunks) yield chunk;
+      for (const chunk of chunks) yield await Promise.resolve(chunk);
       throw error;
     })(),
   );

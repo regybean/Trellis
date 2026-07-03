@@ -1,5 +1,5 @@
 import type { RenderOptions } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
@@ -11,17 +11,19 @@ import { TRPCReactProvider } from '../../trpc/react';
 // plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
 // real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
 
+/**
+ * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
+ * the `renderHook` wrapper for `integration/hooks` tests.
+ */
+export const Providers = ({ children }: { children: ReactNode }) => (
+  <TRPCReactProvider>{children}</TRPCReactProvider>
+);
+
 /** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) =>
-  render(ui, {
-    wrapper: ({ children }) => (
-      <TRPCReactProvider>{children}</TRPCReactProvider>
-    ),
-    ...options,
-  });
+) => render(ui, { wrapper: Providers, ...options });
 
 /**
  * Type-safe MSW request handlers for this feature's router. Use in tests like:

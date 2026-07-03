@@ -1,28 +1,32 @@
 import type { RenderOptions } from '@testing-library/react';
-import type { ReactElement } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
-import { vi } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
-// NODE_ENV='test' makes the provider use a plain httpLink (see trpc/react.tsx),
-// which msw-trpc can intercept.
-vi.mock('../../env', () => ({
-  env: { NODE_ENV: 'test', NEXT_PUBLIC_WEBAPP: 'nextjs' },
-}));
+// NODE_ENV='test' (from the shared vitest base env) makes the provider use a
+// plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
+// real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
+// Never vi.mock the tRPC client, a feature hook, or react-toastify (ADR 0018);
+// fake the network at the HTTP boundary via `trpcMsw` + `setupServer` instead.
+
+/**
+ * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
+ * the `renderHook` wrapper for `integration/hooks` tests. If the feature toasts,
+ * render a real `<ToastContainer />` here so tests assert the message in the DOM.
+ */
+export const Providers = ({ children }: { children: ReactNode }) => (
+  <TRPCReactProvider>{children}</TRPCReactProvider>
+);
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) =>
-  render(ui, {
-    wrapper: ({ children }) => <TRPCReactProvider>{children}</TRPCReactProvider>,
-    ...options,
-  });
+) => render(ui, { wrapper: Providers, ...options });
 
 /**
  * Type-safe MSW request handlers for this feature's router. Use in tests like:

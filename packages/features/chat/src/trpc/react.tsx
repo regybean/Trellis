@@ -52,14 +52,25 @@ export function TRPCReactProvider(
       links:
         env.NODE_ENV === 'test'
           ? [
-              // In tests, prefer simple HTTP to work with MSW easily
+              // In tests, split subscriptions from query/mutation so that:
+              // - query/mutation go through httpLink (MSW-interceptable, ADR 0018)
+              // - subscriptions go through httpSubscriptionLink (won't throw;
+              //   MSW can't intercept SSE but the link stays silent while
+              //   connecting — tests assert the synchronous optimistic state).
               loggerLink({
                 enabled: (op) =>
                   op.direction === 'down' && op.result instanceof Error,
               }),
-              httpLink({
-                transformer: SuperJSON,
-                url: getBaseUrl() + '/api/trpc/chat',
+              splitLink({
+                condition: (op) => op.type === 'subscription',
+                true: httpSubscriptionLink({
+                  transformer: SuperJSON,
+                  url: getBaseUrl() + '/api/trpc/chat',
+                }),
+                false: httpLink({
+                  transformer: SuperJSON,
+                  url: getBaseUrl() + '/api/trpc/chat',
+                }),
               }),
             ]
           : [

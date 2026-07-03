@@ -72,12 +72,12 @@ describe('uploadDocs deduplication (integration)', () => {
       'The knowledge base stores chunks. Each chunk is embedded once.';
 
     await uploadDocs([txtFile(name, content)]);
-    const afterFirst = (await listDocuments()).find((d) => d.filename === name);
+    const firstList = await listDocuments();
+    const afterFirst = firstList.find((d) => d.filename === name);
 
     await uploadDocs([txtFile(name, content)]);
-    const afterSecond = (await listDocuments()).find(
-      (d) => d.filename === name,
-    );
+    const secondList = await listDocuments();
+    const afterSecond = secondList.find((d) => d.filename === name);
 
     expect(afterFirst?.count).toBeGreaterThan(0);
     expect(afterSecond?.count).toBe(afterFirst?.count);

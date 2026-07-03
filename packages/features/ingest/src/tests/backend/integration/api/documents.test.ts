@@ -81,8 +81,8 @@ describe('documentsRouter', () => {
         buffer: Buffer.from('hello'),
         contentType: 'application/pdf',
       });
-      vi.mocked(uploadDocs).mockResolvedValue(undefined);
-      vi.mocked(deleteFilesFromS3).mockResolvedValue(undefined);
+      vi.mocked(uploadDocs).mockImplementation(() => Promise.resolve());
+      vi.mocked(deleteFilesFromS3).mockImplementation(() => Promise.resolve());
 
       const s3Keys = ['uploads/u1/a.pdf', 'uploads/u1/b.pdf'];
       await createCaller(adminOpts).documents.uploadFromS3({ s3Keys });
@@ -102,7 +102,7 @@ describe('documentsRouter', () => {
         contentType: 'application/pdf',
       });
       vi.mocked(uploadDocs).mockRejectedValue(new Error('index boom'));
-      vi.mocked(deleteFilesFromS3).mockResolvedValue(undefined);
+      vi.mocked(deleteFilesFromS3).mockImplementation(() => Promise.resolve());
 
       const s3Keys = ['uploads/u1/a.pdf'];
       await expect(

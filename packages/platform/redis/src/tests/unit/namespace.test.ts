@@ -18,7 +18,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * See docs/adr/0008-per-app-redis-namespace.md.
  */
 
-const loadClient = async (webapp: string | undefined) => {
+const loadClient = async (webapp?: string) => {
   vi.resetModules();
   // Skip the connect() side effect that runs on client.ts import.
   vi.stubEnv('IS_NEXT_BUILD', 'true');
@@ -57,7 +57,7 @@ describe('nsKey', () => {
   });
 
   it('leaves keys raw with no leading colon when the namespace is empty', async () => {
-    const { nsKey } = await loadClient(undefined);
+    const { nsKey } = await loadClient();
 
     expect(nsKey('credits', 'user_1', 'pro')).toBe('credits:user_1:pro');
     expect(nsKey('jobs')).toBe('jobs');

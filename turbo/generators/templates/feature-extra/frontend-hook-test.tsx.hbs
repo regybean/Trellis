@@ -1,0 +1,71 @@
+/**
+ * use{{ pascalCase name }} hook test (integration/hooks).
+ *
+ * The hook is the frontend's contract (logic lives in `src/hooks/` per the
+ * slice contract), so this is the analog of a backend `integration/api` test.
+ * Doctrine: ADR 0018.
+ * - Drive the REAL hook via `renderHook(..., { wrapper: Providers })` through a
+ *   real `QueryClient`; fake the network only at the HTTP boundary with `trpcMsw`.
+ * - Assert RETURNED STATE (the observable contract) and cache transitions,
+ *   never `expect(mock).toHaveBeenCalledWith(...)`.
+ */
+import { renderHook, waitFor } from '@testing-library/react';
+import { setupServer } from 'msw/node';
+import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+
+import { use{{ pascalCase name }} } from '../../../../hooks/use-{{ kebabCase name }}';
+import { Providers, trpcMsw } from '../../../setup';
+
+const server = setupServer();
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+afterEach(() => server.resetHandlers());
+afterAll(() => server.close());
+
+const fakeItem = (text: string) => ({
+  id: crypto.randomUUID(),
+  userId: 'user_test',
+  text,
+  createdAt: new Date(),
+});
+
+describe('use{{ pascalCase name }}', () => {
+  it('exposes the items returned by the list query', async () => {
+    server.use(
+      trpcMsw.{{ camelCase name }}.list.query(() => [fakeItem('first')]),
+    );
+
+    const { result } = renderHook(() => use{{ pascalCase name }}(), {
+      wrapper: Providers,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0]?.text).toBe('first');
+  });
+
+  it('refetches the list after a create settles', async () => {
+    const created = fakeItem('created');
+    let listCalls = 0;
+
+    server.use(
+      trpcMsw.{{ camelCase name }}.list.query(() => {
+        listCalls += 1;
+        return listCalls === 1 ? [] : [created];
+      }),
+      trpcMsw.{{ camelCase name }}.create.mutation(() => created),
+    );
+
+    const { result } = renderHook(() => use{{ pascalCase name }}(), {
+      wrapper: Providers,
+    });
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.items).toHaveLength(0);
+
+    result.current.create('created');
+
+    await waitFor(() => expect(result.current.items).toHaveLength(1));
+    expect(result.current.items[0]?.text).toBe('created');
+  });
+});

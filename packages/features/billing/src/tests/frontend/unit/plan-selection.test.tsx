@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import type { PricingPlan } from '../../data/pricing-data';
-import { getButtonState } from '../../lib/plan-selection';
+import type { PricingPlan } from '../../../data/pricing-data';
+import { getButtonState } from '../../../lib/plan-selection';
 
 const plan = (over: Partial<PricingPlan> = {}): PricingPlan => ({
   id: 'standard_plan_12345',

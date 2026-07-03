@@ -34,6 +34,14 @@ function createCaller(opts: TestContextOptions) {
   return appRouter.createCaller(ctx);
 }
 
+// Hoisted so the predicate isn't a 5th-level nested function inside describe/it.
+function findBySession<T extends { sessionId: string }>(
+  items: T[],
+  sessionId: string,
+) {
+  return items.find((c) => c.sessionId === sessionId);
+}
+
 const baseCredits = {
   remaining: 100,
   limit: 100,
@@ -562,7 +570,7 @@ describe('chatRouter', () => {
 
         // Conversation still exists; folderId now dangling (resolved as null by client)
         const listed = await caller.chat.list();
-        const conv = listed.find((c) => c.sessionId === chat.sessionId);
+        const conv = findBySession(listed, chat.sessionId);
         expect(conv).toBeDefined();
         expect(conv?.folderId).toBe(folderId); // dangling — not cleared by the delete
       });
@@ -714,9 +722,11 @@ describe('chatRouter', () => {
               query: 'Hello',
               sessionId,
             });
-            for await (const _chunk of stream) {
-              // drain until the underlying model throws
-            }
+            // Drain via the iterator (not for-await) so there's no loop binding
+            // to leave unused; `.done` is read off a variable, not the await.
+            const iterator = stream[Symbol.asyncIterator]();
+            let next = await iterator.next();
+            while (!next.done) next = await iterator.next();
           })(),
         ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
       } finally {

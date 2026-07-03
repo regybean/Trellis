@@ -1,84 +1,56 @@
 import type { RenderOptions } from '@testing-library/react';
-import type { ReactElement } from 'react';
-import { createRef, useState } from 'react';
+import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
-import { vi } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
-import type { Message } from '../../api/schemas/message-schema';
 import { TRPCReactProvider } from '../../trpc/react';
 
-// Mock the useChat hook to spy on the send function
-export const mockSend = vi.fn();
-export const mockMessages: Message[] = [
-  {
-    text: 'I am an interactive AI chat assistant ready to answer questions about OT cybersecurity in the rail sector, how may I help you today?',
-    role: 'assistant',
-  },
-];
-vi.mock('../../hooks/use-chat', () => {
-  // Return a hook implementation that uses React state so `send` triggers a re-render
-  return {
-    useChat: vi.fn(() => {
-      const [messages, setMessages] = useState<Message[]>(mockMessages);
+import '@testing-library/jest-dom';
 
-      return {
-        messages,
-        isLoading: false,
-        send: (text: string) => {
-          mockSend(text);
-          setMessages((prev: Message[]) => [
-            ...prev,
-            {
-              text,
-              role: 'user',
-            },
-          ]);
-        },
-        shouldScrollToBottom: false,
-        setShouldScrollToBottom: vi.fn(),
-        scrollToBottomRef: createRef(),
-      };
-    }),
-  };
-});
+// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
+// msw-trpc can intercept. Env is real (validated by ../../env). We fake the
+// network at the HTTP boundary with MSW and assert what renders — never mock the
+// tRPC client, a feature hook, or react-toastify (ADR 0018).
 
+/**
+ * Providers every chat frontend test renders under: the feature's tRPC +
+ * React Query provider. Chat uses no toasts so no ToastContainer is needed.
+ */
+export const Providers = ({ children }: { children: ReactNode }) => (
+  <TRPCReactProvider>{children}</TRPCReactProvider>
+);
+
+/** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) => {
-  return render(ui, {
-    wrapper: () => <TRPCReactProvider>{ui}</TRPCReactProvider>,
-    ...options,
-  });
-};
+) => render(ui, { wrapper: Providers, ...options });
 
+/**
+ * Type-safe MSW request handlers for this feature's router. Use in tests like:
+ *   server.use(trpcMsw.chat.get.query(() => []));
+ */
 export const trpcMsw = createTRPCMsw<AppRouter>({
-  links: [
-    mswHttpLink({
-      url: 'http://localhost:3000/api/trpc/chat',
-    }),
-  ],
+  links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/chat' })],
   transformer: { input: superjson, output: superjson },
 });
 
+// --- jsdom gaps some UI primitives rely on -------------------------------
 class ResizeObserverMock {
   observe() {
-    // Mock implementation - no-op
+    // no-op
   }
   unobserve() {
-    // Mock implementation - no-op
+    // no-op
   }
   disconnect() {
-    // Mock implementation - no-op
+    // no-op
   }
 }
-
 globalThis.ResizeObserver = ResizeObserverMock;
 
-// Radix UI and other libraries may expect these Pointer Events APIs
 if (!('hasPointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.hasPointerCapture = () => false;
@@ -86,12 +58,12 @@ if (!('hasPointerCapture' in Element.prototype)) {
 if (!('setPointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.setPointerCapture = () => {
-    // Mock implementation - no-op
+    // no-op
   };
 }
 if (!('releasePointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.releasePointerCapture = () => {
-    // Mock implementation - no-op
+    // no-op
   };
 }

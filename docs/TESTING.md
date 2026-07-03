@@ -74,8 +74,63 @@ a real Redis in `integration/service/`. Don't mint a `unit/` test for a private
 mapper (e.g. billing's `buildSubscriptionCache`) — its branches are driven by
 _input shape_ through the service test that owns the outcome.
 
-Frontend tests live under `src/tests/frontend/` (`*.test.tsx`, jsdom + Testing
-Library + MSW).
+## Frontend tests (`src/tests/frontend/`)
+
+Frontend tests reuse the same two folders — `unit/` and `integration/` — but the
+words mean something weaker here, because the frontend has **no real-infra tier**.
+The doctrine is [ADR 0018](adr/0018-frontend-test-doctrine.md); this is how it
+files.
+
+| Folder                      | Type                         | Seam under test                                                             | Network                          | Examples                                              |
+| --------------------------- | ---------------------------- | -------------------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
+| `unit/`                     | **Unit** (solitary)          | **Pure logic** — a transform/policy with no React tree                     | None (no providers, no mocks)    | `unit/upload-validation.test.tsx`, `unit/date-buckets.test.tsx` |
+| `integration/hooks/`        | **Integration** (sociable)   | A **hook** — the feature's logic contract, run through a real `QueryClient` | Faked at HTTP boundary (**MSW**) | `integration/hooks/use-feedback.test.tsx`            |
+| `integration/components/`   | **Integration** (sociable)   | A **component** rendered through its providers                              | MSW if it composes a hook; none if presentational | `integration/components/documents-list.test.tsx`     |
+
+### unit / integration mean different things on BE vs FE
+
+The vocabulary is shared; the fidelity is not. Read the mapping before filing:
+
+| Term            | Backend                                                        | Frontend                                                                             |
+| --------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| **unit**        | Pure logic, no I/O, **no mocks**.                             | Pure logic, **no React tree**, no providers, no mocks.                               |
+| **integration** | Wired to **real infra** — real Postgres/Redis.               | Wired to a **real React tree + `QueryClient`**; network faked at the HTTP boundary (MSW). No real infra exists — **MSW is the frontier**. |
+| _the contract_  | The tRPC **procedure** (`integration/api`).                  | The **hook** (`integration/hooks`) — logic lives in `src/hooks/` per the slice contract. |
+
+So a frontend `integration` test is sociable but still hermetic (jsdom + MSW),
+where a backend `integration` test touches live containers. That asymmetry is
+_why_ this mapping is written down.
+
+### The one rule, and its dos & don'ts
+
+**Fake the network at the HTTP boundary (MSW); assert what renders.** Everything
+below follows from that.
+
+- **DO** intercept with `trpcMsw` + `setupServer` from the feature's
+  `tests/frontend/setup.tsx`; the real tRPC client + `QueryClient` run beneath.
+- **DO** assert the observable outcome — DOM (`screen.findByText`, `aria-pressed`,
+  a row disappearing), returned hook state, or cache contents.
+- **DO** assert toasts by rendering a real `<ToastContainer />` and finding the
+  message text in the DOM (`await screen.findByText('Document deleted')`).
+- **DON'T** `vi.mock('../trpc/react')` or `vi.mock` a feature hook — that mocks
+  the seam under test. (ESLint blocks it.)
+- **DON'T** `expect(spy).toHaveBeenCalledWith(...)` on a data-layer mock, or
+  assert a handler-side flag flipped — read the outcome, not the mechanism.
+- **DON'T** `vi.mock('react-toastify')` — the toast renders in jsdom; assert it.
+- **Framework externals stay mockable:** `next/navigation`, `@acme/auth` — the
+  frontend's blessed mock list (mirrors ADR 0014). Prefer observable navigation
+  (`<Link href>` in the DOM) over asserting an imperative `router.push`.
+
+### Setup and config
+
+Each feature owns `src/tests/frontend/setup.tsx` exporting `renderWithProviders`
+(wraps in `TRPCReactProvider`, and `<ToastContainer />` when the feature toasts)
+and `trpcMsw` (a `createTRPCMsw<AppRouter>` bound to the feature's tRPC endpoint)
+— plus the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture). The
+config is `vitest.config.frontend.ts` (`environment: 'jsdom'`, `staticTestEnv`,
+`@vitejs/plugin-react`). `feedback`'s setup + `feedback-buttons` /
+`use-feedback` tests are the reference; `ingest`'s `documents-list` is the worked
+example of the MSW-over-shallow-mock rewrite.
 
 ## What is real vs mocked
 

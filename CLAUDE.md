@@ -24,7 +24,15 @@ pnpm build               # Build all packages
 pnpm typecheck           # Type check all packages
 pnpm test                # Run all tests via Vitest
 turbo run test -F <pkg>  # Run tests for a single package
+pnpm test:policy         # Enforce per-package acme.testClass coverage
 ```
+
+Tests split into `test:backend` (real Postgres/Redis via testcontainers) and
+`test:frontend` (jsdom + MSW at the HTTP boundary). Doctrine: [docs/TESTING.md](docs/TESTING.md),
+backend taxonomy in [docs/agents/testing.md](docs/agents/testing.md), frontend
+doctrine in [ADR 0018](docs/adr/0018-frontend-test-doctrine.md). Rule of thumb:
+**test the contract, not the internals** — the tRPC procedure on the backend, the
+hook on the frontend; never `vi.mock` a seam the feature owns.
 
 ### Dependencies
 ```bash
@@ -78,6 +86,13 @@ Tokens are tier-based (free/standard/pro) stored in Redis. Available via tRPC mi
 ### RAG / Mastra
 
 `@acme/rag` provides document upload (officeparser), pgvector storage, retrieval, and Mastra Memory — all on Mastra wired to AWS Bedrock. Used by the chat and ingest features. The chat Agent + Mastra instance live in `@acme/chat`; the root `pnpm studio` / `pnpm lint:mastra` scripts point the Mastra CLI at `packages/features/chat/src/mastra`. See [`docs/adr/0002-mastra-rag-and-memory.md`](docs/adr/0002-mastra-rag-and-memory.md). OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
+
+### Feature package structure
+
+For the full anatomy of a `packages/features/*` package — directory layout, the
+two contracts (tRPC procedure / hook), exports, and the test taxonomy — see
+[docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md). Scaffold new
+features with `pnpm turbo gen feature`, never by hand.
 
 ### Slice contract enforcement
 

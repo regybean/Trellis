@@ -37,7 +37,7 @@ vi.mock('@acme/subscriptions', async () => {
         limit: 250,
         resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
       }),
-      consume: vi.fn().mockResolvedValue(undefined),
+      consume: vi.fn(() => Promise.resolve()),
     },
     getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
     getSubscriptionType: vi.fn().mockReturnValue('Basic'),
