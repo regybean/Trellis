@@ -56,4 +56,35 @@ describe('dedupeChunks', () => {
     expect(metadata).toHaveLength(2);
     expect(new Set(ids).size).toBe(2);
   });
+
+  it('returns empty ids and metadata for an empty parsed array', () => {
+    const { ids, metadata } = dedupeChunks([]);
+
+    expect(ids).toEqual([]);
+    expect(metadata).toEqual([]);
+  });
+
+  it('does not deduplicate the same text across different filenames', () => {
+    const parsed = [
+      {
+        file: txtFile('a.txt', ''),
+        uploadTimestamp: 1,
+        chunks: [{ text: 'shared content' }],
+      },
+      {
+        file: txtFile('b.txt', ''),
+        uploadTimestamp: 2,
+        chunks: [{ text: 'shared content' }],
+      },
+    ];
+
+    const { ids, metadata } = dedupeChunks(parsed);
+
+    // Same text, different file → different chunk id → two entries, not one.
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+    expect(metadata.map((m) => m.file_name)).toEqual(
+      expect.arrayContaining(['a.txt', 'b.txt']),
+    );
+  });
 });

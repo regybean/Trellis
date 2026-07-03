@@ -479,6 +479,97 @@ describe('chatRouter', () => {
   });
 
   // ==========================================================================
+  // BUSINESS LOGIC: folders CRUD
+  // ==========================================================================
+  describe('folders', () => {
+    describe('list', () => {
+      it('returns empty array when user has no folders (zero)', async () => {
+        const userId = createTestUserId();
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        expect(await caller.chat.folders.list()).toEqual([]);
+      });
+
+      it("returns only the caller's own folders (one)", async () => {
+        const userId = createTestUserId();
+        const otherUserId = createTestUserId('other');
+        const folderId = createTestSessionId();
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+        const otherCaller = createCaller({
+          userId: otherUserId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await caller.chat.folders.create({ id: folderId, name: 'Mine' });
+        await otherCaller.chat.folders.create({
+          id: createTestSessionId(),
+          name: 'Theirs',
+        });
+
+        const result = await caller.chat.folders.list();
+
+        expect(result).toHaveLength(1);
+        expect(result[0]?.id).toBe(folderId);
+        expect(result[0]?.name).toBe('Mine');
+      });
+    });
+
+    describe('delete', () => {
+      it('removes the folder and returns its id', async () => {
+        const userId = createTestUserId();
+        const folderId = createTestSessionId();
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await caller.chat.folders.create({ id: folderId, name: 'To Delete' });
+        const result = await caller.chat.folders.delete({ id: folderId });
+
+        expect(result).toEqual({ id: folderId });
+        expect(await caller.chat.folders.list()).toEqual([]);
+      });
+
+      it('does not remove conversations assigned to the deleted folder (lazy delete)', async () => {
+        const userId = createTestUserId();
+        const folderId = createTestSessionId();
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        const chat = await createTestChat({ userId });
+        await caller.chat.folders.create({ id: folderId, name: 'Folder' });
+        await caller.chat.setFolder({ sessionId: chat.sessionId, folderId });
+
+        await caller.chat.folders.delete({ id: folderId });
+
+        // Conversation still exists; folderId now dangling (resolved as null by client)
+        const listed = await caller.chat.list();
+        const conv = listed.find((c) => c.sessionId === chat.sessionId);
+        expect(conv).toBeDefined();
+        expect(conv?.folderId).toBe(folderId); // dangling — not cleared by the delete
+      });
+    });
+  });
+
+  // ==========================================================================
   // BUSINESS LOGIC: adminList
   // ==========================================================================
   describe('adminList', () => {
