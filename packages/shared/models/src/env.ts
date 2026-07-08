@@ -1,6 +1,8 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod/v4';
 
+import { shouldSkipEnvValidation } from '@acme/env';
+
 // Public env surface of `@acme/models` (the `@acme/models/env` subpath). Only
 // `modelsEnv()` is exported here: provider selection plus the one cross-provider
 // knob (embedding dimension). The per-provider env schemas — which carry raw
@@ -8,12 +10,9 @@ import { z } from 'zod/v4';
 // (`env-providers.ts`) and consumed only by the provider factories, so those
 // secrets never leak through the seam.
 //
-// Validation is skipped on CI and during lint so those steps don't need a real
-// provider configured — matches the convention in the other `env.ts` files.
-const skipValidation =
-  !!process.env.CI ||
-  process.env.npm_lifecycle_event === 'lint' ||
-  process.env.NEXT_PHASE === 'phase-production-build';
+// Whether to skip schema validation is decided centrally by `@acme/env` (lint
+// and the Next build skip; tests always validate + coerce; non-test CI skips).
+const skipValidation = shouldSkipEnvValidation();
 
 // Provider selection + the one cross-provider knob (embedding dimension). These
 // are always required; the per-provider envs are only validated when their

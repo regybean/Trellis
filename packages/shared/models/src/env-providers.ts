@@ -1,6 +1,8 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod/v4';
 
+import { shouldSkipEnvValidation } from '@acme/env';
+
 // Per-provider env schemas — INTERNAL to `@acme/models`. These carry raw
 // provider credentials (AWS keys, the OpenRouter API key, the Ollama base URL)
 // and must never leak past the seam: only the provider factories in
@@ -9,12 +11,9 @@ import { z } from 'zod/v4';
 // surface is `modelsEnv()` in `env.ts` (the `@acme/models/env` subpath); these
 // factories are deliberately not re-exported there.
 //
-// Validation is skipped on CI and during lint so those steps don't need a real
-// provider configured — matches the convention in the other `env.ts` files.
-const skipValidation =
-  !!process.env.CI ||
-  process.env.npm_lifecycle_event === 'lint' ||
-  process.env.NEXT_PHASE === 'phase-production-build';
+// Whether to skip schema validation is decided centrally by `@acme/env` (lint
+// and the Next build skip; tests always validate + coerce; non-test CI skips).
+const skipValidation = shouldSkipEnvValidation();
 
 // AWS Bedrock. Credentials resolve via the standard AWS provider chain
 // (env vars / SSO / instance role); they are declared here so a Bedrock-active

@@ -1,10 +1,9 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod/v4';
 
-const skipValidation =
-  !!process.env.CI ||
-  process.env.npm_lifecycle_event === 'lint' ||
-  process.env.NEXT_PHASE === 'phase-production-build';
+import { shouldSkipEnvValidation } from '@acme/env';
+
+const skipValidation = shouldSkipEnvValidation();
 
 // The Postgres connection env — the single home for the DB_* connection values,
 // mirroring how `@acme/redis/env` owns REDIS_URL. Owns *how you connect*, not

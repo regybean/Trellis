@@ -1,6 +1,7 @@
 {
   "name": "@acme/db",
   "dependencies": {
+    "@acme/env": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
     "drizzle-orm": "catalog:",
     "postgres": "catalog:"

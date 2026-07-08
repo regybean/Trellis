@@ -41,6 +41,7 @@
   },
   "dependencies": {
     "@acme/db": "workspace:*",
+    "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/rag": "workspace:*",
