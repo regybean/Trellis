@@ -1,11 +1,11 @@
 import 'server-only';
 
 export {
-  createProcedureTelemetry,
-  createTelemetryContext,
   getActiveSpan,
   getTracer,
+  setSpanAttributes,
   SpanStatusCode,
+  withSpan,
 } from './trpc';
 
-export type { ChildSpanOptions, Telemetry } from './trpc';
+export type { ChildSpanOptions } from './trpc';

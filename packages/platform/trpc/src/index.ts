@@ -11,12 +11,7 @@ import type {
 } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 import { instrumentDrizzleClient } from '@acme/telemetry';
-import {
-  createProcedureTelemetry,
-  createTelemetryContext,
-  getTracer,
-  SpanStatusCode,
-} from '@acme/telemetry/server';
+import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
 
 /**
  * The auth seam. Clerk is resolved by the *app's* adapter (Next.js route
@@ -74,15 +69,15 @@ type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 /**
  * Builds the base request context shared by every feature from the
  * app-injected auth + user + entitlements provider: resolves the billing
- * context (subscription / tier / credits) through the provider and a noop
- * telemetry object (replaced per-procedure by the telemetry middleware).
+ * context (subscription / tier / credits) through the provider. Telemetry is
+ * ambient — the telemetry middleware owns the per-procedure span and everything
+ * reads it from the active OTel context (ADR 0023), so nothing is threaded here.
  */
 export async function createTRPCContext(opts: ContextOpts) {
   const { auth: authResult, user, entitlements, ...rest } = opts;
   const { subscription, tier, credits } = await entitlements.resolve(
     authResult.userId,
   );
-  const telemetry = createTelemetryContext();
 
   return {
     ...rest,
@@ -92,7 +87,6 @@ export async function createTRPCContext(opts: ContextOpts) {
     subscription,
     credits,
     tier,
-    telemetry,
   };
 }
 
@@ -132,12 +126,10 @@ function buildCore() {
         ...(ctx.auth.userId && { 'user.id': ctx.auth.userId }),
       });
 
-      const telemetry = createProcedureTelemetry(path, span);
-
       try {
         const result = await context.with(
           trace.setSpan(context.active(), span),
-          () => next({ ctx: { telemetry } }),
+          () => next(),
         );
 
         span.setAttributes({
@@ -190,24 +182,26 @@ function buildCore() {
   });
 
   const isAuthed = t.middleware(({ next, ctx }) => {
+    const span = trace.getActiveSpan();
     if (!ctx.auth.userId) {
-      ctx.telemetry.event('auth.denied', { reason: 'not_authenticated' });
+      span?.addEvent('auth.denied', { reason: 'not_authenticated' });
       throw new TRPCError({
         code: 'UNAUTHORIZED',
         message: 'You must be logged in to access this resource.',
       });
     }
 
-    ctx.telemetry.event('auth.granted');
+    span?.addEvent('auth.granted');
 
     return next({ ctx: { auth: ctx.auth } });
   });
 
   const isAdmin = t.middleware(({ next, ctx }) => {
+    const span = trace.getActiveSpan();
     const role = ctx.auth.sessionClaims?.metadata.role;
 
     if (role !== 'admin') {
-      ctx.telemetry.event('auth.denied', {
+      span?.addEvent('auth.denied', {
         reason: 'not_admin',
         actual_role: role ?? 'none',
       });
@@ -217,8 +211,8 @@ function buildCore() {
       });
     }
 
-    ctx.telemetry.set({ 'user.role': 'admin' });
-    ctx.telemetry.event('auth.granted', { role: 'admin' });
+    span?.setAttributes({ 'user.role': 'admin' });
+    span?.addEvent('auth.granted', { role: 'admin' });
 
     return next({ ctx: { auth: ctx.auth } });
   });
@@ -236,11 +230,12 @@ function buildCore() {
    */
   const rateLimit = (opts: RateLimitOptions = {}) =>
     t.middleware(async ({ next, ctx }) => {
+      const span = trace.getActiveSpan();
       const creditsToConsume = opts.credits ?? 1;
       const { auth: authCtx, credits, tier } = ctx;
       const userId = authCtx.userId;
 
-      ctx.telemetry.set({
+      span?.setAttributes({
         'rateLimit.creditsToConsume': creditsToConsume,
         'rateLimit.creditsRemaining': credits.remaining,
         'rateLimit.tier': tier,
@@ -248,7 +243,7 @@ function buildCore() {
       });
 
       if (!userId) {
-        ctx.telemetry.event('rateLimit.denied', {
+        span?.addEvent('rateLimit.denied', {
           reason: 'not_authenticated',
         });
         throw new TRPCError({
@@ -258,7 +253,7 @@ function buildCore() {
       }
 
       if (credits.remaining < creditsToConsume) {
-        ctx.telemetry.event('rateLimit.exceeded', {
+        span?.addEvent('rateLimit.exceeded', {
           creditsToConsume,
           creditsRemaining: credits.remaining,
         });
@@ -270,7 +265,7 @@ function buildCore() {
 
       await ctx.entitlements.consume(userId, tier, creditsToConsume);
 
-      ctx.telemetry.event('rateLimit.passed', {
+      span?.addEvent('rateLimit.passed', {
         creditsConsumed: creditsToConsume,
         creditsAfter: credits.remaining - creditsToConsume,
       });
@@ -286,13 +281,14 @@ function buildCore() {
    */
   const requireTier = (minTier: SubscriptionTier) =>
     t.middleware(({ next, ctx }) => {
-      ctx.telemetry.set({
+      const span = trace.getActiveSpan();
+      span?.setAttributes({
         'subscription.status': ctx.subscription.status,
         'subscription.tier': ctx.tier,
       });
 
       if (!ctx.entitlements.isTierAtLeast(ctx.tier, minTier)) {
-        ctx.telemetry.event('subscription.check.denied', {
+        span?.addEvent('subscription.check.denied', {
           reason: 'insufficient_tier',
           required: minTier,
           actual: ctx.tier,
@@ -303,7 +299,7 @@ function buildCore() {
         });
       }
 
-      ctx.telemetry.event('subscription.check.granted', { tier: ctx.tier });
+      span?.addEvent('subscription.check.granted', { tier: ctx.tier });
 
       return next();
     });
@@ -325,7 +321,7 @@ function buildCore() {
 
 /**
  * Feature tRPC for a feature with no database. Every procedure receives the
- * base context (auth + billing + telemetry).
+ * base context (auth + billing).
  */
 export function createFeatureTRPC() {
   return buildCore().api;

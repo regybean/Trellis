@@ -45,10 +45,7 @@ export const accountRouter = createTRPCRouter({
       const { userId } = ctx.auth;
       const email = ctx.user?.primaryEmailAddress?.emailAddress;
 
-      ctx.telemetry.set({ 'input.productId': input.productId });
-
       if (!email) {
-        ctx.telemetry.event('checkout.failed', { reason: 'no_email' });
         throw billingError(
           BillingErrorCode.NoEmail,
           'BAD_REQUEST',
@@ -59,14 +56,12 @@ export const accountRouter = createTRPCRouter({
       // Get product and pricing information
       const { defaultPriceId, productId } = await getProductWithPrice(
         input.productId,
-        ctx.telemetry,
       );
 
       // Find existing customer or create new one using userId
       const { customer, isExisting } = await findOrCreateCustomer(
         email,
         userId,
-        ctx.telemetry,
       );
 
       // ALWAYS create a checkout with a stripeCustomerId
@@ -74,13 +69,7 @@ export const accountRouter = createTRPCRouter({
         customer,
         defaultPriceId,
         productId,
-        ctx.telemetry,
       );
-
-      ctx.telemetry.set({
-        'checkout.session_created': true,
-        'checkout.is_returning_customer': isExisting,
-      });
 
       // Note: Do not log email addresses - PII concern
       return {
@@ -99,7 +88,6 @@ export const accountRouter = createTRPCRouter({
     const email = ctx.user?.primaryEmailAddress?.emailAddress;
 
     if (!email) {
-      ctx.telemetry.event('dashboard.failed', { reason: 'no_email' });
       throw billingError(
         BillingErrorCode.NoEmail,
         'BAD_REQUEST',
@@ -110,7 +98,6 @@ export const accountRouter = createTRPCRouter({
     // Get the stripeCustomerId from Redis
     const stripeCustomerId = await getStripeCustomerId(userId);
     if (!stripeCustomerId) {
-      ctx.telemetry.event('dashboard.failed', { reason: 'no_customer_id' });
       throw billingError(
         BillingErrorCode.NoCustomer,
         'BAD_REQUEST',
@@ -119,12 +106,7 @@ export const accountRouter = createTRPCRouter({
     }
 
     // Create billing portal session - Stripe handles all the logic
-    const result = await createDashboardSession(
-      stripeCustomerId,
-      ctx.telemetry,
-    );
-
-    ctx.telemetry.set({ 'dashboard.session_created': true });
+    const result = await createDashboardSession(stripeCustomerId);
 
     return {
       success: true,
@@ -136,11 +118,6 @@ export const accountRouter = createTRPCRouter({
   getSubscriptionDetails: protectedProcedure.query(({ ctx }) => {
     const { subscription } = ctx;
     const tier = ctx.tier;
-
-    ctx.telemetry.set({
-      'subscription.tier': tier,
-      'subscription.status': subscription.status,
-    });
 
     if (subscription.status === 'none') {
       return {
@@ -164,14 +141,6 @@ export const accountRouter = createTRPCRouter({
   getCreditUsage: protectedProcedure.query(({ ctx }) => {
     const { credits } = ctx;
 
-    ctx.telemetry.set({
-      'credits.remaining': credits.remaining,
-      'credits.limit': credits.limit,
-      'credits.usage_percentage': Math.round(
-        ((credits.limit - credits.remaining) / credits.limit) * 100,
-      ),
-    });
-
     return {
       remaining: credits.remaining,
       limit: credits.limit,
@@ -184,19 +153,11 @@ export const accountRouter = createTRPCRouter({
 
   resetUserRateLimit: adminProcedure
     .input(ResetRateLimitRequest)
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const { userId } = input;
-
-      ctx.telemetry.set({ 'admin.target_user_id': userId });
 
       try {
         const { tier, limit, resetAt } = await credits.reset(userId);
-
-        ctx.telemetry.set({
-          'admin.action': 'rate_limit_reset',
-          'admin.new_credit_count': limit,
-          'admin.tier': tier,
-        });
 
         return {
           message: `Successfully reset rate limit for user ${userId}`,
@@ -206,8 +167,6 @@ export const accountRouter = createTRPCRouter({
           resetAt,
         };
       } catch (error) {
-        ctx.telemetry.set({ 'admin.action_failed': true });
-
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to reset rate limit for user ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -220,19 +179,11 @@ export const accountRouter = createTRPCRouter({
    */
   maxOutUserRateLimit: adminProcedure
     .input(MaxOutRateLimitRequest)
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const { userId } = input;
-
-      ctx.telemetry.set({ 'admin.target_user_id': userId });
 
       try {
         const { tier, previousLimit, resetAt } = await credits.maxOut(userId);
-
-        ctx.telemetry.set({
-          'admin.action': 'rate_limit_maxout',
-          'admin.previous_limit': previousLimit,
-          'admin.tier': tier,
-        });
 
         return {
           message: `Successfully maxed out rate limit for user ${userId}`,
@@ -243,8 +194,6 @@ export const accountRouter = createTRPCRouter({
           resetAt,
         };
       } catch (error) {
-        ctx.telemetry.set({ 'admin.action_failed': true });
-
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: `Failed to max out rate limit for user ${userId}: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -257,23 +206,13 @@ export const accountRouter = createTRPCRouter({
    */
   overrideUserRateLimitExpiry: adminProcedure
     .input(OverrideExpiryRequest)
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const { userId, expiryTimestamp } = input;
 
-      ctx.telemetry.set({
-        'admin.target_user_id': userId,
-        'admin.new_expiry_timestamp': expiryTimestamp,
-      });
-
-      const { tier, keyExisted, previousExpiryTimestamp } =
-        await credits.overrideExpiry(userId, expiryTimestamp);
-
-      ctx.telemetry.set({
-        'admin.action': 'rate_limit_expiry_override',
-        'admin.created_key': !keyExisted,
-        'admin.key_existed': keyExisted,
-        'admin.tier': tier,
-      });
+      const { previousExpiryTimestamp } = await credits.overrideExpiry(
+        userId,
+        expiryTimestamp,
+      );
 
       return {
         message: `Successfully overrode expiry for user ${userId}`,
@@ -288,20 +227,11 @@ export const accountRouter = createTRPCRouter({
    */
   getUserRateLimitStatus: adminProcedure
     .input(GetUserRateLimitStatusRequest)
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input }) => {
       const { userId } = input;
-
-      ctx.telemetry.set({ 'admin.target_user_id': userId });
 
       const { tier, remaining, limit, resetAt, keyExists } =
         await credits.status(userId);
-
-      ctx.telemetry.set({
-        'admin.query': 'rate_limit_status',
-        'admin.tier': tier,
-        'admin.key_exists': keyExists,
-        'admin.remaining_credits': remaining,
-      });
 
       return {
         userId,
@@ -319,17 +249,10 @@ export const accountRouter = createTRPCRouter({
   getUserSubscription: adminProcedure
     .input(GetUserSubscriptionRequest)
     .output(GetUserSubscriptionResponse)
-    .query(async ({ input, ctx }) => {
+    .query(async ({ input }) => {
       const { userId } = input;
 
-      ctx.telemetry.set({ 'admin.target_user_id': userId });
-
       const subscription = await getUserSubscriptionFromRedis(userId);
-
-      ctx.telemetry.set({
-        'admin.query': 'user_subscription',
-        'admin.subscription_status': subscription.status,
-      });
 
       return {
         userId,
@@ -342,18 +265,10 @@ export const accountRouter = createTRPCRouter({
    */
   setUserTier: adminProcedure
     .input(SetUserTierRequest)
-    .mutation(async ({ input, ctx }) => {
+    .mutation(async ({ input }) => {
       const { userId, email, tier } = input;
 
-      ctx.telemetry.set({
-        'admin.target_user_id': userId,
-        'admin.requested_tier': tier,
-      });
-
-      const subscription = await setUserTier(
-        { userId, email, tier },
-        ctx.telemetry,
-      );
+      const subscription = await setUserTier({ userId, email, tier });
 
       return {
         message: `Successfully set ${userId} to ${tier}`,

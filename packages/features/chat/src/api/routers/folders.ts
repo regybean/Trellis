@@ -42,7 +42,6 @@ export async function assertFolderOwned(
 export const foldersRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
     const { userId } = ctx.auth;
-    ctx.telemetry.set({ 'user.id': userId });
 
     const rows = await ctx.db
       .select()
@@ -50,20 +49,13 @@ export const foldersRouter = createTRPCRouter({
       .where(eq(chatFolder.userId, userId))
       .orderBy(asc(chatFolder.createdAt));
 
-    return rows.map((row) =>
-      ctx.telemetry.parseWithTelemetry(
-        selectFolderSchema,
-        row,
-        'selectFolderSchema',
-      ),
-    );
+    return rows.map((row) => selectFolderSchema.parse(row));
   }),
 
   create: protectedProcedure
     .input(CreateFolderRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({ 'user.id': userId });
 
       const [created] = await ctx.db
         .insert(chatFolder)
@@ -78,18 +70,13 @@ export const foldersRouter = createTRPCRouter({
       }
 
       logger.info({ userId, folderId: created.id }, 'folder created');
-      return ctx.telemetry.parseWithTelemetry(
-        selectFolderSchema,
-        created,
-        'selectFolderSchema',
-      );
+      return selectFolderSchema.parse(created);
     }),
 
   delete: protectedProcedure
     .input(DeleteFolderRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({ 'user.id': userId, 'input.folderId': input.id });
 
       // Scoped delete: a caller can only delete their own Folder. Member threads
       // are intentionally left untouched (lazy delete).

@@ -16,9 +16,6 @@
  * synchronous (the mock `resolve` is pure) so callers keep a plain
  * `createCaller(opts)` with no `await`.
  */
-import type { Span, SpanContext, Tracer } from '@opentelemetry/api';
-import type { ZodType } from 'zod';
-
 import type {
   CreditBalance,
   Entitlements,
@@ -118,68 +115,12 @@ export function createMockUser(userId: string): InjectedUser {
 }
 
 /**
- * A no-op telemetry context. Every procedure's telemetry is replaced by the
- * telemetry middleware anyway; this satisfies the base-context field for the
- * brief window before the middleware runs.
- */
-export function createNoopTelemetry() {
-  const noopSpan: Partial<Span> = {
-    setAttribute: () => noopSpan as Span,
-    setAttributes: () => noopSpan as Span,
-    addEvent: () => noopSpan as Span,
-    setStatus: () => noopSpan as Span,
-    recordException: () => {
-      /* noop */
-    },
-    end: () => {
-      /* noop */
-    },
-    spanContext: () =>
-      ({
-        traceId: 'test-trace-id',
-        spanId: 'test-span-id',
-        traceFlags: 0,
-      }) as SpanContext,
-    isRecording: () => false,
-  };
-
-  const noopTracer: Partial<Tracer> = {
-    startSpan: () => noopSpan as Span,
-  };
-
-  return {
-    path: 'test',
-    traceId: 'test-trace-id',
-    spanId: 'test-span-id',
-    span: noopSpan as Span,
-    tracer: noopTracer as Tracer,
-    set: (_attributes: Record<string, string | number | boolean>) => {
-      /* noop */
-    },
-    event: (
-      _name: string,
-      _attributes?: Record<string, string | number | boolean>,
-    ) => {
-      /* noop */
-    },
-    withSpan: async <T>(_name: string, fn: (span: Span) => Promise<T> | T) =>
-      fn(noopSpan as Span),
-    withChildSpan: async <T>(
-      _name: string,
-      fn: (span: Span) => Promise<T> | T,
-    ) => fn(noopSpan as Span),
-    parseWithTelemetry: <T>(schema: ZodType<T>, data: unknown) =>
-      schema.parse(data),
-    safeParseWithTelemetry: <T>(schema: ZodType<T>, data: unknown) =>
-      schema.safeParse(data),
-  };
-}
-
-/**
  * Build a tRPC caller context for backend tests. Pass it straight to a feature's
- * `appRouter.createCaller(...)`. Stubs auth/user/telemetry and injects the mock
+ * `appRouter.createCaller(...)`. Stubs auth/user and injects the mock
  * entitlements provider; real DB/Redis come from the feature's own `db`/`redis`
- * clients (validated against the running containers — never mocked).
+ * clients (validated against the running containers — never mocked). Telemetry
+ * is ambient (ADR 0023) — there is no span in a caller test, so the ambient
+ * helpers noop, and nothing needs stubbing here.
  */
 export function createTestContext(
   opts: TestContextOptions,
@@ -193,6 +134,5 @@ export function createTestContext(
     subscription,
     tier,
     credits,
-    telemetry: createNoopTelemetry(),
   };
 }

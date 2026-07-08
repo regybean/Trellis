@@ -1,27 +1,18 @@
 /**
- * tRPC Telemetry Utilities
+ * Ambient tRPC telemetry helpers.
  *
- * This module provides helpers for integrating OpenTelemetry with tRPC.
- * It creates child spans under the auto-instrumented HTTP parent span.
+ * There is no telemetry object threaded through the tRPC context (see
+ * docs/adr/0023-ambient-telemetry-no-context-object.md). The telemetry
+ * middleware in `@acme/trpc` creates and *activates* the per-procedure span;
+ * everything else reads that span ambiently from the active OTel context.
  *
- * Design: Each procedure gets a single `telemetry` object that is scoped to
- * that procedure. Child spans are automatically prefixed with the procedure path.
- *
- * Best Practices:
- * - Use spans for operations you want to time (external calls, processing phases, etc.)
- * - Use attributes for contextual data about the operation
- * - Events are for significant state changes within a span (rarely needed)
- * - Prefer withSpan() for most operations - it handles errors and timing automatically
+ * - `setSpanAttributes(attrs)` tags the currently active span (noop if none).
+ * - `withSpan(name, fn, opts?)` runs `fn` inside a child of the active span,
+ *   recording errors/timing and activating the child so nested calls target it.
  */
 
 import type { Span, SpanOptions, Tracer } from '@opentelemetry/api';
-import type { ZodType } from 'zod';
-import {
-  context,
-  INVALID_SPAN_CONTEXT,
-  SpanStatusCode,
-  trace,
-} from '@opentelemetry/api';
+import { context, SpanStatusCode, trace } from '@opentelemetry/api';
 
 const TRACER_NAME = 'trpc';
 
@@ -51,145 +42,47 @@ export function getActiveSpan(): Span | undefined {
 }
 
 /**
- * Core factory: build a telemetry object bound to `span` and `pathPrefix`.
- *
- * @param span - The span all set/event calls target
- * @param pathPrefix - Prefix prepended to child-span names ('' for context telemetry)
+ * Set attributes on the currently active span. A noop when no span is active
+ * (e.g. before the telemetry middleware runs, or with no SDK initialized), so
+ * callers never guard on the presence of telemetry.
  */
-function makeTelemetry(span: Span, pathPrefix: string) {
-  const tracer = getTracer();
+export function setSpanAttributes(attributes: TelemetryAttributes): void {
+  trace.getActiveSpan()?.setAttributes(attributes);
+}
 
-  const set = (attributes: TelemetryAttributes) => {
-    span.setAttributes(attributes);
-  };
+/**
+ * Run `fn` inside a child of the currently active span. The child is activated
+ * in OTel context so nested `withSpan`/`setSpanAttributes` calls target it;
+ * errors are recorded and the span is always ended. When no span is active the
+ * child roots a fresh trace.
+ */
+export async function withSpan<T>(
+  name: string,
+  fn: (span: Span) => Promise<T> | T,
+  options?: ChildSpanOptions,
+): Promise<T> {
+  const childSpan = getTracer().startSpan(
+    name,
+    {
+      ...options?.spanOptions,
+      attributes: options?.attributes,
+    },
+    context.active(),
+  );
 
-  const event = (name: string, attributes?: TelemetryAttributes) => {
-    span.addEvent(name, attributes);
-  };
-
-  const withSpan = async <T>(
-    name: string,
-    fn: (span: Span) => Promise<T> | T,
-    options?: ChildSpanOptions,
-  ): Promise<T> => {
-    const fullName = pathPrefix ? `${pathPrefix}.${name}` : name;
-    const childSpan = tracer.startSpan(
-      fullName,
-      {
-        ...options?.spanOptions,
-        attributes: options?.attributes,
-      },
-      context.active(),
+  try {
+    return await context.with(trace.setSpan(context.active(), childSpan), () =>
+      fn(childSpan),
     );
-
-    try {
-      const result = await context.with(
-        trace.setSpan(context.active(), childSpan),
-        () => fn(childSpan),
-      );
-      return result;
-    } catch (error) {
-      childSpan.setStatus({ code: SpanStatusCode.ERROR });
-      if (error instanceof Error) {
-        childSpan.recordException(error);
-      }
-      throw error;
-    } finally {
-      childSpan.end();
+  } catch (error) {
+    childSpan.setStatus({ code: SpanStatusCode.ERROR });
+    if (error instanceof Error) {
+      childSpan.recordException(error);
     }
-  };
-
-  return {
-    path: pathPrefix,
-    traceId: span.spanContext().traceId,
-    spanId: span.spanContext().spanId,
-    span,
-
-    set,
-    event,
-    withSpan,
-
-    /** @deprecated Use withSpan instead */
-    async withChildSpan<T>(
-      name: string,
-      fn: (span: Span) => Promise<T> | T,
-      options?: SpanOptions,
-    ): Promise<T> {
-      return withSpan(name, fn, { spanOptions: options });
-    },
-
-    parseWithTelemetry<T>(
-      schema: ZodType<T>,
-      data: unknown,
-      schemaName: string,
-    ): T {
-      try {
-        return schema.parse(data);
-      } catch (error) {
-        set({
-          'validation.failed': true,
-          'validation.schema': schemaName,
-          'validation.error':
-            error instanceof Error ? error.message : 'Unknown error',
-        });
-        throw error;
-      }
-    },
-
-    safeParseWithTelemetry<T>(
-      schema: ZodType<T>,
-      data: unknown,
-      schemaName: string,
-    ): ReturnType<ZodType<T>['safeParse']> {
-      const result = schema.safeParse(data);
-      if (!result.success) {
-        set({
-          'validation.failed': true,
-          'validation.schema': schemaName,
-          'validation.error': result.error.message,
-        });
-      }
-      return result;
-    },
-  };
-}
-
-/**
- * Create a telemetry context for use in tRPC context.
- *
- * Uses the currently active span when one exists (e.g. an HTTP span from an
- * app that preloads auto-instrumentation, as `apps/nextjs` does). When no SDK
- * established an ambient span — the case for apps that initialize OTel at the
- * server boundary without an HTTP-parent preload (`apps/tanstack-start`) — this
- * falls back to a non-recording span instead of throwing.
- *
- * Either way this object is a throwaway placeholder: the telemetry middleware
- * creates the real procedure-scoped span (`trpc.<path>`) and replaces it. The
- * fallback is a *non-recording* span (never started via the tracer), so it
- * needs no `.end()`, leaks nothing, and silently drops set/event/child-span
- * calls. See docs/adr/0005-telemetry-init-seam.md.
- */
-export function createTelemetryContext() {
-  const span = getActiveSpan() ?? trace.wrapSpanContext(INVALID_SPAN_CONTEXT);
-  return makeTelemetry(span, '');
-}
-
-/**
- * Create a procedure-scoped telemetry object.
- * Called by the telemetry middleware when creating the procedure span.
- *
- * @param procedurePath - The tRPC procedure path (e.g., "projects.create")
- * @param procedureSpan - The span created for this procedure
- */
-export function createProcedureTelemetry(
-  procedurePath: string,
-  procedureSpan: Span,
-) {
-  return makeTelemetry(procedureSpan, procedurePath);
+    throw error;
+  } finally {
+    childSpan.end();
+  }
 }
 
 export { SpanStatusCode } from '@opentelemetry/api';
-
-type Telemetry = ReturnType<typeof createProcedureTelemetry>;
-
-export type { Telemetry };

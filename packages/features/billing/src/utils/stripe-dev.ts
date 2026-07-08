@@ -1,8 +1,8 @@
 import type Stripe from 'stripe';
 
 import type { SubscriptionTier } from '@acme/subscriptions';
-import type { Telemetry } from '@acme/telemetry/server';
 import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
+import { setSpanAttributes } from '@acme/telemetry/server';
 
 import type { STRIPE_SUB_CACHE } from './stripe-client';
 import { env } from '../env';
@@ -63,10 +63,11 @@ async function findPlanForProduct(productId: string): Promise<Stripe.Plan> {
  *
  * Guarded on STRIPE_API_BASE so it can never run against real Stripe.
  */
-export async function setUserTier(
-  args: { userId: string; email: string; tier: SubscriptionTier },
-  telemetry?: Telemetry,
-): Promise<STRIPE_SUB_CACHE> {
+export async function setUserTier(args: {
+  userId: string;
+  email: string;
+  tier: SubscriptionTier;
+}): Promise<STRIPE_SUB_CACHE> {
   const { userId, email, tier } = args;
 
   if (!env.STRIPE_API_BASE) {
@@ -119,9 +120,9 @@ export async function setUserTier(
     });
   }
 
-  const subData = await syncStripeDataToKV(customerId, telemetry);
+  const subData = await syncStripeDataToKV(customerId);
 
-  telemetry?.set({
+  setSpanAttributes({
     'admin.action': 'set_user_tier',
     'admin.target_user_id': userId,
     'admin.tier': tier,
