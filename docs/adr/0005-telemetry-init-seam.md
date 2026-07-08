@@ -27,7 +27,9 @@ decisions are load-bearing:
 
 ## Status
 
-accepted
+superseded by [ADR 0022](0022-ambient-telemetry-no-context-object.md) — the
+per-app SDK-init seam (decision 2) still holds; the context-threaded `telemetry`
+placeholder (decision 1) is removed in favour of ambient `trace.getActiveSpan()`.
 
 ## Considered and rejected
 
