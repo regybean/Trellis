@@ -13,7 +13,7 @@ catalog:
   "@aws-sdk/s3-request-presigner": ^3.914.0
   "@clerk/backend": ^2.33.5
   "@clerk/clerk-react": ^5.61.8
-  "@clerk/nextjs": 6.32.2
+  "@clerk/nextjs": ^6.39.2
   "@clerk/tanstack-react-start": ^0.29.13
   "@clerk/themes": ^2.4.19
   "@dnd-kit/core": ^6.3.1
@@ -112,3 +112,4 @@ overrides:
   vitest: "catalog:"
   qs: 6.14.1
   "@clerk/backend": "catalog:"
+  fast-xml-parser: ">=5.3.5"

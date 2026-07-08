@@ -41,6 +41,17 @@ jobs:
         uses: ./tooling/github/setup
 
       - name: Typecheck
+        # Stub DB vars satisfy Mastra PgVector/PostgresStore constructor validation
+        # (non-empty host check) without making real connections. IS_NEXT_BUILD=true
+        # skips T3 validation so these bypass T3 entirely. See ADR 0024.
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: stub
+          DB_PASSWORD: stub
+          DB_NAME: stub
+          DB_VECTOR_NAME: stub
+          NEXT_PUBLIC_WEBAPP: stub
         run: pnpm typecheck
 
   boundaries:
@@ -135,6 +146,15 @@ jobs:
         uses: ./tooling/github/setup
 
       - name: Build
+        # Stub DB vars — see ADR 0024 and typecheck job above.
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: stub
+          DB_PASSWORD: stub
+          DB_NAME: stub
+          DB_VECTOR_NAME: stub
+          NEXT_PUBLIC_WEBAPP: stub
         run: pnpm build
 
   # --- Security hardening ---
