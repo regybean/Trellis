@@ -71,7 +71,16 @@ accepted
 
 - Worktree backend tests require a container runtime reachable by testcontainers
   (the podman socket) — the same prerequisite CI has. No `pnpm infra:up` in a
-  worktree.
+  worktree. On a **rootless podman machine** (the macOS default) the testcontainers
+  Ryuk reaper can't start — SELinux in the VM denies its unrelabeled socket bind
+  mount, so it exits before signalling ready and every backend run dies in
+  global-setup. Set `TESTCONTAINERS_RYUK_DISABLED=true` at the host level (it is
+  already in `turbo.json` `globalPassThroughEnv`, so it reaches the test workers).
+  Isolation between parallel worktrees is unaffected — it comes from testcontainers'
+  random host ports + generated names, not Ryuk — and orphan cleanup is covered by
+  the global-setup's explicit `stopInfra()` teardown. Ryuk only works here if the
+  machine is switched to rootful (`podman machine set --rootful`), which stops
+  existing rootless containers, so it is not required.
 - All three test tasks split their cache on `CI`, so the frontend portion
   re-runs across the main↔worktree boundary — wasted reuse, never incorrect.
 - A raw `turbo run test:backend` (bypassing both the pnpm script and the wrapper)
