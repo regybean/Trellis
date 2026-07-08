@@ -3,6 +3,7 @@
   "dependencies": {
     "@acme/chat": "workspace:*",
     "@acme/entitlements": "workspace:*",
+    "@acme/env": "workspace:*",
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",

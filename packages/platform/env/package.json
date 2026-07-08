@@ -1,15 +1,11 @@
 {
-  "name": "@acme/db",
-  "dependencies": {
-    "@acme/env": "workspace:*",
-    "@t3-oss/env-nextjs": "catalog:",
-    "drizzle-orm": "catalog:",
-    "postgres": "catalog:"
+  "name": "@acme/env",
+  "acme": {
+    "testClass": "backend-library"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
-    "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
     "@acme/vitest-config": "workspace:*",
     "eslint": "catalog:",
@@ -19,16 +15,8 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./src/index.ts"
-    },
-    "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"
-    },
-    "./testing": {
-      "types": "./dist/testing.d.ts",
-      "default": "./src/testing.ts"
     }
   },
   "sideEffects": false,
@@ -40,15 +28,10 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "format": "prettier --check . --ignore-path ../../.gitignore",
     "lint": "eslint",
+    "test": "pnpm test:backend",
+    "test:backend": "vitest run --config vitest.config.backend.ts",
+    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
     "typecheck": "tsc --noEmit"
   },
-  "type": "module",
-  "acme": {
-    "testClass": "backend-library",
-    "testStatus": "todo",
-    "reason": "Connection factory + env; behaviour is exercised through consumer suites (billing/chat/feedback/rag). A dedicated connection smoke test is a tracked follow-up.",
-    "infra": [
-      "postgres"
-    ]
-  }
+  "type": "module"
 }

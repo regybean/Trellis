@@ -1,6 +1,7 @@
 {
   "name": "@acme/redis",
   "dependencies": {
+    "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
     "redis": "catalog:"

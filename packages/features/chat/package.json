@@ -2,6 +2,7 @@
   "name": "@acme/chat",
   "dependencies": {
     "@acme/db": "workspace:*",
+    "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",

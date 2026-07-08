@@ -1,6 +1,7 @@
 {
   "name": "@acme/ingest",
   "dependencies": {
+    "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/rag": "workspace:*",

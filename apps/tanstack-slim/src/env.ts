@@ -1,11 +1,11 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 
 import { chatEnv } from '@acme/chat/env';
+import { shouldSkipEnvValidation } from '@acme/env';
 import { ingestEnv } from '@acme/ingest/env';
 
 // TanStack Start has no Next.js build phase, so NEXT_PHASE is omitted.
-const skipValidation =
-  !!process.env.CI || process.env.npm_lifecycle_event === 'lint';
+const skipValidation = shouldSkipEnvValidation();
 
 /**
  * Server env for the slim TanStack Start app. Composes the chat + ingest feature

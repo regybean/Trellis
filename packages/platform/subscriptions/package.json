@@ -2,6 +2,7 @@
   "name": "@acme/subscriptions",
   "dependencies": {
     "@acme/entitlements": "workspace:*",
+    "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/redis": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
