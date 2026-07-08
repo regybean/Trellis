@@ -1,0 +1,12 @@
+{
+  "extends": "@acme/tsconfig/base.json",
+  "compilerOptions": {
+    "lib": ["ES2023", "dom", "dom.iterable"],
+    "paths": {
+      "~/*": ["./src/*"],
+      "server-only": ["./src/stubs/server-only.ts"]
+    }
+  },
+  "include": [".", "../../packages/platform/trpc/src/global.d.ts"],
+  "exclude": ["node_modules"]
+}

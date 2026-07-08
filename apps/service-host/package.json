@@ -1,0 +1,46 @@
+{
+  "name": "@acme/service-host",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "git clean -xdf .cache .turbo node_modules",
+    "dev": "pnpm with-env tsx src/server.ts",
+    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "lint": "eslint",
+    "start": "pnpm with-env tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
+  },
+  "dependencies": {
+    "@acme/chat": "workspace:*",
+    "@acme/entitlements": "workspace:*",
+    "@acme/env": "workspace:*",
+    "@acme/feedback": "workspace:*",
+    "@acme/ingest": "workspace:*",
+    "@acme/logger": "workspace:*",
+    "@acme/trpc": "workspace:*",
+    "@whatwg-node/server": "^0.11.0",
+    "dotenv-cli": "^11.0.0"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "workspace:*",
+    "@acme/prettier-config": "workspace:*",
+    "@acme/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "tsx": "^4.19.0",
+    "typescript": "catalog:"
+  },
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "none",
+    "reason": "Generic standalone tRPC host; feature routers covered by their own backend suites.",
+    "infra": [
+      "postgres",
+      "ollama",
+      "localstack"
+    ]
+  }
+}
