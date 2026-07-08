@@ -1,0 +1,158 @@
+# Opt-in microservices showcase (ADR 0023). NOT referenced by `pnpm dev` or
+# `pnpm infra:up` — the sole entrypoint is `pnpm micro:up`.
+#
+# Topology: browser -> gateway :3000 -> { chat-svc :4001, ingest-svc :4002,
+# feedback-svc :4003, micro-web :3100 }. One shared dev image
+# (ops/micro/Containerfile) runs each app service via tsx / vite dev. A one-shot
+# `migrate` creates the shared schema + vector index before the services start.
+#
+# Provider config (models, S3) is read from ./.env; the app services override
+# only the hostnames that must resolve to compose services (DB_HOST, S3_ENDPOINT,
+# OLLAMA_BASE_URL). The ollama service assumes LLM_PROVIDER/EMBED_PROVIDER=ollama
+# in ./.env — if you use Bedrock, set the AWS_* vars in ./.env and you may drop
+# the ollama service.
+name: trellis-micro
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: ops/micro/Containerfile
+  image: trellis-micro-app:dev
+  env_file: [./.env]
+
+x-app-env:
+  &app-env # The ONE shared deployment namespace — same value for every service (ADR 0023).
+  NEXT_PUBLIC_WEBAPP: ${NEXT_PUBLIC_WEBAPP:-trellis_micro}
+  # Point the graph-derived hosts at the compose services (override ./.env, which
+  # points them at localhost for monolith dev).
+  DB_HOST: postgres
+  S3_ENDPOINT: http://localstack:4566
+  OLLAMA_BASE_URL: http://ollama:11434
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
+      POSTGRES_DB: ${DB_NAME:-app}
+      DB_VECTOR_NAME: ${DB_VECTOR_NAME:-vectordb}
+    volumes:
+      - pg_data:/var/lib/postgresql
+      - ./ops/db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 2s
+      timeout: 3s
+      retries: 40
+      start_period: 5s
+    env_file: [./.env]
+
+  localstack:
+    image: localstack/localstack:3.8.1
+    environment:
+      - SERVICES=s3,secretsmanager
+      - LOCALSTACK_HOST=localhost.localstack.cloud
+    volumes:
+      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    env_file: [./.env]
+
+  # Local LLM + embeddings so the stack runs with no cloud creds. Pulls models on
+  # first boot ($$VAR defers expansion to the container shell). Drop if using Bedrock.
+  ollama:
+    image: ollama/ollama:0.9.4
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        until ollama ls >/dev/null 2>&1; do sleep 1; done
+        ollama pull "$$OLLAMA_CHAT_MODEL"
+        ollama pull "$$OLLAMA_EMBED_MODEL"
+        wait
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - ollama ls | grep -q "$$OLLAMA_CHAT_MODEL" && ollama ls | grep -q "$$OLLAMA_EMBED_MODEL"
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 10s
+    volumes:
+      - ollama_data:/root/.ollama
+    env_file: [./.env]
+
+  # One-shot: create the shared schema + app-owned tables (db:push) then the
+  # pgvector index (ensureVectorIndex). Runs to completion before the services.
+  migrate:
+    <<: *app
+    command: ["pnpm", "--filter", "@acme/micro-migrate", "migrate"]
+    environment: *app-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  chat-svc:
+    <<: *app
+    command: ["pnpm", "--filter", "@acme/service-host", "dev"]
+    environment:
+      <<: *app-env
+      FEATURE: chat
+      PORT: "4001"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      ollama:
+        condition: service_healthy
+
+  ingest-svc:
+    <<: *app
+    command: ["pnpm", "--filter", "@acme/service-host", "dev"]
+    environment:
+      <<: *app-env
+      FEATURE: ingest
+      PORT: "4002"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      localstack:
+        condition: service_healthy
+
+  feedback-svc:
+    <<: *app
+    command: ["pnpm", "--filter", "@acme/service-host", "dev"]
+    environment:
+      <<: *app-env
+      FEATURE: feedback
+      PORT: "4003"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  micro-web:
+    <<: *app
+    command: ["pnpm", "--filter", "@acme/micro-web", "dev"]
+    environment: *app-env
+
+  # The single origin the browser hits; fans out /api/trpc/<feature> to each
+  # service and everything else to micro-web (ADR 0023).
+  gateway:
+    image: caddy:2-alpine
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./ops/micro/Caddyfile:/etc/caddy/Caddyfile:ro
+    depends_on:
+      - chat-svc
+      - ingest-svc
+      - feedback-svc
+      - micro-web
+
+volumes:
+  pg_data:
+  ollama_data:

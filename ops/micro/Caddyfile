@@ -1,0 +1,38 @@
+# Gateway routing table for the microservices showcase (ADR 0023).
+#
+# The single origin the browser talks to (:3000). It fans out each feature's
+# tRPC prefix to that feature's service process and serves everything else from
+# the client-only frontend. Because the browser only ever sees :3000, the feature
+# client callers stay same-origin and unchanged, and there is no CORS.
+{
+	admin off
+	auto_https off
+}
+
+:3000 {
+	log
+
+	# chat — the `flush_interval -1` disables response buffering so the
+	# `chat.stream` SSE subscription (httpSubscriptionLink) streams token-by-token.
+	@chat path /api/trpc/chat /api/trpc/chat/*
+	handle @chat {
+		reverse_proxy chat-svc:4001 {
+			flush_interval -1
+		}
+	}
+
+	@ingest path /api/trpc/ingest /api/trpc/ingest/*
+	handle @ingest {
+		reverse_proxy ingest-svc:4002
+	}
+
+	@feedback path /api/trpc/feedback /api/trpc/feedback/*
+	handle @feedback {
+		reverse_proxy feedback-svc:4003
+	}
+
+	# Everything else (SSR pages, assets, HMR) -> the client-only frontend.
+	handle {
+		reverse_proxy micro-web:3100
+	}
+}

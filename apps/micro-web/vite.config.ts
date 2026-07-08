@@ -65,8 +65,10 @@ export default defineConfig({
   define: publicEnvDefine,
   server: {
     // Behind the micro gateway (:3000); the gateway proxies non-/api/trpc
-    // traffic here (ADR 0023).
+    // traffic here (ADR 0023). `host: true` binds 0.0.0.0 so the gateway
+    // container can reach it.
     port: 3100,
+    host: true,
   },
   // Vite externalizes regular node_modules deps in the SSR build, so `server-only`
   // would be loaded by Node's native loader (and throw) before stubServerOnly()

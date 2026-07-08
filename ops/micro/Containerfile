@@ -1,0 +1,29 @@
+# Shared dev-mode image for the microservices showcase (ADR 0023).
+#
+# One image for every app service (service-host x3, micro-web, migrate); each
+# compose service differs only by `command` + env. Dev-mode on purpose: the repo
+# is copied in and installed, then run via `tsx` (services) / `vite dev`
+# (frontend) — features export `default` -> ./src/*.ts (ADR 0015), so there is no
+# prebuilt artifact to ship; the runtime transpiles source. First build is heavy
+# (installs the whole monorepo) — the acknowledged cost of the opt-in stack.
+#
+# Not production-optimized (no turbo-prune, no multi-stage). For a production
+# topology, model per-service images on apps/nextjs-slim/Dockerfile instead.
+FROM node:22-bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl bash curl postgresql-client \
+  && corepack enable \
+  && rm -rf /var/lib/apt/lists/*
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="/pnpm:$PATH"
+# CI=true so the postinstall skips the sherif autofix; --ignore-scripts skips the
+# package prebuild (unused — runtime resolves `default` -> src via tsx/vite).
+ENV CI=true
+
+WORKDIR /repo
+COPY . .
+RUN pnpm install --frozen-lockfile --ignore-scripts
+
+# `command` is supplied per-service by compose.micro.yml.
