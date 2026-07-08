@@ -10,8 +10,15 @@ Consult the map before grepping; it turns most searches into a direct jump.
    [CONTEXT-MAP.md](CONTEXT-MAP.md) row → the package's `CONTEXT.md`, then
    [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md) for the exact
    layout (`api/routers/*`, `hooks/use-*`, `api/schemas/*`). Jump to the file.
-2. **Hunting a symbol across packages?** ripgrep scoped to `packages/`/`apps/`
-   — no LSP server runs here, so go-to-definition is unavailable.
+2. **Hunting a symbol across packages?** Split by operation. `LSP` `hover` /
+   `workspaceSymbol` / `documentSymbol` and _same-package_ `goToDefinition` /
+   `findReferences` are reliable — use them. But **cross-package**
+   `goToDefinition` / `findReferences` are NOT reliable here: packages consume
+   each other through the `dist/*.d.ts` barrel (exports `types` → `dist`), so
+   tsserver can't link a source symbol to consumers in other packages
+   (`references` doesn't fix it — TS treats this as working-as-intended, and the
+   only fix trades away the fast dist-based build). For cross-package reference
+   hunting, use ripgrep scoped to `packages/`/`apps/`, or the `Explore` subagent.
 3. **Broad / cross-layer search** (a seam wired app→feature→platform; all callers
    of X): delegate to the `Explore` subagent so the fan-out stays out of this
    context. Single greps and known-location lookups stay inline.
