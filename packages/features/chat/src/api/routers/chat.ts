@@ -48,11 +48,6 @@ export const chatRouter = createTRPCRouter({
       const { userId } = ctx.auth;
       const { sessionId } = input;
 
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.sessionId': sessionId,
-      });
-
       logger.info({ userId, sessionId }, 'Starting streamed chat query');
 
       try {
@@ -92,14 +87,8 @@ export const chatRouter = createTRPCRouter({
 
         yield { ...doneEvent };
 
-        ctx.telemetry.set({
-          'result.responseLength': accumulatedResponse.length,
-          'result.success': true,
-        });
-
         logger.info({ userId, sessionId }, 'Completed streamed chat query');
       } catch (error) {
-        ctx.telemetry.set({ 'result.success': false });
         logger.error(
           { error, userId, sessionId },
           'Streamed chat query failed',
@@ -117,11 +106,6 @@ export const chatRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
 
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.sessionId': input.sessionId,
-      });
-
       try {
         logger.info(
           { userId, sessionId: input.sessionId },
@@ -132,11 +116,7 @@ export const chatRouter = createTRPCRouter({
           ctx.conversation ??
           (await createConversation(input.sessionId, userId));
 
-        return ctx.telemetry.parseWithTelemetry(
-          selectChatSchema,
-          toConversation(thread),
-          'selectChatSchema',
-        );
+        return selectChatSchema.parse(toConversation(thread));
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         logger.error(
@@ -156,11 +136,6 @@ export const chatRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
 
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.sessionId': input.sessionId,
-      });
-
       // New session: thread doesn't exist yet, no messages to return.
       if (!ctx.conversation) return [];
 
@@ -173,15 +148,7 @@ export const chatRouter = createTRPCRouter({
         const dbMessages = await recallMessages(input.sessionId, userId);
         const rendered = toMessages(dbMessages, input.sessionId);
 
-        ctx.telemetry.set({ 'result.messageCount': rendered.length });
-
-        return rendered.map((msg) =>
-          ctx.telemetry.parseWithTelemetry(
-            selectMessageSchema,
-            msg,
-            'selectMessageSchema',
-          ),
-        );
+        return rendered.map((msg) => selectMessageSchema.parse(msg));
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         logger.error(
@@ -201,11 +168,6 @@ export const chatRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
 
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.sessionId': input.sessionId,
-      });
-
       try {
         logger.info(
           { userId, sessionId: input.sessionId },
@@ -213,8 +175,6 @@ export const chatRouter = createTRPCRouter({
         );
 
         await deleteConversation(input.sessionId);
-
-        ctx.telemetry.set({ 'result.deleted': true });
 
         return toConversation(ctx.conversation);
       } catch (error) {
@@ -235,18 +195,12 @@ export const chatRouter = createTRPCRouter({
   // `updatedAt DESC`. The client groups it into Folders and Date Buckets.
   list: protectedProcedure.query(async ({ ctx }) => {
     const { userId } = ctx.auth;
-    ctx.telemetry.set({ 'user.id': userId });
 
     try {
       const threads = await listConversationsForUser(userId);
-      ctx.telemetry.set({ 'result.chatCount': threads.length });
 
       return threads.map((thread) =>
-        ctx.telemetry.parseWithTelemetry(
-          selectConversationSummarySchema,
-          toConversationSummary(thread),
-          'selectConversationSummarySchema',
-        ),
+        selectConversationSummarySchema.parse(toConversationSummary(thread)),
       );
     } catch (error) {
       logger.error({ error, userId }, 'Failed to list conversations');
@@ -266,11 +220,6 @@ export const chatRouter = createTRPCRouter({
     .input(SetFolderRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.sessionId': input.sessionId,
-        'input.folderId': input.folderId ?? '',
-      });
 
       // The target Folder, when given, must belong to the caller. Ownership is
       // asserted through the folders module so `chat_folder` is only ever
@@ -301,11 +250,6 @@ export const chatRouter = createTRPCRouter({
   adminGet: adminProcedure
     .input(z.object({ sessionId: z.uuid() }))
     .query(async ({ ctx, input }) => {
-      ctx.telemetry.set({
-        'admin.userId': ctx.auth.userId ?? '',
-        'input.sessionId': input.sessionId,
-      });
-
       try {
         logger.info(
           { adminId: ctx.auth.userId, sessionId: input.sessionId },
@@ -319,8 +263,6 @@ export const chatRouter = createTRPCRouter({
             message: 'Chat session not found',
           });
         }
-
-        ctx.telemetry.set({ 'result.found': true });
 
         return toConversation(thread);
       } catch (error) {
@@ -340,11 +282,6 @@ export const chatRouter = createTRPCRouter({
   adminList: adminProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      ctx.telemetry.set({
-        'admin.userId': ctx.auth.userId ?? '',
-        'target.userId': input.userId,
-      });
-
       try {
         logger.info(
           { adminId: ctx.auth.userId, targetUserId: input.userId },
@@ -352,8 +289,6 @@ export const chatRouter = createTRPCRouter({
         );
 
         const threads = await listConversations(input.userId);
-
-        ctx.telemetry.set({ 'result.chatCount': threads.length });
 
         return threads.map((thread) => toConversation(thread));
       } catch (error) {

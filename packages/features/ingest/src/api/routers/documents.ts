@@ -18,11 +18,8 @@ import { adminProcedure, createTRPCRouter } from '../trpc';
 
 export const documentsRouter = createTRPCRouter({
   /** List indexed documents grouped by filename. */
-  list: adminProcedure.input(z.void()).query(async ({ ctx }) => {
-    ctx.telemetry.set({ 'admin.userId': ctx.auth.userId ?? '' });
-    const docs = await listDocuments();
-    ctx.telemetry.set({ 'documents.count': docs.length });
-    return docs;
+  list: adminProcedure.input(z.void()).query(async () => {
+    return listDocuments();
   }),
 
   /**
@@ -33,10 +30,6 @@ export const documentsRouter = createTRPCRouter({
     .input(getPresignedUrlsSchema)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({
-        'admin.userId': userId ?? '',
-        'files.count': input.files.length,
-      });
 
       const uploadId = crypto.randomUUID();
       const presignedUrls = await Promise.all(
@@ -64,10 +57,6 @@ export const documentsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
       const { s3Keys } = input;
-      ctx.telemetry.set({
-        'admin.userId': userId ?? '',
-        's3Keys.count': s3Keys.length,
-      });
 
       try {
         const files = await Promise.all(
@@ -79,7 +68,6 @@ export const documentsRouter = createTRPCRouter({
         );
 
         await uploadDocs(files);
-        ctx.telemetry.set({ 'documents.indexed': files.length });
 
         await deleteFilesFromS3(s3Keys).catch((error) =>
           logger.warn({ error }, 'Failed to clean up S3 files after upload'),
@@ -102,11 +90,7 @@ export const documentsRouter = createTRPCRouter({
   /** Delete every chunk belonging to a filename. */
   delete: adminProcedure
     .input(deleteDocumentSchema)
-    .mutation(async ({ ctx, input }) => {
-      ctx.telemetry.set({
-        'admin.userId': ctx.auth.userId ?? '',
-        'document.filename': input.filename,
-      });
+    .mutation(async ({ input }) => {
       return deleteByFilename(input.filename);
     }),
 });

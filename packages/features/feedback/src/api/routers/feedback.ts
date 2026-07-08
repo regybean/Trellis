@@ -34,10 +34,6 @@ export const feedbackRouter = createTRPCRouter({
     .input(MessageFeedbackRequest)
     .query(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.messageId': input.messageId,
-      });
 
       const [row] = await ctx.db
         .select()
@@ -51,11 +47,7 @@ export const feedbackRouter = createTRPCRouter({
         .limit(1);
 
       if (!row) return null;
-      return ctx.telemetry.parseWithTelemetry(
-        selectFeedbackSchema,
-        row,
-        'selectFeedbackSchema',
-      );
+      return selectFeedbackSchema.parse(row);
     }),
 
   // Submit (or update) feedback for a message in an owned conversation.
@@ -63,12 +55,6 @@ export const feedbackRouter = createTRPCRouter({
     .input(SubmitFeedbackRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.messageId': input.messageId,
-        'input.threadId': input.threadId,
-        'input.rating': input.rating,
-      });
 
       // 1. Thread ownership — the Mastra-owned ownership fact. Foreign ownership
       // is mapped to FORBIDDEN inside the shared adapter; absence is a NOT_FOUND
@@ -101,17 +87,13 @@ export const feedbackRouter = createTRPCRouter({
       }
 
       // 3. Upsert — one row per (user, message).
-      const values = ctx.telemetry.parseWithTelemetry(
-        insertFeedbackSchema,
-        {
-          messageId: input.messageId,
-          threadId: input.threadId,
-          userId,
-          rating: input.rating,
-          comment: input.comment ?? null,
-        },
-        'insertFeedbackSchema',
-      );
+      const values = insertFeedbackSchema.parse({
+        messageId: input.messageId,
+        threadId: input.threadId,
+        userId,
+        rating: input.rating,
+        comment: input.comment ?? null,
+      });
 
       const [saved] = await ctx.db
         .insert(messageFeedback)
@@ -137,11 +119,7 @@ export const feedbackRouter = createTRPCRouter({
         { userId, messageId: input.messageId, rating: input.rating },
         'feedback saved',
       );
-      return ctx.telemetry.parseWithTelemetry(
-        selectFeedbackSchema,
-        saved,
-        'selectFeedbackSchema',
-      );
+      return selectFeedbackSchema.parse(saved);
     }),
 
   // Clear the caller's feedback for a message (toggle off).
@@ -149,10 +127,6 @@ export const feedbackRouter = createTRPCRouter({
     .input(MessageFeedbackRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
-      ctx.telemetry.set({
-        'user.id': userId,
-        'input.messageId': input.messageId,
-      });
 
       await ctx.db
         .delete(messageFeedback)
