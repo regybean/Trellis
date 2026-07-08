@@ -67,7 +67,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
-    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "format": "prettier --check . --ignore-path ../../../.prettierignore",
     "lint": "eslint",
     "test": "pnpm test:backend && pnpm test:frontend",
     "test:backend": "vitest run --config vitest.config.backend.ts",

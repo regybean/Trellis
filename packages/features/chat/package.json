@@ -79,7 +79,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
-    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "format": "prettier --check . --ignore-path ../../../.prettierignore",
     "lint": "eslint",
     "lint:mastra": "mastra lint --dir src/mastra",
     "studio": "mastra dev --dir src/mastra",

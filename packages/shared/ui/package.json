@@ -58,7 +58,7 @@
   "scripts": {
     "build": "tsc",
     "clean": "git clean -xdf .cache .turbo dist node_modules",
-    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "format": "prettier --check . --ignore-path ../../../.prettierignore",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "ui-add": "pnpm dlx shadcn@latest add && prettier src --write --list-different"

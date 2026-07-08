@@ -57,7 +57,7 @@
     "db:migrate": "pnpm drizzle-kit migrate",
     "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts --force",
     "dev": "pnpm with-env next dev --turbopack --port 3002",
-    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "format": "prettier --check . --ignore-path ../../.prettierignore",
     "lint": "eslint",
     "start": "pnpm with-env next start --hostname 0.0.0.0 --port 3002",
     "start:ecs": "next start --hostname 0.0.0.0 --port 3002",
