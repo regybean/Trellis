@@ -53,5 +53,3 @@ dist/
 
 # mastra
 .mastra/
-
-.claude/worktrees/
