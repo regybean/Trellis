@@ -1,22 +1,27 @@
 # Git hooks managed by lefthook — https://lefthook.dev
 # Installed automatically via the root `prepare` script (`lefthook install`).
 #
-# Strategy: lint/format auto-fix runs through Turbo, so it is cache-aware and
-# effectively only re-runs the packages that actually changed. `glob` gates each
-# command to the relevant staged file types and `stage_fixed: true` re-stages
-# the staged files that the fixers modified.
+# Strategy (ADR 0020): commit *tidies*, it never *verifies*. Pre-commit runs only
+# deterministic, non-blocking auto-fixers on the staged files (Prettier) plus a
+# staged secret scan. Everything fail-able — ESLint, typecheck, tests,
+# boundaries, deps — runs once at the end of a task via `pnpm quality-gate`, and
+# again in CI as the hard backstop. This keeps commits sub-second and stops an
+# agent round-tripping on a hook that can block.
 
+# format (Prettier, writes working tree) and gitleaks (reads the staged index)
+# are independent — formatting can't add or hide a secret — so they run in
+# parallel.
 pre-commit:
-  parallel: false
+  parallel: true
   commands:
-    lint:
-      glob: "*.{js,jsx,ts,tsx,cjs,mjs}"
-      run: pnpm lint:fix
-      stage_fixed: true
+    # Format only the staged files; Prettier resolves each file's config from the
+    # owning package's `package.json` "prettier" key. Deterministic, cannot fail
+    # meaningfully, re-stages what it rewrote.
     format:
       glob: "*.{js,jsx,ts,tsx,cjs,mjs,json,jsonc,md,mdx,yml,yaml,css}"
-      run: pnpm format:fix
+      run: pnpm exec prettier --write --ignore-unknown {staged_files}
       stage_fixed: true
+    # Secrets must never enter history — the one gate that stays on commit.
     gitleaks:
       run: |
         if command -v gitleaks >/dev/null 2>&1; then

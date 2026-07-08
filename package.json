@@ -18,16 +18,6 @@
     "glob": "^13.0.0"
   },
   "packageManager": "pnpm@10.15.1",
-  "pnpm": {
-    "overrides": {
-      "import-in-the-middle": "2.0.4",
-      "require-in-the-middle": "8.0.1",
-      "vite": "catalog:",
-      "vitest": "catalog:",
-      "qs": "6.14.1",
-      "@clerk/backend": "catalog:"
-    }
-  },
   "private": true,
   "scripts": {
     "boundaries": "turbo boundaries",
@@ -36,6 +26,7 @@
     "build:nextjs": "turbo run build -F @acme/nextjs...",
     "build:nextjs-slim": "turbo run build -F @acme/nextjs-slim...",
     "build:tanstack-slim": "turbo run build -F @acme/tanstack-slim...",
+    "claudeignore:sync": "node scripts/sync-claudeignore.mjs",
     "clean": "git clean -xdf node_modules",
     "clean:workspaces": "turbo run clean",
     "db:check": "echo 'Run per-app: pnpm --filter <app> db:check (drizzle-kit check)'",
@@ -64,16 +55,18 @@
     "lint:ws": "pnpm dlx sherif@latest",
     "lint:ws:fix": "pnpm dlx sherif@latest --fix",
     "prune": "scripts/extract-app.sh",
-    "postinstall": "turbo run build --filter=./packages/** && pnpm lint:ws:fix && pnpm skills:register",
+    "postinstall": "turbo run build --filter=./packages/** && ([ -n \"$CI\" ] || pnpm lint:ws:fix) && pnpm skills:register && pnpm claudeignore:sync",
     "skills:register": "scripts/register-skills.sh",
     "prepare": "lefthook install",
-    "quality-gate": "pnpm lint:fix && pnpm format:fix && turbo run typecheck build --continue && pnpm boundaries && pnpm test:policy && pnpm lint:ws && pnpm deps:lint && pnpm gitleaks && pnpm test",
+    "quality-gate": "bash scripts/quality-gate.sh",
     "gitleaks": "if command -v gitleaks >/dev/null 2>&1; then gitleaks git --no-banner --redact --config .gitleaks.toml .; else echo '⚠️  gitleaks not installed; skipping (CI enforces). Install: brew install gitleaks'; fi",
     "seed:localstripe": "pnpm with-env pnpm --filter @acme/billing seed:localstripe",
     "studio": "pnpm with-env pnpm --filter @acme/chat studio",
     "predev": "scripts/check-remote-cache.sh",
-    "test": "NEXT_PUBLIC_WEBAPP=nextjs turbo run test",
-    "test:nextjs": "NEXT_PUBLIC_WEBAPP=nextjs turbo run test",
+    "test": "scripts/test.sh test",
+    "test:nextjs": "scripts/test.sh test",
+    "test:backend": "scripts/test.sh test:backend",
+    "test:frontend": "scripts/test.sh test:frontend",
     "test:policy": "node scripts/check-test-policy.mjs",
     "test:watch": " turbo run test:watch",
     "typecheck": "turbo run typecheck",

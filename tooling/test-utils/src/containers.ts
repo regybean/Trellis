@@ -15,7 +15,7 @@
 /* eslint-disable no-restricted-syntax, turbo/no-undeclared-env-vars */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, statSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { StartedTestContainer } from 'testcontainers';
 import { GenericContainer, Wait } from 'testcontainers';
@@ -36,6 +36,23 @@ function findRepoRoot(start: string): string {
   return start;
 }
 const REPO_ROOT = findRepoRoot(__dirname);
+
+/**
+ * A linked git worktree's `.git` is a *file* (a `gitdir:` pointer); the primary
+ * checkout's is a *directory*. This is the runtime counterpart to the `[ -f .git ]`
+ * check in `scripts/test.sh`: it makes a direct per-package `vitest` run (which
+ * bypasses the turbo wrapper, so `CI` is never injected) still self-provision
+ * testcontainers in a worktree rather than colliding with the primary checkout's
+ * shared compose stack. See ADR 0019. (Cache-safe: direct vitest bypasses turbo,
+ * so there is no cache key to partition on this path.)
+ */
+export function inLinkedWorktree(): boolean {
+  try {
+    return statSync(resolve(REPO_ROOT, '.git')).isFile();
+  } catch {
+    return false;
+  }
+}
 
 export interface StartedInfra {
   descriptor: InfraDescriptor;
@@ -119,35 +136,61 @@ export async function stopInfra(): Promise<void> {
   startedInfra = [];
 }
 
+/** The full app whose aggregated Drizzle schema owns every push-managed table. */
+const CANONICAL_APP = 'nextjs';
+
 /**
- * Push database schemas by delegating to the app's own migration.
+ * Provision app-owned tables into a fresh testcontainer Postgres via
+ * `drizzle-kit push --force`.
  *
- * The `apps/$WEBAPP db:migrate` reach is intentionally left here rather than in
- * `@acme/db` (see docs/adr/0016 — migration ownership is a separate, later
- * decision). Gated by the caller on Postgres being in the infra set.
+ * Push (not migrate): this repo is push-based — `apps/nextjs/migrations` holds no
+ * SQL, so `drizzle-kit migrate` creates nothing. `push` reads `schema.ts`
+ * directly and force-syncs it, exactly like `pnpm db:push` in dev. See ADR 0021.
+ *
+ * The canonical app (`nextjs`) aggregates every feature's push-managed schema, so
+ * one push creates all of them. `targetSchema` is the suite's isolated Postgres
+ * schema (`NEXT_PUBLIC_WEBAPP`) — the app's `pgSchema(NEXT_PUBLIC_WEBAPP)` tables
+ * (and `CREATE SCHEMA`) land there. Mastra/pgvector tables are created lazily at
+ * runtime and are excluded by the config's `tablesFilter`, so push never touches
+ * them.
+ *
+ * `with-env` is bypassed: `setup.ts` has already put the container's `DB_*` into
+ * `process.env`, so drizzle-kit is invoked directly (no dependence on a `.env`
+ * file, no risk of it shadowing the container). Gated by the caller on Postgres
+ * being in the infra set.
  */
-export async function pushDatabaseSchemas(webapp: string): Promise<void> {
-  console.log('📊 Pushing database schemas...');
+export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
+  console.log(`📊 Pushing database schemas into "${targetSchema}"...`);
   console.log(
     `   DB credentials: ${process.env.DB_USER}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
   );
 
   await new Promise<void>((resolvePromise, reject) => {
-    const child = spawn(`cd ../../../apps/${webapp} && pnpm`, ['db:migrate'], {
-      stdio: 'inherit',
-      cwd: process.cwd(),
-      shell: true,
-      env: { ...process.env },
-    });
+    const child = spawn(
+      'pnpm',
+      [
+        'exec',
+        'drizzle-kit',
+        'push',
+        '--config',
+        'drizzle.push.config.ts',
+        '--force',
+      ],
+      {
+        stdio: 'inherit',
+        cwd: resolve(REPO_ROOT, 'apps', CANONICAL_APP),
+        env: { ...process.env, NEXT_PUBLIC_WEBAPP: targetSchema },
+      },
+    );
     child.on('close', (code) => {
       if (code === 0) {
         resolvePromise();
       } else {
-        reject(new Error(`db:migrate failed with code ${code}`));
+        reject(new Error(`drizzle-kit push failed with code ${code}`));
       }
     });
     child.on('error', reject);
   });
 
-  console.log('✅ pnpm db:migrate completed successfully');
+  console.log('✅ drizzle-kit push completed successfully');
 }

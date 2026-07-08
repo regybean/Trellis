@@ -6,50 +6,50 @@ packages:
   - tooling/*
 
 catalog:
-  '@ai-sdk/amazon-bedrock': ^4.0.117
-  '@ai-sdk/openai-compatible': ^2.0.50
-  '@ai-sdk/provider': ^3.0.10
-  '@aws-sdk/client-s3': ^3.914.0
-  '@aws-sdk/s3-request-presigner': ^3.914.0
-  '@clerk/backend': ^2.33.5
-  '@clerk/clerk-react': ^5.61.8
-  '@clerk/nextjs': 6.32.2
-  '@clerk/tanstack-react-start': ^0.29.13
-  '@clerk/themes': ^2.4.19
-  '@dnd-kit/core': ^6.3.1
-  '@eslint/js': ^9.39.1
-  '@kubiks/otel-drizzle': ^2.1.0
-  '@mastra/core': ^1.42.0
-  '@mastra/memory': ^1.20.3
-  '@mastra/pg': ^1.13.0
-  '@mastra/rag': ^2.2.1
-  '@opentelemetry/api': ^1.9.0
-  '@opentelemetry/auto-instrumentations-node': ^0.60.0
-  '@opentelemetry/exporter-trace-otlp-http': ^0.210.0
-  '@opentelemetry/instrumentation': ^0.210.0
-  '@opentelemetry/instrumentation-http': ^0.57.0
-  '@opentelemetry/resources': ^2.4.0
-  '@opentelemetry/sdk-node': ^0.210.0
-  '@opentelemetry/sdk-trace-base': ^2.4.0
-  '@opentelemetry/sdk-trace-node': ^2.4.0
-  '@opentelemetry/semantic-conventions': ^1.28.0
-  '@openrouter/ai-sdk-provider': ^2.9.1
-  '@react-pdf/renderer': ^4.3.1
-  '@t3-oss/env-nextjs': ^0.13.10
-  '@tailwindcss/postcss': ^4.1.16
-  '@tailwindcss/vite': ^4.1.16
-  '@turbo/gen': ^2.7.5
-  '@tanstack/react-query': ^5.87.1
-  '@testing-library/jest-dom': ^6.9.1
-  '@testing-library/react': ^16.3.0
-  '@testing-library/user-event': ^14.6.1
-  '@trpc/client': ^11.8.0
-  '@trpc/react-query': ^11.8.0
-  '@trpc/server': ^11.8.0
-  '@trpc/tanstack-react-query': ^11.8.0
-  '@types/node': ^22.18.12
-  '@vitejs/plugin-react': ^5.1.1
-  '@xmldom/xmldom': ^0.9.8
+  "@ai-sdk/amazon-bedrock": ^4.0.117
+  "@ai-sdk/openai-compatible": ^2.0.50
+  "@ai-sdk/provider": ^3.0.10
+  "@aws-sdk/client-s3": ^3.914.0
+  "@aws-sdk/s3-request-presigner": ^3.914.0
+  "@clerk/backend": ^2.33.5
+  "@clerk/clerk-react": ^5.61.8
+  "@clerk/nextjs": 6.32.2
+  "@clerk/tanstack-react-start": ^0.29.13
+  "@clerk/themes": ^2.4.19
+  "@dnd-kit/core": ^6.3.1
+  "@eslint/js": ^9.39.1
+  "@kubiks/otel-drizzle": ^2.1.0
+  "@mastra/core": ^1.42.0
+  "@mastra/memory": ^1.20.3
+  "@mastra/pg": ^1.13.0
+  "@mastra/rag": ^2.2.1
+  "@opentelemetry/api": ^1.9.0
+  "@opentelemetry/auto-instrumentations-node": ^0.60.0
+  "@opentelemetry/exporter-trace-otlp-http": ^0.210.0
+  "@opentelemetry/instrumentation": ^0.210.0
+  "@opentelemetry/instrumentation-http": ^0.57.0
+  "@opentelemetry/resources": ^2.4.0
+  "@opentelemetry/sdk-node": ^0.210.0
+  "@opentelemetry/sdk-trace-base": ^2.4.0
+  "@opentelemetry/sdk-trace-node": ^2.4.0
+  "@opentelemetry/semantic-conventions": ^1.28.0
+  "@openrouter/ai-sdk-provider": ^2.9.1
+  "@react-pdf/renderer": ^4.3.1
+  "@t3-oss/env-nextjs": ^0.13.10
+  "@tailwindcss/postcss": ^4.1.16
+  "@tailwindcss/vite": ^4.1.16
+  "@turbo/gen": ^2.7.5
+  "@tanstack/react-query": ^5.87.1
+  "@testing-library/jest-dom": ^6.9.1
+  "@testing-library/react": ^16.3.0
+  "@testing-library/user-event": ^14.6.1
+  "@trpc/client": ^11.8.0
+  "@trpc/react-query": ^11.8.0
+  "@trpc/server": ^11.8.0
+  "@trpc/tanstack-react-query": ^11.8.0
+  "@types/node": ^22.18.12
+  "@vitejs/plugin-react": ^5.1.1
+  "@xmldom/xmldom": ^0.9.8
   ai: ^6.0.204
   clsx: ^2.1.0
   drizzle-orm: ^0.44.5
@@ -92,8 +92,8 @@ catalogMode: strict
 
 catalogs:
   react19:
-    '@types/react': ^19.2.0
-    '@types/react-dom': ^19.2.0
+    "@types/react": ^19.2.0
+    "@types/react-dom": ^19.2.0
     react: ^19.2.0
     react-dom: ^19.2.0
 
@@ -105,4 +105,10 @@ onlyBuiltDependencies:
   - esbuild
 
 overrides:
-  '@types/minimatch': 5.1.2
+  "@types/minimatch": 5.1.2
+  import-in-the-middle: 2.0.4
+  require-in-the-middle: 8.0.1
+  vite: "catalog:"
+  vitest: "catalog:"
+  qs: 6.14.1
+  "@clerk/backend": "catalog:"

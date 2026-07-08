@@ -2,8 +2,9 @@
  * Backend global-setup factory.
  *
  * `runInfraSetup(descriptors)` returns a Vitest `globalSetup` function that
- * brings up exactly the infra a suite names — real testcontainers in CI, an
- * assumed docker-compose stack locally — publishes the merged connection env to
+ * brings up exactly the infra a suite names — real testcontainers in CI (and in
+ * a git worktree; see ADR 0019), an assumed docker-compose stack on the primary
+ * checkout — publishes the merged connection env to
  * test workers as a single `infraEnv` record (hydrated into `process.env` by
  * `@acme/test-utils/hydrate-env`), and tears the containers down after.
  *
@@ -29,7 +30,12 @@ import 'vitest';
 import type { TestProject } from 'vitest/node';
 
 import type { InfraDescriptor } from './infra';
-import { pushDatabaseSchemas, startInfra, stopInfra } from './containers';
+import {
+  inLinkedWorktree,
+  pushDatabaseSchemas,
+  startInfra,
+  stopInfra,
+} from './containers';
 
 /**
  * Check whether a TCP port is accepting connections on localhost.
@@ -66,7 +72,10 @@ export function runInfraSetup(descriptors: InfraDescriptor[]) {
     console.log('\n🧪 Global setup: Starting backend test environment...\n');
     console.log(`   📋 Infra: [${descriptors.map((d) => d.name).join(', ')}]`);
 
-    const useTestcontainers = process.env.CI === 'true';
+    // `scripts/test.sh` sets CI=true in a worktree, so the turbo-cached path is
+    // already covered (and hashed). `inLinkedWorktree()` is the fallback for a
+    // direct per-package `vitest` run that bypasses the wrapper. See ADR 0019.
+    const useTestcontainers = process.env.CI === 'true' || inLinkedWorktree();
 
     if (!useTestcontainers) {
       // Local: assume a docker-compose stack is already listening. Fail loud per
@@ -87,20 +96,22 @@ export function runInfraSetup(descriptors: InfraDescriptor[]) {
     project.provide('infraEnv', infraEnv);
     console.log('   📤 Provided to test workers:', infraEnv);
 
-    // Provision app schemas only when we started a fresh Postgres container; a
-    // local compose stack is assumed already migrated.
+    // Provision app tables only when we started a fresh Postgres container; a
+    // local compose stack is assumed already pushed (dev `pnpm db:push`).
     if (useTestcontainers && descriptors.some((d) => d.name === 'postgres')) {
-      const webapp = project.config.env.NEXT_PUBLIC_WEBAPP;
-      if (!webapp) {
+      const targetSchema = project.config.env.NEXT_PUBLIC_WEBAPP;
+      if (!targetSchema) {
         throw new Error(
-          'NEXT_PUBLIC_WEBAPP is required to migrate the app schema',
+          'NEXT_PUBLIC_WEBAPP is required to name the schema to push into',
         );
       }
-      // The migration (and the app's drizzle config) reads the connection from
-      // process.env; test.env doesn't reach this main process, so seed it from
-      // the container's resolved values before spawning.
-      Object.assign(process.env, infraEnv, { NEXT_PUBLIC_WEBAPP: webapp });
-      await pushDatabaseSchemas(webapp);
+      // drizzle-kit push reads the connection from process.env; test.env doesn't
+      // reach this main process, so seed it from the container's resolved values
+      // before spawning.
+      Object.assign(process.env, infraEnv, {
+        NEXT_PUBLIC_WEBAPP: targetSchema,
+      });
+      await pushDatabaseSchemas(targetSchema);
     }
 
     console.log('\n✅ Global setup complete!\n');

@@ -14,11 +14,17 @@ pnpm --filter @acme/chat test:backend:watch
 pnpm test                                # everything (turbo)
 ```
 
-Backend suites need Postgres + Redis. **Locally** they must already be running
-(`pnpm infra:up`) on the standard ports (5432 / 6379); the global-setup checks
-the ports and fails loudly if they're down. **In CI** (`CI=true`) the same
-global-setup starts throwaway testcontainers and runs migrations, then tears
-them down. Infra-less suites (see `infra: false` below) need neither.
+Backend suites need Postgres + Redis. **On the primary checkout** they must
+already be running (`pnpm infra:up`) on the standard ports (5432 / 6379); the
+global-setup checks the ports and fails loudly if they're down. **In CI**
+(`CI=true`) — **and in a git worktree**, which `scripts/test.sh` treats as CI —
+the same global-setup starts throwaway testcontainers and runs migrations, then
+tears them down; no `pnpm infra:up` needed. A worktree is forced onto the
+testcontainers path (rather than sharing the primary checkout's compose stack on
+the same host), and `CI` is part of the turbo cache hash for the test tasks so
+the two worlds never replay across the boundary — see
+[ADR 0019](adr/0019-worktrees-mirror-ci-test-infra.md). Infra-less suites (see
+`infra: false` below) need neither.
 
 ## Test the contract, not the internals
 
@@ -41,11 +47,11 @@ contract owned upstream, never reaches past the seam to check a mechanism.**
 Backend tests are filed by **test type**, then by **the seam under test**. Two
 top-level folders under `src/tests/backend/` (`src/tests/` for platform packages):
 
-| Folder                | Type                                    | Seam under test                                                                                       | Infra                   | Examples                                                                       |
-| --------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------ |
-| `unit/`               | **Unit** (solitary — no collaborators)  | **Pure logic** — transforms, policy, parsing                                                          | None (no I/O, no mocks) | `unit/credit-policy.test.ts`, `unit/chat-memory.test.ts`, `unit/stripe-webhook.test.ts` |
-| `integration/api/`    | **Subcutaneous** (through the router)   | The tRPC **router** — the feature's public interface, through all middleware (auth, tier, rate-limit) | Real DB/Redis           | `integration/api/account.test.ts`, `integration/api/chat.test.ts`             |
-| `integration/service/`| **Integration** (one module ↔ infra)    | A **service/module** that hits real infra directly (not through the router)                           | Real DB/Redis           | `integration/service/credits.test.ts`, `integration/service/document-uploader.test.ts` |
+| Folder                 | Type                                   | Seam under test                                                                                       | Infra                   | Examples                                                                                |
+| ---------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
+| `unit/`                | **Unit** (solitary — no collaborators) | **Pure logic** — transforms, policy, parsing                                                          | None (no I/O, no mocks) | `unit/credit-policy.test.ts`, `unit/chat-memory.test.ts`, `unit/stripe-webhook.test.ts` |
+| `integration/api/`     | **Subcutaneous** (through the router)  | The tRPC **router** — the feature's public interface, through all middleware (auth, tier, rate-limit) | Real DB/Redis           | `integration/api/account.test.ts`, `integration/api/chat.test.ts`                       |
+| `integration/service/` | **Integration** (one module ↔ infra)   | A **service/module** that hits real infra directly (not through the router)                           | Real DB/Redis           | `integration/service/credits.test.ts`, `integration/service/document-uploader.test.ts`  |
 
 The top axis is the **test type** (unit vs integration); `integration/`
 subdivides by **seam** (through the router = `api/`, direct to infra =
@@ -81,21 +87,21 @@ words mean something weaker here, because the frontend has **no real-infra tier*
 The doctrine is [ADR 0018](adr/0018-frontend-test-doctrine.md); this is how it
 files.
 
-| Folder                      | Type                         | Seam under test                                                             | Network                          | Examples                                              |
-| --------------------------- | ---------------------------- | -------------------------------------------------------------------------- | -------------------------------- | ---------------------------------------------------- |
-| `unit/`                     | **Unit** (solitary)          | **Pure logic** — a transform/policy with no React tree                     | None (no providers, no mocks)    | `unit/upload-validation.test.tsx`, `unit/date-buckets.test.tsx` |
-| `integration/hooks/`        | **Integration** (sociable)   | A **hook** — the feature's logic contract, run through a real `QueryClient` | Faked at HTTP boundary (**MSW**) | `integration/hooks/use-feedback.test.tsx`            |
-| `integration/components/`   | **Integration** (sociable)   | A **component** rendered through its providers                              | MSW if it composes a hook; none if presentational | `integration/components/documents-list.test.tsx`     |
+| Folder                    | Type                       | Seam under test                                                             | Network                                           | Examples                                                        |
+| ------------------------- | -------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------- | --------------------------------------------------------------- |
+| `unit/`                   | **Unit** (solitary)        | **Pure logic** — a transform/policy with no React tree                      | None (no providers, no mocks)                     | `unit/upload-validation.test.tsx`, `unit/date-buckets.test.tsx` |
+| `integration/hooks/`      | **Integration** (sociable) | A **hook** — the feature's logic contract, run through a real `QueryClient` | Faked at HTTP boundary (**MSW**)                  | `integration/hooks/use-feedback.test.tsx`                       |
+| `integration/components/` | **Integration** (sociable) | A **component** rendered through its providers                              | MSW if it composes a hook; none if presentational | `integration/components/documents-list.test.tsx`                |
 
 ### unit / integration mean different things on BE vs FE
 
 The vocabulary is shared; the fidelity is not. Read the mapping before filing:
 
-| Term            | Backend                                                        | Frontend                                                                             |
-| --------------- | ------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **unit**        | Pure logic, no I/O, **no mocks**.                             | Pure logic, **no React tree**, no providers, no mocks.                               |
-| **integration** | Wired to **real infra** — real Postgres/Redis.               | Wired to a **real React tree + `QueryClient`**; network faked at the HTTP boundary (MSW). No real infra exists — **MSW is the frontier**. |
-| _the contract_  | The tRPC **procedure** (`integration/api`).                  | The **hook** (`integration/hooks`) — logic lives in `src/hooks/` per the slice contract. |
+| Term            | Backend                                        | Frontend                                                                                                                                  |
+| --------------- | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| **unit**        | Pure logic, no I/O, **no mocks**.              | Pure logic, **no React tree**, no providers, no mocks.                                                                                    |
+| **integration** | Wired to **real infra** — real Postgres/Redis. | Wired to a **real React tree + `QueryClient`**; network faked at the HTTP boundary (MSW). No real infra exists — **MSW is the frontier**. |
+| _the contract_  | The tRPC **procedure** (`integration/api`).    | The **hook** (`integration/hooks`) — logic lives in `src/hooks/` per the slice contract.                                                  |
 
 So a frontend `integration` test is sociable but still hermetic (jsdom + MSW),
 where a backend `integration` test touches live containers. That asymmetry is
@@ -226,15 +232,17 @@ anywhere. Env is still real, satisfied by `staticTestEnv`.
 
 ## Provisioning app-owned tables (DDL)
 
-Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. Derive
-it from the **same Drizzle schema production uses**. `feedback`'s `setup.ts` is
-the pattern: in `beforeAll`, `drizzle-kit/api`'s `generateMigration` diffs an
-empty DB against the feature schema and applies the resulting `CREATE`
-statements. It runs in-worker (where `NEXT_PUBLIC_WEBAPP` names the isolated
-schema the table lives in), is idempotent (tolerates "already exists" across
-runs), and — being an empty→schema diff — never inspects or drops Mastra's
-runtime `mastra_*` tables. Mastra's own tables are created lazily by the memory
-fixtures.
+Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. On the
+testcontainer path, the global-setup provisions tables **once** by running
+`drizzle-kit push --force` against the canonical full app (`apps/nextjs`) with
+`NEXT_PUBLIC_WEBAPP` set to the suite's isolated schema — the same declarative
+push dev uses (`pnpm db:push`), reading `schema.ts` directly (this repo has no
+migration SQL, so `migrate` provisions nothing). One push creates every
+push-managed table (the app re-exports each feature's schema) into that schema;
+suites add no provisioning of their own. `mastra_*` and pgvector tables are
+excluded by the push config's `tablesFilter` and created lazily at runtime. The
+local compose path skips this, assuming a dev `pnpm db:push` already ran. See
+[ADR 0021](adr/0021-test-schema-provisioning-db-push.md).
 
 ## Mocking conventions
 

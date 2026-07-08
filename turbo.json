@@ -48,7 +48,8 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".cache/tsbuildinfo.json", "dist/**"]
+      "outputs": [".cache/tsbuildinfo.json", "dist/**"],
+      "outputLogs": "errors-only"
     },
     "dev": {
       "dependsOn": ["^dev"],
@@ -61,11 +62,13 @@
     },
     "lint": {
       "dependsOn": ["^topo", "^build"],
-      "outputs": [".cache/.eslintcache"]
+      "outputs": [".cache/.eslintcache"],
+      "outputLogs": "errors-only"
     },
     "typecheck": {
       "dependsOn": ["^topo", "^build"],
-      "outputs": [".cache/tsbuildinfo.json"]
+      "outputs": [".cache/tsbuildinfo.json"],
+      "outputLogs": "errors-only"
     },
     "clean": {
       "cache": false
@@ -74,14 +77,16 @@
       "cache": false
     },
     "test": {
-      "env": ["NEXT_PUBLIC_WEBAPP"],
-      "dependsOn": ["^topo", "^build"]
+      "env": ["NEXT_PUBLIC_WEBAPP", "CI"],
+      "dependsOn": ["^topo", "^build"],
+      "outputLogs": "errors-only"
     },
     "test:watch": {
       "cache": false,
       "persistent": true
     },
     "test:frontend": {
+      "env": ["CI"],
       "dependsOn": ["^topo", "^build"]
     },
     "test:frontend:watch": {
@@ -89,6 +94,7 @@
       "persistent": true
     },
     "test:backend": {
+      "env": ["CI"],
       "dependsOn": ["^topo", "^build"]
     },
     "test:backend:watch": {
@@ -174,6 +180,9 @@
     "npm_lifecycle_event",
     "npm_package_version",
     "OTEL_SERVICE_NAME",
-    "OTEL_EXPORTER_OTLP_ENDPOINT"
+    "OTEL_EXPORTER_OTLP_ENDPOINT",
+    "DOCKER_HOST",
+    "TESTCONTAINERS_RYUK_DISABLED",
+    "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"
   ]
 }
