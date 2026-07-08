@@ -50,7 +50,6 @@ dist/
 
 # turbo
 .turbo
-.claude
 
 # mastra
 .mastra/
