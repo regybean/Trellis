@@ -116,6 +116,18 @@ export async function startInfra(
   descriptors: InfraDescriptor[],
   { useTestcontainers }: { useTestcontainers: boolean },
 ): Promise<Record<string, string>> {
+  // A worktree run is always local — podman here. Its rootless machine can't
+  // bind-mount the docker socket that Ryuk (the testcontainers reaper) needs, so
+  // container startup dies with "operation not supported" mounting the podman
+  // socket. Disable Ryuk on that path; stopInfra() + the global teardown stop
+  // every container explicitly, so the reaper is only a crash-time safety net.
+  // Real CI (docker, `.git` is a dir → not a linked worktree) keeps Ryuk. Set
+  // in-process so it applies whether we arrived via turbo or a direct vitest run;
+  // an explicit outer value wins.
+  if (useTestcontainers && inLinkedWorktree()) {
+    process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
+  }
+
   startedInfra = useTestcontainers
     ? await Promise.all(descriptors.map(startOne))
     : descriptors.map(resolveLocal);
