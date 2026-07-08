@@ -99,7 +99,7 @@ warrant its own ADR.
   its `/api/trpc/*` route mounts and minus every `@acme/*/server` import. It ships
   the feature _client_ surfaces (components/hooks/providers) unchanged, so its
   image drops the backend routers and the split is real.
-- **New: `caddy/micro.Caddyfile`, `compose.micro.yml`, `pnpm micro:up`** — the
+- **New: `ops/micro/Caddyfile`, `compose.micro.yml`, `pnpm micro:up`** — the
   gateway routing table, the standalone compose stack (migrate → services →
   gateway → frontend), and the sole entrypoint. None are referenced by `pnpm dev`
   or `pnpm infra:up`; the topology is invisible to the normal workflow.
