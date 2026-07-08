@@ -79,3 +79,7 @@ accepted
   fallback still selects testcontainers at runtime, but that invocation's turbo
   hash would not be partitioned — an accepted edge, since normal use goes through
   the pnpm scripts.
+- Worktrees also need **build/run** env, not just test infra: `.env` is gitignored so it
+  never branches in. A linked worktree inherits the primary checkout's `.env` +
+  `apps/*/.env` by symlink (`scripts/link-worktree-env.mjs`, in `postinstall`). See
+  [ADR 0022](0022-centralized-env-validation-policy.md).
