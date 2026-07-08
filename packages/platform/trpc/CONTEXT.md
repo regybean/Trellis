@@ -90,7 +90,7 @@ framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM ty
 boundary if constructed in the platform package.
 
 **`@acme/trpc/testing` is the one home for a test caller context**: `createTestContext`
-(+ `createMockEntitlements`, `createMockAuth`, `createMockUser`, `createNoopTelemetry`)
+(+ `createMockEntitlements`, `createMockAuth`, `createMockUser`)
 live here — beside the `BaseContext` they must match — so every feature builds a caller
 from the real platform types, not the structural `as any` a tooling package below
 `platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
