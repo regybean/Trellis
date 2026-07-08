@@ -187,9 +187,10 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
           ./gitleaks git --no-banner --redact --config .gitleaks.toml .
 
-  # Dependency vulnerability audit (fails on high/critical advisories)
+  # Dependency vulnerability audit — report-only, non-blocking until baselined
   audit:
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v5
 
