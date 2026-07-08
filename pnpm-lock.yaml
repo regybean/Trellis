@@ -723,6 +723,9 @@ importers:
       "@acme/trpc":
         specifier: workspace:*
         version: link:../../packages/platform/trpc
+      "@trpc/server":
+        specifier: "catalog:"
+        version: 11.8.1(typescript@5.9.3)
       "@whatwg-node/server":
         specifier: ^0.11.0
         version: 0.11.0

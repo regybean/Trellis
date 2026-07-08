@@ -1,0 +1,16 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tags": ["app"],
+  "tasks": {
+    "migrate": {
+      "cache": false
+    },
+    "db:push": {
+      "cache": false
+    },
+    "vector:index": {
+      "cache": false
+    }
+  }
+}
