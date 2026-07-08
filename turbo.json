@@ -77,7 +77,7 @@
       "cache": false
     },
     "test": {
-      "env": ["NEXT_PUBLIC_WEBAPP", "CI"],
+      "env": ["CI"],
       "dependsOn": ["^topo", "^build"],
       "outputLogs": "errors-only"
     },
@@ -131,10 +131,12 @@
   },
   "globalEnv": [
     "DB_NAME",
+    "DB_VECTOR_NAME",
     "DB_USER",
     "DB_PASSWORD",
     "DB_PORT",
     "DB_HOST",
+    "NEXT_PUBLIC_WEBAPP",
     "IS_NEXT_BUILD",
     "PORT",
     "NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID",
