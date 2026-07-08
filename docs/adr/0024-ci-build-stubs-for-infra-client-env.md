@@ -31,18 +31,26 @@ valid — they satisfy constructor-level validation without making any network c
 
 Stubs declared in CI:
 
-| Var                  | Stub value  | Why needed                                                |
-| -------------------- | ----------- | --------------------------------------------------------- |
-| `DB_HOST`            | `localhost` | PgVector / PostgresStore validate non-empty host          |
-| `DB_PORT`            | `5432`      | Passed to constructor; accepts string with skipValidation |
-| `DB_USER`            | `stub`      | PgVector / PostgresStore constructor param                |
-| `DB_PASSWORD`        | `stub`      | PgVector / PostgresStore constructor param                |
-| `DB_NAME`            | `stub`      | PostgresStore `database` param                            |
-| `DB_VECTOR_NAME`     | `stub`      | PgVector `database` param (rag env)                       |
-| `NEXT_PUBLIC_WEBAPP` | `stub`      | PgVector `schemaName` = `RAG_SCHEMA`                      |
+| Var                  | Stub value               | Why needed                                                |
+| -------------------- | ------------------------ | --------------------------------------------------------- |
+| `DB_HOST`            | `localhost`              | PgVector / PostgresStore validate non-empty host          |
+| `DB_PORT`            | `5432`                   | Passed to constructor; accepts string with skipValidation |
+| `DB_USER`            | `stub`                   | PgVector / PostgresStore constructor param                |
+| `DB_PASSWORD`        | `stub`                   | PgVector / PostgresStore constructor param                |
+| `DB_NAME`            | `stub`                   | PostgresStore `database` param                            |
+| `DB_VECTOR_NAME`     | `stub`                   | PgVector `database` param (rag env)                       |
+| `NEXT_PUBLIC_WEBAPP` | `stub`                   | PgVector `schemaName` = `RAG_SCHEMA`                      |
+| `LLM_PROVIDER`       | `ollama`                 | `resolveChatModel()` switch falls through on undefined    |
+| `EMBED_PROVIDER`     | `ollama`                 | `resolveEmbedModel()` switch falls through on undefined   |
+| `EMBED_DIMENSIONS`   | `768`                    | Avoids undefined in vector index dimension                |
+| `OLLAMA_BASE_URL`    | `http://localhost:11434` | ollama provider URL; must be valid URL format             |
+| `OLLAMA_CHAT_MODEL`  | `stub`                   | ollama chat model id                                      |
+| `OLLAMA_EMBED_MODEL` | `stub`                   | ollama embed model id                                     |
 
 T3 env validation is already skipped (`shouldSkipEnvValidation()=true`), so these stubs
-bypass T3 entirely. They exist only to satisfy Mastra's own constructor guards.
+bypass T3 entirely. They exist only to satisfy Mastra/AI-SDK constructor guards. All stub
+vars are also listed in `turbo.json` `globalEnv` — turbo filters subprocess env to declared
+vars only, so CI step env vars are silently dropped unless listed there.
 
 ## Considered and rejected
 

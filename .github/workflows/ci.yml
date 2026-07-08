@@ -41,9 +41,10 @@ jobs:
         uses: ./tooling/github/setup
 
       - name: Typecheck
-        # Stub DB vars satisfy Mastra PgVector/PostgresStore constructor validation
-        # (non-empty host check) without making real connections. IS_NEXT_BUILD=true
-        # skips T3 validation so these bypass T3 entirely. See ADR 0024.
+        # Stubs satisfy module-level infrastructure client constructors without
+        # making real connections. IS_NEXT_BUILD skips T3 validation so these
+        # bypass T3 entirely and only serve Mastra/AI SDK constructor guards.
+        # See ADR 0024.
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -52,6 +53,12 @@ jobs:
           DB_NAME: stub
           DB_VECTOR_NAME: stub
           NEXT_PUBLIC_WEBAPP: stub
+          LLM_PROVIDER: ollama
+          EMBED_PROVIDER: ollama
+          EMBED_DIMENSIONS: 768
+          OLLAMA_BASE_URL: http://localhost:11434
+          OLLAMA_CHAT_MODEL: stub
+          OLLAMA_EMBED_MODEL: stub
         run: pnpm typecheck
 
   boundaries:
@@ -146,7 +153,7 @@ jobs:
         uses: ./tooling/github/setup
 
       - name: Build
-        # Stub DB vars — see ADR 0024 and typecheck job above.
+        # Stubs — see ADR 0024 and typecheck job above.
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -155,6 +162,12 @@ jobs:
           DB_NAME: stub
           DB_VECTOR_NAME: stub
           NEXT_PUBLIC_WEBAPP: stub
+          LLM_PROVIDER: ollama
+          EMBED_PROVIDER: ollama
+          EMBED_DIMENSIONS: 768
+          OLLAMA_BASE_URL: http://localhost:11434
+          OLLAMA_CHAT_MODEL: stub
+          OLLAMA_EMBED_MODEL: stub
         run: pnpm build
 
   # --- Security hardening ---
