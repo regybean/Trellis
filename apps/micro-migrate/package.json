@@ -1,0 +1,44 @@
+{
+  "name": "@acme/micro-migrate",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "clean": "git clean -xdf .cache .turbo node_modules",
+    "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts --force",
+    "vector:index": "pnpm with-env tsx src/ensure-vector-index.ts",
+    "migrate": "pnpm run db:push && pnpm run vector:index",
+    "format": "prettier --check . --ignore-path ../../.gitignore",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
+  },
+  "dependencies": {
+    "@acme/chat": "workspace:*",
+    "@acme/feedback": "workspace:*",
+    "@acme/logger": "workspace:*",
+    "@acme/rag": "workspace:*",
+    "dotenv-cli": "^11.0.0",
+    "drizzle-orm": "catalog:",
+    "postgres": "catalog:"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "workspace:*",
+    "@acme/prettier-config": "workspace:*",
+    "@acme/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "drizzle-kit": "^0.31.8",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "tsx": "^4.19.0",
+    "typescript": "catalog:"
+  },
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "none",
+    "reason": "One-shot DDL migrator for the microservices showcase; app-owned tables are covered by their feature backend suites.",
+    "infra": [
+      "postgres"
+    ]
+  }
+}

@@ -1,0 +1,4 @@
+import { baseConfig, restrictEnvAccess } from '@acme/eslint-config/base';
+import { securityConfig } from '@acme/eslint-config/security';
+
+export default [...baseConfig, ...securityConfig, ...restrictEnvAccess];
