@@ -1,48 +1,52 @@
 # Worktree workflow: parallel isolated agents → PRs
 
-How substantial agent work gets built in isolation and reviewed via the VSCode GitHub Pull Requests extension. The invokable half lives in the `/worktree-build` skill; this doc is the rationale and the standing rules.
+How substantial agent work gets built in isolation and reviewed via the VSCode GitHub Pull Requests extension. The build itself is driven by the `/implement` skill; this doc is the rationale and the standing rules.
 
 ## When isolation applies
 
-Worktrees are for **large, speculative work** — typically kicked off by a planning skill (e.g. `grill-with-docs`). Ad-hoc edits and one-liners stay on the main working tree; the worktree overhead isn't worth it.
+Worktrees are for **large, speculative work** — typically kicked off by the `/dev-flow` relay (`grill-with-docs` → `to-spec` → `to-tickets` → `implement`). Ad-hoc edits and one-liners stay on the main working tree; the worktree overhead isn't worth it.
 
-A planning skill produces a plan, then **asks** whether to implement it in a worktree. The decision is made after the plan exists, not before — by then the scope is clear.
+The relay's `implement` step always runs in an isolated worktree. The decision to isolate is made after planning is settled — by then the scope is clear.
 
 ## Parallel, isolated
 
-The point of worktrees here is running **multiple agents at once without them stepping on each other**. The model is **one Claude Code window per task**, each:
+The point is running **multiple agents at once without them stepping on each other**. The model is **one Claude Code window per task**, each launched into its own worktree:
 
-1. running a planning skill,
-2. answering the "build in a worktree?" prompt,
-3. driving `/worktree-build` on its own `<feature-slug>` branch.
+```bash
+claude --worktree <feature-slug>
+```
 
-Each window is interactive, so the "ask after the plan" handoff works in every window. There's no central orchestrator — independence is the feature.
+Native worktree creation branches `worktree-<feature-slug>` from `origin/HEAD` (a clean `fresh` tree — see `worktree.baseRef`), places it under `.claude/worktrees/<feature-slug>/`, and copies gitignored config in. Each window is interactive, so the "ask after the plan" handoff works in every window. There's no central orchestrator — independence is the feature.
+
+## Bootstrap is invisible
+
+A fresh worktree has no `node_modules`, so the lefthook pre-commit hook can't resolve (`lefthook` is a pnpm dep, not a global) and packages have no `dist` barrels. Rather than make the agent remember to install, the **`SessionStart` hook** (`.claude/settings.json` → `scripts/bootstrap-worktree.sh`) runs `pnpm install` when the session starts in a fresh checkout. That one command cascades through `postinstall`: package build, `skills:register` (recreates the `.claude/skills` symlinks, which are gitignored and don't survive into a worktree), and `link-worktree-env` (symlinks the primary checkout's `.env` in — see [ADR 0019](../adr/0019-worktrees-mirror-ci-test-infra.md)). It's a no-op in any checkout that already has `node_modules`. So by the time `/implement` runs, everything is in place — nothing to install or wire by hand.
 
 ## The flow
 
-Per window (implemented by `/worktree-build`):
+Per window:
 
-1. **Pre-flight** — `git status`; if `main` has uncommitted changes, pause and ask (commit / stash / proceed-and-leave-behind). Worktrees never carry uncommitted changes across.
-2. **Isolate** — `EnterWorktree` with `name: <feature-slug>`, base ref `fresh` (branches from `origin/main`).
-3. **Install** — `pnpm install` in the fresh worktree (no `node_modules` otherwise), so the lefthook pre-commit hook resolves (`lefthook` is a pnpm dep, not a global) and its format + secret-scan commands run instead of emitting `Can't find lefthook in PATH` and silently skipping.
-4. **Implement** — multiple commits, one per logical plan step; concise lowercase imperative messages (no `feat:`/`docs:` prefix); reference issue `NN` when `.scratch/<feature-slug>/issues/` files exist. Commits only _tidy_ (format + secret scan, ADR 0020) — do **not** run `pnpm quality-gate` per commit.
-5. **Gate** — run `pnpm quality-gate` **once**, after the last commit, before publishing. It runs every stage in one pass and writes the full log to `.cache/quality-gate.log`; on failure read that file for the failing stage, fix, re-run. CI is the backstop, but a green gate here means a green PR.
-6. **Publish** — `git push -u origin <feature-slug>` → `gh pr create --base main`; body = summary + link to `.scratch/<feature-slug>/PRD.md` + commit bullets + CONTEXT/ADR notes.
-7. **Detach** — `ExitWorktree remove`; branch is safe on the remote, nothing left on disk.
-8. **Review** — open the PR in the VSCode GitHub Pull Requests extension, read the diff, merge. GitHub deletes the remote branch on merge → zero cleanup.
+1. **Launch** — `claude --worktree <feature-slug>`; native creation + the SessionStart bootstrap leave a ready checkout.
+2. **Implement** — run `/implement`. Multiple commits, one per logical plan step; concise lowercase imperative messages (no `feat:`/`docs:` prefix); reference issue `NN` when `.scratch/<feature-slug>/issues/` files exist. Commits only _tidy_ (format + secret scan, ADR 0020) — do **not** run `pnpm quality-gate` per commit.
+3. **Gate** — `/implement` runs `pnpm quality-gate` **once**, after the last commit, before publishing. It runs every stage in one pass and writes `.cache/quality-gate.log`; on failure read that file for the failing stage, fix, re-run. CI is the backstop, but a green gate here means a green PR.
+4. **Publish** — `git push -u origin worktree-<feature-slug>` → `gh pr create --base main`; body = summary + link to `.scratch/<feature-slug>/PRD.md` + commit bullets + CONTEXT/ADR notes.
+5. **Review** — open the PR in the VSCode GitHub Pull Requests extension, read the diff, merge. GitHub deletes the remote branch on merge → zero cleanup.
+6. **Detach** — on session exit, native cleanup removes the worktree if it's clean, or prompts to keep/remove if there are uncommitted changes. The branch is safe on the remote (the PR references it), so nothing is stranded.
 
 ## Decisions
 
 - **Trigger:** planning-skill use, prompted _after_ the plan is produced.
+- **Entry:** launch-driven — `claude --worktree <slug>`, one window per task — not an in-session tool call. This is the path where dependency install is genuinely invisible (native creation + `SessionStart` hook), with no custom `WorktreeCreate` hook replacing git's own worktree logic.
+- **Bootstrap:** `SessionStart` hook runs `pnpm install` on a fresh worktree; `postinstall` does the rest (build + skill symlinks + `.env` symlink). No manual install step.
 - **Review surface:** GitHub PR, viewed in VSCode (`GitHub.vscode-pull-request-github`, in `.vscode/extensions.json`). Chosen for the richest diff view and because the worktree commits stay visible as PR history.
-- **Cleanup:** agent removes the local worktree as the final action of the turn that opens the PR (`ExitWorktree remove`, the deliberate exception to that tool's "don't call proactively" rule); the remote branch carries the PR. Do not defer to the session-exit keep/remove prompt — a kept-alive session never fires it, and `ExitWorktree` cannot remove a worktree across sessions (it's a no-op on anything it didn't create this session). Orphans from interrupted runs are swept at pre-flight via `git worktree list` + raw `git worktree remove`.
-- **Base ref:** `fresh` (from `origin/main`) — every agent starts from known-clean `main` so each PR is reviewable against `main` with no drift. Pre-flight prompt guards uncommitted local work.
-- **Naming:** worktree dir == `<feature-slug>` == `.scratch/<feature-slug>/`. The **branch is `worktree-<feature-slug>`** — `EnterWorktree` prepends `worktree-`. One slug everywhere except the branch, which carries the prefix.
-- **PR shape:** base always `main`. Agent never auto-merges; merge/close is the user's call.
+- **Cleanup:** native session-exit cleanup — a clean worktree is removed automatically; a dirty one prompts. The remote branch carries the PR, so a removed local worktree strands nothing. Orphans from interrupted runs are swept with `git worktree list` + `git worktree remove`.
+- **Base ref:** `fresh` (from `origin/HEAD`) — every agent starts from known-clean `main` so each PR is reviewable against `main` with no drift.
+- **Naming:** worktree dir == `<feature-slug>` == `.scratch/<feature-slug>/`. The **branch is `worktree-<feature-slug>`** — native creation prepends `worktree-`. One slug everywhere except the branch, which carries the prefix.
+- **PR shape:** base always `main`. Agent never auto-merges; merge/close is the human's call.
 - **Commits:** per logical plan step; align to numbered issue files when present.
 
 ## Codified in
 
-- `/worktree-build` skill — `.claude/skills/worktree-build/SKILL.md` (the invokable flow).
-- Planning skills (e.g. `grill-with-docs`) end by offering `/worktree-build` when this project provides it.
+- `/implement` skill — `.agents/skills/implement/SKILL.md` (build → gate → review → publish; PR when in a worktree).
+- `scripts/bootstrap-worktree.sh` + `.claude/settings.json` `SessionStart` hook — the invisible dependency bootstrap.
 - `.vscode/extensions.json` — recommends the GitHub Pull Requests extension.

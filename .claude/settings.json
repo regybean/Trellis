@@ -48,6 +48,20 @@
       "Read(apps/expo/ios/**)"
     ]
   },
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 600,
+            "command": "bash scripts/bootstrap-worktree.sh"
+          }
+        ]
+      }
+    ]
+  },
   "enabledPlugins": {
     "typescript-lsp@claude-plugins-official": true
   }

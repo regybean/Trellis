@@ -7,14 +7,14 @@ Trellis is built to be navigated and _extended_ by coding agents as much as by h
 The intended flow for substantial work is a planning skill, then isolated build agents, with a **human making the engineering decisions** at both ends:
 
 1. **Plan — `/grill-with-docs`.** A grilling session that stress-tests a plan against the repo's _existing domain language_ and documented decisions. It challenges fuzzy terms against the package `CONTEXT.md` files, cross-references the code, and **updates `CONTEXT.md` / writes ADRs inline** as decisions crystallise — so the documentation keeps pace with the design instead of lagging it. (This very document set was produced through it.)
-2. **Build in isolation — `/worktree-build`.** Once the plan is settled, the work is built in its own git **worktree** on a `worktree-<feature-slug>` branch, committed step-by-step, and pushed as a PR. The point is running **multiple agents at once, one Claude Code window per task, without them stepping on each other** — no central orchestrator, independence is the feature. See [worktree-workflow.md](worktree-workflow.md).
+2. **Build in isolation — `/implement`.** Once the plan is settled, each task is launched into its own git **worktree** (`claude --worktree <feature-slug>`, one window per task) on a `worktree-<feature-slug>` branch; `/implement` builds it step-by-step and pushes a PR. Worktree creation bootstraps deps invisibly (SessionStart hook → `pnpm install`), so there's nothing to install by hand. The point is running **multiple agents at once, without them stepping on each other** — no central orchestrator, independence is the feature. See [worktree-workflow.md](worktree-workflow.md).
 3. **Human in the loop.** Each window is interactive: the agent _asks_ whether to build in a worktree only _after_ the plan exists and scope is clear, and **never auto-merges** — the human reviews the diff in the VSCode GitHub Pull Requests extension and decides. Engineering judgement stays with the human; agents do the legwork in parallel.
 
 ```
-        ┌─ window 1 ─ /grill-with-docs ─→ /worktree-build ─→ PR ─┐
-human ──┼─ window 2 ─ /grill-with-docs ─→ /worktree-build ─→ PR ─┼─→ review & merge
-        └─ window 3 ─ /grill-with-docs ─→ /worktree-build ─→ PR ─┘
-         (parallel, isolated worktrees)         (human decides)
+        ┌─ window 1 ─ claude --worktree ─ /grill-with-docs ─→ /implement ─→ PR ─┐
+human ──┼─ window 2 ─ claude --worktree ─ /grill-with-docs ─→ /implement ─→ PR ─┼─→ review & merge
+        └─ window 3 ─ claude --worktree ─ /grill-with-docs ─→ /implement ─→ PR ─┘
+         (parallel, isolated worktrees)                    (human decides)
 ```
 
 ## How agents read this repo
@@ -41,7 +41,7 @@ The load-bearing ones for the loop above:
 | Skill                            | Role                                                                         |
 | -------------------------------- | ---------------------------------------------------------------------------- |
 | `/grill-with-docs`               | Plan: stress-test against domain language, update `CONTEXT.md` + ADRs inline |
-| `/worktree-build`                | Build the agreed plan in an isolated worktree → PR                           |
+| `/implement`                     | Build the agreed plan (in an isolated worktree → PR, or commits on-branch)   |
 | `/to-prd`, `/to-issues`          | Turn context into a PRD / break a plan into grabbable issues                 |
 | `/triage`                        | Move issues through the triage state machine                                 |
 | `/improve-codebase-architecture` | Find deepening/refactoring opportunities, informed by `CONTEXT.md` + ADRs    |

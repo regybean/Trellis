@@ -260,7 +260,7 @@ Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT
 
 ### Worktree workflow
 
-Large planning-skill work is built in an isolated worktree → PR, reviewed in the VSCode GitHub Pull Requests extension. One window per task for parallel isolated agents. Invokable via `/worktree-build`. See `docs/agents/worktree-workflow.md`.
+Large planning-skill work is built in an isolated worktree → PR, reviewed in the VSCode GitHub Pull Requests extension. One window per task for parallel isolated agents: launch `claude --worktree <feature-slug>` (a SessionStart hook bootstraps deps invisibly), then drive `/implement`. See `docs/agents/worktree-workflow.md`.
 
 ## Engineering direction
 
