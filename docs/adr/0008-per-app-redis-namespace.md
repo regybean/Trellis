@@ -197,10 +197,15 @@ differences between the two libraries: `flushdb` (ioredis) ↔ `flushDb`
 `psubscribe`/`punsubscribe` ↔ `pSubscribe`/`pUnsubscribe`. The `set` facade method
 translates `{ EXAT: timestamp }` (node-redis option object) to positional ioredis
 args so existing callers (`@acme/subscriptions` credits, test assertions) are
-unchanged. The `isOpen` infra getter maps to `raw.status === 'ready'`.
+unchanged. The `isOpen` infra getter returns `true` for all active connection
+states (`ready`, `connect`, `connecting`, `reconnecting`) — broader than
+node-redis's `isOpen` (which was `ready`-only) but required because ioredis
+throws if `connect()` is called while already connecting. Commands issued in any
+of these states are queued by ioredis and execute once the connection is ready,
+so no caller is broken. The `connect()` wrapper is a no-op in those states.
 
 **Pub/sub note.** The `redisPub`/`redisSub` clients and their channel commands
 remain in the facade. The `subscribe`/`pSubscribe` wrappers attach ioredis
-`message`/`pmessage` event listeners and then call the underlying `subscribe`/
-`psubscribe` — semantically equivalent to node-redis's callback form. There are
-currently zero real consumers of pub/sub (it is reserved for T2).
+`message`/`pmessage` event listeners via a tracked Map so `unsubscribe`/
+`pUnsubscribe` can remove the exact handler — preventing listener accumulation.
+There are currently zero real consumers of pub/sub (it is reserved for T2).

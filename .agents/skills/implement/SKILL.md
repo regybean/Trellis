@@ -6,7 +6,25 @@ disable-model-invocation: true
 
 Build the work described in the spec or tickets.
 
-Run this **inside the target checkout**. For isolated / parallel work, launch it in its own worktree first — `claude --worktree <feature-slug>`, one window per task. Deps, package build, `.env`, and the `.claude/skills` symlinks are already in place: worktree creation bootstraps them (SessionStart hook → `pnpm install` → postinstall). There is nothing to install or enter by hand. Rationale and standing rules: [docs/agents/worktree-workflow.md](../../../docs/agents/worktree-workflow.md).
+## 0. Worktree guard — run this first, before any code
+
+```bash
+git branch --show-current
+```
+
+- **On `main` or any shared branch** → stop. Tell the user:
+
+  > You need a worktree session for this. Launch one with:
+  >
+  > ```
+  > claude --worktree <feature-slug>
+  > ```
+  >
+  > Then re-run `/implement` inside that window.
+
+  Do not proceed further in this session.
+
+- **Already on a `worktree-<feature-slug>` branch** → proceed to step 1.
 
 ## 1. Implement
 
