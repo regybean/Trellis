@@ -1,17 +1,14 @@
 /* eslint-disable unicorn/prefer-top-level-await */
-import type { SetOptions } from 'redis';
-import { createClient } from 'redis';
+import Redis from 'ioredis';
 
 import { logger } from '@acme/logger';
 
 import { env } from './env';
 
 const redisOptions = {
-  url: env.REDIS_URL,
-  socket: {
-    reconnectStrategy(retries: number) {
-      return Math.min(retries * 200, 2000);
-    },
+  lazyConnect: true,
+  retryStrategy(times: number) {
+    return Math.min(times * 200, 2000);
   },
 };
 
@@ -44,60 +41,135 @@ export const nsKey = (...parts: string[]): NamespacedKey => {
   return (namespace ? `${namespace}:${key}` : key) as NamespacedKey;
 };
 
-type RawClient = ReturnType<typeof createClient>;
+// ioredis does not export a clean options-object type for SET; this mirrors the
+// full set of SET sub-commands so the facade never silently drops a flag.
+interface SetOptions {
+  EX?: number;
+  PX?: number;
+  EXAT?: number;
+  PXAT?: number;
+  KEEPTTL?: boolean;
+  NX?: boolean;
+  XX?: boolean;
+}
+
+type MessageListener = (message: string, channel: string) => void;
+
+type PMessageListener = (
+  message: string,
+  channel: string,
+  pattern: string,
+) => void;
+
+const isActiveStatus = (status: string) =>
+  status === 'ready' ||
+  status === 'connect' ||
+  status === 'connecting' ||
+  status === 'reconnecting';
 
 /**
- * Wrap a raw node-redis client in a thin facade whose key/channel commands
- * accept only a `NamespacedKey`. node-redis has no built-in keyPrefix (that is
- * an ioredis feature); rather than a Proxy guarded by a hand-maintained command
- * allow-list (which silently leaked unprefixed keys for any unlisted command —
- * see ADR 0008), the prefix lives in `nsKey` and the type system enforces that
- * only prefixed keys reach the client. Infra methods pass through untouched.
+ * Wrap a raw ioredis client in a thin facade whose key/channel commands accept
+ * only a `NamespacedKey`. The prefix lives in `nsKey` and the type system
+ * enforces that only prefixed keys reach the client. Infra methods pass through
+ * untouched. ioredis method names differ from node-redis in casing; the facade
+ * normalises them to the node-redis convention so no consumer changes are needed.
  */
-const namespaced = (raw: RawClient) => ({
-  // Key commands — first argument is a key.
-  get: (key: NamespacedKey) => raw.get(key),
-  set: (key: NamespacedKey, value: string, options?: SetOptions) =>
-    raw.set(key, value, options),
-  decrBy: (key: NamespacedKey, decrement: number) => raw.decrBy(key, decrement),
-  incrBy: (key: NamespacedKey, increment: number) => raw.incrBy(key, increment),
-  del: (key: NamespacedKey) => raw.del(key),
-  ttl: (key: NamespacedKey) => raw.ttl(key),
-  expire: (key: NamespacedKey, seconds: number) => raw.expire(key, seconds),
-  expireAt: (key: NamespacedKey, timestamp: number) =>
-    raw.expireAt(key, timestamp),
-  exists: (key: NamespacedKey) => raw.exists(key),
-  // Channel commands — first argument is a channel.
-  publish: (channel: NamespacedKey, message: string) =>
-    raw.publish(channel, message),
-  subscribe: (
-    channel: NamespacedKey,
-    listener: Parameters<RawClient['subscribe']>[1],
-  ) => raw.subscribe(channel, listener),
-  pSubscribe: (
-    pattern: NamespacedKey,
-    listener: Parameters<RawClient['pSubscribe']>[1],
-  ) => raw.pSubscribe(pattern, listener),
-  unsubscribe: (channel: NamespacedKey) => raw.unsubscribe(channel),
-  pUnsubscribe: (pattern: NamespacedKey) => raw.pUnsubscribe(pattern),
-  // Infra — not key-bearing, passed straight through.
-  get isOpen() {
-    return raw.isOpen;
-  },
-  connect: () => raw.connect(),
-  flushDb: () => raw.flushDb(),
-  ping: () => raw.ping(),
-  quit: () => raw.quit(),
-});
+const namespaced = (raw: Redis) => {
+  // Tracked handlers so subscribe/unsubscribe pairs clean up properly.
+  // ioredis emits on the client globally; without cleanup, each subscribe() call
+  // would accumulate a new anonymous listener that survives unsubscribe().
+  const channelHandlers = new Map<string, (ch: string, msg: string) => void>();
+  const patternHandlers = new Map<
+    string,
+    (pat: string, ch: string, msg: string) => void
+  >();
+
+  return {
+    // Key commands — first argument is a key.
+    get: (key: NamespacedKey) => raw.get(key),
+    set: (key: NamespacedKey, value: string, options?: SetOptions) => {
+      if (!options) return raw.set(key, value);
+      if (options.EXAT !== undefined)
+        return raw.set(key, value, 'EXAT', options.EXAT);
+      if (options.PXAT !== undefined)
+        return raw.set(key, value, 'PXAT', options.PXAT);
+      if (options.EX !== undefined)
+        return raw.set(key, value, 'EX', options.EX);
+      if (options.PX !== undefined)
+        return raw.set(key, value, 'PX', options.PX);
+      if (options.KEEPTTL) return raw.set(key, value, 'KEEPTTL');
+      return raw.set(key, value);
+    },
+    decrBy: (key: NamespacedKey, decrement: number) =>
+      raw.decrby(key, decrement),
+    incrBy: (key: NamespacedKey, increment: number) =>
+      raw.incrby(key, increment),
+    del: (key: NamespacedKey) => raw.del(key),
+    ttl: (key: NamespacedKey) => raw.ttl(key),
+    expire: (key: NamespacedKey, seconds: number) => raw.expire(key, seconds),
+    expireAt: (key: NamespacedKey, timestamp: number) =>
+      raw.expireat(key, timestamp),
+    exists: (key: NamespacedKey) => raw.exists(key),
+    // Channel commands — first argument is a channel.
+    publish: (channel: NamespacedKey, message: string) =>
+      raw.publish(channel, message),
+    subscribe: (channel: NamespacedKey, listener: MessageListener) => {
+      const handler = (ch: string, msg: string) => {
+        if (ch === channel) listener(msg, ch);
+      };
+      channelHandlers.set(channel, handler);
+      raw.on('message', handler);
+      return raw.subscribe(channel);
+    },
+    pSubscribe: (pattern: NamespacedKey, listener: PMessageListener) => {
+      const handler = (pat: string, ch: string, msg: string) => {
+        listener(msg, ch, pat);
+      };
+      patternHandlers.set(pattern, handler);
+      raw.on('pmessage', handler);
+      return raw.psubscribe(pattern);
+    },
+    unsubscribe: (channel: NamespacedKey) => {
+      const handler = channelHandlers.get(channel);
+      if (handler) {
+        raw.off('message', handler);
+        channelHandlers.delete(channel);
+      }
+      return raw.unsubscribe(channel);
+    },
+    pUnsubscribe: (pattern: NamespacedKey) => {
+      const handler = patternHandlers.get(pattern);
+      if (handler) {
+        raw.off('pmessage', handler);
+        patternHandlers.delete(pattern);
+      }
+      return raw.punsubscribe(pattern);
+    },
+    // Infra — not key-bearing, passed straight through.
+    get isOpen() {
+      return isActiveStatus(raw.status);
+    },
+    // No-op when already connecting/connected — ioredis throws if connect() is
+    // called in those states (unlike node-redis which silently ignores it).
+    connect: () => {
+      const status = raw.status;
+      if (status === 'wait' || status === 'close') return raw.connect();
+      return Promise.resolve();
+    },
+    flushDb: () => raw.flushdb(),
+    ping: () => raw.ping(),
+    quit: () => raw.quit(),
+  };
+};
 // `duplicate`/`on` are intentionally NOT surfaced: they hand back the raw,
 // unbranded client and would be a hole in the namespace guarantee. The pub/sub
 // clients are duplicated from the raw client below, then wrapped.
 
-const rawRedis = createClient(redisOptions);
+const rawRedis = new Redis(env.REDIS_URL, redisOptions);
 const rawRedisPub = rawRedis.duplicate();
 const rawRedisSub = rawRedis.duplicate();
 
-const attachErrorHandler = (label: string, client: typeof rawRedis) => {
+const attachErrorHandler = (label: string, client: Redis) => {
   client.on('error', (error) => {
     logger.error({ err: error, label }, 'Redis client error');
   });

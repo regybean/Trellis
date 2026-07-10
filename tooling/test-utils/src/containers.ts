@@ -12,7 +12,7 @@
  * port.
  */
 
-/* eslint-disable no-restricted-syntax, turbo/no-undeclared-env-vars */
+/* eslint-disable no-restricted-syntax */
 
 import { spawn } from 'node:child_process';
 import { existsSync, statSync } from 'node:fs';

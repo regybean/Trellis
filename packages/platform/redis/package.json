@@ -4,7 +4,7 @@
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
-    "redis": "catalog:"
+    "ioredis": "catalog:"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
