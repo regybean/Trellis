@@ -41,8 +41,16 @@ export const nsKey = (...parts: string[]): NamespacedKey => {
   return (namespace ? `${namespace}:${key}` : key) as NamespacedKey;
 };
 
+// ioredis does not export a clean options-object type for SET; this mirrors the
+// full set of SET sub-commands so the facade never silently drops a flag.
 interface SetOptions {
+  EX?: number;
+  PX?: number;
   EXAT?: number;
+  PXAT?: number;
+  KEEPTTL?: boolean;
+  NX?: boolean;
+  XX?: boolean;
 }
 
 type MessageListener = (message: string, channel: string) => void;
@@ -52,6 +60,12 @@ type PMessageListener = (
   channel: string,
   pattern: string,
 ) => void;
+
+const isActiveStatus = (status: string) =>
+  status === 'ready' ||
+  status === 'connect' ||
+  status === 'connecting' ||
+  status === 'reconnecting';
 
 /**
  * Wrap a raw ioredis client in a thin facade whose key/channel commands accept
@@ -74,9 +88,16 @@ const namespaced = (raw: Redis) => {
     // Key commands — first argument is a key.
     get: (key: NamespacedKey) => raw.get(key),
     set: (key: NamespacedKey, value: string, options?: SetOptions) => {
-      if (options?.EXAT !== undefined) {
+      if (!options) return raw.set(key, value);
+      if (options.EXAT !== undefined)
         return raw.set(key, value, 'EXAT', options.EXAT);
-      }
+      if (options.PXAT !== undefined)
+        return raw.set(key, value, 'PXAT', options.PXAT);
+      if (options.EX !== undefined)
+        return raw.set(key, value, 'EX', options.EX);
+      if (options.PX !== undefined)
+        return raw.set(key, value, 'PX', options.PX);
+      if (options.KEEPTTL) return raw.set(key, value, 'KEEPTTL');
       return raw.set(key, value);
     },
     decrBy: (key: NamespacedKey, decrement: number) =>
@@ -126,17 +147,7 @@ const namespaced = (raw: Redis) => {
     },
     // Infra — not key-bearing, passed straight through.
     get isOpen() {
-      const status = raw.status;
-      // Returns true for any active state (connecting, connected, reconnecting)
-      // so callers don't attempt a redundant connect(). ioredis queues commands
-      // while connecting, so callers can issue commands immediately in all these
-      // states and they will execute once the connection is ready.
-      return (
-        status === 'ready' ||
-        status === 'connect' ||
-        status === 'connecting' ||
-        status === 'reconnecting'
-      );
+      return isActiveStatus(raw.status);
     },
     // No-op when already connecting/connected — ioredis throws if connect() is
     // called in those states (unlike node-redis which silently ignores it).
