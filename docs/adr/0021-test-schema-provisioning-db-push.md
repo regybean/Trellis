@@ -49,5 +49,11 @@ accepted
   tables too), the price of a single app-owned push.
 - A feature with push-managed tables must be re-exported from `nextjs/schema.ts`
   to be provisioned in tests — the same requirement production has.
-- The local compose path still skips provisioning (assumes dev `db:push`); this
-  ADR only governs the fresh-container path.
+- The local compose path still skips provisioning in the global-setup (assumes
+  dev `db:push`); this ADR only governs the fresh-container path. That assumption
+  is made true for isolated `*_test` schemas by `pnpm db:push`, which — after the
+  four app-schema pushes — reuses the canonical app's own `db:push` per test
+  schema (`NEXT_PUBLIC_WEBAPP` overridden; `scripts/push-test-schemas.sh`).
+  Without it, chat/rag (`webapp: 'nextjs'`) pass off the app schema while a suite
+  pinned to its own `*_test` schema finds no tables locally. `pnpm dev` pushes
+  via the per-app scripts, not the root one, so its boot is unaffected.

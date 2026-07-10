@@ -85,6 +85,9 @@ Brings up, via Docker Compose, the **union of services every app needs**: **Post
 pnpm db:push             # Drizzle → Postgres + pgvector (confirm prompts)
 ```
 
+This pushes the four app schemas and the isolated `*_test` schemas backend suites
+use (so `pnpm test` / `pnpm quality-gate` find their tables locally).
+
 If you exercise billing, also seed the dev products/plans:
 
 ```bash

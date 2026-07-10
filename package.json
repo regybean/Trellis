@@ -33,7 +33,7 @@
     "db:check": "echo 'Run per-app: pnpm --filter <app> db:check (drizzle-kit check)'",
     "db:generate": "turbo db:generate --ui=tui",
     "db:migrate": "echo 'Run per-app: pnpm --filter <app> db:migrate (drizzle-kit migrate)'",
-    "db:push": "turbo db:push",
+    "db:push": "turbo db:push && ./scripts/push-test-schemas.sh",
     "db:studio": "echo 'Run per-app: pnpm --filter <app> db:studio (drizzle-kit studio)'",
     "deps:check": "pnpm dlx knip",
     "dup": "pnpm dlx jscpd",
