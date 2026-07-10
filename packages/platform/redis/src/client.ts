@@ -89,6 +89,25 @@ const namespaced = (raw: Redis) => {
     get: (key: NamespacedKey) => raw.get(key),
     set: (key: NamespacedKey, value: string, options?: SetOptions) => {
       if (!options) return raw.set(key, value);
+      // NX/XX may combine with a TTL option; handle before the TTL-only paths.
+      if (options.NX) {
+        if (options.EX !== undefined)
+          return raw.set(key, value, 'EX', options.EX, 'NX');
+        if (options.PX !== undefined)
+          return raw.set(key, value, 'PX', options.PX, 'NX');
+        if (options.EXAT !== undefined)
+          return raw.set(key, value, 'EXAT', options.EXAT, 'NX');
+        return raw.set(key, value, 'NX');
+      }
+      if (options.XX) {
+        if (options.EX !== undefined)
+          return raw.set(key, value, 'EX', options.EX, 'XX');
+        if (options.PX !== undefined)
+          return raw.set(key, value, 'PX', options.PX, 'XX');
+        if (options.EXAT !== undefined)
+          return raw.set(key, value, 'EXAT', options.EXAT, 'XX');
+        return raw.set(key, value, 'XX');
+      }
       if (options.EXAT !== undefined)
         return raw.set(key, value, 'EXAT', options.EXAT);
       if (options.PXAT !== undefined)
@@ -110,6 +129,25 @@ const namespaced = (raw: Redis) => {
     expireAt: (key: NamespacedKey, timestamp: number) =>
       raw.expireat(key, timestamp),
     exists: (key: NamespacedKey) => raw.exists(key),
+    // Redis Stream commands. The id argument is '*' for auto-generated ids. Entries
+    // are key-value pairs passed as a flat list; MAXLEN trims the stream to an
+    // approximate maximum length on each write. Returns the auto-generated entry id.
+    xAdd: (
+      key: NamespacedKey,
+      id: string,
+      entry: Record<string, string>,
+      options?: { MAXLEN?: number },
+    ) => {
+      const pairs = Object.entries(entry).flat();
+      if (options?.MAXLEN !== undefined) {
+        return raw.xadd(key, 'MAXLEN', '~', options.MAXLEN, id, ...pairs);
+      }
+      return raw.xadd(key, id, ...pairs);
+    },
+    xLen: (key: NamespacedKey) => raw.xlen(key),
+    // xRange reads entries between two ids (inclusive). Use '-' / '+' for full range.
+    xRange: (key: NamespacedKey, start: string, end: string) =>
+      raw.xrange(key, start, end),
     // Channel commands — first argument is a channel.
     publish: (channel: NamespacedKey, message: string) =>
       raw.publish(channel, message),

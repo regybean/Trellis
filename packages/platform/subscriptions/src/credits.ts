@@ -53,6 +53,16 @@ async function consume(userId: string, tier: SubscriptionTier, amount: number) {
 }
 
 /**
+ * Increments the Credit balance by `amount`. Called by the generation worker
+ * and chat.reconcileTurn to refund credits on error or orphaned turns. The
+ * SET NX idempotency guard (`chat:refunded:{turnId}`) is applied by the caller
+ * before invoking this.
+ */
+async function refund(userId: string, tier: SubscriptionTier, amount: number) {
+  await redis.incrBy(creditKey(userId, tier), amount);
+}
+
+/**
  * Resets a user's Credit balance to the full limit for their tier, atomically
  * setting the value and the billing-window expiry in one command (no immortal
  * key on a partial failure). Fetches the subscription itself — admin callers
@@ -118,6 +128,7 @@ async function status(userId: string) {
 export const credits = {
   read,
   consume,
+  refund,
   reset,
   maxOut,
   overrideExpiry,
