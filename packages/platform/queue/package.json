@@ -34,6 +34,9 @@
   },
   "type": "module",
   "acme": {
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "BullMQ factory wrappers; integration tests not yet written.",
     "infra": [
       "redis"
     ]
