@@ -36,7 +36,7 @@ As you go, typecheck and run single test files for the package you touched (`pnp
 
 ## 2. Gate
 
-After the last commit, run `pnpm quality-gate` **once**. It runs every stage in one pass and writes `.cache/quality-gate.log`; on failure read that file for the failing stage, fix, re-run. Don't move on until the gate is green.
+After the last commit, run `pnpm tidy` (auto-fix: `lint:fix` + `format:fix`), then `pnpm quality-gate` **once**. The gate is **read-only** — it verifies, it doesn't fix, so run `tidy` first or the gate fails on fixable lint/format issues. It runs every stage in parallel and writes `.cache/quality-gate.log` with a per-stage PASS/FAIL summary; on failure read that file for the failing stage, fix (or re-`tidy`), re-run. Don't move on until the gate is green.
 
 ## 3. Publish
 

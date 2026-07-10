@@ -31,10 +31,11 @@ After each package you touch: `pnpm turbo run lint typecheck -F @acme/<pkg>`.
 ## 3. Gate
 
 ```bash
-pnpm quality-gate
+pnpm tidy            # auto-fix first (lint:fix + format:fix)
+pnpm quality-gate    # read-only verify
 ```
 
-On failure, read `.cache/quality-gate.log`, fix, re-run. Don't move on until green.
+The gate is read-only — `tidy` first or it fails on fixable lint/format issues. On failure, read `.cache/quality-gate.log`, fix (or re-`tidy`), re-run. Don't move on until green.
 
 ## 4. Push and re-request
 

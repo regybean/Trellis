@@ -39,11 +39,11 @@ The **full** apps (`nextjs`, `tanstack-start`) require [Clerk](https://clerk.com
 
 Create a free Clerk app, then set its two keys from the [API keys](https://dashboard.clerk.com/last-active?path=api-keys) page:
 
-| Var | Where | Value |
-|---|---|---|
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | both apps | `pk_test_…` (Publishable key) |
-| `CLERK_SECRET_KEY` | both apps | `sk_test_…` (Secret key) |
-| `CLERK_PUBLISHABLE_KEY` | `tanstack-start` only | same `pk_test_…` — its server SDK doesn't read `NEXT_PUBLIC_*` |
+| Var                                 | Where                 | Value                                                          |
+| ----------------------------------- | --------------------- | -------------------------------------------------------------- |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | both apps             | `pk_test_…` (Publishable key)                                  |
+| `CLERK_SECRET_KEY`                  | both apps             | `sk_test_…` (Secret key)                                       |
+| `CLERK_PUBLISHABLE_KEY`             | `tanstack-start` only | same `pk_test_…` — its server SDK doesn't read `NEXT_PUBLIC_*` |
 
 Set them per app in `apps/nextjs/.env` and `apps/tanstack-start/.env`. The `*_SIGN_IN_URL` / `*_SIGN_UP_URL` vars already have working defaults.
 
@@ -59,11 +59,11 @@ Configure this **before** starting infra — `infra:up` only spins up Ollama whe
 
 LLM and embeddings providers are selected independently via `LLM_PROVIDER` / `EMBED_PROVIDER` in `.env`:
 
-| Provider | `LLM_PROVIDER` | `EMBED_PROVIDER` | Notes |
-|---|---|---|---|
-| **Ollama** (default) | `ollama` | `ollama` | Local, CPU-only, no API keys. Started by `infra:up`. |
-| AWS Bedrock | `bedrock` | `bedrock` | Requires AWS credentials in `.env`. |
-| OpenRouter | `openrouter` | — | No embeddings API; pair with `EMBED_PROVIDER=ollama` or `bedrock`. |
+| Provider             | `LLM_PROVIDER` | `EMBED_PROVIDER` | Notes                                                              |
+| -------------------- | -------------- | ---------------- | ------------------------------------------------------------------ |
+| **Ollama** (default) | `ollama`       | `ollama`         | Local, CPU-only, no API keys. Started by `infra:up`.               |
+| AWS Bedrock          | `bedrock`      | `bedrock`        | Requires AWS credentials in `.env`.                                |
+| OpenRouter           | `openrouter`   | —                | No embeddings API; pair with `EMBED_PROVIDER=ollama` or `bedrock`. |
 
 The defaults (`LLM_PROVIDER=ollama`, `EMBED_PROVIDER=ollama`) work out of the box with no secrets. To switch, change the provider vars and set the corresponding credentials.
 
@@ -77,7 +77,7 @@ Manual-only — run it yourself:
 pnpm infra:up
 ```
 
-Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset *that* app's dependency graph requires ([ADR 0009](adr/0009-graph-derived-dev-infra.md)).
+Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset _that_ app's dependency graph requires ([ADR 0009](adr/0009-graph-derived-dev-infra.md)).
 
 ## 4. Push the database schema
 
@@ -122,10 +122,12 @@ pnpm infra:up            # infra services changed
 
 ## Before you push
 
-Run the same gate CI runs (lefthook also lints/formats staged files at commit time):
+Auto-fix, then run the same gate CI runs (the gate is read-only; lefthook also
+formats + secret-scans staged files at commit time):
 
 ```bash
-pnpm quality-gate
+pnpm tidy            # lint:fix + format:fix
+pnpm quality-gate    # read-only verify
 ```
 
 ## Where to next

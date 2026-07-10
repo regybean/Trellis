@@ -23,8 +23,9 @@ Consult the map before grepping; it turns most searches into a direct jump.
    of X): delegate to the `Explore` subagent so the fan-out stays out of this
    context. Single greps and known-location lookups stay inline.
 4. **Before calling a change done:** `pnpm turbo run lint typecheck -F @acme/<pkg>`
-   (cached, seconds — catches boundaries/exports/`as`/`useEffect`). Full
-   `pnpm quality-gate` still runs once at end of task (ADR 0020).
+   (cached, seconds — catches boundaries/exports/`as`/`useEffect`). Then
+   `pnpm tidy` (auto-fix) and `pnpm quality-gate` (read-only verify) once at end
+   of task (ADR 0020).
 
 > `turbo` is not installed globally — always invoke it as `pnpm turbo …`.
 
@@ -56,6 +57,7 @@ pnpm format              # Check Prettier formatting
 pnpm format:fix          # Auto-fix formatting issues
 pnpm lint:ws             # Check workspace consistency with sherif
 pnpm boundaries          # Verify layer boundary violations
+pnpm tidy                # Auto-fix: lint:fix + format:fix (run before the gate)
 ```
 
 ### Building and Testing
@@ -91,8 +93,12 @@ pnpm db:push             # Push schema changes, dev only (run)
 ### Full Validation
 
 ```bash
-pnpm quality-gate        # lint + format + typecheck + build + boundaries + test:policy + gitleaks + test
+pnpm tidy                # Auto-fix first (lint:fix + format:fix) — the gate is read-only
+pnpm quality-gate        # READ-ONLY verify, parallel: turbo(lint+format+typecheck+build+test) + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
+
+The gate never mutates the tree — it verifies. Fixable lint/format issues make
+it **fail**; run `pnpm tidy`, then re-run (cache-warm, seconds). See [ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md).
 
 > In a git worktree, dev/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. Tests are the exception: in a worktree `pnpm test` self-provisions isolated testcontainers (it's treated as CI — no `pnpm infra:up` needed) and the turbo cache is partitioned so a worktree run never replays the primary checkout's result. See [ADR 0019](docs/adr/0019-worktrees-mirror-ci-test-infra.md).
 

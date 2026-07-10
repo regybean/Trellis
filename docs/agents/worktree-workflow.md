@@ -28,10 +28,11 @@ Per window:
 
 1. **Launch** — `claude --worktree <feature-slug>`; native creation + the SessionStart bootstrap leave a ready checkout.
 2. **Implement** — run `/implement`. Multiple commits, one per logical plan step; concise lowercase imperative messages (no `feat:`/`docs:` prefix); reference issue `NN` when `.scratch/<feature-slug>/issues/` files exist. Commits only _tidy_ (format + secret scan, ADR 0020) — do **not** run `pnpm quality-gate` per commit.
-3. **Gate** — `/implement` runs `pnpm quality-gate` **once**, after the last commit, before publishing. It runs every stage in one pass and writes `.cache/quality-gate.log`; on failure read that file for the failing stage, fix, re-run. CI is the backstop, but a green gate here means a green PR.
+3. **Gate** — `/implement` runs `pnpm tidy` (auto-fix) then `pnpm quality-gate` **once**, after the last commit, before publishing. The gate is **read-only** and parallel — it verifies, it doesn't fix, so `tidy` runs first. It writes `.cache/quality-gate.log` with a per-stage PASS/FAIL summary; on failure read that file for the failing stage, fix (or re-`tidy`), re-run. CI is the backstop, but a green gate here means a green PR.
 4. **Publish** — `git push -u origin worktree-<feature-slug>` → `gh pr create --base main`; body = summary + link to `.scratch/<feature-slug>/PRD.md` + commit bullets + CONTEXT/ADR notes.
-5. **Review** — open the PR in the VSCode GitHub Pull Requests extension, read the diff, merge. GitHub deletes the remote branch on merge → zero cleanup.
-6. **Detach** — on session exit, native cleanup removes the worktree if it's clean, or prompts to keep/remove if there are uncommitted changes. The branch is safe on the remote (the PR references it), so nothing is stranded.
+5. **Review** _(human)_ — open the PR in the VSCode GitHub Pull Requests extension, read the diff, leave comments or merge. GitHub deletes the remote branch on merge → zero cleanup.
+6. **Address review** — if the reviewer left comments, run `/address-review`; it implements the changes, re-gates, pushes, and re-requests review. Repeat until approved.
+7. **Detach** — on session exit, native cleanup removes the worktree if it's clean, or prompts to keep/remove if there are uncommitted changes. The branch is safe on the remote (the PR references it), so nothing is stranded.
 
 ## Decisions
 
@@ -47,6 +48,7 @@ Per window:
 
 ## Codified in
 
-- `/implement` skill — `.agents/skills/implement/SKILL.md` (build → gate → review → publish; PR when in a worktree).
+- `/implement` skill — `.agents/skills/implement/SKILL.md` (build → gate → publish; PR when in a worktree).
+- `/address-review` skill — `.agents/skills/address-review/SKILL.md` (implement review comments → gate → push → re-request review).
 - `scripts/bootstrap-worktree.sh` + `.claude/settings.json` `SessionStart` hook — the invisible dependency bootstrap.
 - `.vscode/extensions.json` — recommends the GitHub Pull Requests extension.

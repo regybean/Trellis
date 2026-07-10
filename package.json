@@ -70,6 +70,7 @@
     "test:frontend": "scripts/test.sh test:frontend",
     "test:policy": "node scripts/check-test-policy.mjs",
     "test:watch": " turbo run test:watch",
+    "tidy": "pnpm lint:fix && pnpm format:fix",
     "typecheck": "turbo run typecheck",
     "ui-add": "turbo run ui-add",
     "with-env": " dotenv -e ./.env --"
