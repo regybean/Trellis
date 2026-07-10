@@ -38,11 +38,10 @@ Three decisions are load-bearing:
 
 3. **An empty namespace yields raw keys with no leading colon, and that is the
    test path.** The prefix rule is `namespace ? \`${namespace}:${key}\` : key`.
-   Tests mock `@acme/redis/env` *without* a `NEXT_PUBLIC_WEBAPP` field, so the
-   namespace is absent and keys stay raw. This is deliberate: tests are
-   app-agnostic and must pass regardless of prefix, and a no-prefix test keyspace
-   keeps the test harness's own isolation (per-package logical DB `/N` +
-   `flushDb`) independent of the app-identity mock.
+Tests mock `@acme/redis/env`*without* a`NEXT_PUBLIC_WEBAPP`field, so the
+namespace is absent and keys stay raw. This is deliberate: tests are
+app-agnostic and must pass regardless of prefix, and a no-prefix test keyspace
+keeps the test harness's own isolation (per-package logical DB`/N`+`flushDb`) independent of the app-identity mock.
 
 ## Status
 
@@ -60,7 +59,7 @@ accepted
   cross-app-colliding key. The `Proxy` makes correct-by-default the only option.
   Rejected.
 - **Sourcing the namespace from the Postgres-schema value directly.** The two
-  *happen* to share `NEXT_PUBLIC_WEBAPP`, but coupling the Redis prefix to the
+  _happen_ to share `NEXT_PUBLIC_WEBAPP`, but coupling the Redis prefix to the
   rag/db schema constant would make tests that mock the Postgres schema (e.g.
   `feedback_test`) leak that value into the Redis keyspace. Surfacing the
   namespace through `@acme/redis/env` lets the two be mocked independently.
@@ -81,7 +80,7 @@ accepted
   it to the matching set in `client.ts`, or its keys leak unprefixed. A unit test
   asserts the prefixing per listed command and the empty-namespace branch.
 - **`@acme/redis` gains a test harness.** The package flips from `testStatus:
-  todo` to a real backend-library suite (`vitest.config.backend.ts` +
+todo` to a real backend-library suite (`vitest.config.backend.ts` +
   `src/tests/namespace.test.ts`), pulling in `@acme/vitest-config` and `vitest`.
 - **This ADR retroactively names the shared construct.** The Postgres per-app
   schema was never recorded in an ADR; "one app-identity value
@@ -90,23 +89,23 @@ accepted
 
 ## Amendment — the identity value: canonical names, fail-loud, and the root `.env` footgun
 
-The construct above is only sound if every app actually resolves a *distinct*
+The construct above is only sound if every app actually resolves a _distinct_
 `NEXT_PUBLIC_WEBAPP`. Two operational facts make that fragile, so they are
 recorded here.
 
 **Canonical identities (one per app, Postgres-identifier-safe):**
 
-| App | `NEXT_PUBLIC_WEBAPP` |
-| --- | --- |
-| `apps/nextjs` | `nextjs` |
-| `apps/nextjs-slim` | `nextjs_slim` |
-| `apps/tanstack-start` | `tanstack_start` |
-| `apps/tanstack-slim` | `tanstack_slim` |
+| App                   | `NEXT_PUBLIC_WEBAPP` |
+| --------------------- | -------------------- |
+| `apps/nextjs`         | `nextjs`             |
+| `apps/nextjs-slim`    | `nextjs_slim`        |
+| `apps/tanstack-start` | `tanstack_start`     |
+| `apps/tanstack-slim`  | `tanstack_slim`      |
 
 The value names a Postgres schema and a Redis prefix, so it must be a valid
 unquoted Postgres identifier — **underscores, never hyphens** (`tanstack-start`
 would need quoting and breaks `pgSchema()` / `schemaFilter`). The slim apps
-(`*_slim`) carry no Redis or billing, but they *do* take a per-app
+(`*_slim`) carry no Redis or billing, but they _do_ take a per-app
 Postgres/pgvector schema, so they need a distinct identity too.
 
 **The footgun: `NEXT_PUBLIC_WEBAPP` must NEVER be set in the root `.env`.** Each
@@ -131,7 +130,7 @@ value now throws at startup instead of producing a broken schema name. The root
 
 Decision 2 above (an allow-list-guarded `Proxy` rewrites the first argument of
 known key/channel commands) was chosen over "an explicit `key()` helper at every
-call site", which this ADR rejected as *leaky*: a missed call site "silently
+call site", which this ADR rejected as _leaky_: a missed call site "silently
 writes an unprefixed, cross-app-colliding key." That objection rested on one
 word — **silently**. The allow-list itself turned out to be the leak.
 
@@ -176,3 +175,37 @@ Consequences:
   the `publish`/`subscribe`/… channel commands, and infra pass-throughs). It does
   no runtime rewriting — `nsKey` already prefixed the key — it only narrows the
   key parameter's type.
+
+## Amendment — ioredis substrate (T1)
+
+`@acme/redis` internal client was migrated from node-redis (`redis@4`) to ioredis
+(`ioredis@5`). The facade surface — `nsKey`, `NamespacedKey`, `namespaced()`, and
+all command method signatures — is unchanged, so no consumer was touched.
+
+**Why ioredis.** BullMQ (the planned job-queue substrate for T2) requires an
+ioredis client at its API boundary — it does not accept node-redis. Keeping two
+separate Redis libraries (one for key/value, one for BullMQ) would fork the
+connection pool, double local/infra surface, and complicate testcontainer setup.
+A single ioredis substrate removes that split at the cost of a one-time migration.
+
+**What changed internally.** The raw client is now `new Redis(url, { lazyConnect:
+true })` (ioredis) instead of `createClient({ url, socket: { reconnectStrategy }
+})` (node-redis). Connection management, error handling, and the `IS_NEXT_BUILD`
+guard are identical in behaviour. The facade translates the small set of naming
+differences between the two libraries: `flushdb` (ioredis) ↔ `flushDb`
+(node-redis), `expireat` ↔ `expireAt`, `decrby`/`incrby` ↔ `decrBy`/`incrBy`,
+`psubscribe`/`punsubscribe` ↔ `pSubscribe`/`pUnsubscribe`. The `set` facade method
+translates `{ EXAT: timestamp }` (node-redis option object) to positional ioredis
+args so existing callers (`@acme/subscriptions` credits, test assertions) are
+unchanged. The `isOpen` infra getter returns `true` for all active connection
+states (`ready`, `connect`, `connecting`, `reconnecting`) — broader than
+node-redis's `isOpen` (which was `ready`-only) but required because ioredis
+throws if `connect()` is called while already connecting. Commands issued in any
+of these states are queued by ioredis and execute once the connection is ready,
+so no caller is broken. The `connect()` wrapper is a no-op in those states.
+
+**Pub/sub note.** The `redisPub`/`redisSub` clients and their channel commands
+remain in the facade. The `subscribe`/`pSubscribe` wrappers attach ioredis
+`message`/`pmessage` event listeners via a tracked Map so `unsubscribe`/
+`pUnsubscribe` can remove the exact handler — preventing listener accumulation.
+There are currently zero real consumers of pub/sub (it is reserved for T2).
