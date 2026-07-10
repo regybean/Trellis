@@ -79,6 +79,30 @@ Present the two reports under `## Standards` and `## Spec` headings, verbatim or
 
 End with a one-line summary: total findings per axis, and the worst issue _within each axis_ (if any). Don't pick a single winner across axes — that's the reranking the separation exists to prevent.
 
+### 6. Post to PR (if one exists)
+
+After presenting the aggregated report, look for an associated open PR and post the report as a comment. Try each step in order, stopping at the first hit:
+
+1. If an issue number was found in step 2, search by closing references:
+   ```bash
+   gh pr list --json number,closingIssuesReferences --jq '.[] | select(.closingIssuesReferences[].number == <N>) | .number'
+   ```
+2. Try `gh pr view --json number` (works when the current branch tracks a PR).
+3. Find which remote branch contains the earliest commit in the diff, then search by head ref:
+   ```bash
+   git branch -r --contains <earliest-commit-sha> --format '%(refname:short)' | sed 's|origin/||'
+   # then for each candidate branch:
+   gh pr list --head <branch> --json number --jq '.[0].number'
+   ```
+4. If a PR number is found, post with:
+   ```bash
+   gh pr comment <PR> --body "..."
+   ```
+   Format the body as the same `## Standards` / `## Spec` markdown you presented in the conversation, prefixed with a one-line header: `**Code review (automated — /code-review)**`.
+5. If no PR is found after all three lookups, skip silently — do not error.
+
+If findings exist, end with: "Run `/address-review` to implement these."
+
 ## Why two axes
 
 A change can pass one axis and fail the other:

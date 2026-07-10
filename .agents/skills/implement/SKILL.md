@@ -38,11 +38,7 @@ As you go, typecheck and run single test files for the package you touched (`pnp
 
 After the last commit, run `pnpm quality-gate` **once**. It runs every stage in one pass and writes `.cache/quality-gate.log`; on failure read that file for the failing stage, fix, re-run. Don't move on until the gate is green.
 
-## 3. Review
-
-Run `/code-review` on the work and address what it surfaces. Re-gate if you changed code.
-
-## 4. Publish
+## 3. Publish
 
 **On a `worktree-<feature-slug>` branch** — you're in an isolated worktree, so ship a PR:
 
@@ -65,3 +61,7 @@ EOF
 Base is always `main`. **Never** open a draft; **never** auto-merge — merge is the human's call in the VSCode GitHub Pull Requests extension. Then hand back: the PR is open, review it there. The worktree cleans itself up on session exit (the branch is safe on the remote), so there is nothing to tear down.
 
 **On the primary checkout** — any other branch: the commits on the current branch are the deliverable. Stop there; don't push or open a PR unless asked.
+
+## 4. Review
+
+Ask the user to clear the current context and run `/code-review` on the work and address what it surfaces. Re-gate if you changed code.
