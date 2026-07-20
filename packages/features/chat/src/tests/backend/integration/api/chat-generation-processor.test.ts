@@ -6,9 +6,9 @@
  * (Mastra Memory).
  */
 
-import type { Job } from 'bullmq';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { Job } from '@acme/queue';
 import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
 

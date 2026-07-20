@@ -1,5 +1,4 @@
-import type { Job } from 'bullmq';
-
+import type { Job } from '@acme/queue';
 import { logger } from '@acme/logger';
 import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
