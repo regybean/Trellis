@@ -15,10 +15,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { memory } from '@acme/rag';
+import { nsKey, redis } from '@acme/redis';
 
 import type { TestContextOptions } from '../../utils/test-context';
+import {
+  chatAbortKey,
+  chatInflightKey,
+  chatRefundedKey,
+  chatStreamKey,
+} from '../../../../api/chat-keys';
 import { appRouter } from '../../../../api/root';
 import { chatAgent } from '../../../../api/services/chat-agent';
+import {
+  _generationQueue,
+  generationJobId,
+} from '../../../../api/services/chat-queue';
 import { throwingAgentStream } from '../../setup';
 import {
   createTestChat,
@@ -47,6 +58,10 @@ const baseCredits = {
   limit: 100,
   resetAt: Date.now() + 86_400_000,
 };
+
+// The Redis credit key for a test user on the Basic tier — the tier the caller
+// contexts below use, so refunds land on the key reconcileTurn writes.
+const creditKey = (userId: string) => nsKey('credits', userId, 'Basic');
 
 describe('chatRouter', () => {
   beforeEach(async () => {
@@ -732,6 +747,205 @@ describe('chatRouter', () => {
       } finally {
         querySpy.mockRestore();
       }
+    });
+  });
+
+  // ==========================================================================
+  // DURABLE-STREAM CONTROL PLANE: send / stop / reconcileTurn (Seam 1)
+  //
+  // The observable contract: Redis lock + abort keys, the persisted user
+  // Message (via chat.get), the enqueued job, and the discriminated returns.
+  // Credit *consumption* runs through the mock entitlements provider (a no-op in
+  // the caller harness — real decrement is covered in @acme/subscriptions), so
+  // the credit contract asserted here is the rate-limit *gate* and the refund
+  // path (which does hit real Redis).
+  // ==========================================================================
+  describe('send', () => {
+    it('acquires the lock, persists the user Message, enqueues a job, returns accepted', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const turnId = crypto.randomUUID();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      const result = await caller.chat.send({
+        query: 'Hello there',
+        conversationId,
+        turnId,
+      });
+
+      expect(result).toEqual({ status: 'accepted', turnId });
+
+      // In-flight lock holds this Turn.
+      expect(await redis.get(chatInflightKey(conversationId))).toBe(turnId);
+
+      // User Message durable in chat.get before any token is generated.
+      const messages = await caller.chat.get({ sessionId: conversationId });
+      const userMessages = messages.filter((m) => m.role === 'user');
+      expect(userMessages).toHaveLength(1);
+      expect(userMessages[0]?.text).toBe('Hello there');
+
+      // Job present in the generation queue, keyed by conversationId:turnId.
+      const job = await _generationQueue.getJob(
+        generationJobId(conversationId, turnId),
+      );
+      expect(job?.data).toMatchObject({ conversationId, turnId, userId });
+    });
+
+    it('returns alreadyInflight without duplicating work on a two-tab race', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      await createTestChat({ userId, sessionId: conversationId });
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      // Two tabs fire concurrently with distinct turnIds; the SET NX lock admits
+      // exactly one.
+      const [a, b] = await Promise.all([
+        caller.chat.send({
+          query: 'first',
+          conversationId,
+          turnId: crypto.randomUUID(),
+        }),
+        caller.chat.send({
+          query: 'second',
+          conversationId,
+          turnId: crypto.randomUUID(),
+        }),
+      ]);
+
+      const statuses = [a.status, b.status];
+      expect(statuses).toContain('accepted');
+      expect(statuses).toContain('alreadyInflight');
+
+      // Only the winner had any side effect: one user Message, not two — so the
+      // loser could not have double-charged either.
+      const messages = await caller.chat.get({ sessionId: conversationId });
+      expect(messages.filter((m) => m.role === 'user')).toHaveLength(1);
+    });
+
+    it('rejects TOO_MANY_REQUESTS and releases the lock when credits are exhausted', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: { remaining: 0, limit: 100, resetAt: Date.now() + 86_400_000 },
+      });
+
+      await expect(
+        caller.chat.send({
+          query: 'Hello',
+          conversationId,
+          turnId: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
+
+      // Lock released on the credit rejection — the Conversation is not wedged
+      // for the lock's TTL.
+      expect(await redis.get(chatInflightKey(conversationId))).toBeNull();
+    });
+  });
+
+  describe('stop', () => {
+    it('publishes the abort signal keyed by the in-flight turnId', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const turnId = crypto.randomUUID();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      await caller.chat.send({ query: 'Hello', conversationId, turnId });
+      const result = await caller.chat.stop({ conversationId });
+
+      expect(result).toEqual({ status: 'stopped', turnId });
+      expect(await redis.get(chatAbortKey(conversationId))).toBe(turnId);
+    });
+
+    it('is a no-op when no Turn is in flight', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      await createTestChat({ userId, sessionId: conversationId });
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      expect(await caller.chat.stop({ conversationId })).toEqual({
+        status: 'notInflight',
+      });
+    });
+  });
+
+  describe('reconcileTurn', () => {
+    it('refunds the credit once; the second call is a no-op', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const turnId = crypto.randomUUID();
+      await createTestChat({ userId, sessionId: conversationId });
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      await redis.set(creditKey(userId), '5');
+
+      const first = await caller.chat.reconcileTurn({ conversationId, turnId });
+      expect(first).toEqual({ refunded: true });
+      expect(await redis.get(creditKey(userId))).toBe('6');
+      expect(await redis.get(chatRefundedKey(turnId))).toBe('1');
+
+      const second = await caller.chat.reconcileTurn({
+        conversationId,
+        turnId,
+      });
+      expect(second).toEqual({ refunded: false });
+      // No double refund: the guard held.
+      expect(await redis.get(creditKey(userId))).toBe('6');
+    });
+
+    it('clears the in-flight lock and deletes the Stream key', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const turnId = crypto.randomUUID();
+      await createTestChat({ userId, sessionId: conversationId });
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      // Simulate an orphaned Turn: a lock and a partial Stream left by a worker
+      // that crashed before writing a terminal.
+      await redis.set(chatInflightKey(conversationId), turnId);
+      await redis.xAdd(chatStreamKey(conversationId), '*', {
+        chunk: 'partial',
+      });
+
+      await caller.chat.reconcileTurn({ conversationId, turnId });
+
+      expect(await redis.get(chatInflightKey(conversationId))).toBeNull();
+      expect(
+        await redis.xRange(chatStreamKey(conversationId), '-', '+'),
+      ).toHaveLength(0);
     });
   });
 });
