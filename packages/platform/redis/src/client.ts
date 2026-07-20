@@ -67,6 +67,56 @@ const isActiveStatus = (status: string) =>
   status === 'connecting' ||
   status === 'reconnecting';
 
+// SET dispatch is split into helpers so the facade method stays flat — the
+// NX/XX × TTL matrix otherwise trips the cognitive-complexity gate. The
+// existence flag is passed as an ioredis literal (not a union) so the overloaded
+// signatures resolve, hence the two near-identical NX/XX helpers.
+const setNx = (
+  raw: Redis,
+  key: NamespacedKey,
+  value: string,
+  options: SetOptions,
+) => {
+  if (options.EX !== undefined)
+    return raw.set(key, value, 'EX', options.EX, 'NX');
+  if (options.PX !== undefined)
+    return raw.set(key, value, 'PX', options.PX, 'NX');
+  if (options.EXAT !== undefined)
+    return raw.set(key, value, 'EXAT', options.EXAT, 'NX');
+  return raw.set(key, value, 'NX');
+};
+
+const setXx = (
+  raw: Redis,
+  key: NamespacedKey,
+  value: string,
+  options: SetOptions,
+) => {
+  if (options.EX !== undefined)
+    return raw.set(key, value, 'EX', options.EX, 'XX');
+  if (options.PX !== undefined)
+    return raw.set(key, value, 'PX', options.PX, 'XX');
+  if (options.EXAT !== undefined)
+    return raw.set(key, value, 'EXAT', options.EXAT, 'XX');
+  return raw.set(key, value, 'XX');
+};
+
+const setWithTtl = (
+  raw: Redis,
+  key: NamespacedKey,
+  value: string,
+  options: SetOptions,
+) => {
+  if (options.EXAT !== undefined)
+    return raw.set(key, value, 'EXAT', options.EXAT);
+  if (options.PXAT !== undefined)
+    return raw.set(key, value, 'PXAT', options.PXAT);
+  if (options.EX !== undefined) return raw.set(key, value, 'EX', options.EX);
+  if (options.PX !== undefined) return raw.set(key, value, 'PX', options.PX);
+  if (options.KEEPTTL) return raw.set(key, value, 'KEEPTTL');
+  return raw.set(key, value);
+};
+
 /**
  * Wrap a raw ioredis client in a thin facade whose key/channel commands accept
  * only a `NamespacedKey`. The prefix lives in `nsKey` and the type system
@@ -87,18 +137,13 @@ const namespaced = (raw: Redis) => {
   return {
     // Key commands — first argument is a key.
     get: (key: NamespacedKey) => raw.get(key),
+    // NX/XX may combine with a TTL option, so those are dispatched first; the
+    // TTL-only paths follow. Branch bodies live in the module-level helpers.
     set: (key: NamespacedKey, value: string, options?: SetOptions) => {
       if (!options) return raw.set(key, value);
-      if (options.EXAT !== undefined)
-        return raw.set(key, value, 'EXAT', options.EXAT);
-      if (options.PXAT !== undefined)
-        return raw.set(key, value, 'PXAT', options.PXAT);
-      if (options.EX !== undefined)
-        return raw.set(key, value, 'EX', options.EX);
-      if (options.PX !== undefined)
-        return raw.set(key, value, 'PX', options.PX);
-      if (options.KEEPTTL) return raw.set(key, value, 'KEEPTTL');
-      return raw.set(key, value);
+      if (options.NX) return setNx(raw, key, value, options);
+      if (options.XX) return setXx(raw, key, value, options);
+      return setWithTtl(raw, key, value, options);
     },
     decrBy: (key: NamespacedKey, decrement: number) =>
       raw.decrby(key, decrement),
@@ -110,6 +155,25 @@ const namespaced = (raw: Redis) => {
     expireAt: (key: NamespacedKey, timestamp: number) =>
       raw.expireat(key, timestamp),
     exists: (key: NamespacedKey) => raw.exists(key),
+    // Redis Stream commands. The id argument is '*' for auto-generated ids. Entries
+    // are key-value pairs passed as a flat list; MAXLEN trims the stream to an
+    // approximate maximum length on each write. Returns the auto-generated entry id.
+    xAdd: (
+      key: NamespacedKey,
+      id: string,
+      entry: Record<string, string>,
+      options?: { MAXLEN?: number },
+    ) => {
+      const pairs = Object.entries(entry).flat();
+      if (options?.MAXLEN !== undefined) {
+        return raw.xadd(key, 'MAXLEN', '~', options.MAXLEN, id, ...pairs);
+      }
+      return raw.xadd(key, id, ...pairs);
+    },
+    xLen: (key: NamespacedKey) => raw.xlen(key),
+    // xRange reads entries between two ids (inclusive). Use '-' / '+' for full range.
+    xRange: (key: NamespacedKey, start: string, end: string) =>
+      raw.xrange(key, start, end),
     // Channel commands — first argument is a channel.
     publish: (channel: NamespacedKey, message: string) =>
       raw.publish(channel, message),

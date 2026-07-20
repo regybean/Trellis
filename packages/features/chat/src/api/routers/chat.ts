@@ -7,8 +7,11 @@ import type { StreamChatEvent } from '../schemas/chat-schema';
 import {
   ChatRequest,
   DeleteChatRequest,
+  ReconcileTurnRequest,
   selectChatSchema,
   selectConversationSummarySchema,
+  SendChatRequest,
+  StopChatRequest,
 } from '../schemas/chat-schema';
 import { SetFolderRequest } from '../schemas/folder-schema';
 import { selectMessageSchema } from '../schemas/message-schema';
@@ -20,16 +23,28 @@ import {
   latestAssistantMessageId,
   listConversations,
   listConversationsForUser,
+  persistUserMessage,
   recallMessages,
   setThreadFolder,
   toConversation,
   toConversationSummary,
   toMessages,
 } from '../services/chat-memory';
+import { enqueueGenerationTurn } from '../services/chat-queue';
+import {
+  acquireInflightLock,
+  cleanupTurn,
+  CREDITS_PER_TURN,
+  publishAbort,
+  readInflightTurn,
+  refundTurnCredits,
+  releaseInflightLock,
+} from '../services/chat-turn-lifecycle';
 import {
   adminProcedure,
   createTRPCRouter,
   existingConversationProcedure,
+  ownedConversationByIdProcedure,
   ownedConversationProcedure,
   protectedProcedure,
   rateLimit,
@@ -99,6 +114,126 @@ export const chatRouter = createTRPCRouter({
           cause: error,
         });
       }
+    }),
+
+  // ==========================================================================
+  // DURABLE-STREAM CONTROL PLANE: send / stop / reconcileTurn
+  //
+  // Generation is decoupled from the client connection: `send` initiates a Turn
+  // (persist + enqueue) and returns immediately; the worker produces tokens to a
+  // Redis Stream; `chat.stream` (a pure reader) tails it. `stop` and
+  // `reconcileTurn` are the control plane over that out-of-band Turn.
+  // ==========================================================================
+
+  // Initiate a Turn. Ownership is asserted by the builder before any mutating
+  // step. The step order is load-bearing: the In-flight lock is taken FIRST so a
+  // duplicate tab returns `alreadyInflight` without persisting a message,
+  // enqueuing a job, or spending a credit; credits are consumed only after the
+  // lock is won, so the race can never double-charge.
+  send: ownedConversationByIdProcedure
+    .input(SendChatRequest)
+    .mutation(async ({ ctx, input }) => {
+      const { userId } = ctx.auth;
+      const { conversationId, turnId, query } = input;
+
+      // 2. Acquire the In-flight lock (SET NX EX, value = turnId).
+      const acquired = await acquireInflightLock(conversationId, turnId);
+      if (!acquired) {
+        logger.info(
+          { userId, conversationId },
+          'chat.send: Turn already in-flight, caller re-attaches',
+        );
+        return { status: 'alreadyInflight' as const };
+      }
+
+      try {
+        // 3. Ensure the Conversation (idempotent create-or-retrieve).
+        if (!ctx.conversation) await createConversation(conversationId, userId);
+
+        // 4. Persist the user Message — durable in chat.get before the first
+        //    token, since the worker's memory config is read-only.
+        await persistUserMessage(conversationId, userId, query);
+
+        // 5. Consume credits. The lock is already held, so a duplicate tab
+        //    never reaches here; on insufficient credits we release the lock so
+        //    the Conversation is not stuck for the lock's TTL.
+        if (ctx.credits.remaining < CREDITS_PER_TURN) {
+          await releaseInflightLock(conversationId, turnId);
+          throw new TRPCError({
+            code: 'TOO_MANY_REQUESTS',
+            message: 'Insufficient credits',
+          });
+        }
+        await ctx.entitlements.consume(userId, ctx.tier, CREDITS_PER_TURN);
+
+        // 6. Enqueue the generation job (sole authorised enqueuer).
+        await enqueueGenerationTurn({
+          conversationId,
+          turnId,
+          userId,
+          tier: ctx.tier,
+          query,
+        });
+
+        logger.info({ userId, conversationId, turnId }, 'chat.send: accepted');
+        return { status: 'accepted' as const, turnId };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        // Any failure after the lock was taken must release it, or the
+        // Conversation is wedged until the lock TTL lapses.
+        await releaseInflightLock(conversationId, turnId);
+        logger.error(
+          { error, userId, conversationId, turnId },
+          'chat.send failed',
+        );
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to start chat generation',
+          cause: error,
+        });
+      }
+    }),
+
+  // Cancel the in-flight Turn. Reads the current `turnId` from the lock value and
+  // publishes the abort signal; the worker observes it, persists any non-empty
+  // partial, and emits the `cancelled` terminal. Returns immediately — the reader
+  // surfaces the terminal to the client.
+  stop: ownedConversationByIdProcedure
+    .input(StopChatRequest)
+    .mutation(async ({ ctx, input }) => {
+      const { conversationId } = input;
+      const turnId = await readInflightTurn(conversationId);
+      if (!turnId) {
+        return { status: 'notInflight' as const };
+      }
+      await publishAbort(conversationId, turnId);
+      logger.info(
+        { userId: ctx.auth.userId, conversationId, turnId },
+        'chat.stop: abort published',
+      );
+      return { status: 'stopped' as const, turnId };
+    }),
+
+  // Idempotent orphan cleanup. Called by the client when the reader finds a
+  // stream with no live worker (lock absent, no terminal received). Refunds the
+  // Turn's credit (guarded, so the worker error path and this can't double
+  // refund) and tears down the Turn's Redis state. Returns whether this call
+  // performed the refund so the client can toast "generation failed, refunded".
+  reconcileTurn: ownedConversationByIdProcedure
+    .input(ReconcileTurnRequest)
+    .mutation(async ({ ctx, input }) => {
+      const { conversationId, turnId } = input;
+      const refunded = await refundTurnCredits(
+        ctx.auth.userId,
+        ctx.tier,
+        turnId,
+      );
+      await cleanupTurn(conversationId, turnId);
+      logger.info(
+        { userId: ctx.auth.userId, conversationId, turnId, refunded },
+        'chat.reconcileTurn: cleaned up',
+      );
+      return { refunded };
     }),
 
   create: ownedConversationProcedure

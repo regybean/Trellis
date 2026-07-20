@@ -5,6 +5,11 @@ import { logger } from '@acme/logger';
 
 import { env } from './env';
 
+// Re-exported so consumers (the sole processor home, @acme/chat) can type their
+// processor as `Job<T>` without importing `bullmq` directly — @acme/queue is the
+// only package that may depend on BullMQ (enforced by the boundary check).
+export type { Job } from 'bullmq';
+
 // BullMQ manages its own ioredis connections internally when given plain options —
 // separate from @acme/redis. maxRetriesPerRequest: null is required for Worker
 // blocking commands to avoid ioredis timing them out.

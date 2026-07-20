@@ -39,6 +39,27 @@ export const DeleteChatRequest = z.object({
   sessionId: z.uuid(),
 });
 
+// The durable-stream control plane. A Turn (`turnId`, client-minted) is one
+// in-flight generation for a Conversation (`conversationId`); it keys the job,
+// the In-flight lock, the abort signal, and the refund guard. These procedures
+// name the Conversation `conversationId` (the durable-stream vocabulary from the
+// spec), where the legacy `stream`/`get`/`create` procedures still say
+// `sessionId` for the same id — both resolve through the same ownership loader.
+export const SendChatRequest = z.object({
+  query: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long'),
+  conversationId: z.uuid(),
+  turnId: z.uuid(),
+});
+
+export const StopChatRequest = z.object({
+  conversationId: z.uuid(),
+});
+
+export const ReconcileTurnRequest = z.object({
+  conversationId: z.uuid(),
+  turnId: z.uuid(),
+});
+
 export type StreamChatEvent =
   | {
       type: 'message';

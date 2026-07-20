@@ -105,6 +105,30 @@ export async function recallMessages(sessionId: string, userId: string) {
   return messages;
 }
 
+// Persist the user's Message explicitly, before any token is generated, so it
+// is durable in `chat.get` the moment `chat.send` accepts — the durable-stream
+// flow drives generation from a worker (readOnly memory), so nothing else
+// writes the user turn. Mirrors the worker's assistant persist; `resourceId =
+// userId` is what makes the row the caller's own.
+export async function persistUserMessage(
+  sessionId: string,
+  userId: string,
+  text: string,
+) {
+  await memory.saveMessages({
+    messages: [
+      {
+        id: crypto.randomUUID(),
+        role: 'user' as const,
+        createdAt: new Date(),
+        threadId: sessionId,
+        resourceId: userId,
+        content: { format: 2, parts: [{ type: 'text', text }], content: text },
+      },
+    ],
+  });
+}
+
 // The id Mastra minted for the most recently persisted assistant turn in this
 // Conversation. Sourced by re-reading the thread once the stream completes
 // (rather than parsing Mastra's stream-result shape) so it stays robust across

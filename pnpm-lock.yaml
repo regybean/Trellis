@@ -969,12 +969,18 @@ importers:
       '@acme/models':
         specifier: workspace:*
         version: link:../../shared/models
+      '@acme/queue':
+        specifier: workspace:*
+        version: link:../../platform/queue
       '@acme/rag':
         specifier: workspace:*
         version: link:../../shared/rag
       '@acme/redis':
         specifier: workspace:*
         version: link:../../platform/redis
+      '@acme/subscriptions':
+        specifier: workspace:*
+        version: link:../../platform/subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../platform/telemetry

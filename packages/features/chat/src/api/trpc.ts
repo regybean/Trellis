@@ -57,3 +57,21 @@ export const existingConversationProcedure = protectedProcedure.use(
     return next({ ctx: { conversation } });
   },
 );
+
+const conversationIdInput = z.object({ conversationId: z.uuid() });
+
+// The durable-stream sibling of `ownedConversationProcedure`: identical
+// load-and-verify ownership, but keyed on `conversationId` (the vocabulary the
+// `send`/`stop`/`reconcileTurn` control plane speaks) rather than `sessionId`.
+// Absent threads are tolerated — `send` runs before the first Turn stamps the
+// thread, and `stop`/`reconcileTurn` are safe no-ops against an absent one.
+export const ownedConversationByIdProcedure = protectedProcedure.use(
+  async ({ ctx, getRawInput, next }) => {
+    const { conversationId } = conversationIdInput.parse(await getRawInput());
+    const conversation = await loadOwnedConversation(
+      conversationId,
+      ctx.auth.userId,
+    );
+    return next({ ctx: { conversation } });
+  },
+);

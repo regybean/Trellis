@@ -60,3 +60,25 @@ unguarded path to a thread" actually true rather than just conventional.
   directly. `chat-agent.ts` stays (it is also the agent registered with Mastra for
   Studio).
 - The wire contract (`StreamChatEvent`) is unchanged.
+- The durable-stream control plane (`send`/`stop`/`reconcileTurn`) reuses the same
+  builder under the durable-stream name `conversationId`: `ownedConversationByIdProcedure`
+  is a keyed sibling of `ownedConversationProcedure` (identical load-and-verify,
+  `conversationId` instead of `sessionId`), so the "no unguarded path to a thread"
+  guarantee extends to the new procedures for free. `send` tolerates an absent thread
+  (like `create`/`stream`), the first Turn stamping it.
+
+## The request-less executor carve-out
+
+The generation worker (ADR 0004) is the **one** actor that touches a Conversation
+_without_ going through a conversation-ownership builder — it carries no HTTP request,
+so there is no session to assert against. This does not weaken the invariant above; it
+relocates the check in time. Ownership is asserted by `chat.send` (on
+`ownedConversationByIdProcedure`) _before_ the job is enqueued, and `enqueueGenerationTurn`
+is the sole authorised enqueuer, so a job can only exist for a Conversation whose
+ownership was already verified. The worker trusts `userId` from the job payload and
+re-stamps it as Mastra's `resourceId`; because Redis/BullMQ sit inside the app's
+security perimeter and the enqueue seam is singular, the trust boundary is structural,
+not conventional — the same property that makes the middleware guarantee load-bearing,
+applied to the queue seam instead of the request pipeline. The carve-out is deliberately
+named here (rather than left implicit) so a future reader does not mistake the worker's
+missing ownership call for an oversight.
