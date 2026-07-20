@@ -2,8 +2,9 @@
 # Bootstrap a freshly-created git worktree so a session starts with everything
 # ready — no manual `pnpm install`, no agent tool call.
 #
-# Wired to the SessionStart hook in .claude/settings.json, so it fires when you
-# launch `claude --worktree <slug>`. A fresh worktree has no node_modules; this
+# Two callers: the SessionStart hook in .claude/settings.json (fires on
+# `claude --worktree <slug>`), and the /implement skill directly (the
+# EnterWorktree tool path fires no hook). A fresh worktree has no node_modules; this
 # runs `pnpm install`, which cascades through postinstall: package build,
 # skills:register (recreates the .claude/skills symlinks), and link-worktree-env
 # (symlinks the primary checkout's .env in). One step bootstraps the lot.

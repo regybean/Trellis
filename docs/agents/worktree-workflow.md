@@ -10,12 +10,22 @@ step on each other — one window per task.
 
 Either way the branch is `worktree-<feature-slug>`, based on clean `origin/HEAD`.
 
-## Bootstrap is automatic
+## Bootstrap
 
-Entering a fresh worktree runs `pnpm install` (SessionStart hook → `postinstall`):
-deps installed, packages built, skill symlinks recreated, and the primary
-checkout's `.env` symlinked in ([ADR 0019](../adr/0019-worktrees-mirror-ci-test-infra.md)).
-So all tooling works with nothing to wire by hand.
+Either way a fresh worktree gets `pnpm install` → `postinstall`: deps installed,
+packages built, skill symlinks recreated, and the primary checkout's `.env`
+symlinked in ([ADR 0019](../adr/0019-worktrees-mirror-ci-test-infra.md)). So all
+tooling works with nothing to wire by hand — but the two paths trigger it
+differently:
+
+- **Human (`claude --worktree`):** the `SessionStart`/`startup` hook fires
+  `scripts/bootstrap-worktree.sh` automatically.
+- **Agent (`EnterWorktree` tool):** **no hook fires** on this path (Claude Code
+  fires `WorktreeCreate` only for `--worktree` / subagent `isolation: "worktree"`,
+  not the `EnterWorktree` tool). So `/implement` runs
+  `scripts/bootstrap-worktree.sh` itself as an explicit step after entering.
+
+The script is idempotent — a no-op once `node_modules` exists.
 
 ## Ship
 

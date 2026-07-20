@@ -10,6 +10,8 @@ Build the work described in the spec or tickets.
 
 Call the **EnterWorktree** tool (name it `<feature-slug>`) before touching any code. Everything below runs inside it.
 
+Then bootstrap the fresh worktree per [worktree-workflow.md](docs/agents/worktree-workflow.md) — the `EnterWorktree` tool path fires no hook, so bootstrap is an explicit step here.
+
 ## 1. Implement
 
 Build the plan. Use `/tdd` at the pre-agreed seams.

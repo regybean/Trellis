@@ -36,6 +36,15 @@ Before exploring, agents consult the repo's own documentation — domain languag
 
 Skills are **vendored** into `.agents/skills/` (committed; pinned by [skills-lock.json](../../skills-lock.json), sourced from `mattpocock/skills` and `mastra-ai/skills`). Claude only discovers a skill once it's symlinked into `.claude/skills/` — which is gitignored, so the symlinks don't survive a clone. [`scripts/register-skills.sh`](../../scripts/register-skills.sh) recreates them idempotently and runs on `postinstall`; run **`pnpm skills:register`** manually after adding or removing a skill.
 
+**Skills stay code-agnostic.** A skill describes _what_ to do and delegates the
+_how_ — concrete commands, script paths, tool names, file layouts — to
+`docs/agents/*` (and `CONTEXT.md` / ADRs), which it links out to. The skills are
+vendored and shared across repos; baking this repo's specifics into them breaks
+that portability and lets the docs and skills drift. So when a step needs a
+repo-specific mechanic, put the mechanic in the doc and have the skill reference
+it (as `/implement` cites [worktree-workflow.md](worktree-workflow.md),
+[quality-gate.md](quality-gate.md), [pull-requests.md](pull-requests.md)).
+
 The load-bearing ones for the loop above:
 
 | Skill                            | Role                                                                         |
