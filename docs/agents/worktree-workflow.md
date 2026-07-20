@@ -31,4 +31,34 @@ The script is idempotent — a no-op once `node_modules` exists.
 ## Ship
 
 Build → verify ([quality-gate.md](quality-gate.md)) → open a PR ([pull-requests.md](pull-requests.md)).
-A clean worktree is removed on session exit; the branch is safe on the remote.
+
+## Retire
+
+Once the PR is open, the commits are on the remote — the worktree has done its
+job. Retire it immediately so parallel trees don't pile up:
+
+- **Agent (`EnterWorktree` tool):** call `ExitWorktree` with `action: "remove"`
+  and `discard_changes: true`. The branch is ahead of `origin/HEAD` locally, so
+  the tool would otherwise refuse; but the work is safe on the PR, so dropping
+  the local branch loses nothing. A skill directing this retirement is the
+  standing authorization `ExitWorktree` asks for — don't wait to be re-prompted.
+- **Human (`claude --worktree`):** removed on session exit (you're prompted to
+  keep or remove).
+
+Only retire once the push has succeeded and the PR is confirmed open — never on
+an unpushed branch.
+
+## Re-enter to iterate
+
+A retired worktree's branch lives only on the remote. To pick the work back up
+(to review it or address review comments), recreate a worktree from that branch
+rather than starting fresh from `origin/HEAD`:
+
+```bash
+git fetch origin
+git worktree add ".claude/worktrees/<feature-slug>" "worktree-<feature-slug>"
+```
+
+Then switch in with the `EnterWorktree` tool's `path` argument and bootstrap as
+above. A worktree entered by `path` is left on disk by `ExitWorktree` (use
+`action: "keep"`); remove it with `git worktree remove` once the PR is merged.

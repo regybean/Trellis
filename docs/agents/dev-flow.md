@@ -16,7 +16,7 @@ wayfinder (fog) ─┐
 - **wayfinder** entry: multi-session fog — the way to the destination isn't visible yet.
 - **quick start** entry: single-session sharpening — you know roughly what you want.
 - **skip** any step to pass the baton immediately.
-- `implement` ends with `code-review` internally.
+- `implement` stops at the PR; `code-review` is a separate step you run — or skip — afterward.
 
 ## Model per step
 

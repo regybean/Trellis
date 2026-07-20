@@ -31,8 +31,6 @@
       "Read(**/expo-env.d.ts/**)",
       "Read(**/next-env.d.ts)",
       "Read(**/next-env.d.ts/**)",
-      "Read(**/node_modules)",
-      "Read(**/node_modules/**)",
       "Read(**/npm-debug.log*)",
       "Read(**/npm-debug.log*/**)",
       "Read(**/out/**)",
@@ -45,7 +43,9 @@
       "Read(apps/expo/android)",
       "Read(apps/expo/android/**)",
       "Read(apps/expo/ios)",
-      "Read(apps/expo/ios/**)"
+      "Read(apps/expo/ios/**)",
+      "Read(node_modules/@acme)",
+      "Read(node_modules/@acme/**)"
     ]
   },
   "hooks": {

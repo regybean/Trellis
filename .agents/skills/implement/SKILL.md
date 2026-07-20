@@ -27,3 +27,7 @@ Verify once, at the end, per [quality-gate.md](docs/agents/quality-gate.md). Don
 ## 3. Publish
 
 Open a PR per [pull-requests.md](docs/agents/pull-requests.md), citing the source ticket from [issue-tracker.md](docs/agents/issue-tracker.md) (fall back to `.scratch/<feature-slug>/` only when no tracker is configured). Never auto-merge — merge is the human's call.
+
+## 4. Retire
+
+The worktree has served its purpose once the PR is up. Retire it per [worktree-workflow.md](docs/agents/worktree-workflow.md#retire) — only after the PR is confirmed open — leaving the session back in the primary checkout.

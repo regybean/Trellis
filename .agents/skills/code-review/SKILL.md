@@ -20,7 +20,7 @@ Whatever the user said is the fixed point — a commit SHA, branch name, tag, `m
 
 Capture the diff command once: `git diff <fixed-point>...HEAD` (three-dot, so the comparison is against the merge-base). Also note the list of commits via `git log <fixed-point>..HEAD --oneline`.
 
-Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here — not inside two parallel sub-agents.
+Before going further, confirm the fixed point resolves (`git rev-parse <fixed-point>`) and the diff is non-empty. A bad ref or empty diff should fail here — not inside two parallel sub-agents. If the diff is empty because you're reviewing a PR whose worktree `/implement` already retired, its branch isn't checked out — re-enter it from the remote per [worktree-workflow.md](docs/agents/worktree-workflow.md#re-enter-to-iterate), then re-pin.
 
 ### 2. Identify the spec source
 

@@ -6,6 +6,10 @@ disable-model-invocation: true
 
 **Address** the open review comments on this branch's PR. All PR commands are in [pull-requests.md](docs/agents/pull-requests.md).
 
+## 0. Re-enter the worktree
+
+`/implement` retires its worktree once the PR is open, so the branch may live only on the remote. If the session isn't already in the PR's worktree, recreate it from the remote branch and switch in per [worktree-workflow.md](docs/agents/worktree-workflow.md#re-enter-to-iterate). Skip when you're already inside it.
+
 ## 1. Read the review
 
 Read the PR's unresolved review threads (see pull-requests.md). If no open PR exists for this branch, stop and tell the user. For each thread: identify the file, context, and change needed.
