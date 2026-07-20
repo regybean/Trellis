@@ -3,49 +3,16 @@ import type { Job } from 'bullmq';
 import { logger } from '@acme/logger';
 import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
-import { credits } from '@acme/subscriptions';
 
 import type { GenerationJob } from './chat-queue';
-import {
-  chatAbortKey,
-  chatInflightKey,
-  chatRefundedKey,
-  chatStreamKey,
-} from '../chat-keys';
+import { chatAbortKey, chatStreamKey } from '../chat-keys';
 import { chatAgent } from './chat-agent';
+import { cleanupTurn, refundTurnCredits } from './chat-turn-lifecycle';
 
-// Stream TTLs (seconds). The safety TTL prevents a crashed-worker stream living
-// forever. The post-terminal TTL is shortened right after a terminal is written,
-// then the key is proactively deleted — the TTL is purely a safety net.
+// Safety TTL (seconds) set on the Stream's first write so a crashed worker
+// cannot leave a dangling key. The lock/abort TTLs and the post-terminal
+// teardown live in chat-turn-lifecycle, the one home for the Turn control plane.
 const STREAM_SAFETY_TTL = 600;
-const STREAM_POST_TERMINAL_TTL = 60;
-
-async function refundIfNotAlready(
-  userId: string,
-  tier: GenerationJob['tier'],
-  turnId: string,
-) {
-  // SET NX: only the first caller for this turnId performs the refund.
-  const guardKey = chatRefundedKey(turnId);
-  const acquired = await redis.set(guardKey, '1', { NX: true });
-  if (!acquired) return false;
-  await credits.refund(userId, tier, 1);
-  return true;
-}
-
-async function releaseStream(conversationId: string, turnId: string) {
-  const streamKey = chatStreamKey(conversationId);
-  const inflightKey = chatInflightKey(conversationId);
-  // Shorten TTL before proactive delete — safety net if del fails.
-  await redis.expire(streamKey, STREAM_POST_TERMINAL_TTL);
-  await redis.del(streamKey);
-  // Release the lock only if it still points to this Turn (a new turn may have
-  // already acquired it).
-  const lockValue = await redis.get(inflightKey);
-  if (lockValue === turnId) {
-    await redis.del(inflightKey);
-  }
-}
 
 async function persistAssistantMessage(
   conversationId: string,
@@ -106,7 +73,7 @@ async function handleAbort(
     await redis.xAdd(streamKey, '*', { type: 'cancelled' });
   }
 
-  await releaseStream(conversationId, turnId);
+  await cleanupTurn(conversationId, turnId);
 }
 
 // BullMQ job processor — called by the worker entrypoint in each app
@@ -183,8 +150,8 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
       await redis.expire(chatStreamKey(conversationId), STREAM_SAFETY_TTL);
     }
     await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
-    await refundIfNotAlready(userId, tier, turnId);
+    await refundTurnCredits(userId, tier, turnId);
   } finally {
-    await releaseStream(conversationId, turnId);
+    await cleanupTurn(conversationId, turnId);
   }
 }
