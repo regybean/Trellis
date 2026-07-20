@@ -97,8 +97,8 @@ pnpm tidy                # Auto-fix first (lint:fix + format:fix) — the gate i
 pnpm quality-gate        # READ-ONLY verify, parallel: turbo(lint+format+typecheck+build+test) + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 
-The gate never mutates the tree — it verifies. Fixable lint/format issues make
-it **fail**; run `pnpm tidy`, then re-run (cache-warm, seconds). See [ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md).
+How and when to run these — incremental per-package checks and the end-of-task
+gate — is [docs/agents/quality-gate.md](docs/agents/quality-gate.md); the rationale is [ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md).
 
 > In a git worktree, dev/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. Tests are the exception: in a worktree `pnpm test` self-provisions isolated testcontainers (it's treated as CI — no `pnpm infra:up` needed) and the turbo cache is partitioned so a worktree run never replays the primary checkout's result. See [ADR 0019](docs/adr/0019-worktrees-mirror-ci-test-infra.md).
 

@@ -7,7 +7,7 @@ Trellis is built to be navigated and _extended_ by coding agents as much as by h
 The intended flow for substantial work is a planning skill, then isolated build agents, with a **human making the engineering decisions** at both ends:
 
 1. **Plan — `/grill-with-docs`.** A grilling session that stress-tests a plan against the repo's _existing domain language_ and documented decisions. It challenges fuzzy terms against the package `CONTEXT.md` files, cross-references the code, and **updates `CONTEXT.md` / writes ADRs inline** as decisions crystallise — so the documentation keeps pace with the design instead of lagging it. (This very document set was produced through it.)
-2. **Build in isolation — `/implement`.** Once the plan is settled, each task is launched into its own git **worktree** (`claude --worktree <feature-slug>`, one window per task) on a `worktree-<feature-slug>` branch; `/implement` builds it step-by-step and pushes a PR. Worktree creation bootstraps deps invisibly (SessionStart hook → `pnpm install`), so there's nothing to install by hand. The point is running **multiple agents at once, without them stepping on each other** — no central orchestrator, independence is the feature. See [worktree-workflow.md](worktree-workflow.md).
+2. **Build in isolation — `/implement`.** Once the plan is settled, each task runs in its own git **worktree**, one window per task, so **multiple agents work at once without stepping on each other** — no central orchestrator, independence is the feature. `/implement` builds it step-by-step and pushes a PR. See [worktree-workflow.md](worktree-workflow.md) for the mechanics and [dev-flow.md](dev-flow.md) for the full step-by-step relay (which skill, which model, where to compact).
 3. **Human in the loop.** Each window is interactive: the agent _asks_ whether to build in a worktree only _after_ the plan exists and scope is clear, and **never auto-merges** — the human reviews the diff in the VSCode GitHub Pull Requests extension and decides. Engineering judgement stays with the human; agents do the legwork in parallel.
 
 ```
@@ -29,7 +29,7 @@ Before exploring, agents consult the repo's own documentation — domain languag
 
 ## Tracking work
 
-- [**issue-tracker.md**](issue-tracker.md) — issues and PRDs live as markdown under `.scratch/<feature-slug>/`. (Skills like `/to-prd` and `/to-issues` write here.)
+- [**issue-tracker.md**](issue-tracker.md) — where issues and PRDs live and how skills read/write them (`/to-spec`, `/to-tickets`, `/triage`).
 - [**triage-labels.md**](triage-labels.md) — the five canonical triage roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) mapped to this repo's labels.
 
 ## The skills
@@ -41,8 +41,8 @@ The load-bearing ones for the loop above:
 | Skill                            | Role                                                                         |
 | -------------------------------- | ---------------------------------------------------------------------------- |
 | `/grill-with-docs`               | Plan: stress-test against domain language, update `CONTEXT.md` + ADRs inline |
-| `/implement`                     | Build the agreed plan (in an isolated worktree → PR, or commits on-branch)   |
-| `/to-prd`, `/to-issues`          | Turn context into a PRD / break a plan into grabbable issues                 |
+| `/implement`                     | Build the agreed plan in an isolated worktree → PR                           |
+| `/to-spec`, `/to-tickets`        | Turn context into a spec / break a plan into grabbable tickets               |
 | `/triage`                        | Move issues through the triage state machine                                 |
 | `/improve-codebase-architecture` | Find deepening/refactoring opportunities, informed by `CONTEXT.md` + ADRs    |
 | `/mastra`                        | Mastra framework reference for the RAG/agent work                            |
