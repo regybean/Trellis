@@ -7,7 +7,7 @@ import { redis } from '@acme/redis';
 import type { GenerationJob } from './chat-queue';
 import { chatAbortKey, chatStreamKey } from '../chat-keys';
 import { chatAgent } from './chat-agent';
-import { cleanupTurn, refundTurnCredits } from './chat-turn-lifecycle';
+import { finalizeTurn, refundTurnCredits } from './chat-turn-lifecycle';
 
 // Safety TTL (seconds) set on the Stream's first write so a crashed worker
 // cannot leave a dangling key. The lock/abort TTLs and the post-terminal
@@ -53,14 +53,16 @@ async function latestAssistantMessageId(
   return null;
 }
 
+// Persist any non-empty partial and emit the `cancelled` terminal. Teardown
+// (lock release, post-terminal TTL) is left to the processor's `finally`, which
+// runs on the abort `return` path too.
 async function handleAbort(
   conversationId: string,
-  turnId: string,
   userId: string,
   accumulated: string,
 ) {
   const streamKey = chatStreamKey(conversationId);
-  logger.info({ conversationId, turnId }, 'generation worker: abort received');
+  logger.info({ conversationId }, 'generation worker: abort received');
 
   if (accumulated) {
     await persistAssistantMessage(conversationId, userId, accumulated);
@@ -72,8 +74,6 @@ async function handleAbort(
   } else {
     await redis.xAdd(streamKey, '*', { type: 'cancelled' });
   }
-
-  await cleanupTurn(conversationId, turnId);
 }
 
 // BullMQ job processor — called by the worker entrypoint in each app
@@ -103,14 +103,12 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
     });
 
     let accumulated = '';
+    const aborted = async () => (await redis.get(abortKey)) === turnId;
 
     for await (const chunk of result.textStream) {
-      const abortSignal = await redis.get(abortKey);
-      if (abortSignal === turnId) {
-        await handleAbort(conversationId, turnId, userId, accumulated);
-        return;
-      }
-
+      // Accumulate and publish the delta first, THEN honour an abort — so the
+      // chunk in flight is included in the persisted partial rather than
+      // discarded. Checking before the append would drop the current token.
       accumulated += chunk;
       await redis.xAdd(streamKey, '*', { chunk });
 
@@ -120,6 +118,18 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
         await redis.expire(streamKey, STREAM_SAFETY_TTL);
         safetyTtlSet = true;
       }
+
+      if (await aborted()) {
+        await handleAbort(conversationId, userId, accumulated);
+        return;
+      }
+    }
+
+    // An abort that arrived before/around an empty stream is caught here, so it
+    // yields a `cancelled` terminal (empty ⇒ no messageId) rather than `done`.
+    if (await aborted()) {
+      await handleAbort(conversationId, userId, accumulated);
+      return;
     }
 
     // Clean completion: persist assistant message then emit done terminal.
@@ -152,6 +162,6 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
     await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
     await refundTurnCredits(userId, tier, turnId);
   } finally {
-    await cleanupTurn(conversationId, turnId);
+    await finalizeTurn(conversationId, turnId);
   }
 }

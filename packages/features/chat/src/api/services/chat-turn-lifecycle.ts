@@ -86,15 +86,23 @@ export async function refundTurnCredits(
   return true;
 }
 
-// Tear down a Turn's Redis footprint: shorten then delete the Stream, drop the
-// abort signal, and release the In-flight lock iff it still points to this Turn.
-// Runs on every terminal (worker `finally`) and on orphan cleanup
-// (chat.reconcileTurn); idempotent so both paths are safe.
+// Worker terminal path. The Stream is NOT deleted: it is shortened to the
+// post-terminal window so a client that reconnects *after* generation finished
+// still reads the terminal (done / cancelled / error) instead of an empty
+// stream, then it self-expires. Drops the abort signal and releases the lock.
+// (The spec's "proactively delete on terminal" is resolved toward TTL reaping —
+// an immediate delete would race the reconnecting reader and lose the terminal.)
+export async function finalizeTurn(conversationId: string, turnId: string) {
+  await redis.expire(chatStreamKey(conversationId), STREAM_POST_TERMINAL_TTL);
+  await redis.del(chatAbortKey(conversationId));
+  await releaseInflightLock(conversationId, turnId);
+}
+
+// Orphan cleanup path (chat.reconcileTurn). A crashed worker left a Stream with
+// no terminal and a stale lock; no reader is owed a terminal, so hard-delete the
+// Stream, drop the abort signal, and release the lock. Idempotent.
 export async function cleanupTurn(conversationId: string, turnId: string) {
-  const streamKey = chatStreamKey(conversationId);
-  // Shorten before the proactive delete so a failed `del` still expires.
-  await redis.expire(streamKey, STREAM_POST_TERMINAL_TTL);
-  await redis.del(streamKey);
+  await redis.del(chatStreamKey(conversationId));
   await redis.del(chatAbortKey(conversationId));
   await releaseInflightLock(conversationId, turnId);
 }

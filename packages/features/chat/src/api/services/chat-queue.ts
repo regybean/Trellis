@@ -13,12 +13,16 @@ export interface GenerationJob {
 // that may add to this queue; the sole-enqueuer constraint is structural.
 const generationQueue = createQueue<GenerationJob>(QUEUE_NAMES.GENERATION);
 
-// jobId = conversationId:turnId deduplicates enqueues at the BullMQ level,
+// jobId = conversationId.turnId deduplicates enqueues at the BullMQ level,
 // complementing the In-flight lock that enforces one-in-flight per Conversation
-// at the domain level.
+// at the domain level. BullMQ forbids ':' in a custom job id (it delimits its
+// own Redis key namespace), so the two UUIDs are joined with '.'.
+export const generationJobId = (conversationId: string, turnId: string) =>
+  `${conversationId}.${turnId}`;
+
 export const enqueueGenerationTurn = (job: GenerationJob) =>
   generationQueue.add('generate', job, {
-    jobId: `${job.conversationId}:${job.turnId}`,
+    jobId: generationJobId(job.conversationId, job.turnId),
     removeOnComplete: 1000,
     removeOnFail: 1000,
   });
