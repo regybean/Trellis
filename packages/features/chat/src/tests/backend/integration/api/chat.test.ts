@@ -12,11 +12,12 @@
  * back through the memory API rather than a chat-owned table.
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 
 import { memory } from '@acme/rag';
 import { nsKey, redis } from '@acme/redis';
 
+import type { StreamReaderEvent } from '../../../../api/schemas/chat-schema';
 import type { TestContextOptions } from '../../utils/test-context';
 import {
   chatAbortKey,
@@ -25,12 +26,11 @@ import {
   chatStreamKey,
 } from '../../../../api/chat-keys';
 import { appRouter } from '../../../../api/root';
-import { chatAgent } from '../../../../api/services/chat-agent';
 import {
   _generationQueue,
   generationJobId,
 } from '../../../../api/services/chat-queue';
-import { throwingAgentStream } from '../../setup';
+import { tailChatStream } from '../../../../api/services/chat-stream-reader';
 import {
   createTestChat,
   createTestChatWithMessages,
@@ -51,6 +51,20 @@ function findBySession<T extends { sessionId: string }>(
   sessionId: string,
 ) {
   return items.find((c) => c.sessionId === sessionId);
+}
+
+// Drive the pure reader to completion, returning the ordered { id, event }
+// entries it re-emitted. With no In-flight lock present the reader drains what
+// exists in the Stream and closes, so this resolves deterministically.
+async function drainReader(conversationId: string, lastEventId?: string) {
+  const out: { id: string; event: StreamReaderEvent }[] = [];
+  for await (const entry of tailChatStream(
+    conversationId,
+    lastEventId ?? null,
+  )) {
+    out.push(entry);
+  }
+  return out;
 }
 
 const baseCredits = {
@@ -109,27 +123,9 @@ describe('chatRouter', () => {
       });
     });
 
-    describe('rate limiting', () => {
-      it('rejects when tokens exhausted', async () => {
-        const caller = createCaller({
-          userId: createTestUserId(),
-          role: 'user',
-          tier: 'Basic',
-          credits: {
-            remaining: 0,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
-        });
-
-        await expect(
-          caller.chat.stream({
-            query: 'test',
-            sessionId: createTestSessionId(),
-          }),
-        ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
-      });
-    });
+    // Credit consumption moved into `chat.send` (rate-limit middleware is no
+    // longer wired onto any chat procedure after the durable-stream split); the
+    // consume gate is covered under `send` below.
 
     // Ownership is seated at the request pipeline by the conversation builders
     // (`ownedConversationProcedure` / `existingConversationProcedure`), so it is
@@ -221,7 +217,7 @@ describe('chatRouter', () => {
         ).rejects.toMatchObject({ code: 'NOT_FOUND' });
       });
 
-      it('enforces ownership before rate limiting on stream', async () => {
+      it('rejects reading a conversation owned by another user (byId builder)', async () => {
         const ownerUserId = createTestUserId('owner');
         const otherUserId = createTestUserId('other');
         const chat = await createTestChat({ userId: ownerUserId });
@@ -230,17 +226,13 @@ describe('chatRouter', () => {
           userId: otherUserId,
           role: 'user',
           tier: 'Basic',
-          credits: {
-            remaining: 0,
-            limit: 100,
-            resetAt: Date.now() + 86_400_000,
-          },
+          credits: baseCredits,
         });
 
-        // Zero credits would yield TOO_MANY_REQUESTS if rate limiting ran first;
-        // FORBIDDEN proves ownership is checked before credits are consumed.
+        // The pure reader is built on `ownedConversationByIdProcedure`; the
+        // ownership adapter rejects before the subscription generator runs.
         await expect(
-          caller.chat.stream({ query: 'test', sessionId: chat.sessionId }),
+          caller.chat.stream({ conversationId: chat.sessionId }),
         ).rejects.toMatchObject({ code: 'FORBIDDEN' });
       });
     });
@@ -658,95 +650,102 @@ describe('chatRouter', () => {
   });
 
   // ==========================================================================
-  // BUSINESS LOGIC: stream (subscription)
+  // BUSINESS LOGIC: stream — the pure reader (Seam 1)
+  //
+  // `chat.stream` is a stateless tail of the Redis Stream the Generation worker
+  // produces; it performs no writes, no LLM call, no lock operations. The
+  // observable contract is: given the Redis entries a worker would have written,
+  // the reader re-emits them in order, resumes strictly after `lastEventId`, and
+  // closes once it re-emits a terminal. The reader is exercised through its
+  // generator `tailChatStream` against real Redis — the tRPC wrapping (ownership
+  // + `tracked`) is covered by the ownership test above. With no In-flight lock
+  // present the reader drains what exists and closes, keeping these deterministic
+  // (no dependence on poll timing).
   // ==========================================================================
-  describe('stream', () => {
-    // chatAgent.stream is mocked in tests/backend/setup.ts to yield a fixed set
-    // of chunks; a fully-drained stream always accumulates this text.
-    const MOCKED_RESPONSE = 'Test response from mocked LLM.';
+  describe('stream (reader)', () => {
+    it('re-emits delta entries in order, then closes on the done terminal', async () => {
+      const conversationId = createTestSessionId();
+      const streamKey = chatStreamKey(conversationId);
+      await redis.xAdd(streamKey, '*', { chunk: 'Hello' });
+      await redis.xAdd(streamKey, '*', { chunk: ' world' });
+      await redis.xAdd(streamKey, '*', { type: 'done', messageId: 'msg-1' });
+      // A post-terminal entry must never be re-emitted — the reader closes first.
+      await redis.xAdd(streamKey, '*', { chunk: ' orphaned' });
 
-    it('streams the accumulated assistant response', async () => {
-      const userId = createTestUserId();
-      const sessionId = createTestSessionId();
-      // The real agent stamps the thread as a side effect of streaming; the
-      // mocked agent does not, so seed it here. Without it the post-stream
-      // `latestAssistantMessageId` recall throws "No thread found".
-      await createTestChat({ userId, sessionId });
-      const caller = createCaller({
-        userId,
-        role: 'user',
-        tier: 'Basic',
-        credits: {
-          remaining: 10,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
-      });
+      const entries = await drainReader(conversationId);
 
-      const stream = await caller.chat.stream({
-        query: 'What is in my documents?',
-        sessionId,
-      });
-
-      const chunks = [];
-      for await (const chunk of stream) {
-        chunks.push(chunk);
-      }
-
-      expect(chunks.length).toBeGreaterThan(0);
-      // The last message event carries the fully accumulated response, followed
-      // by a terminal `done` event.
-      const messageEvents = chunks.filter((c) => c.type === 'message');
-      expect(messageEvents.at(-1)).toMatchObject({
-        type: 'message',
-        acc: MOCKED_RESPONSE,
-      });
-      expect(chunks.at(-1)).toMatchObject({
-        type: 'done',
-        sessionId,
-      });
+      expect(entries.map((e) => e.event)).toEqual([
+        { type: 'delta', chunk: 'Hello' },
+        { type: 'delta', chunk: ' world' },
+        { type: 'done', messageId: 'msg-1' },
+      ]);
     });
 
-    it('surfaces a mid-stream failure as INTERNAL_SERVER_ERROR', async () => {
-      const userId = createTestUserId();
-      const sessionId = createTestSessionId();
-      const caller = createCaller({
-        userId,
-        role: 'user',
-        tier: 'Basic',
-        credits: {
-          remaining: 10,
-          limit: 100,
-          resetAt: Date.now() + 86_400_000,
-        },
+    it('resumes strictly after lastEventId (no duplicates, no gaps)', async () => {
+      const conversationId = createTestSessionId();
+      const streamKey = chatStreamKey(conversationId);
+      await redis.xAdd(streamKey, '*', { chunk: 'a' });
+      await redis.xAdd(streamKey, '*', { chunk: 'b' });
+      await redis.xAdd(streamKey, '*', { type: 'done', messageId: 'm' });
+
+      // First attach reads everything; capture the id of the first delta.
+      const first = await drainReader(conversationId);
+      const firstDeltaId = first[0]?.id;
+      expect(firstDeltaId).toBeDefined();
+
+      // Second attach resuming after the first delta sees only b + done.
+      const resumed = await drainReader(conversationId, firstDeltaId);
+      expect(resumed.map((e) => e.event)).toEqual([
+        { type: 'delta', chunk: 'b' },
+        { type: 'done', messageId: 'm' },
+      ]);
+    });
+
+    it('carries messageId on a cancelled terminal with a persisted partial', async () => {
+      const conversationId = createTestSessionId();
+      const streamKey = chatStreamKey(conversationId);
+      await redis.xAdd(streamKey, '*', { chunk: 'partial' });
+      await redis.xAdd(streamKey, '*', {
+        type: 'cancelled',
+        messageId: 'msg-partial',
       });
 
-      const querySpy = vi
-        .spyOn(chatAgent, 'stream')
-        .mockResolvedValue(
-          throwingAgentStream(
-            ['partial '],
-            new Error('LLM exploded mid-stream'),
-          ),
-        );
+      const entries = await drainReader(conversationId);
 
-      try {
-        await expect(
-          (async () => {
-            const stream = await caller.chat.stream({
-              query: 'Hello',
-              sessionId,
-            });
-            // Drain via the iterator (not for-await) so there's no loop binding
-            // to leave unused; `.done` is read off a variable, not the await.
-            const iterator = stream[Symbol.asyncIterator]();
-            let next = await iterator.next();
-            while (!next.done) next = await iterator.next();
-          })(),
-        ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
-      } finally {
-        querySpy.mockRestore();
-      }
+      expect(entries.map((e) => e.event)).toEqual([
+        { type: 'delta', chunk: 'partial' },
+        { type: 'cancelled', messageId: 'msg-partial' },
+      ]);
+    });
+
+    it('emits a cancelled terminal with null messageId when nothing was persisted', async () => {
+      const conversationId = createTestSessionId();
+      await redis.xAdd(chatStreamKey(conversationId), '*', {
+        type: 'cancelled',
+      });
+
+      const entries = await drainReader(conversationId);
+
+      expect(entries.map((e) => e.event)).toEqual([
+        { type: 'cancelled', messageId: null },
+      ]);
+    });
+
+    it('emits an error terminal carrying no messageId', async () => {
+      const conversationId = createTestSessionId();
+      await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
+
+      const entries = await drainReader(conversationId);
+
+      expect(entries.map((e) => e.event)).toEqual([{ type: 'error' }]);
+    });
+
+    it('closes with an empty stream when no Turn is in-flight and no Stream exists', async () => {
+      const conversationId = createTestSessionId();
+
+      const entries = await drainReader(conversationId);
+
+      expect(entries).toEqual([]);
     });
   });
 

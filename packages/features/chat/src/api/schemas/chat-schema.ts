@@ -26,14 +26,9 @@ export type SelectConversationSummary = z.infer<
 >;
 
 // The single source of truth for the maximum Message length. The server schema
-// (`ChatRequest`) and the client-side pre-send guard (`useChat`) both read this
-// one constant, so they cannot drift.
+// (`SendChatRequest`) and the client-side pre-send guard (`useChat`) both read
+// this one constant, so they cannot drift.
 export const MAX_MESSAGE_LENGTH = 10_000;
-
-export const ChatRequest = z.object({
-  query: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long'),
-  sessionId: z.uuid(),
-});
 
 export const DeleteChatRequest = z.object({
   sessionId: z.uuid(),
@@ -60,20 +55,22 @@ export const ReconcileTurnRequest = z.object({
   turnId: z.uuid(),
 });
 
-export type StreamChatEvent =
-  | {
-      type: 'message';
-      acc: string;
-      chunk: string;
-      ts: string;
-      sessionId: string;
-    }
-  | {
-      type: 'done';
-      ts: string;
-      sessionId: string;
-      // The id Mastra minted for the persisted assistant turn, or null when it
-      // could not be resolved. Lets the client attach feedback to the settled
-      // message without refetching the Conversation.
-      messageId: string | null;
-    };
+// Input to the pure `chat.stream` reader. `lastEventId` is populated by tRPC
+// from the SSE `Last-Event-ID` header on reconnect (the field name is fixed by
+// tRPC v11) — the client never sets it. Absent ⇒ tail from the head of the
+// Stream; present ⇒ resume strictly after that Redis Stream entry id.
+export const StreamReaderRequest = z.object({
+  conversationId: z.uuid(),
+  lastEventId: z.string().nullish(),
+});
+
+// What the reader re-emits per Redis Stream entry (via tRPC `tracked`). A
+// `delta` is a token the client appends; the three terminals mirror the worker's
+// terminal entries: `done` carries the persisted assistant `messageId`;
+// `cancelled` carries it iff a non-empty partial was persisted; `error` carries
+// none. The reader closes after re-emitting any terminal.
+export type StreamReaderEvent =
+  | { type: 'delta'; chunk: string }
+  | { type: 'done'; messageId: string | null }
+  | { type: 'cancelled'; messageId: string | null }
+  | { type: 'error' };

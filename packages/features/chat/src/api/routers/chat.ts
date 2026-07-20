@@ -1,26 +1,23 @@
-import { TRPCError } from '@trpc/server';
+import { tracked, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { logger } from '@acme/logger';
 
-import type { StreamChatEvent } from '../schemas/chat-schema';
 import {
-  ChatRequest,
   DeleteChatRequest,
   ReconcileTurnRequest,
   selectChatSchema,
   selectConversationSummarySchema,
   SendChatRequest,
   StopChatRequest,
+  StreamReaderRequest,
 } from '../schemas/chat-schema';
 import { SetFolderRequest } from '../schemas/folder-schema';
 import { selectMessageSchema } from '../schemas/message-schema';
-import { chatAgent } from '../services/chat-agent';
 import {
   createConversation,
   deleteConversation,
   getConversationUnchecked,
-  latestAssistantMessageId,
   listConversations,
   listConversationsForUser,
   persistUserMessage,
@@ -31,6 +28,7 @@ import {
   toMessages,
 } from '../services/chat-memory';
 import { enqueueGenerationTurn } from '../services/chat-queue';
+import { tailChatStream } from '../services/chat-stream-reader';
 import {
   acquireInflightLock,
   cleanupTurn,
@@ -47,72 +45,33 @@ import {
   ownedConversationByIdProcedure,
   ownedConversationProcedure,
   protectedProcedure,
-  rateLimit,
 } from '../trpc';
 import { assertFolderOwned, foldersRouter } from './folders';
 
 export const chatRouter = createTRPCRouter({
-  // Streamed query using async generator (tRPC v11 httpBatchStreamLink).
-  // Ownership is enforced by `ownedConversationProcedure` before any LLM call;
-  // a brand-new Conversation has no thread yet (`ctx.conversation` is null) and
-  // Mastra Memory stamps `resourceId = userId` as it persists the turn.
-  stream: ownedConversationProcedure
-    .use(rateLimit())
-    .input(ChatRequest)
-    .subscription(async function* ({ ctx, input }) {
-      const { userId } = ctx.auth;
-      const { sessionId } = input;
+  // Pure, stateless reader of the durable token Stream — no LLM call, no
+  // Message persistence, no lock operations (the Generation worker owns all of
+  // those; see chat-local ADR 0002). It tails `chatStreamKey(conversationId)`
+  // from `lastEventId` (or the head) and re-emits each Redis entry via tRPC v11
+  // `tracked(entryId, event)`, so the entry id becomes the SSE `Last-Event-ID`
+  // and a reconnecting client resumes exactly where it left off. Ownership is
+  // asserted by the builder; an absent thread (no Turn ever started) drains to
+  // an empty stream and closes. Closes on a terminal (done/cancelled/error).
+  stream: ownedConversationByIdProcedure
+    .input(StreamReaderRequest)
+    .subscription(async function* ({ ctx, input, signal }) {
+      const { conversationId, lastEventId } = input;
+      logger.info(
+        { userId: ctx.auth.userId, conversationId, lastEventId },
+        'chat.stream: reader attached',
+      );
 
-      logger.info({ userId, sessionId }, 'Starting streamed chat query');
-
-      try {
-        const result = await chatAgent.stream(input.query, {
-          memory: { thread: sessionId, resource: userId },
-        });
-
-        let accumulatedResponse = '';
-
-        for await (const chunk of result.textStream) {
-          accumulatedResponse += chunk;
-
-          const streamEvent: StreamChatEvent = {
-            type: 'message',
-            acc: accumulatedResponse,
-            chunk,
-            ts: Date.now().toString(),
-            sessionId,
-          };
-
-          yield { ...streamEvent };
-        }
-
-        // Drain the stream so Mastra has finished persisting the assistant turn
-        // before we read back its minted id. This await is load-bearing: the
-        // `mastra_messages` row may not exist until the stream fully resolves.
-        await result.text;
-
-        const messageId = await latestAssistantMessageId(sessionId, userId);
-
-        const doneEvent: StreamChatEvent = {
-          type: 'done',
-          ts: Date.now().toString(),
-          sessionId,
-          messageId,
-        };
-
-        yield { ...doneEvent };
-
-        logger.info({ userId, sessionId }, 'Completed streamed chat query');
-      } catch (error) {
-        logger.error(
-          { error, userId, sessionId },
-          'Streamed chat query failed',
-        );
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Failed to stream chat response',
-          cause: error,
-        });
+      for await (const { id, event } of tailChatStream(
+        conversationId,
+        lastEventId ?? null,
+        signal,
+      )) {
+        yield tracked(id, event);
       }
     }),
 
