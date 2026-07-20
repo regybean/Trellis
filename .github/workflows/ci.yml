@@ -53,6 +53,7 @@ jobs:
           DB_NAME: stub
           DB_VECTOR_NAME: stub
           NEXT_PUBLIC_WEBAPP: stub
+          REDIS_URL: redis://localhost:6379
           LLM_PROVIDER: ollama
           EMBED_PROVIDER: ollama
           EMBED_DIMENSIONS: 768
@@ -162,6 +163,7 @@ jobs:
           DB_NAME: stub
           DB_VECTOR_NAME: stub
           NEXT_PUBLIC_WEBAPP: stub
+          REDIS_URL: redis://localhost:6379
           LLM_PROVIDER: ollama
           EMBED_PROVIDER: ollama
           EMBED_DIMENSIONS: 768
