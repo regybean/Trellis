@@ -20,10 +20,11 @@ differently:
 
 - **Human (`claude --worktree`):** the `SessionStart`/`startup` hook fires
   `scripts/bootstrap-worktree.sh` automatically.
-- **Agent (`EnterWorktree` tool):** **no hook fires** on this path (Claude Code
-  fires `WorktreeCreate` only for `--worktree` / subagent `isolation: "worktree"`,
-  not the `EnterWorktree` tool). So `/implement` runs
-  `scripts/bootstrap-worktree.sh` itself as an explicit step after entering.
+- **Agent (`EnterWorktree` tool):** don't rely on a hook here. Claude Code's
+  documented `WorktreeCreate` trigger is `--worktree` / subagent
+  `isolation: "worktree"` only; the `EnterWorktree` tool path isn't listed (and
+  `SessionStart` is process-scoped, so it doesn't fire either). So `/implement`
+  runs `scripts/bootstrap-worktree.sh` itself as an explicit step after entering.
 
 The script is idempotent — a no-op once `node_modules` exists.
 
