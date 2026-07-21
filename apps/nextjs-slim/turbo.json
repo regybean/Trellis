@@ -8,6 +8,11 @@
       "outputs": [".next/**", "!.next/cache/**", "next-env.d.ts"]
     },
     "dev": {
+      "persistent": true,
+      "with": ["dev:worker"]
+    },
+    "dev:worker": {
+      "cache": false,
       "persistent": true
     },
     "typecheck": {

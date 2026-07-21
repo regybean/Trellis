@@ -79,6 +79,7 @@ catalog:
   superjson: 2.2.2
   tailwind-merge: ^3.4.0
   tailwindcss: ^4.1.17
+  tsx: ^4.21.0
   turbo: ^2.7.5
   typescript: ^5.9.3
   uuid: ^13.0.0

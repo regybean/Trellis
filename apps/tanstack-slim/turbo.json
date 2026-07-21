@@ -8,6 +8,11 @@
       "outputs": [".nitro/**", ".output/**", ".tanstack/**"]
     },
     "dev": {
+      "persistent": true,
+      "with": ["dev:worker"]
+    },
+    "dev:worker": {
+      "cache": false,
       "persistent": true
     }
   }
