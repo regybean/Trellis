@@ -7,7 +7,7 @@ fakes the network at the **HTTP boundary** with MSW (`msw-trpc` +
 and it asserts the **observable outcome** (rendered DOM, returned hook state,
 cache contents), never `expect(mock).toHaveBeenCalledWith(...)`. This is the
 frontend counterpart to the backend's one principle ([docs/TESTING.md](../TESTING.md)):
-*test the contract, not the internals.*
+_test the contract, not the internals._
 
 ## Why the network boundary is the only seam
 
@@ -24,7 +24,7 @@ leaving the DOM. One is a change-detector; the other proves the contract.
 Faking at the HTTP boundary is possible because each feature's
 `trpc/react.tsx` already switches to a plain `httpLink` under `NODE_ENV==='test'`
 specifically so MSW can intercept it. The infrastructure was there; the doctrine
-makes it the *only* way in.
+makes it the _only_ way in.
 
 ## "integration" means something weaker on the frontend
 
@@ -47,7 +47,7 @@ fidelity the frontend tests don't have.
 ## Toasts are output, not an external
 
 The backend mocks Stripe/S3/Bedrock because they are network side-effects it
-*cannot run*. A toast is not that — `react-toastify` renders in jsdom. So the
+_cannot run_. A toast is not that — `react-toastify` renders in jsdom. So the
 doctrine forbids mocking it and requires asserting the message text through a
 real `<ToastContainer />` in the DOM. This keeps one consistent rule ("assert
 what renders") rather than carving a mock-call exception that reopens the door
@@ -56,6 +56,40 @@ in jsdom — `next/navigation`, `@acme/auth` — remain mockable, mirroring the
 backend's blessed mock list (ADR 0014); prefer observable navigation
 (`<Link href>` in the DOM) over asserting an imperative `router.push`.
 
+## SSE subscriptions: assert the mutations, not the stream
+
+`@acme/chat`'s durable-stream flow (spec #44) splits a chat turn across a tRPC
+**subscription** (`chat.stream`, a pure SSE reader of a Redis Stream) and three
+**mutations** (`chat.send` / `chat.stop` / `chat.reconcileTurn`). The subscription
+is where this doctrine's HTTP-boundary fake stops working: **MSW cannot drive a
+tRPC SSE subscription in jsdom.** Under `NODE_ENV==='test'` the client routes
+subscriptions through `httpSubscriptionLink` (query/mutation still go through the
+MSW-interceptable `httpLink`), and an enabled reader only ever transitions
+`connecting → error` — it never delivers `onData` deltas/terminals or a clean
+`idle` close. So token append and the `done`/`cancelled`/`error` terminal
+outcomes are **not assertable** in a frontend test.
+
+The workaround follows the layer split the slice contract already draws:
+
+- **Mutations are the contract, and they are MSW-interceptable.** Assert
+  `chat.send` (`accepted` → in-flight + optimistic prepend; `alreadyInflight` →
+  attach, no re-send), `chat.stop` (settles), and `chat.reconcileTurn` (refund)
+  through the real hook in `integration/hooks/` — exactly as any other mutation.
+- **Streaming outcomes are documented, not asserted.** The token-append /
+  terminal cases live as notes in the component test
+  (`integration/components/chat-assistant.test.tsx`), which asserts only the
+  synchronous optimistic state `send()` writes before the reader ever resolves.
+- **The orphan path bridges both.** The reader closing _without_ a terminal is a
+  real production signal (a crashed worker), and it maps onto the one lifecycle
+  jsdom does produce: the subscription's unrecoverable `error`. The hook treats
+  "closed, owned turn, no terminal" as an orphan and fires `chat.reconcileTurn`,
+  so its refund toast **is** asserted here — through the real `<ToastContainer />`,
+  never a mocked `toast` (this is why the chat test wrapper now mounts one).
+
+This keeps the rule intact — assert what renders, fake only at the HTTP boundary
+— by scoping the un-fakeable seam (the SSE transport) to notes and pushing every
+assertable edge onto the mutations and the DOM.
+
 ## Enforcement
 
 The structural rules are machine-checked; the assertion rule follows from them:
@@ -63,7 +97,7 @@ The structural rules are machine-checked; the assertion rule follows from them:
 - **ESLint** (`no-restricted-syntax`, `tooling/eslint/base.ts`, scoped to
   `**/tests/frontend/**`) bans `vi.mock` of `trpc/react`, `../hooks/*`, and
   `react-toastify`. Because the data-layer spy can no longer be created, a
-  data-layer `toHaveBeenCalledWith(...)` becomes *impossible to write* — the
+  data-layer `toHaveBeenCalledWith(...)` becomes _impossible to write_ — the
   precise ban subsumes a blunt "no mock-call assertions" rule without
   false-positiving on legitimate framework-external assertions.
 - **`scripts/check-test-policy.mjs`** requires every `*.test.tsx` to sit under

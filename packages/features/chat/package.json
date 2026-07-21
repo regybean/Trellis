@@ -29,6 +29,7 @@
     "msw": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
+    "react-toastify": "catalog:",
     "server-only": "catalog:",
     "superjson": "catalog:",
     "zod": "catalog:"

@@ -3,7 +3,7 @@
 
 import type React from 'react';
 
-import { Card, CardContent, CardFooter, MessageInput } from '@acme/ui';
+import { Button, Card, CardContent, CardFooter, MessageInput } from '@acme/ui';
 
 import type { Message } from '../api/schemas/message-schema';
 import { getAppInfo } from '../data/app-info';
@@ -34,8 +34,10 @@ export function ChatAssistant({
   const {
     messages,
     isLoading,
+    isSending,
     isHistoryLoading,
     send: handleSend,
+    stop,
     scrollToBottomRef,
   } = useChat(
     [
@@ -81,14 +83,30 @@ export function ChatAssistant({
               </span>
             </div>
           </div>
-          <MessageInput
-            onSend={handleSend}
-            isLoading={isLoading}
-            placeholder="Type your message..."
-            inputTestId="chat-input"
-            buttonTestId="chat-send-button"
-            spinnerTestId="chat-spinner"
-          />
+          <div className="flex w-full items-center gap-2">
+            <MessageInput
+              onSend={handleSend}
+              isLoading={isLoading}
+              placeholder="Type your message..."
+              inputTestId="chat-input"
+              buttonTestId="chat-send-button"
+              spinnerTestId="chat-spinner"
+            />
+            {/* Stop is available only while a Turn is in-flight — it cancels
+                generation (chat.stop) without blocking the still-editable
+                input, so the user can draft their next message. */}
+            {isSending && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={stop}
+                aria-label="Stop generating"
+                data-testid="chat-stop-button"
+              >
+                Stop
+              </Button>
+            )}
+          </div>
         </CardFooter>
       </Card>
       <ChatFooter />
