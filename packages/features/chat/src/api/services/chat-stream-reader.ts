@@ -2,6 +2,7 @@ import { redis } from '@acme/redis';
 
 import type { StreamReaderEvent } from '../schemas/chat-schema';
 import { chatStreamKey } from '../chat-keys';
+import { streamReaderEventSchema } from '../schemas/chat-schema';
 import { readInflightTurn } from './chat-turn-lifecycle';
 
 // Poll cadence while a Turn is still in-flight. The reader tails the Redis
@@ -18,7 +19,12 @@ interface ReaderEntry {
 }
 
 // A Redis Stream entry arrives as a flat [k, v, k, v, ...] field array. Delta
-// entries carry only `chunk`; terminals carry `type` (+ optional `messageId`).
+// entries carry only `chunk` (no `type`); terminals carry `type` (+ optional
+// `messageId`). We normalise to the discriminated shape, then validate through
+// the shared zod schema: an absent `type` is a delta, but a *present* `type`
+// MUST be a known terminal. A producer typo (`type: 'don'`) therefore throws
+// here rather than degrading to a non-terminal delta that keeps the reader
+// polling forever.
 function parseEntry(fields: string[]): StreamReaderEvent {
   const rec = new Map<string, string>();
   for (let i = 0; i + 1 < fields.length; i += 2) {
@@ -27,12 +33,11 @@ function parseEntry(fields: string[]): StreamReaderEvent {
     if (key !== undefined && value !== undefined) rec.set(key, value);
   }
   const type = rec.get('type');
-  if (type === 'done')
-    return { type: 'done', messageId: rec.get('messageId') ?? null };
-  if (type === 'cancelled')
-    return { type: 'cancelled', messageId: rec.get('messageId') ?? null };
-  if (type === 'error') return { type: 'error' };
-  return { type: 'delta', chunk: rec.get('chunk') ?? '' };
+  const candidate =
+    type === undefined
+      ? { type: 'delta', chunk: rec.get('chunk') ?? '' }
+      : { type, messageId: rec.get('messageId') ?? null };
+  return streamReaderEventSchema.parse(candidate);
 }
 
 // A delay that also settles early on abort, so a disconnecting client tears the

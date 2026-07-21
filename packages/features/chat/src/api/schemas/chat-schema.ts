@@ -64,13 +64,20 @@ export const StreamReaderRequest = z.object({
   lastEventId: z.string().nullish(),
 });
 
-// What the reader re-emits per Redis Stream entry (via tRPC `tracked`). A
-// `delta` is a token the client appends; the three terminals mirror the worker's
-// terminal entries: `done` carries the persisted assistant `messageId`;
-// `cancelled` carries it iff a non-empty partial was persisted; `error` carries
-// none. The reader closes after re-emitting any terminal.
-export type StreamReaderEvent =
-  | { type: 'delta'; chunk: string }
-  | { type: 'done'; messageId: string | null }
-  | { type: 'cancelled'; messageId: string | null }
-  | { type: 'error' };
+// What the reader re-emits per Redis Stream entry (via tRPC `tracked`). Derived
+// from zod like every other type in this file, so the Generation worker
+// (producer) and this reader (consumer) share one contract — and a malformed
+// terminal is rejected at parse time rather than silently read as a delta (a
+// non-terminal, which would keep the reader polling forever). A `delta` is a
+// token the client appends; the three terminals mirror the worker's terminal
+// entries: `done` carries the persisted assistant `messageId`; `cancelled`
+// carries it iff a non-empty partial was persisted; `error` carries none. The
+// reader closes after re-emitting any terminal.
+export const streamReaderEventSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('delta'), chunk: z.string() }),
+  z.object({ type: z.literal('done'), messageId: z.string().nullable() }),
+  z.object({ type: z.literal('cancelled'), messageId: z.string().nullable() }),
+  z.object({ type: z.literal('error') }),
+]);
+
+export type StreamReaderEvent = z.infer<typeof streamReaderEventSchema>;

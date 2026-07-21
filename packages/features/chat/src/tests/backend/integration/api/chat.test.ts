@@ -740,6 +740,15 @@ describe('chatRouter', () => {
       expect(entries.map((e) => e.event)).toEqual([{ type: 'error' }]);
     });
 
+    it('rejects a malformed terminal rather than misclassifying it as a delta', async () => {
+      // A producer typo (`type: 'don'`) must surface, not silently degrade to a
+      // non-terminal delta — which would leave a live reader polling forever.
+      const conversationId = createTestSessionId();
+      await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'don' });
+
+      await expect(drainReader(conversationId)).rejects.toThrow();
+    });
+
     it('closes with an empty stream when no Turn is in-flight and no Stream exists', async () => {
       const conversationId = createTestSessionId();
 
