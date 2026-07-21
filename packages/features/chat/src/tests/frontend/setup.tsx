@@ -2,6 +2,7 @@ import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
+import { ToastContainer } from 'react-toastify';
 import superjson from 'superjson';
 
 import type { AppRouter } from '../../api/root';
@@ -16,10 +17,15 @@ import '@testing-library/jest-dom';
 
 /**
  * Providers every chat frontend test renders under: the feature's tRPC +
- * React Query provider. Chat uses no toasts so no ToastContainer is needed.
+ * React Query provider, plus a real `<ToastContainer />` so the orphan-reconcile
+ * "credits refunded" toast is asserted as DOM text (ADR 0018), never via a
+ * mocked `toast`.
  */
 export const Providers = ({ children }: { children: ReactNode }) => (
-  <TRPCReactProvider>{children}</TRPCReactProvider>
+  <TRPCReactProvider>
+    {children}
+    <ToastContainer />
+  </TRPCReactProvider>
 );
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */

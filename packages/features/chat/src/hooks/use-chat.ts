@@ -210,20 +210,31 @@ export function useChat(
     ),
   );
 
-  // Initiate a Turn (T4 `chat.send`). Mints the `turnId`, opens the reader, and
-  // fires the mutation. `accepted` ⇒ we own the Turn; `alreadyInflight` ⇒
-  // another tab is already generating, so we stay a pure reader (disarm
-  // reconcile) rather than re-sending. A send failure closes the reader.
+  // Open the pure-reader subscription for a now-confirmed Turn. `ownedTurnId` is
+  // the `turnId` when we own the Turn (`accepted`), or null when we only attached
+  // to another tab's in-flight Turn (`alreadyInflight`) — only the owner holds a
+  // turnId to reconcile/refund. Opening here (not on send) means the reader's
+  // eventual close always sees the correct ownership, with no send/close race.
+  const openReader = (query: string, ownedTurnId: string | null) => {
+    terminalReceivedRef.current = false;
+    inflightTurnIdRef.current = ownedTurnId;
+    streamingRef.current = true;
+    setQueryInput(query);
+  };
+
+  // Initiate a Turn (T4 `chat.send`). `accepted` ⇒ we own the Turn and open the
+  // reader armed for reconcile; `alreadyInflight` ⇒ attach as a pure reader
+  // without re-sending. A send failure (e.g. insufficient credits) opens no
+  // reader and surfaces the error on the pending assistant message.
   const sendMutation = useMutation(
     trpc.chat.send.mutationOptions({
-      onSuccess: (result) => {
-        if (result.status === 'alreadyInflight')
-          inflightTurnIdRef.current = null;
+      onSuccess: (result, variables) => {
+        openReader(
+          variables.query,
+          result.status === 'accepted' ? variables.turnId : null,
+        );
       },
       onError: (error) => {
-        streamingRef.current = false;
-        inflightTurnIdRef.current = null;
-        setQueryInput(undefined);
         updateLastMessageWithError();
         genericErrorHandle(error);
       },
@@ -285,13 +296,13 @@ export function useChat(
     // Surface the Conversation in the history sidebar right away.
     upsertConversationInList();
 
-    // Arm the Turn and open the reader, then initiate generation.
-    const turnId = crypto.randomUUID();
-    terminalReceivedRef.current = false;
-    inflightTurnIdRef.current = turnId;
-    streamingRef.current = true;
-    setQueryInput(text);
-    sendMutation.mutate({ query: text, conversationId: sessionId, turnId });
+    // Initiate generation; the reader opens once `chat.send` confirms the Turn.
+    // `isSending` stays true through the pending mutation (send-gate closed).
+    sendMutation.mutate({
+      query: text,
+      conversationId: sessionId,
+      turnId: crypto.randomUUID(),
+    });
   };
 
   // Cancel the in-flight Turn (T4 `chat.stop`). The worker also emits a
