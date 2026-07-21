@@ -8,11 +8,11 @@ disable-model-invocation: true
 
 ## 0. Re-enter the worktree
 
-`/implement` retires its worktree once the PR is open, so the branch may live only on the remote. If the session isn't already in the PR's worktree, recreate it from the remote branch and switch in per [worktree-workflow.md](docs/agents/worktree-workflow.md#re-enter-to-iterate). Skip when you're already inside it.
+The PR's worktree was retired once the PR opened, so its branch may live only on the remote (or its dir may still be on disk). Get into it per [worktree-workflow.md](docs/agents/worktree-workflow.md#re-enter-to-iterate); skip when the session is already inside it.
 
 ## 1. Read the review
 
-Read the PR's unresolved review threads (see pull-requests.md). If no open PR exists for this branch, stop and tell the user. For each thread: identify the file, context, and change needed.
+Read the PR's unresolved review feedback (see pull-requests.md) — inline threads _and_ the automated `/code-review` comment; an empty thread list is not "no review". If no open PR exists and neither source has feedback, stop and tell the user. For each item: identify the file, context, and change needed.
 
 ## 2. Implement
 
@@ -24,4 +24,8 @@ Verify per [quality-gate.md](docs/agents/quality-gate.md). Don't move on until i
 
 ## 4. Reply
 
-Push, re-request the original reviewers, and comment a bullet list of each thread addressed and what changed (see pull-requests.md).
+Push, re-request the original reviewers (skip when the feedback was an automated comment — no formal reviewer to re-request), and comment a bullet list of each item addressed and what changed (see pull-requests.md).
+
+## 5. Retire
+
+Once the fixes are pushed, the worktree has served its purpose — retire it per [worktree-workflow.md](docs/agents/worktree-workflow.md#retire), leaving the session back in the primary checkout.

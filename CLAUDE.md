@@ -116,45 +116,6 @@ tooling → platform → shared → features → apps
 - **features**: Domain modules. Depends on shared, platform, and tooling only.
 - **apps**: Applications. Depends on all layers; own their shell/chrome. The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)) — the boundary tag is `app`.
 
-### tRPC Architecture (v11)
-
-Each feature defines its own router in `src/api/root.ts` and tRPC context in `src/api/trpc.ts` (includes Clerk auth, db clients, billing tier, Redis, OTel).
-
-Features export `TRPCReactProvider` from `src/trpc/react.tsx`, routing to `/api/trpc/<feature-name>`. Apps wire the Next.js handler at `src/app/api/trpc/<feature-name>/[trpc]/route.ts`.
-
-**Usage patterns**:
-
-```typescript
-// Client: use useTRPC() from feature's trpc/react.tsx
-const trpc = useTRPC();
-const query = useQuery(trpc.jobs.list.queryOptions(input, options));
-const mutation = useMutation(trpc.jobs.create.mutationOptions(options));
-const subscription = useSubscription(
-  trpc.chat.stream.subscriptionOptions(input),
-);
-```
-
-**Key principles**:
-
-- Business logic in `src/hooks/` within feature packages
-- Components UI-focused only — don't call tRPC directly from components
-- Server-side: import from `src/trpc/server.tsx` for direct tRPC calls
-
-**Injection seams** — apps own these, packages must not implement them:
-
-- **Auth**: resolved at the app boundary (Clerk for full apps; constant `LOCAL_PRINCIPAL` for slim apps), injected as `{ auth, user }` into `createTRPCContext`. Packages never import `@clerk/nextjs/server` or `@clerk/tanstack-react-start/server`.
-- **Entitlements**: injected as `subscriptionsEntitlements` (full) or `unlimitedEntitlements` (slim) — no implicit default; a missing provider silently grants Pro access to every caller.
-- **Billing context**: fetched eagerly from Redis on every procedure — there is no per-feature opt-out.
-- **Telemetry**: `createTelemetryContext()` returns a noop; OTel SDK is initialized per-app in `instrumentation.ts` (Next.js) or a Nitro plugin (TanStack Start).
-
-### Rate Limiting
-
-```typescript
-.use(rateLimit({ tokens: 5 })) // Consumes tokens per request
-```
-
-Tokens are tier-based (free/standard/pro) stored in Redis. Available via tRPC middleware.
-
 ### Redis
 
 All keys must be created via `nsKey(key)` from `@acme/redis` — produces a branded `NamespacedKey` type; passing a raw `string` is a compile error. Key builders (e.g. `creditKey`) live in domain packages, not in `@acme/redis`. Namespace is derived from `NEXT_PUBLIC_WEBAPP`.
@@ -163,49 +124,9 @@ All keys must be created via `nsKey(key)` from `@acme/redis` — produces a bran
 
 All app-owned tables live under `pgSchema(NEXT_PUBLIC_WEBAPP)` — per-app Postgres schema isolation. `@acme/db` exports the sole connection factory (`createDb()`); features import it rather than declaring their own DB env. Migrations are app-owned (`db:push` / `db:migrate` run from the app, not the platform).
 
-### RAG / Mastra
-
-`@acme/rag` provides document upload, pgvector storage, retrieval, and Mastra Memory — wired to AWS Bedrock via `@acme/models`. Chat Agent lives in `@acme/chat`; `pnpm studio` / `pnpm lint:mastra` target `packages/features/chat/src/mastra`. See [ADR 0002](docs/adr/0002-mastra-rag-and-memory.md).
-
-Critical constraints:
-
-- `mastra_*` tables are DDL-owned by Mastra at runtime — **never manage them with drizzle-kit**; `db:push` explicitly scopes them out.
-- `ensureVectorIndex()` runs at app boot (`instrumentation.ts`) — PgVector creates the table lazily on first upsert, so reads break on a fresh DB without it.
-- Thread ownership is a rule not a DB constraint — `assertThreadOwned` (from `@acme/rag`) is reused by both `@acme/chat` and `@acme/feedback`; Mastra rows carry no row-level auth.
-- `EMBED_DIMENSIONS` in `@acme/models` is the single source of truth for both the PgVector index size and the Drizzle mirror — change it in one place.
-- OTel spans are created automatically for all tRPC procedures via middleware — use `ctx.telemetry.set()`, `.event()`, `.span()` inside procedures.
-
 ### Feature package structure
 
-For the full anatomy of a `packages/features/*` package — directory layout, the two contracts (tRPC procedure / hook), exports, and the test taxonomy — see [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md). Scaffold new features with `pnpm turbo gen feature`, never by hand.
-
-### Slice contract enforcement
-
-Inside `packages/features/*/src/components/`, components **must not** import a
-feature's tRPC client (`../trpc/react`, `../trpc/server`) or `@trpc/*`. All tRPC
-calls belong in `src/hooks/`; components stay presentational. Enforced by ESLint
-(`no-restricted-imports` on component paths in `tooling/eslint/base.ts`).
-
-### Vendor-type containment
-
-Framework/vendor SDKs are contained to named homes, enforced by ESLint
-(`no-restricted-imports`, `tooling/eslint/base.ts`). Default: every package bans
-them; blessed homes opt back in via `containmentOverride(...)` in their own
-`eslint.config.ts`.
-
-- **`@mastra/*`** — only `@acme/rag` and `@acme/chat` (ADR 0002).
-- **Framework-specific Clerk** (`@clerk/nextjs/server`,
-  `@clerk/tanstack-react-start/server`) — only apps and `@acme/auth` (ADR 0003).
-  The one blessed feature-level exception is `@acme/billing`'s `server-next`
-  adapter (`stripe-success-handler.tsx`), which carries an inline
-  `eslint-disable` citing ADR 0003. Type-only Clerk imports are allowed.
-
-Adding a new blessed home means editing that package's `eslint.config.ts`, not
-weakening the default.
-
-`stripe` is not guarded by ESLint — it is contained to `@acme/billing` by the
-dependency graph (billing is the only package that declares it), which `knip`
-and `syncpack` keep honest.
+See [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md).
 
 ### Package exports convention
 
@@ -215,29 +136,7 @@ enforced by `scripts/check-exports.mjs` (hard-fails `pnpm lint`).
 `tooling/*` config packages are out of scope. See
 [ADR 0015](docs/adr/0015-package-exports-convention.md).
 
-- **Entry shape:** `{ "types": "./dist/<name>.d.ts", "default": "./src/<name>.ts" }`
-  (JIT source, compiled types). Never point `default` at `dist` or `types` at `src`.
-- **Bounded keys:** roles `.`, `./server`, `./schema`, `./env`, `./testing` +
-  registered seams (`./handler`, `./register`, `./server-next`,
-  `./ownership-trpc`). A new key is a deliberate edit to `ALLOWED_KEYS` in the
-  checker.
-- **Concern-driven presence:** export a role when the package has that concern,
-  not when a consumer imports it today; never fabricate empty modules.
-- **Naming:** role barrel (≥2 re-exports) → `index-<role>.ts`; single-concern
-  module → `<name>.ts`.
-- **`sideEffects`:** every package declares it. `false` for pure/leaf packages;
-  array form listing files that hold a bare `import 'server-only'` guard or a
-  side-effecting entry (so tree-shaking can't elide them).
-
 ## Development Patterns
-
-### Adding a New Package
-
-Always use the turbo generator — never create packages manually:
-
-```bash
-pnpm turbo gen
-```
 
 ### Adding a New Feature
 
@@ -254,11 +153,11 @@ Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.js
 
 ### Issue tracker
 
-Issues live as local markdown files under `.scratch/`. See `docs/agents/issue-tracker.md`.
+See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default canonical label strings (needs-triage, needs-info, ready-for-agent, ready-for-human, wontfix). See `docs/agents/triage-labels.md`.
+See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
@@ -266,7 +165,7 @@ Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT
 
 ### Worktree workflow
 
-Large planning-skill work is built in an isolated worktree → PR, reviewed in the VSCode GitHub Pull Requests extension. One window per task for parallel isolated agents: launch `claude --worktree <feature-slug>` (a SessionStart hook bootstraps deps invisibly), then drive `/implement`. See `docs/agents/worktree-workflow.md`.
+See `docs/agents/worktree-workflow.md`.
 
 ## Engineering direction
 

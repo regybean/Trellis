@@ -44,21 +44,30 @@ job. Retire it immediately so parallel trees don't pile up:
   standing authorization `ExitWorktree` asks for — don't wait to be re-prompted.
 - **Human (`claude --worktree`):** removed on session exit (you're prompted to
   keep or remove).
+- **Agent (re-entered by `path`, e.g. `/address-review`):** `ExitWorktree` will
+  not remove a `path`-entered worktree — call it with `action: "keep"` to return
+  to the primary checkout, then `git worktree remove --force
+.claude/worktrees/<feature-slug>` to delete it. Same safety as above: the
+  fixes are already pushed, so nothing local is lost.
 
 Only retire once the push has succeeded and the PR is confirmed open — never on
 an unpushed branch.
 
 ## Re-enter to iterate
 
-A retired worktree's branch lives only on the remote. To pick the work back up
-(to review it or address review comments), recreate a worktree from that branch
-rather than starting fresh from `origin/HEAD`:
+A retired worktree's branch lives only on the remote — but its worktree dir may
+also still be on disk from an earlier pass. Check before recreating, rather than
+starting fresh from `origin/HEAD`:
 
 ```bash
 git fetch origin
+git worktree list   # already listed? reuse it — skip the add
+# only when absent:
 git worktree add ".claude/worktrees/<feature-slug>" "worktree-<feature-slug>"
 ```
 
 Then switch in with the `EnterWorktree` tool's `path` argument and bootstrap as
-above. A worktree entered by `path` is left on disk by `ExitWorktree` (use
-`action: "keep"`); remove it with `git worktree remove` once the PR is merged.
+above — unless the session is already inside it (`EnterWorktree` errors on the
+current working directory), in which case skip both. Retire it when done per
+[Retire](#retire) (the `path`-entered case); the fixes are on the remote, so
+there's no reason to leave it lying around.
