@@ -1038,6 +1038,9 @@ importers:
       react-dom:
         specifier: 'catalog:'
         version: 19.2.3(react@19.2.3)
+      react-toastify:
+        specifier: 'catalog:'
+        version: 11.0.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       server-only:
         specifier: 'catalog:'
         version: 0.0.1

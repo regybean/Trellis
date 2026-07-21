@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSubscription } from '@trpc/tanstack-react-query';
+import { toast } from 'react-toastify';
 
 import { useGenericErrorHandler } from '@acme/hooks';
 
@@ -20,11 +21,27 @@ export function useChat(
   // no effect copying server data into state. Sending seeds `localMessages` from
   // the current `base`, after which streaming mutates it directly.
   const [localMessages, setLocalMessages] = useState<Message[] | null>(null);
+  // The in-flight query text. Non-null ⇒ a Turn is in-flight from this client
+  // and the pure-reader subscription is open; drives both `enabled` and the
+  // send-gate. Cleared to `undefined` when the Turn settles.
   const [queryInput, setQueryInput] = useState<string>();
   const genericErrorHandle = useGenericErrorHandler();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const scrollToBottomRef = useRef<(() => void) | null>(null);
+
+  // Turn bookkeeping read only inside the subscription/mutation callbacks (never
+  // rendered), so refs avoid stale-closure reads without extra renders:
+  // - `streamingRef`       — a Turn is live; guards `settleStream` against a
+  //   spurious `idle` (e.g. before the reader ever opened).
+  // - `terminalReceivedRef` — the reader delivered a done/cancelled/error
+  //   terminal; a close *without* one is an orphan.
+  // - `inflightTurnIdRef`  — the `turnId` THIS client minted and got `accepted`
+  //   for. Null when we merely attached to another tab's Turn
+  //   (`alreadyInflight`), so only the owning client reconciles/refunds.
+  const streamingRef = useRef(false);
+  const terminalReceivedRef = useRef(false);
+  const inflightTurnIdRef = useRef<string | null>(null);
 
   // Resuming a Conversation: load its persisted Messages. A brand-new
   // Conversation has no thread yet, so `get` returns NOT_FOUND — not an error
@@ -88,8 +105,9 @@ export function useChat(
     );
   };
 
-  // Stamp the settled assistant message on a terminal that persisted one, so
-  // feedback can attach without refetching the Conversation.
+  // Mark the last (assistant) message settled — either stamped with the
+  // persisted `messageId` from a terminal (so feedback can attach without a
+  // refetch) or just cleared of its loading flag.
   const settleLastMessage = (messageId: string | null) => {
     setLocalMessages((prev) =>
       (prev ?? []).map((m, i) =>
@@ -100,22 +118,69 @@ export function useChat(
     );
   };
 
+  // Idempotent orphan cleanup + refund. Called when the reader closed without a
+  // terminal and THIS client owns the Turn; the toast tells the user why the
+  // response vanished and that they were not charged for it.
+  const reconcileMutation = useMutation(
+    trpc.chat.reconcileTurn.mutationOptions({
+      onSuccess: () => {
+        toast.error('Generation failed — your credits have been refunded.', {
+          autoClose: 6000,
+          closeButton: true,
+        });
+      },
+      onError: (error) => genericErrorHandle(error),
+    }),
+  );
+
+  // The single settle path for every way a Turn ends: a terminal followed by a
+  // clean reader close (idle), a stop, or the reader closing with no terminal at
+  // all (orphan). Idempotent via `streamingRef` so the `idle` that trails a
+  // terminal, or a redundant error, is a no-op.
+  const settleStream = () => {
+    if (!streamingRef.current) return;
+    streamingRef.current = false;
+
+    // The Conversation now exists server-side (and, on a first Turn, has an
+    // LLM-generated title); refresh the sidebar so "New chat" reconciles.
+    onTokensConsumed?.();
+    void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
+
+    const turnId = inflightTurnIdRef.current;
+    inflightTurnIdRef.current = null;
+
+    if (terminalReceivedRef.current) {
+      settleLastMessage(null);
+    } else {
+      // Reader closed without a terminal: the worker died mid-Turn. Surface the
+      // failure on the pending assistant message; reconcile + refund only the
+      // Turn we own (an attached-only client has no turnId and nothing to
+      // refund — the owning tab reconciles).
+      updateLastMessageWithError();
+      if (turnId)
+        reconcileMutation.mutate({ conversationId: sessionId, turnId });
+    }
+
+    setQueryInput(undefined);
+  };
+
   // tRPC subscription: a pure reader of the durable token Stream (T5). The
-  // worker produces tokens out-of-band; this only tails and renders them.
-  // NOTE: triggering generation (the `chat.send` mutation) and the stop /
-  // orphan-reconcile control plane are wired in T7 — today `send` still only
-  // seeds optimistic state and opens the reader.
-  const subscription = useSubscription(
+  // Generation worker produces tokens out-of-band; this only tails and renders
+  // them. It is opened by `send`/`stop` setting `queryInput`; the control plane
+  // (send / stop / reconcileTurn) lives in the mutations below.
+  useSubscription(
     trpc.chat.stream.subscriptionOptions(
       { conversationId: sessionId },
       {
-        enabled: !!queryInput,
+        enabled: queryInput !== undefined,
         onData: ({ data: event }) => {
           if (event.type === 'done' || event.type === 'cancelled') {
+            terminalReceivedRef.current = true;
             settleLastMessage(event.messageId);
             return;
           }
           if (event.type === 'error') {
+            terminalReceivedRef.current = true;
             updateLastMessageWithError();
             return;
           }
@@ -132,34 +197,46 @@ export function useChat(
           // Scroll to bottom after starting
           setTimeout(() => scrollToBottomRef.current?.(), 0);
         },
-        onError: (error) => {
-          setQueryInput('');
-          updateLastMessageWithError();
-          genericErrorHandle(error);
-        },
+        // The reader failed unrecoverably (tRPC transparently retries recoverable
+        // drops, so this is terminal). Treat as a stream close: `settleStream`
+        // reconciles the owned Turn if no terminal ever arrived.
+        onError: () => settleStream(),
+        // A clean server-side close drains to `idle`; settle here so a normal
+        // completion and an orphaned close share one path.
         onConnectionStateChange: (data) => {
-          if (data.state === 'idle') {
-            // Persistence is owned by the stream procedure; the client only
-            // settles the optimistic UI here.
-            onTokensConsumed?.();
-            setLocalMessages((prev) =>
-              (prev ?? []).map((m, i) =>
-                i === (prev ?? []).length - 1 ? { ...m, loading: false } : m,
-              ),
-            );
-            // Refresh the history sidebar: a new Conversation now exists (and an
-            // existing one has a fresh updatedAt / generated title).
-            void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
-            setQueryInput(undefined);
-          }
+          if (data.state === 'idle') settleStream();
         },
       },
     ),
   );
 
+  // Initiate a Turn (T4 `chat.send`). Mints the `turnId`, opens the reader, and
+  // fires the mutation. `accepted` ⇒ we own the Turn; `alreadyInflight` ⇒
+  // another tab is already generating, so we stay a pure reader (disarm
+  // reconcile) rather than re-sending. A send failure closes the reader.
+  const sendMutation = useMutation(
+    trpc.chat.send.mutationOptions({
+      onSuccess: (result) => {
+        if (result.status === 'alreadyInflight')
+          inflightTurnIdRef.current = null;
+      },
+      onError: (error) => {
+        streamingRef.current = false;
+        inflightTurnIdRef.current = null;
+        setQueryInput(undefined);
+        updateLastMessageWithError();
+        genericErrorHandle(error);
+      },
+    }),
+  );
+
+  // A Turn is in-flight from send() until settle: the send button is gated the
+  // whole time (mutation pending, then the reader is open) while the input stays
+  // editable so the user can draft their next message.
+  const isSending = sendMutation.isPending || queryInput !== undefined;
+
   const send = (text: string) => {
-    const isLoading = subscription.status === 'connecting';
-    if (isLoading) return;
+    if (isSending) return;
 
     // First interaction seeds `localMessages` from the derived `base` (loaded
     // history or greeting); subsequent sends append to the live list.
@@ -187,8 +264,8 @@ export function useChat(
     }
 
     // Optimistically render the user Message and a loading assistant
-    // placeholder. The stream procedure ensures the Conversation exists and
-    // persists both Messages server-side.
+    // placeholder. `chat.send` persists the user Message server-side; the worker
+    // fills the assistant one via the Stream.
     setLocalMessages([
       ...previous,
       {
@@ -208,8 +285,31 @@ export function useChat(
     // Surface the Conversation in the history sidebar right away.
     upsertConversationInList();
 
-    // Start streaming with the query
+    // Arm the Turn and open the reader, then initiate generation.
+    const turnId = crypto.randomUUID();
+    terminalReceivedRef.current = false;
+    inflightTurnIdRef.current = turnId;
+    streamingRef.current = true;
     setQueryInput(text);
+    sendMutation.mutate({ query: text, conversationId: sessionId, turnId });
+  };
+
+  // Cancel the in-flight Turn (T4 `chat.stop`). The worker also emits a
+  // `cancelled` terminal via the Stream, but we settle the UI now and mark the
+  // Turn terminal so the closing reader is not mistaken for an orphan.
+  const stopMutation = useMutation(
+    trpc.chat.stop.mutationOptions({
+      onSuccess: () => {
+        terminalReceivedRef.current = true;
+        settleStream();
+      },
+      onError: (error) => genericErrorHandle(error),
+    }),
+  );
+
+  const stop = () => {
+    if (!streamingRef.current) return;
+    stopMutation.mutate({ conversationId: sessionId });
   };
 
   const deleteMutation = useMutation(
@@ -232,9 +332,11 @@ export function useChat(
 
   return {
     messages,
-    isLoading: subscription.status === 'connecting',
+    isLoading: isSending,
+    isSending,
     isHistoryLoading,
     send,
+    stop,
     scrollToBottomRef,
     useGetMessages,
     deleteChat,
