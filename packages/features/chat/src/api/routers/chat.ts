@@ -33,6 +33,7 @@ import {
   acquireInflightLock,
   cleanupTurn,
   CREDITS_PER_TURN,
+  discardStaleStream,
   publishAbort,
   readInflightTurn,
   refundTurnCredits,
@@ -106,14 +107,22 @@ export const chatRouter = createTRPCRouter({
       }
 
       try {
-        // 3. Ensure the Conversation (idempotent create-or-retrieve).
+        // 3. Discard any prior Turn's residual Stream before generating. The
+        //    Stream is Conversation-keyed and lingers post-terminal on a brief
+        //    TTL, so without this the new reader tails from the head and
+        //    re-reads the previous Turn's deltas + terminal (replaying the last
+        //    response and colliding on its messageId). Winner path only — the
+        //    lock is held, so no live worker is writing this key. See #43.
+        await discardStaleStream(conversationId);
+
+        // 4. Ensure the Conversation (idempotent create-or-retrieve).
         if (!ctx.conversation) await createConversation(conversationId, userId);
 
-        // 4. Persist the user Message — durable in chat.get before the first
+        // 5. Persist the user Message — durable in chat.get before the first
         //    token, since the worker's memory config is read-only.
         await persistUserMessage(conversationId, userId, query);
 
-        // 5. Consume credits. The lock is already held, so a duplicate tab
+        // 6. Consume credits. The lock is already held, so a duplicate tab
         //    never reaches here; on insufficient credits we release the lock so
         //    the Conversation is not stuck for the lock's TTL.
         if (ctx.credits.remaining < CREDITS_PER_TURN) {
@@ -125,7 +134,7 @@ export const chatRouter = createTRPCRouter({
         }
         await ctx.entitlements.consume(userId, ctx.tier, CREDITS_PER_TURN);
 
-        // 6. Enqueue the generation job (sole authorised enqueuer).
+        // 7. Enqueue the generation job (sole authorised enqueuer).
         await enqueueGenerationTurn({
           conversationId,
           turnId,

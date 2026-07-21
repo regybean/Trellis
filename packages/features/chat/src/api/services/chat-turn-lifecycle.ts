@@ -86,16 +86,28 @@ export async function refundTurnCredits(
   return true;
 }
 
-// Worker terminal path. The Stream is NOT deleted: it is shortened to the
+// Worker terminal path. The Stream is NOT deleted here: it is shortened to the
 // post-terminal window so a client that reconnects *after* generation finished
 // still reads the terminal (done / cancelled / error) instead of an empty
 // stream, then it self-expires. Drops the abort signal and releases the lock.
-// (The spec's "proactively delete on terminal" is resolved toward TTL reaping —
-// an immediate delete would race the reconnecting reader and lose the terminal.)
+// (Deleting on terminal would race a reconnecting reader and lose the terminal;
+// the stale-stream cleanup that stops the *next* Turn re-reading this one is
+// `discardStaleStream`, called by `chat.send` after it wins the lock — see #43.)
 export async function finalizeTurn(conversationId: string, turnId: string) {
   await redis.expire(chatStreamKey(conversationId), STREAM_POST_TERMINAL_TTL);
   await redis.del(chatAbortKey(conversationId));
   await releaseInflightLock(conversationId, turnId);
+}
+
+// Next-Turn cleanup. The Stream is keyed by Conversation and survives a terminal
+// for a brief TTL (so late reconnects still see it), so a fresh Turn would tail
+// from the head and re-read the PRIOR Turn's deltas + terminal — replaying the
+// last response and colliding on its messageId. `chat.send` calls this after it
+// wins the In-flight lock (winner path only — an `alreadyInflight` caller must
+// NOT delete a live stream) and before enqueue, so the worker writes onto a
+// clean Stream. Safe under the lock: no concurrent worker is writing this key.
+export async function discardStaleStream(conversationId: string) {
+  await redis.del(chatStreamKey(conversationId));
 }
 
 // Orphan cleanup path (chat.reconcileTurn). A crashed worker left a Stream with

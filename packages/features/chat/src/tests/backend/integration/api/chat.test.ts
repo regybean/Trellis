@@ -804,6 +804,69 @@ describe('chatRouter', () => {
       expect(job?.data).toMatchObject({ conversationId, turnId, userId });
     });
 
+    it('discards a prior Turn residual Stream so the next reader never replays it', async () => {
+      // Regression (#43): the Stream is Conversation-keyed and lingers after a
+      // terminal on a brief TTL. Without the winner-path cleanup, the next
+      // Turn's reader tails from the head and re-reads the PRIOR Turn's deltas
+      // and `done` — printing the last response again and colliding on its
+      // messageId. Seed a completed Turn's residue, then start a fresh Turn.
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const streamKey = chatStreamKey(conversationId);
+      await redis.xAdd(streamKey, '*', { chunk: 'previous answer' });
+      await redis.xAdd(streamKey, '*', { type: 'done', messageId: 'msg-prev' });
+
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      await caller.chat.send({
+        query: 'second question',
+        conversationId,
+        turnId: crypto.randomUUID(),
+      });
+
+      // The prior residue is gone, so a reader attaching for this Turn tails a
+      // clean Stream instead of replaying the previous one. (We assert the
+      // Stream directly rather than draining the reader: chat.send holds the
+      // In-flight lock for the worker, so the pure reader would poll for the
+      // not-yet-produced Turn rather than close.)
+      expect(await redis.xRange(streamKey, '-', '+')).toHaveLength(0);
+    });
+
+    it('does not discard a live Stream when it returns alreadyInflight', async () => {
+      // A second tab that loses the lock must NOT delete the winner's in-flight
+      // Stream — only the lock-winner performs the stale-Stream cleanup.
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      await createTestChat({ userId, sessionId: conversationId });
+      const streamKey = chatStreamKey(conversationId);
+
+      // Simulate a Turn already in flight: lock held + a delta on the wire.
+      await redis.set(chatInflightKey(conversationId), crypto.randomUUID());
+      await redis.xAdd(streamKey, '*', { chunk: 'live token' });
+
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      const result = await caller.chat.send({
+        query: 'racing send',
+        conversationId,
+        turnId: crypto.randomUUID(),
+      });
+
+      expect(result).toEqual({ status: 'alreadyInflight' });
+      // The live Stream is untouched — the attaching tab still sees the token.
+      expect(await redis.xRange(streamKey, '-', '+')).toHaveLength(1);
+    });
+
     it('returns alreadyInflight without duplicating work on a two-tab race', async () => {
       const userId = createTestUserId();
       const conversationId = createTestSessionId();

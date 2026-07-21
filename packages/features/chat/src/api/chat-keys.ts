@@ -4,7 +4,10 @@ import { nsKey } from '@acme/redis';
 // nsKey so the app namespace prefix is applied consistently.
 
 // Holds the token-delta Redis Stream for a Conversation's in-flight Turn.
-// Created on first xAdd; proactively deleted on terminal; 600 s safety TTL.
+// Created on first xAdd with a 600 s safety TTL; shortened to a brief
+// post-terminal TTL by finalizeTurn (so late reconnects still read the
+// terminal); discarded by the NEXT chat.send after it wins the lock
+// (discardStaleStream) so a fresh Turn never re-reads the prior one.
 export const chatStreamKey = (conversationId: string) =>
   nsKey('chat', 'stream', conversationId);
 
