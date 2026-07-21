@@ -50,6 +50,19 @@ export const StopChatRequest = z.object({
   conversationId: z.uuid(),
 });
 
+// Input to `chat.inflightTurn` — the mount-time probe a client uses to learn
+// whether a Turn is already generating for this Conversation (e.g. after a page
+// refresh), so it can reopen the pure reader and resume. The response carries
+// the In-flight lock's `turnId` (null when idle), which the resuming client
+// arms for reconcile in case the Turn turns out to be orphaned.
+export const InflightTurnRequest = z.object({
+  conversationId: z.uuid(),
+});
+
+export const inflightTurnResponseSchema = z.object({
+  turnId: z.uuid().nullable(),
+});
+
 export const ReconcileTurnRequest = z.object({
   conversationId: z.uuid(),
   turnId: z.uuid(),

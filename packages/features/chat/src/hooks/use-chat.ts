@@ -42,6 +42,17 @@ export function useChat(
   const streamingRef = useRef(false);
   const terminalReceivedRef = useRef(false);
   const inflightTurnIdRef = useRef<string | null>(null);
+  // True once this mount has taken over a Turn's lifecycle — via `send`
+  // (openReader) or a resume-adopt. Stops a stale `inflightTurn` cache from
+  // re-triggering a phantom resume after the Turn has settled in this mount.
+  const resumeConsumedRef = useRef(false);
+
+  // The single reactive "a Turn is in-flight from this client's POV" flag (spec
+  // #39): drives the send-gate and the Stop button. Set on send and on
+  // resume-adopt, cleared on settle. `streamingRef` remains the *synchronous*
+  // guard read inside async callbacks (where state would be stale); this is its
+  // render-visible mirror.
+  const [turnActive, setTurnActive] = useState(false);
 
   // Resuming a Conversation: load its persisted Messages. A brand-new
   // Conversation has no thread yet, so `get` returns NOT_FOUND — not an error
@@ -51,6 +62,17 @@ export function useChat(
   const historyQuery = useQuery(
     trpc.chat.get.queryOptions({ sessionId }, { retry: false }),
   );
+
+  // Resume-after-refresh: on mount ask whether a Turn is already generating for
+  // this Conversation (the In-flight lock's turnId). If so we reopen the pure
+  // reader and adopt the Turn even though THIS client never sent it — the token
+  // Stream is durable, so we tail it from the head and keep rendering. Keyed by
+  // sessionId (the component remounts per Conversation), so it refetches on
+  // switch and never leaks a stale in-flight signal across Conversations.
+  const inflightQuery = useQuery(
+    trpc.chat.inflightTurn.queryOptions({ conversationId: sessionId }),
+  );
+  const resumedTurnId = inflightQuery.data?.turnId ?? null;
 
   // What to show before the user has typed: the loaded history, or the greeting
   // once we know the Conversation is new/empty. Empty while still loading.
@@ -118,6 +140,23 @@ export function useChat(
     );
   };
 
+  // The messages to show while resuming a Turn: the persisted history
+  // (authoritative — it already includes the user Message saved at send) plus a
+  // loading assistant bubble the Stream fills. Read from the query cache so it's
+  // the freshest history rather than a value captured when the subscription
+  // options were built.
+  const resumeSeed = (): Message[] => {
+    const history =
+      queryClient.getQueryData<Message[]>(
+        trpc.chat.get.queryKey({ sessionId }),
+      ) ?? [];
+    const persisted = history.length > 0 ? history : initial;
+    return [
+      ...persisted,
+      { text: '', role: 'assistant' as const, loading: true, error: false },
+    ];
+  };
+
   // Idempotent orphan cleanup + refund. Called when the reader closed without a
   // terminal and THIS client owns the Turn; the toast tells the user why the
   // response vanished and that they were not charged for it.
@@ -133,18 +172,50 @@ export function useChat(
     }),
   );
 
+  // Reader closed with no terminal. Either the Turn genuinely orphaned (the
+  // worker died mid-Turn) or it *completed* but this reader — typically a
+  // resumed one — attached too late and the Stream had already TTL'd away before
+  // it could read the terminal. `chat.get` is authoritative: if the assistant
+  // Message for the pending user Turn is now persisted, adopt server truth
+  // (drop the local optimistic list); only if it is still missing did the Turn
+  // really fail — surface the error and reconcile + refund the Turn we own (an
+  // attached-only client has no turnId and nothing to refund).
+  const reconcileOrAdopt = async (turnId: string | null) => {
+    try {
+      const persisted = await queryClient.fetchQuery(
+        trpc.chat.get.queryOptions({ sessionId }, { retry: false }),
+      );
+      const users = persisted.filter((m) => m.role === 'user').length;
+      const assistants = persisted.filter((m) => m.role === 'assistant').length;
+      // Every user Turn resolves into one assistant Message; equal counts ⇒ the
+      // pending Turn produced its answer, so this was a missed terminal, not an
+      // orphan.
+      if (assistants >= users && users > 0) {
+        setLocalMessages(null);
+        return;
+      }
+    } catch {
+      // Fall through to the orphan path if history can't be read.
+    }
+    updateLastMessageWithError();
+    if (turnId) reconcileMutation.mutate({ conversationId: sessionId, turnId });
+  };
+
   // The single settle path for every way a Turn ends: a terminal followed by a
   // clean reader close (idle), a stop, or the reader closing with no terminal at
-  // all (orphan). Idempotent via `streamingRef` so the `idle` that trails a
-  // terminal, or a redundant error, is a no-op.
+  // all (orphan / missed terminal). Idempotent via `streamingRef` so the `idle`
+  // that trails a terminal, or a redundant error, is a no-op.
   const settleStream = () => {
     if (!streamingRef.current) return;
     streamingRef.current = false;
+    setTurnActive(false);
 
     // The Conversation now exists server-side (and, on a first Turn, has an
-    // LLM-generated title); refresh the sidebar so "New chat" reconciles.
+    // LLM-generated title); refresh the sidebar so "New chat" reconciles, and
+    // drop the in-flight signal so a resumed reader doesn't re-open.
     onTokensConsumed?.();
     void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
+    void queryClient.invalidateQueries(trpc.chat.inflightTurn.queryFilter());
 
     const turnId = inflightTurnIdRef.current;
     inflightTurnIdRef.current = null;
@@ -152,13 +223,7 @@ export function useChat(
     if (terminalReceivedRef.current) {
       settleLastMessage(null);
     } else {
-      // Reader closed without a terminal: the worker died mid-Turn. Surface the
-      // failure on the pending assistant message; reconcile + refund only the
-      // Turn we own (an attached-only client has no turnId and nothing to
-      // refund — the owning tab reconciles).
-      updateLastMessageWithError();
-      if (turnId)
-        reconcileMutation.mutate({ conversationId: sessionId, turnId });
+      void reconcileOrAdopt(turnId);
     }
 
     setQueryInput(undefined);
@@ -168,11 +233,16 @@ export function useChat(
   // Generation worker produces tokens out-of-band; this only tails and renders
   // them. It is opened by `send`/`stop` setting `queryInput`; the control plane
   // (send / stop / reconcileTurn) lives in the mutations below.
+  // Open the reader when a local send is in-flight, while a Turn is active, or —
+  // for resume-after-refresh — when the mount-time probe reports a Turn already
+  // generating that this mount hasn't yet taken over.
+  const shouldResume = resumedTurnId !== null && !resumeConsumedRef.current;
+
   useSubscription(
     trpc.chat.stream.subscriptionOptions(
       { conversationId: sessionId },
       {
-        enabled: queryInput !== undefined,
+        enabled: queryInput !== undefined || turnActive || shouldResume,
         onData: ({ data: event }) => {
           if (event.type === 'done' || event.type === 'cancelled') {
             terminalReceivedRef.current = true;
@@ -194,6 +264,22 @@ export function useChat(
           );
         },
         onStarted: () => {
+          // Resume-after-refresh: the reader opened without a local `send`
+          // having armed the lifecycle (streamingRef still false), so a Turn was
+          // already in-flight when we mounted. Adopt it — arm the refs from the
+          // lock's turnId (so an orphan is reconciled by us) and seed a loading
+          // assistant bubble after the persisted history for the Stream to fill.
+          if (!streamingRef.current) {
+            streamingRef.current = true;
+            resumeConsumedRef.current = true;
+            terminalReceivedRef.current = false;
+            inflightTurnIdRef.current =
+              queryClient.getQueryData<{ turnId: string | null }>(
+                trpc.chat.inflightTurn.queryKey({ conversationId: sessionId }),
+              )?.turnId ?? null;
+            setTurnActive(true);
+            setLocalMessages((prev) => prev ?? resumeSeed());
+          }
           // Scroll to bottom after starting
           setTimeout(() => scrollToBottomRef.current?.(), 0);
         },
@@ -219,6 +305,10 @@ export function useChat(
     terminalReceivedRef.current = false;
     inflightTurnIdRef.current = ownedTurnId;
     streamingRef.current = true;
+    // This mount now owns the Turn lifecycle: a later (possibly stale)
+    // inflightTurn result must not re-trigger a resume for it.
+    resumeConsumedRef.current = true;
+    setTurnActive(true);
     setQueryInput(query);
   };
 
@@ -243,8 +333,10 @@ export function useChat(
 
   // A Turn is in-flight from send() until settle: the send button is gated the
   // whole time (mutation pending, then the reader is open) while the input stays
-  // editable so the user can draft their next message.
-  const isSending = sendMutation.isPending || queryInput !== undefined;
+  // editable so the user can draft their next message. `turnActive` also covers
+  // a Turn adopted by resume-after-refresh, which this client never sent.
+  const isSending =
+    sendMutation.isPending || queryInput !== undefined || turnActive;
 
   const send = (text: string) => {
     if (isSending) return;

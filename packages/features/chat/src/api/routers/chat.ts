@@ -5,6 +5,7 @@ import { logger } from '@acme/logger';
 
 import {
   DeleteChatRequest,
+  InflightTurnRequest,
   ReconcileTurnRequest,
   selectChatSchema,
   selectConversationSummarySchema,
@@ -202,6 +203,19 @@ export const chatRouter = createTRPCRouter({
         'chat.reconcileTurn: cleaned up',
       );
       return { refunded };
+    }),
+
+  // Mount-time resume probe. Returns the `turnId` currently in flight for the
+  // Conversation (the In-flight lock value), or null when idle. A client that
+  // reloads mid-generation reads this to decide whether to reopen the pure
+  // reader and resume; the returned `turnId` is what it arms for reconcile if
+  // the Turn turns out to be orphaned. Pure read (no side effects), gated by the
+  // durable-stream ownership builder like the rest of the control plane.
+  inflightTurn: ownedConversationByIdProcedure
+    .input(InflightTurnRequest)
+    .query(async ({ input }) => {
+      const turnId = await readInflightTurn(input.conversationId);
+      return { turnId };
     }),
 
   create: ownedConversationProcedure

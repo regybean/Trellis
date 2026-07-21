@@ -54,7 +54,12 @@ const renderUseChat = (initial = greeting, sessionId = SESSION_ID) =>
 // ── Group 1: loading / history path ───────────────────────────────────────
 // All tests here need only chat.get — MSW is strict so unhandled requests fail.
 describe('useChat – history loading', () => {
-  const server = setupServer();
+  // Every mount fires the resume probe (chat.inflightTurn). Register an idle
+  // default (no Turn in flight) so it never counts as an unhandled request; a
+  // resume-specific test can override it per-case.
+  const server = setupServer(
+    trpcMsw.chat.inflightTurn.query(() => ({ turnId: null })),
+  );
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
   afterEach(() => server.resetHandlers());
   afterAll(() => server.close());
@@ -109,7 +114,12 @@ describe('useChat – history loading', () => {
 // `onUnhandledRequest: 'bypass'` silences the EventSource-not-a-constructor
 // error that comes from the subscription attempting to open in jsdom.
 describe('useChat – optimistic send', () => {
-  const server = setupServer();
+  // Every mount fires the resume probe (chat.inflightTurn). Register an idle
+  // default (no Turn in flight) so it never counts as an unhandled request; a
+  // resume-specific test can override it per-case.
+  const server = setupServer(
+    trpcMsw.chat.inflightTurn.query(() => ({ turnId: null })),
+  );
   beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
   afterEach(() => server.resetHandlers());
   afterAll(() => server.close());
@@ -166,7 +176,12 @@ describe('useChat – optimistic send', () => {
 // Message-too-long path never sets queryInput so no subscription fires.
 // Strict onUnhandledRequest ensures no stray request leaks.
 describe('useChat – message length validation', () => {
-  const server = setupServer();
+  // Every mount fires the resume probe (chat.inflightTurn). Register an idle
+  // default (no Turn in flight) so it never counts as an unhandled request; a
+  // resume-specific test can override it per-case.
+  const server = setupServer(
+    trpcMsw.chat.inflightTurn.query(() => ({ turnId: null })),
+  );
   beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
   afterEach(() => server.resetHandlers());
   afterAll(() => server.close());
@@ -240,7 +255,12 @@ const renderChat = () =>
   );
 
 describe('useChat – control plane', () => {
-  const server = setupServer();
+  // Every mount fires the resume probe (chat.inflightTurn). Register an idle
+  // default (no Turn in flight) so it never counts as an unhandled request; a
+  // resume-specific test can override it per-case.
+  const server = setupServer(
+    trpcMsw.chat.inflightTurn.query(() => ({ turnId: null })),
+  );
   beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
   afterEach(() => server.resetHandlers());
   afterAll(() => server.close());

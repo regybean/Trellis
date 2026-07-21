@@ -927,6 +927,44 @@ describe('chatRouter', () => {
     });
   });
 
+  describe('inflightTurn (resume probe)', () => {
+    it('reports the in-flight turnId while a Turn is generating', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const turnId = crypto.randomUUID();
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      await caller.chat.send({ query: 'Hello', conversationId, turnId });
+
+      // A client reloading mid-generation reads this to decide whether to
+      // reopen the reader and resume.
+      expect(await caller.chat.inflightTurn({ conversationId })).toEqual({
+        turnId,
+      });
+    });
+
+    it('reports null when no Turn is in flight', async () => {
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      await createTestChat({ userId, sessionId: conversationId });
+      const caller = createCaller({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+
+      expect(await caller.chat.inflightTurn({ conversationId })).toEqual({
+        turnId: null,
+      });
+    });
+  });
+
   describe('stop', () => {
     it('publishes the abort signal keyed by the in-flight turnId', async () => {
       const userId = createTestUserId();
