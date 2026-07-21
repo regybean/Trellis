@@ -45,3 +45,30 @@ sources of truth.
   [0002-mastra-rag-and-memory](../../../../../docs/adr/0002-mastra-rag-and-memory.md)).
 - A mid-stream LLM error still leaves the turn retryable — Mastra persists the user
   turn before generation.
+
+## Amendment — the driver moved off `stream` (durable-chat-stream, T5)
+
+The mechanism above — Mastra Memory persisting the assistant turn as a **side
+effect of `agent.stream` inside the `chat.stream` procedure** — no longer holds.
+The durable-chat-stream work (spec #44) decoupled generation from the client
+connection, and with it moved persistence off the reader:
+
+- `chat.stream` is now a **pure, stateless reader** (`tailChatStream`): it tails
+  the Conversation's Redis Stream and re-emits each entry via tRPC `tracked()`.
+  It runs no `chatAgent.stream`, persists nothing, and takes no locks.
+- The **Generation worker** (`chatGenerationProcessor`) is the sole driver of
+  `chatAgent.stream`, and it runs with a **read-only** memory config so Mastra
+  does _not_ auto-persist. The worker persists the assistant Message with an
+  **explicit `memory.saveMessages`** on terminal: `done` → full text;
+  `cancelled` → non-empty partial only; `error` → nothing. See chat-local ADR
+  0004 (generation worker & queue).
+- The wire contract is no longer `StreamChatEvent`. The reader emits a
+  discriminated `StreamReaderEvent` (`delta` / `done` / `cancelled` / `error`),
+  each Redis entry re-emitted under its Stream entry id as the SSE
+  `Last-Event-ID`.
+
+What survives from the original decision: Mastra Memory still owns the
+Conversation store and its DDL, ownership is still enforced in the procedure
+(now via `ownedConversationByIdProcedure`), and there is still no public `save`
+endpoint. What changed is _who_ calls `saveMessages` and _when_ — the worker, on
+terminal, explicitly — rather than the streaming procedure implicitly.

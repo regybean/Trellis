@@ -88,39 +88,42 @@ export function useChat(
     );
   };
 
-  // tRPC subscription for streaming chat responses
+  // Stamp the settled assistant message on a terminal that persisted one, so
+  // feedback can attach without refetching the Conversation.
+  const settleLastMessage = (messageId: string | null) => {
+    setLocalMessages((prev) =>
+      (prev ?? []).map((m, i) =>
+        i === (prev ?? []).length - 1
+          ? { ...m, id: messageId ?? m.id, sessionId, loading: false }
+          : m,
+      ),
+    );
+  };
+
+  // tRPC subscription: a pure reader of the durable token Stream (T5). The
+  // worker produces tokens out-of-band; this only tails and renders them.
+  // NOTE: triggering generation (the `chat.send` mutation) and the stop /
+  // orphan-reconcile control plane are wired in T7 — today `send` still only
+  // seeds optimistic state and opens the reader.
   const subscription = useSubscription(
     trpc.chat.stream.subscriptionOptions(
-      {
-        query: queryInput ?? '',
-        sessionId,
-      },
+      { conversationId: sessionId },
       {
         enabled: !!queryInput,
-        onData: (data) => {
-          // The terminal `done` event carries the persisted assistant message
-          // id — stamp it onto the settled message so feedback can attach
-          // without refetching the Conversation.
-          if (data.type === 'done') {
-            setLocalMessages((prev) =>
-              (prev ?? []).map((m, i) =>
-                i === (prev ?? []).length - 1
-                  ? {
-                      ...m,
-                      id: data.messageId ?? m.id,
-                      sessionId: data.sessionId,
-                      loading: false,
-                    }
-                  : m,
-              ),
-            );
+        onData: ({ data: event }) => {
+          if (event.type === 'done' || event.type === 'cancelled') {
+            settleLastMessage(event.messageId);
             return;
           }
-          // Update last message with accumulated text
+          if (event.type === 'error') {
+            updateLastMessageWithError();
+            return;
+          }
+          // `delta`: append the token to the last (assistant) message.
           setLocalMessages((prev) =>
             (prev ?? []).map((m, i) =>
               i === (prev ?? []).length - 1
-                ? { ...m, text: data.acc, loading: false }
+                ? { ...m, text: m.text + event.chunk, loading: false }
                 : m,
             ),
           );
