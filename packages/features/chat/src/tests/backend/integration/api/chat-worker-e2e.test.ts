@@ -104,7 +104,8 @@ describe('generation worker (end-to-end via BullMQ)', () => {
     await drained;
 
     // The reader re-emits every delta in order, then the done terminal.
-    const events = (await drainReader(conversationId)).map((e) => e.event);
+    const emitted = await drainReader(conversationId);
+    const events = emitted.map((e) => e.event);
 
     const chunks = events.filter((e) => e.type === 'delta').map((e) => e.chunk);
     expect(chunks.join('')).toBe(EXPECTED_TEXT);
