@@ -14,13 +14,40 @@ LLM generation is decoupled from the HTTP connection by running it in a durable 
 
 ### Worker is a turbo dev-graph task, not a compose service
 
-Each app has a thin `apps/*/worker.ts` entry point that connects to BullMQ and calls `chatGenerationProcessor` from `@acme/chat`. In development this is wired as a `dev` dependency in `turbo.json` so it spins up alongside the app's Next.js / Nitro process.
+Each app has a thin `apps/<app>/worker.ts` entry point (T6) that calls
+`createWorker` from `@acme/queue` with `chatGenerationProcessor` from
+`@acme/chat/server`. In development each app's `turbo.json` `dev` task lists a
+`dev:worker` sibling under `with`, so `pnpm dev` launches the worker alongside
+the app's Next.js / Vite process as a second persistent task. The `dev:worker`
+script runs `tsx watch --conditions=react-server worker.ts` — `--conditions`
+resolves `@acme/chat/server`'s `import 'server-only'` to its empty stub instead
+of the guard that throws outside an RSC bundle; `watch` restarts the worker on
+source changes.
 
 Rationale for NOT using a compose service:
 
-- Each app targets its own Redis namespace (`NEXT_PUBLIC_WEBAPP`) and Postgres schema — a shared compose service would need per-app env injection, which is fragile.
+- Each app targets its own Redis namespace (`NEXT_PUBLIC_WEBAPP`), its own BullMQ
+  queue prefix (see below), and its own Postgres schema — a shared compose
+  service would need per-app env injection, which is fragile. The worker
+  inherits the app's env via `pnpm with-env`, so isolation maps naturally to one
+  process per app.
 - The worker has no HTTP listener; it is purely a background processor.
-- Turbo's task graph gives correct startup ordering (app waits for worker to be ready).
+- No startup ordering is needed: the queue decouples producer from consumer, so
+  a job `chat.send` enqueues before the worker is up is simply drained once it
+  comes online. `with` (concurrent siblings) is the right primitive — not a
+  `dependsOn` edge, which turbo would anyway reject against a persistent task.
+
+### Per-app BullMQ queue prefix
+
+All apps share one Redis instance, so the `generation` queue name alone is not
+isolation: without a per-app prefix, every app's worker would drain the same
+`bull:generation` list and could process a foreign app's job — then persist
+under the wrong Redis namespace and Postgres schema. `@acme/queue`'s
+`createQueue` / `createWorker` therefore set `prefix: NEXT_PUBLIC_WEBAPP`, so app
+`nextjs` owns `nextjs:generation:*`. Producer (`chat.send`) and consumer (app
+`worker.ts`) both run under the app's env and resolve the same prefix without
+coordination. This mirrors the `nsKey` Redis-key partitioning and the per-app
+Postgres schema.
 
 ### Request-less trust model
 
@@ -59,4 +86,4 @@ Delta entries: `{ chunk: string }`. Terminals are one of:
 - Generation survives client disconnects; resumable via `lastEventId`.
 - One BullMQ queue (`generation`) and one ioredis connection owned by `@acme/queue` — separate from the `@acme/redis` facade.
 - `@acme/chat` gains `@acme/queue` and `@acme/subscriptions` as dependencies.
-- The worker process must be running for chat to work in development and production; it is documented in each app's README.
+- The worker process must be running for chat to work; in development `pnpm dev` spawns it automatically via the `with` sibling task. The "not a compose service" rationale is documented inline in each `apps/<app>/worker.ts` header and here.
