@@ -26,6 +26,8 @@ Factory that returns a `Worker` instance wired to the same connection. `processo
 
 ## Design decisions
 
+**Per-app BullMQ prefix**: `createQueue` / `createWorker` set `prefix: NEXT_PUBLIC_WEBAPP`, so app `nextjs` owns `nextjs:generation:*` and `tanstack_slim` owns `tanstack_slim:generation:*`. All apps share one Redis instance; without the prefix every app's worker would drain the same `bull:generation` list and could process a foreign app's job — then persist under the wrong Redis namespace and Postgres schema. This mirrors the per-app partitioning `@acme/redis` applies via `nsKey` and `@acme/rag` via the Postgres schema. Producer (`chat.send`) and consumer (app `worker.ts`) both run under their app's env, so they resolve the same prefix without coordination. The queue _name_ stays a shared constant (`QUEUE_NAMES.GENERATION`); isolation is the prefix, not the name.
+
 **Plain connection options, not an ioredis instance**: BullMQ v5 bundles its own ioredis internally. Passing an externally-created ioredis instance causes structural type conflicts between the two ioredis copies. Passing plain options (`{ host, port, password?, db?, maxRetriesPerRequest: null }`) lets BullMQ create and own its connections, which is also the approach the BullMQ docs recommend.
 
 **`maxRetriesPerRequest: null`**: Required for BullMQ Workers. Without it, ioredis times out blocking commands (e.g. `BRPOPLPUSH`) used by BullMQ's job-draining loop. Queues don't technically need it but we apply it uniformly.

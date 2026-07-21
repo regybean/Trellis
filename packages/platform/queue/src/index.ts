@@ -27,6 +27,14 @@ const parseRedisUrl = (url: string) => {
 
 const connection = parseRedisUrl(env.REDIS_URL);
 
+// Per-app BullMQ key prefix. Every app shares one Redis instance, so without a
+// per-app prefix all four apps' workers would drain the same `bull:generation`
+// list — a worker could process another app's job and then persist under the
+// wrong Redis namespace / Postgres schema. NEXT_PUBLIC_WEBAPP is the same app
+// identity @acme/redis uses for nsKey, so producer (chat.send) and consumer
+// (app worker.ts) — both running under the app's env — resolve the same prefix.
+const prefix = env.NEXT_PUBLIC_WEBAPP;
+
 export const QUEUE_NAMES = {
   GENERATION: 'generation',
 } as const;
@@ -41,7 +49,7 @@ export const createQueue = <
   name: QueueName,
   options?: Omit<QueueOptions, 'connection'>,
 ) => {
-  const queue = new Queue<T, R, N>(name, { ...options, connection });
+  const queue = new Queue<T, R, N>(name, { ...options, connection, prefix });
   queue.on('error', (error) => {
     logger.error({ err: error, queue: name }, 'BullMQ queue error');
   });
@@ -60,6 +68,7 @@ export const createWorker = <
   const worker = new Worker<T, R, N>(name, processor, {
     ...options,
     connection,
+    prefix,
   });
   worker.on('error', (error) => {
     logger.error({ err: error, queue: name }, 'BullMQ worker error');
