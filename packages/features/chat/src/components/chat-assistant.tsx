@@ -18,6 +18,9 @@ interface ChatAssistantProps {
   // Mounting keyed by this id loads the right history without tearing a stream.
   sessionId: string;
   onTokensConsumed?: () => void;
+  // Fired the first time this mount sends a Message, so the parent can stamp the
+  // deep-link URL once the Conversation becomes resumable. See ConversationView.
+  onFirstSend?: () => void;
   // Optional render-slot seam: an app supplies per-message actions (e.g.
   // feedback buttons from `@acme/feedback`) without the chat feature depending
   // on them. Rendered only for settled assistant messages — see MessageItem.
@@ -27,6 +30,7 @@ interface ChatAssistantProps {
 export function ChatAssistant({
   sessionId,
   onTokensConsumed,
+  onFirstSend,
   renderMessageActions,
 }: ChatAssistantProps) {
   const info = getAppInfo(env.NEXT_PUBLIC_WEBAPP);
@@ -48,6 +52,7 @@ export function ChatAssistant({
     ],
     sessionId,
     onTokensConsumed,
+    onFirstSend,
   );
 
   return (

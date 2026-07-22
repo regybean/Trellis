@@ -15,6 +15,7 @@ export function useChat(
   initial: Message[],
   sessionId: string,
   onTokensConsumed?: () => void,
+  onFirstSend?: () => void,
 ) {
   // `localMessages` is null until the user interacts: the displayed list is
   // *derived* from the loaded history (or the greeting) until then, so there is
@@ -344,6 +345,11 @@ export function useChat(
     // First interaction seeds `localMessages` from the derived `base` (loaded
     // history or greeting); subsequent sends append to the live list.
     const previous = localMessages ?? base;
+    // Captured before `setLocalMessages` mutates it: is this the first send of
+    // this mount? If so we stamp the deep-link URL below (only on a real send,
+    // not the too-long error path) so the Conversation is resumable after a
+    // refresh mid-generation.
+    const isFirstSend = localMessages === null;
 
     // Validate message length before sending since URL becomes too long
     if (text.length > MAX_MESSAGE_LENGTH) {
@@ -387,6 +393,9 @@ export function useChat(
 
     // Surface the Conversation in the history sidebar right away.
     upsertConversationInList();
+
+    // Stamp the deep-link URL on the first send (idempotent upstream).
+    if (isFirstSend) onFirstSend?.();
 
     // Initiate generation; the reader opens once `chat.send` confirms the Turn.
     // `isSending` stays true through the pending mutation (send-gate closed).
