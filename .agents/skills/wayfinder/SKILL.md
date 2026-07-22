@@ -20,6 +20,8 @@ Every map and ticket is an issue, so it has a **name** — its title. In everyth
 
 The map is a single issue on this repo's issue tracker, labelled `wayfinder:map` — the canonical artifact. Its tickets are child issues of the map.
 
+The tracker is the **single source of truth**. The map body, every ticket body, and every resolution live _only_ where the tracker doc puts them — never mirror them into a repo file (no `scratch_map.md`, no local copy of the map or a ticket). Transient working notes stay in your session scratchpad; anything worth keeping is written back to the tracker, never committed to the repo.
+
 The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
 
 **Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker should have been provided to you — run `/setup-matt-pocock-skills` if not. Consult the tracker doc's "Wayfinding operations" section for how _this_ repo expresses them. If no tracker has been provided, default to the local-markdown tracker.
@@ -68,7 +70,7 @@ A session **claims** a ticket by assigning it to the dev driving the map, **firs
 
 Blocking uses the tracker's **native** dependency relationship — essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. Only a tracker that lacks native blocking falls back to a body convention. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children — the edge of the known.
 
-The answer isn't part of the body — it's recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket are linked from the issue, not pasted in.
+The answer isn't part of the body — it's recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket (research summaries, prototypes) are stored and linked the tracker-specific way — see the tracker doc's "Wayfinding operations" **Asset** step. They attach to the tracker and are linked, never pasted into the body and never left as loose files in the repo tree.
 
 ## Ticket Types
 

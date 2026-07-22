@@ -28,3 +28,4 @@ Used by `/wayfinder`. The **map** is a file with one **child** file per ticket.
 - **Frontier**: scan `.scratch/<effort>/issues/` for files that are open, unblocked, and unclaimed; first by number wins.
 - **Claim**: set `Status: claimed` and save before any work.
 - **Resolve**: append the answer under an `## Answer` heading, set `Status: resolved`, then append a context pointer (gist + link) to the map's Decisions-so-far in `map.md`.
+- **Asset**: research summaries and prototypes go in `.scratch/<effort>/assets/`, linked from the ticket's `## Answer` and the map. The local tracker _is_ files, so assets live beside the map under `.scratch/` — never scattered elsewhere in the repo tree.

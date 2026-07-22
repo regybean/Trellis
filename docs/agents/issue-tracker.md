@@ -39,3 +39,4 @@ The user will normally pass the issue number or URL directly.
 - **Frontier query**: `gh issue list --label "wayfinder:map" --state open`
 - **Claim (assign)**: `gh issue edit <N> --add-assignee @me`
 - **Resolve**: `gh issue close <N> --comment "Resolution: <answer>"`; append pointer to map's Decisions-so-far
+- **Asset**: research summaries/prototypes attach to the ticket, not the repo tree — `gh issue comment <N> --body-file <file>` (or a gist for large artifacts), then link from the map's Decisions-so-far; delete the local working file once posted. The tracker is the source of truth — no local map mirror (`scratch_map*.md`), no loose MD in the repo.
