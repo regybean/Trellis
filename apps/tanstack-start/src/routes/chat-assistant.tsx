@@ -18,7 +18,7 @@ export const Route = createFileRoute('/chat-assistant')({
 });
 
 // Bare route: starts a new Conversation (id minted client-side, URL stamped on
-// first interaction). Reuses the `@acme/chat` + `@acme/billing` slices unchanged.
+// first send). Reuses the `@acme/chat` + `@acme/billing` slices unchanged.
 function ChatRoute() {
   return <ChatView />;
 }
