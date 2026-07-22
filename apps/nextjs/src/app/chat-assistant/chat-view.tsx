@@ -8,8 +8,9 @@ import { FeedbackButtons } from '@acme/feedback';
 
 // App adapter for the Conversation History surface: wires billing credit
 // invalidation and the per-message feedback render-slot (kept in the app so the
-// chat feature depends on neither). Shared by the bare `/chat-assistant` route
-// and the deep-linkable `/chat-assistant/[sessionId]` route.
+// chat feature depends on neither). Mounted by the single optional-catch-all
+// `/chat-assistant/[[...sessionId]]` route for both the new-Conversation landing
+// and deep links.
 export function ChatView({ initialSessionId }: { initialSessionId?: string }) {
   const queryClient = useQueryClient();
   const billingTrpc = useBillingTRPC();
