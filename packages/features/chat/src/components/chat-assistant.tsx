@@ -43,17 +43,7 @@ export function ChatAssistant({
     send: handleSend,
     stop,
     scrollToBottomRef,
-  } = useChat(
-    [
-      {
-        text: info.initialMessage,
-        role: 'assistant',
-      },
-    ],
-    sessionId,
-    onTokensConsumed,
-    onFirstSend,
-  );
+  } = useChat(sessionId, onTokensConsumed, onFirstSend);
 
   return (
     <div className="container mx-auto py-4">

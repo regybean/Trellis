@@ -1,7 +1,6 @@
 interface AppInfo {
   pageTitle: string;
   pageDescription: string;
-  initialMessage: string;
   systemPrompt: string;
 }
 
@@ -17,8 +16,6 @@ export const NextjsAppInfo: AppInfo = {
   pageTitle: 'Acme Assistant',
   pageDescription:
     'Ask a question about your uploaded documents to get a context-aware answer.',
-  initialMessage:
-    'I am an AI assistant ready to answer questions about your documents. How may I help you today?',
   systemPrompt: GENERIC_SYSTEM_PROMPT,
 };
 
@@ -26,8 +23,6 @@ export const TanstackAppInfo: AppInfo = {
   pageTitle: 'Acme Assistant',
   pageDescription:
     'Ask a question about your uploaded documents to get a context-aware answer.',
-  initialMessage:
-    'I am an AI assistant ready to answer questions about your documents. How may I help you today?',
   systemPrompt: GENERIC_SYSTEM_PROMPT,
 };
 

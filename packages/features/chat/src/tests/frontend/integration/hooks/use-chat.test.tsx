@@ -24,10 +24,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import type { SelectConversationSummary } from '../../../../api/schemas/chat-schema';
-import type {
-  Message,
-  SelectMessageSchema,
-} from '../../../../api/schemas/message-schema';
+import type { SelectMessageSchema } from '../../../../api/schemas/message-schema';
 import { MAX_MESSAGE_LENGTH } from '../../../../api/schemas/chat-schema';
 import { useChat } from '../../../../hooks/use-chat';
 import { useTRPC } from '../../../../trpc/react';
@@ -35,10 +32,6 @@ import { Providers, trpcMsw } from '../../setup';
 
 const SESSION_ID = '00000000-0000-4000-8000-000000000001';
 const TURN_ID = '00000000-0000-4000-8000-0000000000a1';
-
-const greeting: Message[] = [
-  { role: 'assistant', text: 'Hello! How can I help?' },
-];
 
 const historyMsg = (text: string): SelectMessageSchema => ({
   id: crypto.randomUUID(),
@@ -48,8 +41,8 @@ const historyMsg = (text: string): SelectMessageSchema => ({
   timestamp: new Date(),
 });
 
-const renderUseChat = (initial = greeting, sessionId = SESSION_ID) =>
-  renderHook(() => useChat(initial, sessionId), { wrapper: Providers });
+const renderUseChat = (sessionId = SESSION_ID) =>
+  renderHook(() => useChat(sessionId), { wrapper: Providers });
 
 // ── Group 1: loading / history path ───────────────────────────────────────
 // All tests here need only chat.get — MSW is strict so unhandled requests fail.
@@ -64,13 +57,13 @@ describe('useChat – history loading', () => {
   afterEach(() => server.resetHandlers());
   afterAll(() => server.close());
 
-  it('shows greeting when chat.get returns empty (new session)', async () => {
+  it('shows empty pane when chat.get returns empty (new session)', async () => {
     server.use(trpcMsw.chat.get.query(() => []));
 
     const { result } = renderUseChat();
 
     await waitFor(() => expect(result.current.isHistoryLoading).toBe(false));
-    expect(result.current.messages).toEqual(greeting);
+    expect(result.current.messages).toEqual([]);
   });
 
   it('shows persisted history when chat.get returns messages', async () => {
@@ -87,7 +80,7 @@ describe('useChat – history loading', () => {
     expect(result.current.isHistoryLoading).toBe(false);
   });
 
-  it('falls back to greeting when chat.get errors', async () => {
+  it('falls back to empty pane when chat.get errors', async () => {
     server.use(
       trpcMsw.chat.get.query(() => {
         throw new Error('NOT_FOUND');
@@ -97,7 +90,7 @@ describe('useChat – history loading', () => {
     const { result } = renderUseChat();
 
     await waitFor(() => expect(result.current.isHistoryLoading).toBe(false));
-    expect(result.current.messages).toEqual(greeting);
+    expect(result.current.messages).toEqual([]);
   });
 
   it('isHistoryLoading is false after query settles', async () => {
@@ -248,7 +241,7 @@ const renderChat = () =>
     () => {
       const trpc = useTRPC();
       const queryClient = useQueryClient();
-      const chat = useChat(greeting, SESSION_ID);
+      const chat = useChat(SESSION_ID);
       return { chat, listKey: trpc.chat.list.queryKey(), queryClient };
     },
     { wrapper: Providers },

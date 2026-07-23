@@ -47,21 +47,16 @@ Object.defineProperty(globalThis, 'scrollTo', {
 
 const SESSION_ID = '00000000-0000-4000-8000-000000000000';
 
-// Re-used greeting for a new/empty session (chat.get returns [] → useChat
-// shows the `initial` greeting passed by <ChatAssistant>).
-const GREETING =
-  'I am an AI assistant ready to answer questions about your documents. How may I help you today?';
-
 describe('ChatAssistant', () => {
-  // ── Render + greeting ──────────────────────────────────────────────────
+  // ── Render ─────────────────────────────────────────────────────────────
   describe('rendering', () => {
     const server = setupServer();
     beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
     afterEach(() => server.resetHandlers());
     afterAll(() => server.close());
 
-    it('shows the greeting, input, and send button for a new session', async () => {
-      // New session: chat.get returns [] → useChat shows the initial greeting.
+    it('shows the input and send button for a new session', async () => {
+      // New session: chat.get returns [] → useChat shows an empty pane.
       server.use(trpcMsw.chat.get.query(() => []));
 
       renderWithProviders(<ChatAssistant sessionId={SESSION_ID} />);
@@ -70,9 +65,9 @@ describe('ChatAssistant', () => {
       expect(screen.getByTestId('chat-input')).toBeInTheDocument();
       expect(screen.getByTestId('chat-send-button')).toBeInTheDocument();
 
-      // Greeting renders once the history query settles.
+      // The history query settles into an empty message pane (no skeleton).
       await waitFor(() =>
-        expect(screen.getByText(GREETING)).toBeInTheDocument(),
+        expect(screen.queryByTestId('message-skeleton')).toBeNull(),
       );
     });
   });
@@ -93,7 +88,7 @@ describe('ChatAssistant', () => {
 
       renderWithProviders(<ChatAssistant sessionId={SESSION_ID} />);
       await waitFor(() =>
-        expect(screen.getByText(GREETING)).toBeInTheDocument(),
+        expect(screen.queryByTestId('message-skeleton')).toBeNull(),
       );
 
       const input = screen.getByTestId('chat-input');
@@ -114,7 +109,7 @@ describe('ChatAssistant', () => {
 
       renderWithProviders(<ChatAssistant sessionId={SESSION_ID} />);
       await waitFor(() =>
-        expect(screen.getByText(GREETING)).toBeInTheDocument(),
+        expect(screen.queryByTestId('message-skeleton')).toBeNull(),
       );
 
       const input = screen.getByTestId('chat-input');
@@ -142,7 +137,7 @@ describe('ChatAssistant', () => {
 
       renderWithProviders(<ChatAssistant sessionId={SESSION_ID} />);
       await waitFor(() =>
-        expect(screen.getByText(GREETING)).toBeInTheDocument(),
+        expect(screen.queryByTestId('message-skeleton')).toBeNull(),
       );
 
       const input = screen.getByTestId('chat-input');

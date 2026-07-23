@@ -151,7 +151,7 @@ export function ConversationSidebar({
           </div>
         </div>
 
-        <ScrollArea className="flex-1">
+        <ScrollArea className="flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <div className="flex flex-col gap-4 p-3">
             {isLoading ? (
               <ConversationListSkeleton />

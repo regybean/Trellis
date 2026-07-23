@@ -12,15 +12,14 @@ import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
 import { useTRPC } from '../trpc/react';
 
 export function useChat(
-  initial: Message[],
   sessionId: string,
   onTokensConsumed?: () => void,
   onFirstSend?: () => void,
 ) {
   // `localMessages` is null until the user interacts: the displayed list is
-  // *derived* from the loaded history (or the greeting) until then, so there is
-  // no effect copying server data into state. Sending seeds `localMessages` from
-  // the current `base`, after which streaming mutates it directly.
+  // *derived* from the loaded history until then, so there is no effect copying
+  // server data into state. Sending seeds `localMessages` from the current
+  // `base`, after which streaming mutates it directly.
   const [localMessages, setLocalMessages] = useState<Message[] | null>(null);
   // The in-flight query text. Non-null ⇒ a Turn is in-flight from this client
   // and the pure-reader subscription is open; drives both `enabled` and the
@@ -57,7 +56,7 @@ export function useChat(
 
   // Resuming a Conversation: load its persisted Messages. A brand-new
   // Conversation has no thread yet, so `get` returns NOT_FOUND — not an error
-  // here, just "show the greeting". `retry: false` fails fast and the rejection
+  // here, just "show an empty pane". `retry: false` fails fast and the rejection
   // stays silent (no global query error handler). The component is keyed by
   // sessionId, so a fresh query runs per Conversation.
   const historyQuery = useQuery(
@@ -75,12 +74,12 @@ export function useChat(
   );
   const resumedTurnId = inflightQuery.data?.turnId ?? null;
 
-  // What to show before the user has typed: the loaded history, or the greeting
-  // once we know the Conversation is new/empty. Empty while still loading.
+  // What to show before the user has typed: the loaded history, or an empty
+  // pane once we know the Conversation is new/empty. Empty while still loading.
   const pickBase = (): Message[] => {
     if (historyQuery.isSuccess)
-      return historyQuery.data.length > 0 ? historyQuery.data : initial;
-    if (historyQuery.isError) return initial;
+      return historyQuery.data.length > 0 ? historyQuery.data : [];
+    if (historyQuery.isError) return [];
     return [];
   };
   const base = pickBase();
@@ -89,7 +88,7 @@ export function useChat(
 
   // Skeleton the message pane only while a resumed Conversation's history is
   // loading and the user hasn't started interacting. For a brand-new session
-  // `get` resolves near-instantly (empty / NOT_FOUND) so the greeting follows.
+  // `get` resolves near-instantly (empty / NOT_FOUND) so the empty pane follows.
   const isHistoryLoading = historyQuery.isLoading && localMessages === null;
 
   // The Conversation History sidebar reads `chat.list`. On the first send of a
@@ -151,7 +150,7 @@ export function useChat(
       queryClient.getQueryData<Message[]>(
         trpc.chat.get.queryKey({ sessionId }),
       ) ?? [];
-    const persisted = history.length > 0 ? history : initial;
+    const persisted = history.length > 0 ? history : [];
     return [
       ...persisted,
       { text: '', role: 'assistant' as const, loading: true, error: false },
@@ -343,7 +342,8 @@ export function useChat(
     if (isSending) return;
 
     // First interaction seeds `localMessages` from the derived `base` (loaded
-    // history or greeting); subsequent sends append to the live list.
+    // history, or empty for a new Conversation); subsequent sends append to the
+    // live list.
     const previous = localMessages ?? base;
     // Captured before `setLocalMessages` mutates it: is this the first send of
     // this mount? If so we stamp the deep-link URL below (only on a real send,
