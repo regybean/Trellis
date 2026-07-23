@@ -1,8 +1,12 @@
+import 'fake-indexeddb/auto';
+
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
+import { IDBFactory } from 'fake-indexeddb';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
+import { beforeEach } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
@@ -11,13 +15,25 @@ import { TRPCReactProvider } from '../../trpc/react';
 // plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
 // real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
 
+// jsdom has no IndexedDB; `fake-indexeddb/auto` installs an in-memory one on the
+// global. Swap in a fresh factory before each test so persisted caches never
+// leak across cases (ADR 0025 / ADR 0018).
+beforeEach(() => {
+  globalThis.indexedDB = new IDBFactory();
+});
+
 /**
  * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
- * the `renderHook` wrapper for `integration/hooks` tests.
+ * the `renderHook` wrapper for `integration/hooks` tests. A `scopeKey` opts
+ * persistence on (offline-read tests); omitted, the feature runs network-only.
  */
-export const Providers = ({ children }: { children: ReactNode }) => (
-  <TRPCReactProvider>{children}</TRPCReactProvider>
-);
+export const Providers = ({
+  children,
+  scopeKey,
+}: {
+  children: ReactNode;
+  scopeKey?: string;
+}) => <TRPCReactProvider scopeKey={scopeKey}>{children}</TRPCReactProvider>;
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (
