@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@acme/chat": "workspace:*",
+    "@acme/config": "workspace:*",
     "@acme/entitlements": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/ingest": "workspace:*",

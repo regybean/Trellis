@@ -16,6 +16,10 @@ const transpilePackages = Object.keys(pkg.dependencies ?? {}).filter((dep) =>
 /** @type {import('next').NextConfig} */
 const config = {
   transpilePackages,
+  // Inline the config-as-code deploy-target selector into both the server and
+  // client bundles so `resolveAppEnv(process.env.APP_ENV)` in env.ts resolves
+  // identically in each (ADR 0026). Unset → '' → the `development` base.
+  env: { APP_ENV: process.env.APP_ENV ?? '' },
   // officeparser (via @acme/rag) ships an ESM wrapper that destructures its named
   // exports off the CJS default import. When bundled (Turbopack/webpack), the
   // default import resolves to the module's `exports.default` (the OfficeParser

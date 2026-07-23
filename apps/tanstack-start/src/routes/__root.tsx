@@ -17,6 +17,7 @@ import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { ConsoleShell } from '../components/console-shell';
+import { config } from '../config';
 import appCss from '../styles.css?url';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
@@ -56,6 +57,10 @@ function RootDocument({ children }: { children: ReactNode }) {
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <ClerkProvider
           publishableKey={import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl={config.CLERK_SIGN_IN_URL}
+          signUpUrl={config.CLERK_SIGN_UP_URL}
+          signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
+          signUpForceRedirectUrl={config.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
           appearance={{ baseTheme: dark }}
         >
           <NextThemeProvider

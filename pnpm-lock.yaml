@@ -201,6 +201,9 @@ catalogs:
     tailwindcss:
       specifier: ^4.1.17
       version: 4.3.1
+    ts-deepmerge:
+      specifier: ^8.0.0
+      version: 8.0.0
     tsx:
       specifier: ^4.21.0
       version: 4.21.0
@@ -281,6 +284,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -432,6 +438,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -574,6 +583,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -719,6 +731,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -1400,6 +1415,40 @@ importers:
         specifier: ^4.0.1
         version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
+  packages/platform/config:
+    dependencies:
+      ts-deepmerge:
+        specifier: 'catalog:'
+        version: 8.0.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
+    devDependencies:
+      '@acme/eslint-config':
+        specifier: workspace:*
+        version: link:../../../tooling/eslint
+      '@acme/prettier-config':
+        specifier: workspace:*
+        version: link:../../../tooling/prettier
+      '@acme/tsconfig':
+        specifier: workspace:*
+        version: link:../../../tooling/typescript
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.7.0)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.7.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+      vitest:
+        specifier: ^4.0.1
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
+
   packages/platform/db:
     dependencies:
       '@acme/env':
@@ -1751,6 +1800,9 @@ importers:
 
   packages/shared/auth:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@clerk/backend':
         specifier: ^2.33.5
         version: 2.33.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1760,6 +1812,9 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@acme/eslint-config':
         specifier: workspace:*
@@ -10544,6 +10599,10 @@ packages:
     engines: {node: '>=18.12'}
     peerDependencies:
       typescript: '>=4.8.4'
+
+  ts-deepmerge@8.0.0:
+    resolution: {integrity: sha512-133O+10nJmVI8w5xeVZPEv5PIrv7iaUae07wv1aH8XJH95Ur6YIhWAPhPyP1YPlbPS9fCVcNIZTu7m8urRVF0A==}
+    engines: {node: '>=14.13.1'}
 
   tsconfck@3.1.6:
     resolution: {integrity: sha512-ks6Vjr/jEw0P1gmOVwutM3B7fWxoWBL2KRDb1JfqGVawBmO5UsvmWOQFGHBPl5yxYz4eERr19E6L7NMv+Fej4w==}
@@ -20673,6 +20732,8 @@ snapshots:
   ts-api-utils@2.3.0(typescript@5.9.3):
     dependencies:
       typescript: 5.9.3
+
+  ts-deepmerge@8.0.0: {}
 
   tsconfck@3.1.6(typescript@5.9.3):
     optionalDependencies:

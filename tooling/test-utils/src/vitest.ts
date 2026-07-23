@@ -29,6 +29,10 @@ import baseConfig from '@acme/vitest-config/base';
  */
 export const staticTestEnv = {
   NEXT_PUBLIC_WEBAPP: 'testing',
+  // @acme/config — the deploy-target selector. Set explicitly (rather than
+  // leaning on the unset→development default) so suites document that they
+  // validate against the base profile. See ADR 0026.
+  APP_ENV: 'development',
   // @acme/models
   LLM_PROVIDER: 'ollama',
   EMBED_PROVIDER: 'ollama',
