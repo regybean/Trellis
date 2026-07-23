@@ -1782,6 +1782,9 @@ importers:
 
   packages/shared/auth:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@clerk/backend':
         specifier: ^2.33.5
         version: 2.33.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1791,6 +1794,9 @@ importers:
       react:
         specifier: 'catalog:'
         version: 19.2.3
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@acme/eslint-config':
         specifier: workspace:*

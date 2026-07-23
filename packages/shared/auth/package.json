@@ -1,9 +1,11 @@
 {
   "name": "@acme/auth",
   "dependencies": {
+    "@acme/config": "workspace:*",
     "@clerk/backend": "catalog:",
     "@clerk/clerk-react": "catalog:",
-    "react": "catalog:"
+    "react": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
@@ -21,6 +23,10 @@
     "./server": {
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./src/config.ts"
     }
   },
   "sideEffects": false,
