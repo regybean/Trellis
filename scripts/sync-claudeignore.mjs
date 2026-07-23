@@ -3,7 +3,8 @@
 // .claudeignore is the source of truth (gitignore-style patterns). This turns
 // each pattern into native Claude Code `Read(...)` deny rules — the only
 // enforcement CC applies (there is no built-in .claudeignore). Idempotent:
-// regenerates the deny array wholesale and strips the legacy claude-ignore hook.
+// regenerates only the Read() deny rules (preserving other deny rules) and
+// strips the legacy claude-ignore hook.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -46,9 +47,19 @@ if (settings.hooks?.PreToolUse) {
   if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
 }
 
-settings.permissions = { ...settings.permissions, deny };
+// This script owns only the Read() deny rules (.claudeignore is their source of
+// truth). Preserve every other deny rule the user added by hand (tool denies
+// like NotebookEdit, non-Read permissions) rather than clobbering the array.
+const preserved = (settings.permissions?.deny ?? []).filter(
+  (r) => !r.startsWith("Read("),
+);
+settings.permissions = {
+  ...settings.permissions,
+  deny: [...new Set([...preserved, ...deny])].sort(),
+};
 
 writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
 console.log(
-  `Synced ${deny.length} deny rules from .claudeignore -> ${settingsPath}`,
+  `Synced ${deny.length} Read() deny rules from .claudeignore -> ${settingsPath}` +
+    ` (preserved ${preserved.length} other deny rules)`,
 );
