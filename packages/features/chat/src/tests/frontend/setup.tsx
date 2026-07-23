@@ -1,14 +1,25 @@
+import 'fake-indexeddb/auto';
+
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
+import { IDBFactory } from 'fake-indexeddb';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import { ToastContainer } from 'react-toastify';
 import superjson from 'superjson';
+import { beforeEach } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
+
+// jsdom ships no IndexedDB; `fake-indexeddb/auto` installs an in-memory one so
+// the query persister (ADR 0025) can be exercised. A fresh factory per test
+// keeps persisted caches from leaking across cases.
+beforeEach(() => {
+  globalThis.indexedDB = new IDBFactory();
+});
 
 // NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
 // msw-trpc can intercept. Env is real (validated by ../../env). We fake the
@@ -27,6 +38,21 @@ export const Providers = ({ children }: { children: ReactNode }) => (
     <ToastContainer />
   </TRPCReactProvider>
 );
+
+/**
+ * Providers with the query persister wired for a given per-user `scopeKey`
+ * (ADR 0025). Used by the offline-restore test to prime and then cold-restore a
+ * persisted cache; the default `Providers` passes no `scopeKey`, so persistence
+ * stays off for every other test (network-only, unchanged).
+ */
+export const ScopedProviders =
+  (scopeKey: string) =>
+  ({ children }: { children: ReactNode }) => (
+    <TRPCReactProvider scopeKey={scopeKey}>
+      {children}
+      <ToastContainer />
+    </TRPCReactProvider>
+  );
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (

@@ -23,11 +23,18 @@ export function chatEnv() {
     server: {
       REDIS_URL: z.url(),
     },
-    client: {},
+    client: {
+      // Composed into the query persister's `buster` (with the app-supplied
+      // `scopeKey`) so a deploy that changes the persisted data shape discards
+      // every prior snapshot on restore. Optional: apps that don't set it get a
+      // stable default, which simply never busts on version alone.
+      NEXT_PUBLIC_APP_VERSION: z.string().default('0.0.0'),
+    },
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
       REDIS_URL: process.env.REDIS_URL,
+      NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
     },
     skipValidation,
   });

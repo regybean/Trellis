@@ -46,6 +46,8 @@
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "eslint": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "idb-keyval": "catalog:",
     "jsdom": "catalog:",
     "mastra": "catalog:",
     "msw-trpc": "catalog:",

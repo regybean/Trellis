@@ -16,22 +16,52 @@ import {
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import SuperJSON from 'superjson';
 
+import {
+  clearPersistedCache as clearHookPersistedCache,
+  createQueryPersister,
+} from '@acme/hooks';
+
 import type { AppRouter } from '../api/root';
 import { env } from '../env';
-import { createQueryClient } from './query-client';
+import { CHAT_MAX_AGE, createQueryClient } from './query-client';
+
+// Chat's per-feature identifier: names its own IndexedDB store `rq-chat`, so
+// mounting alongside other opted-in features never collides on a shared key.
+const CHAT_KEY_PREFIX = 'chat';
+
+/**
+ * Empty chat's persisted cache (`rq-chat`). App-driven: the full apps call this
+ * — alongside `queryClient.clear()` — on the Clerk logout path so a shared
+ * machine never leaks one user's Conversations to the next; slim apps have no
+ * logout and never call it. Safe no-op degradation on storage failure.
+ */
+export const clearChatPersistedCache = () =>
+  clearHookPersistedCache(CHAT_KEY_PREFIX);
 
 let clientQueryClientSingleton: QueryClient | undefined;
-const getQueryClient = () => {
+const getQueryClient = (scopeKey?: string) => {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (globalThis.window == undefined) {
-    return createQueryClient(); // Server: always make a new query client
+    return createQueryClient(); // Server: always make a new query client, no persister
   }
+  // The persister exists only when the app supplies a per-user `scopeKey`.
+  // Absent ⇒ chat behaves exactly as before (network-only) — graceful
+  // degradation, not a hard dependency.
+  const persister =
+    scopeKey === undefined
+      ? undefined
+      : createQueryPersister({
+          keyPrefix: CHAT_KEY_PREFIX,
+          scopeKey,
+          appVersion: env.NEXT_PUBLIC_APP_VERSION,
+          maxAge: CHAT_MAX_AGE,
+        });
   // In tests, avoid singleton to prevent cross-test cache pollution
   if (env.NODE_ENV === 'test') {
-    return createQueryClient();
+    return createQueryClient(persister);
   }
   // Browser: use singleton pattern to keep the same query client
-  clientQueryClientSingleton ??= createQueryClient();
+  clientQueryClientSingleton ??= createQueryClient(persister);
   return clientQueryClientSingleton;
 };
 
@@ -42,9 +72,9 @@ export const { useTRPC, TRPCProvider } = createTRPCContext<
 
 // https://discord-questions.trpc.io/m/1343947836143960066
 export function TRPCReactProvider(
-  props: Readonly<{ children: React.ReactNode }>,
+  props: Readonly<{ children: React.ReactNode; scopeKey?: string }>,
 ) {
-  const queryClient = getQueryClient();
+  const queryClient = getQueryClient(props.scopeKey);
 
   // We only console.error in development not production
   const [trpcClient] = useState(() =>
