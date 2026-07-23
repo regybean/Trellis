@@ -31,7 +31,7 @@ interface NavItem {
 // Same destinations as the Next.js sidebar — deliberately re-arranged into a
 // dense icon rail to prove the shell can diverge while the routes/features match.
 const navItems: NavItem[] = [
-  { title: 'Chat', to: '/chat-assistant', icon: MessageSquare },
+  { title: 'Chat', to: '/chat-assistant/{-$sessionId}', icon: MessageSquare },
   { title: 'Documents', to: '/admin', icon: FileText },
   { title: 'Pricing', to: '/pricing', icon: Tag },
 ];
