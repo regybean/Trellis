@@ -3,7 +3,7 @@
 import type React from 'react';
 import { forwardRef, useCallback, useEffect, useRef } from 'react';
 
-import { ScrollArea, Skeleton } from '@acme/ui';
+import { Skeleton } from '@acme/ui';
 
 import type { Message } from '../api/schemas/message-schema';
 import MessageItem from './message-item';
@@ -13,7 +13,7 @@ import MessageItem from './message-item';
 // mimics the user/assistant bubble rhythm.
 export function MessageListSkeleton() {
   return (
-    <div className="h-[700px] space-y-6 pr-4" data-testid="message-skeleton">
+    <div className="h-full space-y-6 pr-4" data-testid="message-skeleton">
       {['assistant', 'user', 'assistant'].map((role, i) => (
         <div
           key={i}
@@ -46,12 +46,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
 
     const scrollToBottom = useCallback(() => {
       if (scrollAreaRef.current) {
-        const scrollContainer = scrollAreaRef.current.querySelector(
-          '[data-radix-scroll-area-viewport]',
-        );
-        if (scrollContainer) {
-          scrollContainer.scrollTop = scrollContainer.scrollHeight;
-        }
+        scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
       }
     }, []);
 
@@ -63,9 +58,9 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
     }, [scrollToBottom, scrollToBottomRef]);
 
     return (
-      <ScrollArea
+      <div
         ref={scrollAreaRef}
-        className="h-[700px] pr-4"
+        className="min-h-0 flex-1 [scrollbar-width:none] overflow-y-auto [&::-webkit-scrollbar]:hidden"
         data-testid="message-container"
       >
         <div className="pb-[500px]">
@@ -79,7 +74,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
     );
   },
 );

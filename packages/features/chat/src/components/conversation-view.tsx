@@ -75,7 +75,7 @@ export function ConversationView({
         onSelect={select}
         onNewConversation={newConversation}
       />
-      <div className="min-w-0 flex-1 overflow-auto">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <ChatAssistant
           key={sessionId}
           sessionId={sessionId}
