@@ -22,7 +22,7 @@ export function ChatView({ initialSessionId }: { initialSessionId?: string }) {
   };
 
   return (
-    <div className="bg-muted h-[calc(100vh-4rem)]">
+    <div className="bg-muted h-full">
       <ConversationView
         initialSessionId={initialSessionId}
         onTokensConsumed={handleTokensConsumed}

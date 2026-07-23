@@ -38,7 +38,7 @@ export const viewport: Viewport = {
 export default function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="bg-background text-foreground min-h-screen font-sans antialiased">
+      <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
         <NextThemeProvider
           attribute="class"
           defaultTheme="system"
@@ -65,7 +65,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
                         Slim Edition
                       </span>
                     </header>
-                    <main>
+                    <main className="min-h-0 flex-1">
                       <ToastThemeClient />
                       {props.children}
                     </main>
