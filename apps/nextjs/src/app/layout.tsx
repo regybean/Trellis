@@ -2,15 +2,15 @@ import './styles.css';
 
 import type { Metadata, Viewport } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
+import { auth } from '@clerk/nextjs/server';
 
 import { BillingTRPCReactProvider } from '@acme/billing';
-import { ChatTRPCReactProvider } from '@acme/chat';
-import { FeedbackTRPCReactProvider } from '@acme/feedback';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 // Toast container is rendered client-side to safely access localStorage
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { EditorialShell } from '../components/pages/layout/editorial-shell';
+import { PersistedFeatureProviders } from '../components/pages/layout/persisted-feature-providers';
 import { env } from '../env';
 
 export const metadata: Metadata = {
@@ -31,7 +31,11 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout(props: { children: React.ReactNode }) {
+export default async function RootLayout(props: { children: React.ReactNode }) {
+  // Server-resolved so the chat/feedback persisters have their scope on the first
+  // render (see PersistedFeatureProviders). Signed out ⇒ undefined ⇒ network-only.
+  const { userId } = await auth();
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
@@ -43,18 +47,16 @@ export default function RootLayout(props: { children: React.ReactNode }) {
             disableTransitionOnChange
           >
             <BillingTRPCReactProvider>
-              <ChatTRPCReactProvider>
-                <FeedbackTRPCReactProvider>
-                  <IngestTRPCReactProvider>
-                    <TooltipProvider>
-                      <EditorialShell>
-                        <ToastThemeClient />
-                        {props.children}
-                      </EditorialShell>
-                    </TooltipProvider>
-                  </IngestTRPCReactProvider>
-                </FeedbackTRPCReactProvider>
-              </ChatTRPCReactProvider>
+              <PersistedFeatureProviders scopeKey={userId ?? undefined}>
+                <IngestTRPCReactProvider>
+                  <TooltipProvider>
+                    <EditorialShell>
+                      <ToastThemeClient />
+                      {props.children}
+                    </EditorialShell>
+                  </TooltipProvider>
+                </IngestTRPCReactProvider>
+              </PersistedFeatureProviders>
             </BillingTRPCReactProvider>
           </NextThemeProvider>
         </ClerkProvider>
