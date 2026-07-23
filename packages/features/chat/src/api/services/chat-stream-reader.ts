@@ -61,6 +61,38 @@ function delay(ms: number, signal?: AbortSignal) {
 const rangeStart = (cursor: string | null) =>
   cursor === null ? '-' : `(${cursor}`;
 
+// Coalesce consecutive deltas within one xRange batch into a single emission.
+// On a cold resume (no Last-Event-ID) the reader tails from the head, so the
+// whole accumulated backlog arrives in ONE xRange. Emitting it token-by-token
+// makes the client re-render — and re-parse the growing markdown string — once
+// per token, i.e. O(n^2) work crammed into a burst: visible jitter for a long
+// partial. One coalesced delta ⇒ one client render. Live polls return a single
+// entry, so this is a no-op during normal streaming. The coalesced entry
+// carries the LAST delta's id, so a client that reconnects with that
+// Last-Event-ID resumes strictly after everything it already received.
+function* coalesceBatch(
+  entries: Awaited<ReturnType<typeof redis.xRange>>,
+): Generator<ReaderEntry> {
+  let chunk = '';
+  let deltaId: string | null = null;
+  for (const [id, fields] of entries) {
+    const event = parseEntry(fields);
+    if (event.type === 'delta') {
+      chunk += event.chunk;
+      deltaId = id;
+      continue;
+    }
+    // A terminal: flush any buffered deltas first, then emit it.
+    if (deltaId !== null)
+      yield { id: deltaId, event: { type: 'delta', chunk } };
+    chunk = '';
+    deltaId = null;
+    yield { id, event };
+  }
+  // Flush deltas buffered when the batch ended without a terminal.
+  if (deltaId !== null) yield { id: deltaId, event: { type: 'delta', chunk } };
+}
+
 // Pure, stateless tail of a Conversation's token Stream — no writes, no LLM, no
 // lock operations. Yields each Redis entry as `{ id, event }`; the router hands
 // `id` to tRPC `tracked()` so a reconnecting client (passing `lastEventId`)
@@ -80,11 +112,11 @@ export async function* tailChatStream(
 
   while (!signal?.aborted) {
     const entries = await redis.xRange(streamKey, rangeStart(cursor), '+');
-    for (const [id, fields] of entries) {
-      cursor = id;
-      const event = parseEntry(fields);
-      yield { id, event };
-      if (TERMINAL_TYPES.has(event.type)) return;
+
+    for (const entry of coalesceBatch(entries)) {
+      cursor = entry.id;
+      yield entry;
+      if (TERMINAL_TYPES.has(entry.event.type)) return;
     }
 
     if (draining) return;

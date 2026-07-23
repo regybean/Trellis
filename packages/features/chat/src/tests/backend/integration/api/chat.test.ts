@@ -663,7 +663,7 @@ describe('chatRouter', () => {
   // (no dependence on poll timing).
   // ==========================================================================
   describe('stream (reader)', () => {
-    it('re-emits delta entries in order, then closes on the done terminal', async () => {
+    it('coalesces consecutive deltas drained in one batch, then closes on the done terminal', async () => {
       const conversationId = createTestSessionId();
       const streamKey = chatStreamKey(conversationId);
       await redis.xAdd(streamKey, '*', { chunk: 'Hello' });
@@ -674,9 +674,11 @@ describe('chatRouter', () => {
 
       const entries = await drainReader(conversationId);
 
+      // Consecutive deltas that arrive in a single xRange collapse into one
+      // delta carrying the full text (the resume-jitter fix: one client render
+      // for the backlog instead of one per token); the terminal follows.
       expect(entries.map((e) => e.event)).toEqual([
-        { type: 'delta', chunk: 'Hello' },
-        { type: 'delta', chunk: ' world' },
+        { type: 'delta', chunk: 'Hello world' },
         { type: 'done', messageId: 'msg-1' },
       ]);
     });
@@ -686,17 +688,25 @@ describe('chatRouter', () => {
       const streamKey = chatStreamKey(conversationId);
       await redis.xAdd(streamKey, '*', { chunk: 'a' });
       await redis.xAdd(streamKey, '*', { chunk: 'b' });
+
+      // First attach coalesces the backlog into one delta carrying the id of
+      // the LAST entry it consumed — that id is the client's Last-Event-ID.
+      const first = await drainReader(conversationId);
+      expect(first.map((e) => e.event)).toEqual([
+        { type: 'delta', chunk: 'ab' },
+      ]);
+      const lastSeenId = first.at(-1)?.id;
+      expect(lastSeenId).toBeDefined();
+
+      // More tokens land, then the terminal.
+      await redis.xAdd(streamKey, '*', { chunk: 'c' });
       await redis.xAdd(streamKey, '*', { type: 'done', messageId: 'm' });
 
-      // First attach reads everything; capture the id of the first delta.
-      const first = await drainReader(conversationId);
-      const firstDeltaId = first[0]?.id;
-      expect(firstDeltaId).toBeDefined();
-
-      // Second attach resuming after the first delta sees only b + done.
-      const resumed = await drainReader(conversationId, firstDeltaId);
+      // Resuming after the coalesced id sees only what came after — no re-read
+      // of a/b, no gap before c.
+      const resumed = await drainReader(conversationId, lastSeenId);
       expect(resumed.map((e) => e.event)).toEqual([
-        { type: 'delta', chunk: 'b' },
+        { type: 'delta', chunk: 'c' },
         { type: 'done', messageId: 'm' },
       ]);
     });
