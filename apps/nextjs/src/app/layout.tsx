@@ -11,6 +11,7 @@ import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { EditorialShell } from '../components/pages/layout/editorial-shell';
+import { config } from '../config';
 import { env } from '../env';
 
 export const metadata: Metadata = {
@@ -35,7 +36,13 @@ export default function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
-        <ClerkProvider publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}>
+        <ClerkProvider
+          publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          signInUrl={config.CLERK_SIGN_IN_URL}
+          signUpUrl={config.CLERK_SIGN_UP_URL}
+          signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
+          signUpForceRedirectUrl={config.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
+        >
           <NextThemeProvider
             attribute="class"
             defaultTheme="system"

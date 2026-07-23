@@ -284,6 +284,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -435,6 +438,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -577,6 +583,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -722,6 +731,9 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../packages/platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
