@@ -34,6 +34,16 @@ ENV CI=true
 ENV NODE_ENV=production
 ENV TURBO_REMOTE_ONLY=true
 
+# Config-as-code (ADR 0026): the deploy-target selector is derived from STAGE.
+# This is a staging/production image build, so APP_ENV must be a real profile —
+# fail loudly if it is unset/invalid rather than silently baking the
+# `development` base into a production bundle.
+ENV APP_ENV=$STAGE
+RUN case "$APP_ENV" in \
+  staging | production) echo "Building with APP_ENV=$APP_ENV" ;; \
+  *) echo "ERROR: APP_ENV must be 'staging' or 'production' for an image build (got '${APP_ENV:-unset}'); set the STAGE build-arg." >&2 && exit 1 ;; \
+  esac
+
 # Install dependencies
 COPY --from=prepare /app/out/json/ .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
