@@ -63,3 +63,22 @@ whatever `renderMessageActions(message)` returns beneath a settled assistant Mes
 Apps wire `FeedbackButtons` into that slot. Keeping the dependency app-side preserves
 the slice contract — chat stays mountable without feedback, and a reduced-subset app
 can omit feedback entirely.
+
+**Rating state persists for instant / offline read (opt-in)**: `feedback.forMessage`
+is marked persistable via `meta: persistMeta`, so its Rating renders immediately on
+reload — including offline — instead of flickering in once the network responds. The
+mechanism is the shared per-query IndexedDB persister from `@acme/hooks` ([ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md)),
+composed into feedback's own query client under storage key `rq-feedback`; each
+per-Message query is written under its own hash, lazily and asynchronously, so many
+Messages never rewrite a whole-cache blob or jank the main thread. `forMessage` is the
+only persisted query — the `submit`/`remove` mutations never are.
+
+**Persistence is opt-in and auth-agnostic**: `FeedbackTRPCReactProvider` accepts an
+app-supplied `scopeKey` (the signed-in user id via the `@acme/auth` seam in full apps,
+`'anon'` in slim apps — the feature never imports Clerk). Absent a `scopeKey`, or where
+IndexedDB is unavailable, the feature runs network-only exactly as before; persistence
+is a pure read-time optimisation, never a hard dependency. The persister `buster` is
+`FEEDBACK_PERSIST_VERSION:scopeKey`, so a different user or an incompatible data-shape
+version never rehydrates a prior snapshot. `maxAge` is 24h (`gcTime` matches). The
+provider surface exports `clearPersistedCache()`, which the full apps call alongside
+`queryClient.clear()` on logout to wipe Rating state on shared machines.
