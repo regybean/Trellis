@@ -65,10 +65,11 @@ describe('ChatAssistant', () => {
       expect(screen.getByTestId('chat-input')).toBeInTheDocument();
       expect(screen.getByTestId('chat-send-button')).toBeInTheDocument();
 
-      // The history query settles into an empty message pane (no skeleton).
+      // The history query settles into the empty state (no skeleton).
       await waitFor(() =>
-        expect(screen.queryByTestId('message-skeleton')).toBeNull(),
+        expect(screen.getByTestId('chat-empty-state')).toBeInTheDocument(),
       );
+      expect(screen.queryByTestId('message-skeleton')).toBeNull();
     });
   });
 
