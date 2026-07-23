@@ -57,6 +57,27 @@ class ResizeObserverMock {
 }
 globalThis.ResizeObserver = ResizeObserverMock;
 
+// jsdom doesn't implement matchMedia; the sidebar rail reads it for its
+// mobile default. Report desktop (matches:false) so tests render expanded.
+globalThis.matchMedia = (query: string) => ({
+  matches: false,
+  media: query,
+  onchange: null,
+  addEventListener: () => {
+    // no-op
+  },
+  removeEventListener: () => {
+    // no-op
+  },
+  addListener: () => {
+    // no-op
+  },
+  removeListener: () => {
+    // no-op
+  },
+  dispatchEvent: () => false,
+});
+
 if (!('hasPointerCapture' in Element.prototype)) {
   // @ts-expect-error - jsdom doesn't implement this API
   Element.prototype.hasPointerCapture = () => false;
