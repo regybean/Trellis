@@ -46,8 +46,6 @@ Object.defineProperty(globalThis, 'scrollTo', {
 const SESSION_ID = '00000000-0000-4000-8000-000000000000';
 const OTHER_ID = '11111111-1111-4111-8111-111111111111';
 const UUID_PATH = /^\/chat-assistant\/[0-9a-f-]{36}$/;
-const GREETING =
-  'I am an AI assistant ready to answer questions about your documents. How may I help you today?';
 
 const conv = (sessionId: string, title: string): SelectConversationSummary => ({
   sessionId,
@@ -78,7 +76,9 @@ describe('ConversationView navigation', () => {
     server.use(...baseHandlers());
 
     renderWithProviders(<ConversationView />);
-    await waitFor(() => expect(screen.getByText(GREETING)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId('message-skeleton')).toBeNull(),
+    );
 
     expect(globalThis.location.pathname).toBe('/chat-assistant');
   });
@@ -89,7 +89,9 @@ describe('ConversationView navigation', () => {
     const user = userEvent.setup();
 
     renderWithProviders(<ConversationView />);
-    await waitFor(() => expect(screen.getByText(GREETING)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId('message-skeleton')).toBeNull(),
+    );
 
     await user.type(screen.getByTestId('chat-input'), 'first message');
     await user.click(screen.getByTestId('chat-send-button'));
@@ -104,7 +106,9 @@ describe('ConversationView navigation', () => {
     server.use(...baseHandlers());
 
     renderWithProviders(<ConversationView initialSessionId={SESSION_ID} />);
-    await waitFor(() => expect(screen.getByText(GREETING)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId('message-skeleton')).toBeNull(),
+    );
 
     expect(globalThis.location.pathname).toBe(`/chat-assistant/${SESSION_ID}`);
   });
@@ -134,7 +138,9 @@ describe('ConversationView navigation', () => {
     const user = userEvent.setup();
 
     renderWithProviders(<ConversationView initialSessionId={SESSION_ID} />);
-    await waitFor(() => expect(screen.getByText(GREETING)).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.queryByTestId('message-skeleton')).toBeNull(),
+    );
 
     await user.click(screen.getByTestId('new-conversation'));
 
