@@ -12,6 +12,12 @@ The destination varies per effort, and naming it is the first act of charting �
 
 Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear — nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes** — carrying execution into the map itself — but absent that, produce decisions, not deliverables.
 
+## Synthesize the map into its artifact
+
+When the destination is a **synthesizable artifact** — a spec, ADR, or handoff document, as opposed to an in-place change or a bare locked decision — that artifact is itself a ticket, never a byproduct of closing the last decision. `Decisions so far` is an **index, not the spec** (see [The Map](#the-map)); leave synthesis implicit and the map completes leaving the human with scattered resolutions and no consolidated document. So every such map carries a **terminal synthesis ticket**: a HITL `grilling` ticket, created while charting, blocked by every other ticket, that turns the finished map into its artifact by re-reading the whole closed map — not authored piecemeal as decisions land. It is the one deliverable a planning map is allowed to produce (see [Plan, don't do](#plan-dont-do)) — a consolidation of the decisions made, not execution of the work they describe. The map is done when it resolves, last.
+
+Destinations that are an in-place change or a bare locked decision have no separate document to synthesize — skip the terminal ticket.
+
 ## Refer by name
 
 Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, number, or slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride _inside_ the name, never stand in for it.
@@ -114,7 +120,8 @@ User invokes with a loose idea.
 2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
 3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
 4. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog — the **Not yet specified** section.
-5. Stop — charting the map is one session's work; do not also resolve tickets.
+5. **If the destination is a synthesizable artifact** (see [Synthesize the map into its artifact](#synthesize-the-map-into-its-artifact)), create the **terminal synthesis ticket** and wire it blocked-by every other ticket, so it sits at the back of the frontier and the map cannot complete without producing its deliverable. Skip this for an in-place change or a bare locked decision.
+6. Stop — charting the map is one session's work; do not also resolve tickets.
 
 ### Work through the map
 
@@ -124,6 +131,6 @@ User invokes with a map (URL or number). A ticket is **optional** — without on
 2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
 3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `/grilling` and `/domain-modeling`.
 4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
-5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets. If a terminal synthesis ticket exists, wire each newly-surfaced ticket as a blocker of it, keeping it terminal — the map is done only once it resolves, after every other ticket.
 
 The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
