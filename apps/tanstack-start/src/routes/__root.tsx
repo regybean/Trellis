@@ -11,16 +11,23 @@ import {
 } from '@tanstack/react-router';
 
 import { BillingTRPCReactProvider } from '@acme/billing';
-import { ChatTRPCReactProvider } from '@acme/chat';
-import { FeedbackTRPCReactProvider } from '@acme/feedback';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { ConsoleShell } from '../components/console-shell';
+import { PersistedFeatureProviders } from '../components/persisted-feature-providers';
+import { getAuthState } from '../lib/auth';
 import appCss from '../styles.css?url';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
+    // Server-resolved so the chat/feedback persisters have their scope on the
+    // first render (see PersistedFeatureProviders). Signed out ⇒ userId null ⇒
+    // network-only.
+    beforeLoad: async () => {
+      const { userId } = await getAuthState();
+      return { userId };
+    },
     head: () => ({
       meta: [
         { charSet: 'utf8' },
@@ -48,6 +55,8 @@ function RootComponent() {
  * match the developer-console shell. The feature providers are reused as-is.
  */
 function RootDocument({ children }: { children: ReactNode }) {
+  const { userId } = Route.useRouteContext();
+
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
@@ -64,16 +73,14 @@ function RootDocument({ children }: { children: ReactNode }) {
             disableTransitionOnChange
           >
             <BillingTRPCReactProvider>
-              <ChatTRPCReactProvider>
-                <FeedbackTRPCReactProvider>
-                  <IngestTRPCReactProvider>
-                    <TooltipProvider>
-                      <ConsoleShell>{children}</ConsoleShell>
-                      <ToastThemeClient />
-                    </TooltipProvider>
-                  </IngestTRPCReactProvider>
-                </FeedbackTRPCReactProvider>
-              </ChatTRPCReactProvider>
+              <PersistedFeatureProviders scopeKey={userId ?? undefined}>
+                <IngestTRPCReactProvider>
+                  <TooltipProvider>
+                    <ConsoleShell>{children}</ConsoleShell>
+                    <ToastThemeClient />
+                  </TooltipProvider>
+                </IngestTRPCReactProvider>
+              </PersistedFeatureProviders>
             </BillingTRPCReactProvider>
           </NextThemeProvider>
         </ClerkProvider>
