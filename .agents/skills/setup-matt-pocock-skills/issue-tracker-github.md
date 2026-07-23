@@ -33,6 +33,15 @@ Create a GitHub issue.
 
 Run `gh issue view <number> --comments`.
 
+## Spec frontier
+
+Used by `/implement` when handed a `type:spec` (a `/to-tickets` parent). Its implementation tickets bind by **body convention**, not native sub-issues/dependencies (a spec has no GitHub sub-issues; tickets report `blocked_by: 0`) — so the Wayfinding frontier query below does not apply. Derive the spec's frontier:
+
+1. **Children**: each ticket's `## Parent` line is a GitHub cross-reference on the spec — read them off its timeline rather than a title-prefix search: `gh api repos/<owner>/<repo>/issues/<spec>/timeline --paginate --jq '.[] | select(.event=="cross-referenced") | .source.issue'`. Keep entries that are open, not a PR, and labelled `type:ticket`.
+2. **Unclaimed**: drop any with an assignee.
+3. **Unblocked**: drop any whose `## Blocked by` list names a still-open issue (`None` = unblocked).
+4. **Order**: first survivor by the spec's `## Implementation order`; fall back to ascending issue number. Claim it with `gh issue edit <n> --add-assignee @me`.
+
 ## Wayfinding operations
 
 Used by `/wayfinder`. The **map** is a single issue with **child** issues as tickets.
