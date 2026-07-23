@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { useGenericErrorHandler } from '@acme/hooks';
+import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { SelectFolder } from '../api/schemas/folder-schema';
@@ -18,7 +18,12 @@ export function useConversations() {
   const queryClient = useQueryClient();
   const handleError = useGenericErrorHandler();
 
-  const conversationsQuery = useQuery(trpc.chat.list.queryOptions());
+  // Conversation History persists for offline read (ADR 0025); Folders do not
+  // (only `chat.list` and `chat.get` are marked — a dangling folderId simply
+  // falls back to its Date Bucket).
+  const conversationsQuery = useQuery(
+    trpc.chat.list.queryOptions(undefined, { meta: persistMeta }),
+  );
   const foldersQuery = useQuery(trpc.chat.folders.list.queryOptions());
 
   const listKey = trpc.chat.list.queryKey();

@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSubscription } from '@trpc/tanstack-react-query';
 import { toast } from 'react-toastify';
 
-import { useGenericErrorHandler } from '@acme/hooks';
+import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
@@ -60,7 +60,10 @@ export function useChat(
   // stays silent (no global query error handler). The component is keyed by
   // sessionId, so a fresh query runs per Conversation.
   const historyQuery = useQuery(
-    trpc.chat.get.queryOptions({ sessionId }, { retry: false }),
+    trpc.chat.get.queryOptions(
+      { sessionId },
+      { retry: false, meta: persistMeta },
+    ),
   );
 
   // Resume-after-refresh: on mount ask whether a Turn is already generating for
@@ -183,7 +186,10 @@ export function useChat(
   const reconcileOrAdopt = async (turnId: string | null) => {
     try {
       const persisted = await queryClient.fetchQuery(
-        trpc.chat.get.queryOptions({ sessionId }, { retry: false }),
+        trpc.chat.get.queryOptions(
+          { sessionId },
+          { retry: false, meta: persistMeta },
+        ),
       );
       const users = persisted.filter((m) => m.role === 'user').length;
       const assistants = persisted.filter((m) => m.role === 'assistant').length;
@@ -439,7 +445,9 @@ export function useChat(
   };
 
   const useGetMessages = (sessionId: string) => {
-    return useQuery(trpc.chat.get.queryOptions({ sessionId }));
+    return useQuery(
+      trpc.chat.get.queryOptions({ sessionId }, { meta: persistMeta }),
+    );
   };
 
   return {
