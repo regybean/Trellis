@@ -39,6 +39,12 @@ catalog:
   "@tailwindcss/postcss": ^4.1.16
   "@tailwindcss/vite": ^4.1.16
   "@turbo/gen": ^2.7.5
+  # experimental_createQueryPersister is an experimental_ API — pinned exact
+  # (no caret) so a patch bump can't silently change the persister contract.
+  # This package is versioned independently of react-query and its query-core
+  # dep rarely matches; the `@tanstack/query-core` override below forces a single
+  # copy so the persister's QueryClient brand matches react-query's. See ADR 0025.
+  "@tanstack/query-persist-client-core": 5.90.2
   "@tanstack/react-query": ^5.87.1
   "@testing-library/jest-dom": ^6.9.1
   "@testing-library/react": ^16.3.0
@@ -56,7 +62,9 @@ catalog:
   drizzle-orm: ^0.44.5
   drizzle-zod: ^0.8.3
   eslint: ^9.39.1
+  fake-indexeddb: ^6.2.2
   framer-motion: ^12.23.22
+  idb-keyval: ^6.2.5
   jsdom: 27.1.0
   lefthook: ^1.11.0
   lucide-react: ^0.475.0
@@ -107,6 +115,12 @@ onlyBuiltDependencies:
   - esbuild
 
 overrides:
+  # Force a single @tanstack/query-core so the per-query persister
+  # (@tanstack/query-persist-client-core) and react-query share one QueryClient
+  # brand — without this they resolve two copies whose #private fields clash.
+  # Pinned to react-query's exact query-core; bump in lockstep if react-query
+  # moves (ADR 0025).
+  "@tanstack/query-core": 5.90.16
   "@types/minimatch": 5.1.2
   import-in-the-middle: 2.0.4
   require-in-the-middle: 8.0.1
