@@ -1,7 +1,7 @@
 'use client';
 
 import type { DragEndEvent } from '@dnd-kit/core';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   DndContext,
   PointerSensor,
@@ -11,9 +11,12 @@ import {
   useSensors,
 } from '@dnd-kit/core';
 import {
+  ChevronDown,
   FolderPlus,
   MessageSquarePlus,
   MoreVertical,
+  PanelLeftClose,
+  PanelLeftOpen,
   Trash2,
 } from 'lucide-react';
 
@@ -33,6 +36,7 @@ import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { SelectFolder } from '../api/schemas/folder-schema';
 import type { DateBucket } from '../lib/date-buckets';
 import { useConversations } from '../hooks/use-conversations';
+import { useLocalStorage } from '../hooks/use-local-storage';
 import {
   bucketOf,
   DATE_BUCKET_LABELS,
@@ -41,6 +45,8 @@ import {
 
 const UNFILED_DROP_ID = 'date-buckets';
 const folderDropId = (folderId: string) => `folder:${folderId}`;
+
+const SIDEBAR_COLLAPSED_KEY = 'acme:chat:sidebar-collapsed';
 
 interface ConversationSidebarProps {
   currentSessionId: string;
@@ -64,6 +70,24 @@ export function ConversationSidebar({
   } = useConversations();
 
   const [newFolderName, setNewFolderName] = useState('');
+  const [collapsed, setCollapsed] = useLocalStorage(
+    SIDEBAR_COLLAPSED_KEY,
+    false,
+  );
+
+  // Mobile-first default: when the user hasn't chosen a state yet, start
+  // collapsed on small viewports so the rail doesn't cover the chat. Reads
+  // real values only after mount — SSR renders expanded. Self-terminating:
+  // once a value is stored the guard is false, so this never overrides a
+  // deliberate choice.
+  useEffect(() => {
+    if (
+      localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === null &&
+      globalThis.matchMedia('(max-width: 767px)').matches
+    ) {
+      setCollapsed(true);
+    }
+  }, [setCollapsed]);
 
   // Clicks must still select a Conversation, so a small drag threshold
   // distinguishes a click from a drag.
@@ -118,40 +142,83 @@ export function ConversationSidebar({
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-      <div className="bg-background flex h-full w-72 shrink-0 flex-col border-r">
+      <div
+        className={`bg-background flex h-full shrink-0 flex-col border-r transition-[width] duration-200 ${
+          collapsed ? 'w-14' : 'w-[85vw] md:w-72'
+        }`}
+        data-testid="conversation-sidebar"
+        data-collapsed={collapsed}
+      >
         <div className="flex flex-col gap-2 p-3">
-          <Button
-            onClick={onNewConversation}
-            className="w-full justify-start gap-2"
-            data-testid="new-conversation"
+          <div
+            className={`flex ${collapsed ? 'justify-center' : 'justify-end'}`}
           >
-            <MessageSquarePlus className="size-4" />
-            New chat
-          </Button>
-          <div className="flex gap-2">
-            <Input
-              value={newFolderName}
-              onChange={(e) => setNewFolderName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') addFolder();
-              }}
-              placeholder="New folder"
-              aria-label="New folder name"
-              data-testid="new-folder-input"
-            />
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setCollapsed(!collapsed)}
+              aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+              data-testid="sidebar-toggle"
+            >
+              {collapsed ? (
+                <PanelLeftOpen className="size-4" />
+              ) : (
+                <PanelLeftClose className="size-4" />
+              )}
+            </Button>
+          </div>
+
+          {collapsed ? (
             <Button
               variant="outline"
               size="icon"
-              onClick={addFolder}
-              aria-label="Add folder"
-              data-testid="add-folder"
+              onClick={onNewConversation}
+              aria-label="New chat"
+              data-testid="new-conversation"
+              className="self-center"
             >
-              <FolderPlus className="size-4" />
+              <MessageSquarePlus className="size-4" />
             </Button>
-          </div>
+          ) : (
+            <>
+              <Button
+                onClick={onNewConversation}
+                className="w-full justify-start gap-2"
+                data-testid="new-conversation"
+              >
+                <MessageSquarePlus className="size-4" />
+                New chat
+              </Button>
+              <div className="flex gap-2">
+                <Input
+                  value={newFolderName}
+                  onChange={(e) => setNewFolderName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') addFolder();
+                  }}
+                  placeholder="New folder"
+                  aria-label="New folder name"
+                  data-testid="new-folder-input"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={addFolder}
+                  aria-label="Add folder"
+                  data-testid="add-folder"
+                >
+                  <FolderPlus className="size-4" />
+                </Button>
+              </div>
+            </>
+          )}
         </div>
 
-        <ScrollArea className="flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <ScrollArea
+          className={`flex-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${
+            collapsed ? 'hidden' : ''
+          }`}
+        >
           <div className="flex flex-col gap-4 p-3">
             {isLoading ? (
               <ConversationListSkeleton />
@@ -232,14 +299,23 @@ function FolderSection({
   onDeleteConversation,
 }: FolderSectionProps) {
   const { setNodeRef, isOver } = useDroppable({ id: folderDropId(folder.id) });
+  const [open, setOpen] = useState(true);
 
   return (
-    <div
-      ref={setNodeRef}
-      className={`rounded-md ${isOver ? 'ring-primary ring-2' : ''}`}
-    >
+    <div className="rounded-md">
       <div className="text-muted-foreground flex items-center justify-between px-1 py-1 text-xs font-semibold uppercase">
-        <span className="truncate">{folder.name}</span>
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-label={`Toggle folder ${folder.name}`}
+          className="hover:text-foreground flex flex-1 items-center gap-1 truncate text-left"
+        >
+          <ChevronDown
+            className={`size-3.5 shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
+          />
+          <span className="truncate">{folder.name}</span>
+        </button>
         <button
           type="button"
           onClick={(e) => {
@@ -254,24 +330,31 @@ function FolderSection({
           <Trash2 className="size-3.5" />
         </button>
       </div>
-      <div className="flex flex-col gap-1">
-        {conversations.map((c) => (
-          <ConversationItem
-            key={c.sessionId}
-            conversation={c}
-            active={c.sessionId === currentSessionId}
-            folders={folders}
-            onSelect={onSelect}
-            onMove={onMove}
-            onDeleteConversation={onDeleteConversation}
-          />
-        ))}
-        {conversations.length === 0 && (
-          <p className="text-muted-foreground px-1 py-2 text-xs">
-            Drop chats here
-          </p>
-        )}
-      </div>
+      {/* Droppable lives inside the fold: a collapsed folder has no drop
+          target, so DnD can't file into it until re-expanded. */}
+      {open && (
+        <div
+          ref={setNodeRef}
+          className={`flex flex-col gap-1 rounded-md ${isOver ? 'ring-primary ring-2' : ''}`}
+        >
+          {conversations.map((c) => (
+            <ConversationItem
+              key={c.sessionId}
+              conversation={c}
+              active={c.sessionId === currentSessionId}
+              folders={folders}
+              onSelect={onSelect}
+              onMove={onMove}
+              onDeleteConversation={onDeleteConversation}
+            />
+          ))}
+          {conversations.length === 0 && (
+            <p className="text-muted-foreground px-1 py-2 text-xs">
+              Drop chats here
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -314,26 +397,72 @@ function DateBucketsSection({
         // eslint-disable-next-line security/detect-object-injection
         const label = DATE_BUCKET_LABELS[bucket];
         return conversations.length === 0 ? null : (
-          <div key={bucket}>
-            <p className="text-muted-foreground px-1 py-1 text-xs font-semibold uppercase">
-              {label}
-            </p>
-            <div className="flex flex-col gap-1">
-              {conversations.map((c) => (
-                <ConversationItem
-                  key={c.sessionId}
-                  conversation={c}
-                  active={c.sessionId === currentSessionId}
-                  folders={folders}
-                  onSelect={onSelect}
-                  onMove={onMove}
-                  onDeleteConversation={onDeleteConversation}
-                />
-              ))}
-            </div>
-          </div>
+          <DateBucketSection
+            key={bucket}
+            label={label}
+            conversations={conversations}
+            currentSessionId={currentSessionId}
+            folders={folders}
+            onSelect={onSelect}
+            onMove={onMove}
+            onDeleteConversation={onDeleteConversation}
+          />
         );
       })}
+    </div>
+  );
+}
+
+interface DateBucketSectionProps {
+  label: string;
+  conversations: SelectConversationSummary[];
+  currentSessionId: string;
+  folders: SelectFolder[];
+  onSelect: (sessionId: string) => void;
+  onMove: (sessionId: string, folderId: string | null) => void;
+  onDeleteConversation: (sessionId: string) => void;
+}
+
+function DateBucketSection({
+  label,
+  conversations,
+  currentSessionId,
+  folders,
+  onSelect,
+  onMove,
+  onDeleteConversation,
+}: DateBucketSectionProps) {
+  const [open, setOpen] = useState(true);
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-label={`Toggle ${label}`}
+        className="text-muted-foreground hover:text-foreground flex w-full items-center gap-1 px-1 py-1 text-xs font-semibold uppercase"
+      >
+        <ChevronDown
+          className={`size-3.5 shrink-0 transition-transform ${open ? '' : '-rotate-90'}`}
+        />
+        <span className="truncate">{label}</span>
+      </button>
+      {open && (
+        <div className="flex flex-col gap-1">
+          {conversations.map((c) => (
+            <ConversationItem
+              key={c.sessionId}
+              conversation={c}
+              active={c.sessionId === currentSessionId}
+              folders={folders}
+              onSelect={onSelect}
+              onMove={onMove}
+              onDeleteConversation={onDeleteConversation}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
