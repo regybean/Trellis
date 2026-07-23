@@ -75,6 +75,21 @@ export default defineConfig({
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above).
   define: publicEnvDefine,
+  // Pre-declare deps only reachable through subpath/lazy imports so Vite's
+  // first-pass crawl bundles them all. Otherwise they're discovered at runtime,
+  // triggering a second optimize pass that rewrites .vite/deps with new chunk
+  // hashes mid-reload — the previous chunks vanish and in-flight requests 404
+  // ("The file does not exist at .../chunk-XXX.js"). TanStack Start pulls
+  // router-core subpaths + seroval, none seen until runtime. (This is the
+  // no-auth/no-billing subset, so unlike tanstack-start it has no Clerk deps.)
+  optimizeDeps: {
+    include: [
+      '@tanstack/router-core',
+      '@tanstack/router-core/isServer',
+      '@tanstack/router-core/ssr/client',
+      'seroval',
+    ],
+  },
   server: {
     port: 3003,
   },

@@ -75,6 +75,25 @@ export default defineConfig({
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above).
   define: publicEnvDefine,
+  // Pre-declare deps only reachable through subpath/lazy imports so Vite's
+  // first-pass crawl bundles them all. Otherwise they're discovered at runtime,
+  // triggering a second optimize pass that rewrites .vite/deps with new chunk
+  // hashes mid-reload — the previous chunks vanish and in-flight requests 404
+  // ("The file does not exist at .../chunk-XXX.js"). Clerk's tanstack-react-start
+  // re-exports clerk-react internals + @clerk/shared/* subpaths; TanStack Start
+  // pulls router-core subpaths + seroval — none seen until runtime.
+  optimizeDeps: {
+    include: [
+      '@clerk/clerk-react/internal',
+      '@clerk/shared/error',
+      '@clerk/shared/getEnvVariable',
+      '@clerk/shared/underscore',
+      '@tanstack/router-core',
+      '@tanstack/router-core/isServer',
+      '@tanstack/router-core/ssr/client',
+      'seroval',
+    ],
+  },
   server: {
     port: 3001,
   },
