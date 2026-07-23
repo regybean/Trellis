@@ -32,7 +32,7 @@ export function EditorialShell({ children }: { children: ReactNode }) {
   const isActive = (href: string) => pathname.startsWith(href);
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col overflow-hidden">
       <header className="bg-background sticky top-0 z-40">
         {/* meta strip — small-caps mono kicker */}
         <div className="border-border text-muted-foreground flex items-center justify-between border-b px-6 py-1.5 font-mono text-[10px] tracking-[0.22em] uppercase">
@@ -107,7 +107,7 @@ export function EditorialShell({ children }: { children: ReactNode }) {
         </nav>
       </header>
 
-      <main className="flex-1">{children}</main>
+      <main className="min-h-0 flex-1 overflow-hidden">{children}</main>
 
       <footer className="border-border text-muted-foreground mt-auto border-t px-6 py-4 font-mono text-[10px] tracking-[0.18em] uppercase">
         &copy; MMXXVI Acme &mdash; set in Fraunces &amp; Hanken Grotesk

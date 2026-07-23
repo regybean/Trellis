@@ -11,7 +11,7 @@ import { ConversationView } from '@acme/chat';
 function ChatSessionPage() {
   const params = useParams<{ sessionId?: string[] }>();
   return (
-    <div className="bg-muted h-[calc(100vh-4rem)]">
+    <div className="bg-muted h-full">
       <ConversationView initialSessionId={params.sessionId?.[0]} />
     </div>
   );
