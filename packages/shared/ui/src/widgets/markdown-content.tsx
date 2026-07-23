@@ -14,10 +14,7 @@ interface MarkdownContentProps {
   className?: string;
 }
 // Custom component to render markdown with proper styling and full feature support
-export const MarkdownContent: React.FC<MarkdownContentProps> = ({
-  content,
-  className,
-}) => {
+const MarkdownContentImpl = ({ content, className }: MarkdownContentProps) => {
   return (
     <div className={`max-w-none ${className ?? 'text-foreground'}`}>
       <ReactMarkdown
@@ -203,3 +200,13 @@ export const MarkdownContent: React.FC<MarkdownContentProps> = ({
     </div>
   );
 };
+
+// react-markdown + remark-gfm + Prism highlighting is costly, and a chat message
+// list re-renders on every streaming token — which, unmemoized, re-parses AND
+// re-highlights EVERY message in the list per token. That is the dominant cost
+// behind chat jitter on long messages and right after a mid-stream resume (the
+// message is already large). Props are primitives, so the default shallow
+// compare is exact: only a message whose `content`/`className` actually changed
+// re-parses; every settled message is skipped.
+export const MarkdownContent = React.memo(MarkdownContentImpl);
+MarkdownContent.displayName = 'MarkdownContent';
