@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import type { Plugin } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
@@ -10,9 +11,20 @@ import tsConfigPaths from 'vite-tsconfig-paths';
 // `server-only` resolves to a throwing module unless the `react-server` export
 // condition is set. Next.js sets it for its server-component bundle; TanStack
 // Start's server runtime does not, so shared @acme/*/server modules (consumed by
-// both apps) throw on import even on the server. Stub it to an empty module in
-// the server build only — the client build keeps the throwing default so
-// accidental server imports in client code are still caught.
+// both apps) throw on import even on the server. `server-only`'s package ships
+// an `empty.js` (what the `react-server` condition would pick) — resolve its
+// absolute path so we can alias to it. The subpath isn't in the package's
+// `exports` map, so derive it from the resolved `.` entry rather than resolving
+// `server-only/empty.js` directly.
+const serverOnlyEmpty = createRequire(import.meta.url)
+  .resolve('server-only')
+  .replace(/index\.js$/, 'empty.js');
+
+// Vite side of the stub — covers code that Vite/rollup transforms (client build
+// keeps the throwing default so accidental server imports in client code are
+// still caught; every non-client environment gets the empty stub). Nitro's dev
+// server runtime loads externalized node_modules natively, *outside* this
+// pipeline, so it needs the `alias` on the nitro() plugin below as well.
 const stubServerOnly = (): Plugin => {
   const stubId = '\0server-only-stub';
   return {
@@ -86,6 +98,12 @@ export default defineConfig({
     // Registered explicitly by absolute path rather than relying on Nitro's
     // `plugins/` auto-scan, whose scan root is ambiguous under TanStack Start.
     nitro({
+      // The nitro dev runtime loads externalized node_modules natively, so
+      // `server-only`'s throwing `index.js` runs before any Vite plugin (the
+      // trpc routers + the telemetry bootstrap import `@acme/*/server`). Alias
+      // it to the package's empty stub — the server runtime never needs the
+      // client guard, which lives in the Vite client build (untouched).
+      alias: { 'server-only': serverOnlyEmpty },
       rollupConfig: { external: ['puppeteer'] },
       plugins: [
         fileURLToPath(new URL('./src/nitro/telemetry.ts', import.meta.url)),
