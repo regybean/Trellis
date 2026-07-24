@@ -101,10 +101,10 @@ export {
 } from './widgets/user-detailed-management';
 
 export { ToastThemeClient } from './providers/toast-theme-client';
-export { NextThemeProvider } from './providers/theme-provider';
-// Re-export the theme hook so apps read `resolvedTheme` through the same seam
-// that owns NextThemeProvider, instead of depending on next-themes directly.
-export { useTheme } from 'next-themes';
+// The theme wrapper module owns the `next-themes` dependency — it exports the
+// provider and re-exports the hook, so apps read `resolvedTheme` through the
+// same seam instead of depending on next-themes directly.
+export { NextThemeProvider, useTheme } from './providers/theme-provider';
 
 export { StripeIcon } from './icons/stripe-icon';
 

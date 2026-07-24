@@ -31,7 +31,6 @@
     "drizzle-orm": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
-    "next-themes": "catalog:",
     "postcss": "^8.5.6",
     "postgres": "catalog:",
     "react": "catalog:react19",

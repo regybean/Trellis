@@ -1,7 +1,8 @@
 'use client';
 
-import { useTheme } from 'next-themes';
 import { ToastContainer } from 'react-toastify';
+
+import { useTheme } from './theme-provider';
 
 export function ToastThemeClient() {
   const { resolvedTheme } = useTheme();
