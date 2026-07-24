@@ -29,7 +29,7 @@ A dedicated, always-on Node process — **one per app** (mirroring per-app env /
 _Avoid_: "background job" (too vague), "server" (it's not an HTTP server)
 
 **In-flight lock**:
-A self-expiring Redis key (`chat:inflight:{conversationId}`, `SET NX EX`) whose **value is the `turnId`**, enforcing the _one in-flight Turn per Conversation_ invariant. Set by `chat.send` as its first mutating step (before credits); the **Generation worker renews it as a heartbeat** so the lock doubles as stall-detection and crash-recovery (a dead worker's lock expires and self-heals `chat.send`); deleted in `finally` on terminal. Distinct from BullMQ `jobId` dedup (`conversationId:turnId`), which only collapses duplicate _enqueues_.
+A self-expiring Redis key (`chat:inflight:{conversationId}`, `SET NX EX`) whose **value is the `turnId`**, enforcing the _one in-flight Turn per Conversation_ invariant. Set by `chat.send` as its first mutating step (before credits); deleted in `finally` on terminal. The worker does **not** renew it — there is no heartbeat. Crash recovery is the TTL plus `chat.reconcileTurn`: a worker that dies mid-Turn leaves the lock to self-expire after `INFLIGHT_LOCK_TTL` (600s), after which the next `chat.send` re-acquires; before that, a client whose reader closes with no terminal calls `reconcileTurn` to refund + tear down. The TTL is kept comfortably longer than the longest expected generation so a live worker's lock never lapses under it. Distinct from BullMQ `jobId` dedup (`conversationId:turnId`), which only collapses duplicate _enqueues_.
 _Avoid_: "mutex", "semaphore", conflating it with the BullMQ jobId
 
 **RAG** (Retrieval-Augmented Generation):
