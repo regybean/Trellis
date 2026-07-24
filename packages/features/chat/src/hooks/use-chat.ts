@@ -9,60 +9,77 @@ import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
 import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
-import { useChatQueryClient, useTRPC } from '../trpc/react';
+import { useChatQueryClient, useTRPC, useTRPCClient } from '../trpc/react';
+
+// A Turn's lifecycle from THIS client's point of view, in a single value (#115).
+// Everything the UI needs — the send-gate (`isSending`), the reader `enabled`
+// flag, and the settle guard — derives from `phase`:
+//   idle      — no Turn from this client; render the chat.get cache as-is.
+//   sending   — chat.send mutation in flight; the reader is not yet open.
+//   streaming — reader open, tokens (or a resumed Turn's backlog) flowing.
+//   settling  — reader closed with no terminal; reconcile/refund in progress.
+type Phase = 'idle' | 'sending' | 'streaming' | 'settling';
+
+const ERROR_TEXT = 'Sorry, there was an error processing your request.';
+
+// A fresh loading assistant bubble for the Stream to fill.
+const loadingAssistant = (): Message => ({
+  text: '',
+  role: 'assistant',
+  loading: true,
+  error: false,
+});
 
 export function useChat(
   sessionId: string,
   onTokensConsumed?: () => void,
   onFirstSend?: () => void,
 ) {
-  // `localMessages` is null until the user interacts: the displayed list is
-  // *derived* from the loaded history until then, so there is no effect copying
-  // server data into state. Sending seeds `localMessages` from the current
-  // `base`, after which streaming mutates it directly.
-  const [localMessages, setLocalMessages] = useState<Message[] | null>(null);
-  // The in-flight query text. Non-null ⇒ a Turn is in-flight from this client
-  // and the pure-reader subscription is open; drives both `enabled` and the
-  // send-gate. Cleared to `undefined` when the Turn settles.
-  const [queryInput, setQueryInput] = useState<string>();
   const genericErrorHandle = useGenericErrorHandler();
   const trpc = useTRPC();
+  // A vanilla (non-hook) tRPC client for cache-free reads: the resume-adopt and
+  // orphan paths must read authoritative history WITHOUT the fetch writing the
+  // chat.get cache, or it would clobber the assistant bubble mid-stream.
+  const trpcClient = useTRPCClient();
   // Pin to chat's own QueryClient (the persister-bearing one), not the nearest
   // provider in context — see useChatQueryClient / #82.
   const queryClient = useChatQueryClient();
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
-  // Turn bookkeeping read only inside the subscription/mutation callbacks (never
-  // rendered), so refs avoid stale-closure reads without extra renders:
-  // - `streamingRef`       — a Turn is live; guards `settleStream` against a
-  //   spurious `idle` (e.g. before the reader ever opened).
-  // - `terminalReceivedRef` — the reader delivered a done/cancelled/error
-  //   terminal; a close *without* one is an orphan.
-  // - `inflightTurnIdRef`  — the `turnId` THIS client minted and got `accepted`
-  //   for. Null when we merely attached to another tab's Turn
-  //   (`alreadyInflight`), so only the owning client reconciles/refunds.
-  const streamingRef = useRef(false);
-  const terminalReceivedRef = useRef(false);
-  const inflightTurnIdRef = useRef<string | null>(null);
-  // True once this mount has taken over a Turn's lifecycle — via `send`
-  // (openReader) or a resume-adopt. Stops a stale `inflightTurn` cache from
-  // re-triggering a phantom resume after the Turn has settled in this mount.
-  const resumeConsumedRef = useRef(false);
+  // The single render-visible Turn state (#115). `phaseRef` mirrors it for the
+  // synchronous reads inside the subscription/mutation callbacks, where React
+  // state would be a stale closure.
+  const [phase, setPhaseState] = useState<Phase>('idle');
+  const phaseRef = useRef<Phase>('idle');
+  const setPhase = (next: Phase) => {
+    phaseRef.current = next;
+    setPhaseState(next);
+  };
 
-  // The single reactive "a Turn is in-flight from this client's POV" flag (spec
-  // #39): drives the send-gate and the Stop button. Set on send and on
-  // resume-adopt, cleared on settle. `streamingRef` remains the *synchronous*
-  // guard read inside async callbacks (where state would be stale); this is its
-  // render-visible mirror.
-  const [turnActive, setTurnActive] = useState(false);
+  // Turn bookkeeping read ONLY inside async callbacks, so refs (not state):
+  // - `ownedTurnIdRef`    — the turnId THIS client minted and got `accepted`
+  //   for; null when we merely attached to another tab's Turn. Only the owner
+  //   reconciles/refunds an orphan.
+  // - `terminalSeenRef`   — the reader delivered a done/cancelled/error terminal
+  //   for the current Turn; a reader close WITHOUT one is the orphan trigger.
+  const ownedTurnIdRef = useRef<string | null>(null);
+  const terminalSeenRef = useRef(false);
+  // Has this mount already taken over a Turn (via send or resume-adopt)? Gates
+  // `shouldResume` (read in render → state, not a ref), so a still-cached
+  // inflightTurn can't re-trigger a phantom resume once the Turn has settled.
+  const [resumeConsumed, setResumeConsumed] = useState(false);
 
-  // Resuming a Conversation: load its persisted Messages. A brand-new
-  // Conversation has no thread yet, so `get` returns an empty list `[]` (not an
-  // error) — just "show an empty pane". `retry: false` fails fast and any
-  // rejection stays silent (no global query error handler). The component is
-  // keyed by sessionId, so a fresh query runs per Conversation. The completed
-  // Turn's Messages are folded back into this cache by `settleStream` (invalidate
-  // on settle), so its persisted copy stays current for the next cold open.
+  const getKey = trpc.chat.get.queryKey({ sessionId });
+
+  // Resuming a Conversation: its persisted Messages. A brand-new Conversation
+  // has no thread yet, so `get` returns `[]` (not an error) — "show an empty
+  // pane". `retry: false` fails fast and any rejection stays silent. Keyed by
+  // sessionId (the component remounts per Conversation). THIS query's cache is
+  // the single source of truth for the rendered Messages (#115): `send` seeds
+  // the optimistic user Message + a loading assistant bubble into it, and the
+  // Stream appends deltas into the same entry — there is no separate sticky copy
+  // to reconcile. The Turn's finished Messages are already in this cache, so the
+  // persister keeps a current snapshot for the next cold open.
   const historyQuery = useQuery(
     trpc.chat.get.queryOptions(
       { sessionId },
@@ -71,40 +88,86 @@ export function useChat(
     queryClient,
   );
 
-  // Resume-after-refresh: on mount ask whether a Turn is already generating for
-  // this Conversation (the In-flight lock's turnId). If so we reopen the pure
-  // reader and adopt the Turn even though THIS client never sent it — the token
-  // Stream is durable, so we tail it from the head and keep rendering. Keyed by
-  // sessionId (the component remounts per Conversation), so it refetches on
-  // switch and never leaks a stale in-flight signal across Conversations.
+  // Resume-after-refresh probe: is a Turn already generating for this
+  // Conversation (the In-flight lock's turnId)? If so we reopen the pure reader
+  // and adopt the Turn even though THIS client never sent it — the token Stream
+  // is durable. Never persisted (volatile), keyed by sessionId so it never leaks
+  // a stale in-flight signal across Conversations.
   const inflightQuery = useQuery(
     trpc.chat.inflightTurn.queryOptions({ conversationId: sessionId }),
     queryClient,
   );
   const resumedTurnId = inflightQuery.data?.turnId ?? null;
 
-  // What to show before the user has typed: the loaded history, or an empty
-  // pane once we know the Conversation is new/empty. Empty while still loading.
-  const pickBase = (): Message[] => {
-    if (historyQuery.isSuccess)
-      return historyQuery.data.length > 0 ? historyQuery.data : [];
-    if (historyQuery.isError) return [];
-    return [];
+  const base = historyQuery.data ?? [];
+
+  // Wedged-Turn detection (#115). When this client holds no live Turn (idle, not
+  // resuming) and the probe says nothing is in flight, but the authoritative
+  // history ends on a user Message with no assistant reply, the Turn wedged — a
+  // worker died and the lock TTL lapsed before any reader could reconcile it, so
+  // no reader will ever open to surface the failure. Show an error bubble rather
+  // than stalling silently. Pure derivation (no effect, no cache write): a later
+  // refetch that carries the answer simply drops it.
+  const isWedged =
+    phase === 'idle' &&
+    resumedTurnId === null &&
+    inflightQuery.isSuccess &&
+    base.length > 0 &&
+    base.at(-1)?.role === 'user';
+
+  const messages: Message[] = isWedged
+    ? [
+        ...base,
+        { text: ERROR_TEXT, role: 'assistant', loading: false, error: true },
+      ]
+    : base;
+
+  // Skeleton only while a resumed Conversation's history is loading and no Turn
+  // has started. A brand-new session resolves near-instantly (empty).
+  const isHistoryLoading = historyQuery.isLoading && phase === 'idle';
+
+  // ── chat.get cache writers (the single source of truth) ───────────────────
+  const setMessages = (updater: (prev: Message[]) => Message[]) => {
+    queryClient.setQueryData(getKey, (prev) => updater(prev ?? []));
   };
-  const base = pickBase();
 
-  const messages = localMessages ?? base;
+  const appendToLastAssistant = (chunk: string) => {
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === prev.length - 1
+          ? { ...m, text: m.text + chunk, loading: false }
+          : m,
+      ),
+    );
+  };
 
-  // Skeleton the message pane only while a resumed Conversation's history is
-  // loading and the user hasn't started interacting. For a brand-new session
-  // `get` resolves near-instantly (empty / NOT_FOUND) so the empty pane follows.
-  const isHistoryLoading = historyQuery.isLoading && localMessages === null;
+  // Stamp the last (assistant) Message settled — the persisted `messageId` from
+  // a terminal (so feedback can attach without a refetch) or just cleared of its
+  // loading flag.
+  const settleLastAssistant = (messageId: string | null) => {
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === prev.length - 1
+          ? { ...m, id: messageId ?? m.id, sessionId, loading: false }
+          : m,
+      ),
+    );
+  };
+
+  const markLastAssistantError = () => {
+    setMessages((prev) =>
+      prev.map((m, i) =>
+        i === prev.length - 1
+          ? { ...m, error: true, loading: false, text: ERROR_TEXT }
+          : m,
+      ),
+    );
+  };
 
   // The Conversation History sidebar reads `chat.list`. On the first send of a
-  // new Conversation we prepend a placeholder titled "New chat" so it appears
-  // immediately; a resend bumps the existing row to the top with a fresh
-  // updatedAt. The real (LLM-generated) title arrives when the list is
-  // invalidated on stream settle. Client-optimistic, server reconciles lazily.
+  // new Conversation prepend a "New chat" placeholder; a resend bumps the
+  // existing row to the top with a fresh `updatedAt`. The real (LLM-generated)
+  // title arrives when the list is invalidated on settle.
   const listKey = trpc.chat.list.queryKey();
   const upsertConversationInList = () => {
     queryClient.setQueryData<SelectConversationSummary[]>(listKey, (old) => {
@@ -119,83 +182,9 @@ export function useChat(
     });
   };
 
-  // Streaming/settle updates only ever run after `send` has seeded
-  // `localMessages`, so `prev` is non-null here; `?? []` is just a type guard.
-  const updateLastMessageWithError = () => {
-    setLocalMessages((prev) =>
-      (prev ?? []).map((m, i) =>
-        i === (prev ?? []).length - 1
-          ? {
-              ...m,
-              error: true,
-              loading: false,
-              text: 'Sorry, there was an error processing your request.',
-            }
-          : m,
-      ),
-    );
-  };
-
-  // Mark the last (assistant) message settled — either stamped with the
-  // persisted `messageId` from a terminal (so feedback can attach without a
-  // refetch) or just cleared of its loading flag.
-  const settleLastMessage = (messageId: string | null) => {
-    setLocalMessages((prev) =>
-      (prev ?? []).map((m, i) =>
-        i === (prev ?? []).length - 1
-          ? { ...m, id: messageId ?? m.id, sessionId, loading: false }
-          : m,
-      ),
-    );
-  };
-
-  // The optimistic first paint while resuming a Turn: whatever history is in the
-  // cache right now, plus a loading assistant bubble the Stream fills. On a
-  // mid-stream reload the cached `chat.get` is often a stale persisted snapshot
-  // (an empty `[]` for a first Turn) that `staleTime` keeps from revalidating,
-  // so this prefix can be wrong/empty — `adoptFreshHistory` (below) forces a
-  // fresh read and splices the authoritative history in front of the bubble.
-  const resumeSeed = (): Message[] => {
-    const history =
-      queryClient.getQueryData<Message[]>(
-        trpc.chat.get.queryKey({ sessionId }),
-      ) ?? [];
-    return [
-      ...history,
-      { text: '', role: 'assistant' as const, loading: true, error: false },
-    ];
-  };
-
-  // Resume-adopt correctness: `resumeSeed` paints from a possibly-stale cache,
-  // so fetch the authoritative history (staleTime: 0 forces past the persister's
-  // stale-serve) and splice it in front of the still-streaming assistant bubble.
-  // Without this a first-Turn reload restores `[]`, drops the already-persisted
-  // user Message, and — because `localMessages` is sticky — never shows it until
-  // a later reload. Guarded so a read that resolves after settle can't duplicate
-  // the assistant: only reconcile while this mount's Turn is still streaming.
-  const adoptFreshHistory = async () => {
-    let fresh: Message[];
-    try {
-      fresh = await queryClient.fetchQuery(
-        trpc.chat.get.queryOptions(
-          { sessionId },
-          { retry: false, meta: persistMeta, staleTime: 0 },
-        ),
-      );
-    } catch {
-      return; // keep the optimistic seed
-    }
-    setLocalMessages((prev) => {
-      if (prev === null || !streamingRef.current) return prev;
-      const tail = prev.at(-1);
-      if (tail?.role !== 'assistant') return prev;
-      return [...fresh, tail];
-    });
-  };
-
   // Idempotent orphan cleanup + refund. Called when the reader closed without a
   // terminal and THIS client owns the Turn; the toast tells the user why the
-  // response vanished and that they were not charged for it.
+  // response vanished and that they were not charged.
   const reconcileMutation = useMutation(
     trpc.chat.reconcileTurn.mutationOptions({
       onSuccess: () => {
@@ -208,216 +197,193 @@ export function useChat(
     }),
   );
 
-  // Reader closed with no terminal. Either the Turn genuinely orphaned (the
-  // worker died mid-Turn) or it *completed* but this reader — typically a
-  // resumed one — attached too late and the Stream had already TTL'd away before
-  // it could read the terminal. `chat.get` is authoritative: if the assistant
-  // Message for the pending user Turn is now persisted, adopt server truth
-  // (drop the local optimistic list); only if it is still missing did the Turn
-  // really fail — surface the error and reconcile + refund the Turn we own (an
+  // Side-effects shared by every settled Turn: refresh the credit counter and
+  // fold server truth back into the caches the Turn touched — the sidebar (so
+  // "New chat" reconciles to the generated title) and the in-flight probe (so a
+  // resumed reader doesn't re-open). chat.get is deliberately NOT invalidated:
+  // the Stream already wrote the finished Turn into its cache, so a refetch would
+  // only flicker the just-rendered Messages.
+  const finishTurn = () => {
+    onTokensConsumed?.();
+    void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
+    void queryClient.invalidateQueries(trpc.chat.inflightTurn.queryFilter());
+    ownedTurnIdRef.current = null;
+    setPhase('idle');
+  };
+
+  // Reader closed with no terminal. Either the Turn orphaned (worker died) or it
+  // completed but this reader — typically a resumed one — attached after the
+  // Stream's post-terminal TTL and missed the terminal. chat.get is
+  // authoritative: read it fresh via the vanilla client (so the in-flight bubble
+  // in the cache isn't clobbered by the fetch). If the assistant Message is now
+  // persisted, adopt server truth into the cache; else the Turn really failed —
+  // mark the bubble errored and reconcile + refund the Turn we own (an
   // attached-only client has no turnId and nothing to refund).
   const reconcileOrAdopt = async (turnId: string | null) => {
     try {
-      const persisted = await queryClient.fetchQuery(
-        trpc.chat.get.queryOptions(
-          { sessionId },
-          { retry: false, meta: persistMeta },
-        ),
-      );
+      const persisted = await trpcClient.chat.get.query({ sessionId });
       const users = persisted.filter((m) => m.role === 'user').length;
       const assistants = persisted.filter((m) => m.role === 'assistant').length;
       // Every user Turn resolves into one assistant Message; equal counts ⇒ the
-      // pending Turn produced its answer, so this was a missed terminal, not an
-      // orphan.
+      // pending Turn produced its answer, so this was a missed terminal.
       if (assistants >= users && users > 0) {
-        setLocalMessages(null);
+        queryClient.setQueryData(getKey, persisted);
         return;
       }
     } catch {
       // Fall through to the orphan path if history can't be read.
     }
-    updateLastMessageWithError();
+    markLastAssistantError();
     if (turnId) reconcileMutation.mutate({ conversationId: sessionId, turnId });
   };
 
-  // The single settle path for every way a Turn ends: a terminal followed by a
-  // clean reader close (idle), a stop, or the reader closing with no terminal at
-  // all (orphan / missed terminal). Idempotent via `streamingRef` so the `idle`
-  // that trails a terminal, or a redundant error, is a no-op.
-  const settleStream = () => {
-    if (!streamingRef.current) return;
-    streamingRef.current = false;
-    setTurnActive(false);
-
-    // The Conversation now exists server-side (and, on a first Turn, has an
-    // LLM-generated title); refresh the sidebar so "New chat" reconciles, and
-    // drop the in-flight signal so a resumed reader doesn't re-open.
-    onTokensConsumed?.();
-    void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
-    void queryClient.invalidateQueries(trpc.chat.inflightTurn.queryFilter());
-    // Fold the just-completed Turn into chat.get. The assistant Message streamed
-    // only into `localMessages`, so without this the query cache — and its
-    // persisted copy (ADR 0025) — keeps the pre-Turn state: an empty `[]` on a
-    // first Turn, or a snapshot missing the latest Turn. A cold reload then
-    // restores that stale copy (the greeting pane for a first Turn) and, under
-    // the 30s staleTime, doesn't revalidate for ~30s. Invalidating refetches
-    // server truth now (this mount's historyQuery is active) so the persister
-    // rewrites a current snapshot.
-    void queryClient.invalidateQueries(
-      trpc.chat.get.queryFilter({ sessionId }),
-    );
-
-    const turnId = inflightTurnIdRef.current;
-    inflightTurnIdRef.current = null;
-
-    if (terminalReceivedRef.current) {
-      settleLastMessage(null);
-    } else {
-      void reconcileOrAdopt(turnId);
-    }
-
-    setQueryInput(undefined);
+  // A reader close (a clean drain to `idle`, or an unrecoverable `onError`).
+  // With a terminal already seen the Turn settled on that event, so this is a
+  // no-op; without one it is the orphan / missed-terminal trigger. Guarded on
+  // `phase === 'streaming'` so a stale close from a torn-down reader — or the
+  // `idle` that trails a terminal — does nothing.
+  const handleReaderClose = () => {
+    if (phaseRef.current !== 'streaming') return;
+    if (terminalSeenRef.current) return;
+    setPhase('settling');
+    void reconcileOrAdopt(ownedTurnIdRef.current).finally(finishTurn);
   };
 
-  // tRPC subscription: a pure reader of the durable token Stream (T5). The
-  // Generation worker produces tokens out-of-band; this only tails and renders
-  // them. It is opened by `send`/`stop` setting `queryInput`; the control plane
-  // (send / stop / reconcileTurn) lives in the mutations below.
-  // Open the reader when a local send is in-flight, while a Turn is active, or —
-  // for resume-after-refresh — when the mount-time probe reports a Turn already
-  // generating that this mount hasn't yet taken over.
-  const shouldResume = resumedTurnId !== null && !resumeConsumedRef.current;
+  // Resume-adopt: pull authoritative history WITHOUT clobbering the streaming
+  // bubble (vanilla client read → no cache write), then splice the fresh
+  // persisted prefix in front of the still-filling assistant bubble. Replaces
+  // the old resumeSeed → adoptFreshHistory dance now that the cache is the
+  // single source of truth (#115): on a first-Turn reload the cached chat.get
+  // may be a stale persisted `[]`, so this forces the persisted user Message to
+  // show. Guarded so a read resolving after settle can't duplicate the assistant.
+  const refreshHistoryPrefix = async () => {
+    let fresh: Message[];
+    try {
+      fresh = await trpcClient.chat.get.query({ sessionId });
+    } catch {
+      return; // keep the optimistic bubble
+    }
+    setMessages((prev) => {
+      if (phaseRef.current !== 'streaming') return prev;
+      const tail = prev.at(-1);
+      if (tail?.role !== 'assistant') return prev;
+      return [...fresh, tail];
+    });
+  };
 
-  useSubscription(
-    trpc.chat.stream.subscriptionOptions(
-      { conversationId: sessionId },
-      {
-        enabled: queryInput !== undefined || turnActive || shouldResume,
-        onData: ({ data: event }) => {
-          if (event.type === 'done' || event.type === 'cancelled') {
-            terminalReceivedRef.current = true;
-            settleLastMessage(event.messageId);
-            return;
-          }
-          if (event.type === 'error') {
-            terminalReceivedRef.current = true;
-            updateLastMessageWithError();
-            return;
-          }
-          // `delta`: append the token to the last (assistant) message.
-          setLocalMessages((prev) =>
-            (prev ?? []).map((m, i) =>
-              i === (prev ?? []).length - 1
-                ? { ...m, text: m.text + event.chunk, loading: false }
-                : m,
-            ),
-          );
-        },
-        onStarted: () => {
-          // Resume-after-refresh: the reader opened without a local `send`
-          // having armed the lifecycle (streamingRef still false), so a Turn was
-          // already in-flight when we mounted. Adopt it — arm the refs from the
-          // lock's turnId (so an orphan is reconciled by us) and seed a loading
-          // assistant bubble after the persisted history for the Stream to fill.
-          if (!streamingRef.current) {
-            streamingRef.current = true;
-            resumeConsumedRef.current = true;
-            terminalReceivedRef.current = false;
-            inflightTurnIdRef.current =
-              queryClient.getQueryData<{ turnId: string | null }>(
-                trpc.chat.inflightTurn.queryKey({ conversationId: sessionId }),
-              )?.turnId ?? null;
-            setTurnActive(true);
-            setLocalMessages((prev) => prev ?? resumeSeed());
-            // The seed's history prefix may be a stale/empty persisted snapshot;
-            // replace it with server truth so the user Message shows immediately.
-            void adoptFreshHistory();
-          }
-          // Scroll to bottom after starting
-          setTimeout(() => scrollToBottomRef.current?.(), 0);
-        },
-        // The reader failed unrecoverably (tRPC transparently retries recoverable
-        // drops, so this is terminal). Treat as a stream close: `settleStream`
-        // reconciles the owned Turn if no terminal ever arrived.
-        onError: () => settleStream(),
-        // A clean server-side close drains to `idle`; settle here so a normal
-        // completion and an orphaned close share one path.
-        onConnectionStateChange: (data) => {
-          if (data.state === 'idle') settleStream();
-        },
-      },
-    ),
-  );
+  // Open the pure-reader subscription when a Turn is live from this client
+  // (`streaming`) or — for resume-after-refresh — when the mount probe reports a
+  // Turn already generating that this mount hasn't taken over.
+  const shouldResume =
+    resumedTurnId !== null && !resumeConsumed && phase === 'idle';
 
-  // Open the pure-reader subscription for a now-confirmed Turn. `ownedTurnId` is
-  // the `turnId` when we own the Turn (`accepted`), or null when we only attached
-  // to another tab's in-flight Turn (`alreadyInflight`) — only the owner holds a
-  // turnId to reconcile/refund. Opening here (not on send) means the reader's
-  // eventual close always sees the correct ownership, with no send/close race.
-  const openReader = (query: string, ownedTurnId: string | null) => {
-    terminalReceivedRef.current = false;
-    inflightTurnIdRef.current = ownedTurnId;
-    streamingRef.current = true;
+  // Callbacks are spread onto the hook (not `subscriptionOptions`'s opts arg) so
+  // the react-hooks/refs rule sees the ref-reading closures passed straight to a
+  // hook — which defers them — rather than to a plain function it must assume
+  // could run during render.
+  useSubscription({
+    ...trpc.chat.stream.subscriptionOptions({ conversationId: sessionId }),
+    enabled: phase === 'streaming' || shouldResume,
+    onData: ({ data: event }) => {
+      // Ignore events from a torn-down reader once the Turn has settled.
+      if (phaseRef.current !== 'streaming') return;
+      if (event.type === 'done' || event.type === 'cancelled') {
+        terminalSeenRef.current = true;
+        settleLastAssistant(event.messageId);
+        finishTurn();
+        return;
+      }
+      if (event.type === 'error') {
+        terminalSeenRef.current = true;
+        markLastAssistantError();
+        finishTurn();
+        return;
+      }
+      appendToLastAssistant(event.chunk);
+    },
+    onStarted: () => {
+      // Resume-after-refresh: the reader opened without a local `send` having
+      // armed the lifecycle (phase still idle), so a Turn was already
+      // in-flight when we mounted. Adopt it — arm the refs from the lock's
+      // turnId (so an orphan is reconciled by us) and ensure a loading
+      // assistant bubble the Stream can fill. A reconnect during our own Turn
+      // (phase already streaming) skips this.
+      if (phaseRef.current !== 'streaming') {
+        setResumeConsumed(true);
+        terminalSeenRef.current = false;
+        ownedTurnIdRef.current =
+          queryClient.getQueryData<{ turnId: string | null }>(
+            trpc.chat.inflightTurn.queryKey({ conversationId: sessionId }),
+          )?.turnId ?? null;
+        setPhase('streaming');
+        setMessages((prev) => {
+          const tail = prev.at(-1);
+          if (tail?.role === 'assistant' && tail.loading) return prev;
+          return [...prev, loadingAssistant()];
+        });
+        void refreshHistoryPrefix();
+      }
+      // Scroll to bottom after starting.
+      setTimeout(() => scrollToBottomRef.current?.(), 0);
+    },
+    // The reader failed unrecoverably (tRPC transparently retries recoverable
+    // drops, so this is terminal). Treat as a stream close.
+    onError: () => handleReaderClose(),
+    // A clean server-side close drains to `idle`; treat as a close too, so a
+    // normal completion whose terminal was missed and an orphaned close share
+    // one path.
+    onConnectionStateChange: (data) => {
+      if (data.state === 'idle') handleReaderClose();
+    },
+  });
+
+  // Confirm the Turn and open the reader. `ownedTurnId` is the `turnId` when we
+  // own the Turn (`accepted`), or null when we only attached to another tab's
+  // in-flight Turn (`alreadyInflight`). Opening here (not on send) means the
+  // reader's eventual close always sees the correct ownership.
+  const openReader = (ownedTurnId: string | null) => {
+    terminalSeenRef.current = false;
+    ownedTurnIdRef.current = ownedTurnId;
     // This mount now owns the Turn lifecycle: a later (possibly stale)
     // inflightTurn result must not re-trigger a resume for it.
-    resumeConsumedRef.current = true;
-    setTurnActive(true);
-    setQueryInput(query);
+    setResumeConsumed(true);
+    setPhase('streaming');
   };
 
-  // Initiate a Turn (T4 `chat.send`). `accepted` ⇒ we own the Turn and open the
-  // reader armed for reconcile; `alreadyInflight` ⇒ attach as a pure reader
-  // without re-sending. A send failure (e.g. insufficient credits) opens no
-  // reader and surfaces the error on the pending assistant message.
-  const sendMutation = useMutation(
-    trpc.chat.send.mutationOptions({
-      onSuccess: (result, variables) => {
-        openReader(
-          variables.query,
-          result.status === 'accepted' ? variables.turnId : null,
-        );
-      },
-      onError: (error) => {
-        updateLastMessageWithError();
-        genericErrorHandle(error);
-      },
-    }),
-  );
+  // Callbacks spread onto the hook (not the `mutationOptions` opts arg) for the
+  // same react-hooks/refs reason as the subscription above.
+  const sendMutation = useMutation({
+    ...trpc.chat.send.mutationOptions(),
+    onSuccess: (result, variables) => {
+      openReader(result.status === 'accepted' ? variables.turnId : null);
+    },
+    onError: (error) => {
+      markLastAssistantError();
+      setPhase('idle');
+      genericErrorHandle(error);
+    },
+  });
 
   // A Turn is in-flight from send() until settle: the send button is gated the
-  // whole time (mutation pending, then the reader is open) while the input stays
-  // editable so the user can draft their next message. `turnActive` also covers
-  // a Turn adopted by resume-after-refresh, which this client never sent.
-  const isSending =
-    sendMutation.isPending || queryInput !== undefined || turnActive;
+  // whole time (mutation pending, reader open, or reconcile settling) while the
+  // input stays editable so the user can draft their next message. Also covers a
+  // Turn adopted by resume-after-refresh, which this client never sent.
+  const isSending = phase !== 'idle';
 
   const send = (text: string) => {
     if (isSending) return;
 
-    // First interaction seeds `localMessages` from the derived `base` (loaded
-    // history, or empty for a new Conversation); subsequent sends append to the
-    // live list.
-    const previous = localMessages ?? base;
-    // Captured before `setLocalMessages` mutates it: is this the first send of
-    // this mount? If so we stamp the deep-link URL below (only on a real send,
-    // not the too-long error path) so the Conversation is resumable after a
-    // refresh mid-generation.
-    const isFirstSend = localMessages === null;
-
-    // Validate message length before sending since URL becomes too long
+    // Validate length before sending — the URL carries the sessionId and an
+    // over-long message would overflow it. Show the error inline (into the
+    // cache, our single render source) without starting a Turn. Unsent, so a
+    // later chat.get refetch drops it.
     if (text.length > MAX_MESSAGE_LENGTH) {
-      // Add user message and error response
-      setLocalMessages([
-        ...previous,
-        {
-          text,
-          role: 'user' as const,
-          loading: false,
-          error: false,
-        },
+      setMessages((prev) => [
+        ...prev,
+        { text, role: 'user', loading: false, error: false },
         {
           text: `Message is too long (${text.length} characters). Please keep messages under ${MAX_MESSAGE_LENGTH} characters.`,
-          role: 'assistant' as const,
+          role: 'assistant',
           loading: false,
           error: true,
         },
@@ -425,33 +391,26 @@ export function useChat(
       return;
     }
 
-    // Optimistically render the user Message and a loading assistant
-    // placeholder. `chat.send` persists the user Message server-side; the worker
-    // fills the assistant one via the Stream.
-    setLocalMessages([
-      ...previous,
-      {
-        text,
-        role: 'user' as const,
-        loading: false,
-        error: false,
-      },
-      {
-        text: '',
-        role: 'assistant' as const,
-        loading: true,
-        error: false,
-      },
+    // Optimistically render the user Message + a loading assistant bubble into
+    // the chat.get cache (#115). Cancel any in-flight history fetch first so it
+    // can't resolve and clobber the optimistic write. `chat.send` persists the
+    // user Message server-side; the worker fills the assistant via the Stream,
+    // appended into this same cache entry.
+    void queryClient.cancelQueries(trpc.chat.get.queryFilter({ sessionId }));
+    setMessages((prev) => [
+      ...prev,
+      { text, role: 'user', loading: false, error: false },
+      loadingAssistant(),
     ]);
 
     // Surface the Conversation in the history sidebar right away.
     upsertConversationInList();
 
-    // Stamp the deep-link URL on the first send (idempotent upstream).
-    if (isFirstSend) onFirstSend?.();
+    // Stamp the deep-link URL so the Conversation survives a mid-generation
+    // refresh (idempotent upstream, so a resend is a no-op).
+    onFirstSend?.();
 
-    // Initiate generation; the reader opens once `chat.send` confirms the Turn.
-    // `isSending` stays true through the pending mutation (send-gate closed).
+    setPhase('sending');
     sendMutation.mutate({
       query: text,
       conversationId: sessionId,
@@ -459,21 +418,21 @@ export function useChat(
     });
   };
 
-  // Cancel the in-flight Turn (T4 `chat.stop`). The worker also emits a
-  // `cancelled` terminal via the Stream, but we settle the UI now and mark the
-  // Turn terminal so the closing reader is not mistaken for an orphan.
-  const stopMutation = useMutation(
-    trpc.chat.stop.mutationOptions({
-      onSuccess: () => {
-        terminalReceivedRef.current = true;
-        settleStream();
-      },
-      onError: (error) => genericErrorHandle(error),
-    }),
-  );
+  // Cancel the in-flight Turn (chat.stop). The worker also emits a `cancelled`
+  // terminal via the Stream, but we settle the UI now and mark the Turn terminal
+  // so the closing reader is not mistaken for an orphan.
+  const stopMutation = useMutation({
+    ...trpc.chat.stop.mutationOptions(),
+    onSuccess: () => {
+      terminalSeenRef.current = true;
+      settleLastAssistant(null);
+      finishTurn();
+    },
+    onError: (error) => genericErrorHandle(error),
+  });
 
   const stop = () => {
-    if (!streamingRef.current) return;
+    if (phaseRef.current !== 'streaming') return;
     stopMutation.mutate({ conversationId: sessionId });
   };
 
@@ -491,13 +450,6 @@ export function useChat(
     });
   };
 
-  const useGetMessages = (sessionId: string) => {
-    return useQuery(
-      trpc.chat.get.queryOptions({ sessionId }, { meta: persistMeta }),
-      queryClient,
-    );
-  };
-
   return {
     messages,
     isLoading: isSending,
@@ -506,7 +458,6 @@ export function useChat(
     send,
     stop,
     scrollToBottomRef,
-    useGetMessages,
     deleteChat,
   };
 }

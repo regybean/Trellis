@@ -65,7 +65,7 @@ const getQueryClient = (scopeKey?: string) => {
   return clientQueryClientSingleton;
 };
 
-export const { useTRPC, TRPCProvider } = createTRPCContext<
+export const { useTRPC, useTRPCClient, TRPCProvider } = createTRPCContext<
   AppRouter,
   { keyPrefix: true }
 >();
