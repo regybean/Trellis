@@ -6,6 +6,7 @@
     "@acme/chat": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/feedback": "workspace:*",
+    "@acme/hooks": "workspace:*",
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
