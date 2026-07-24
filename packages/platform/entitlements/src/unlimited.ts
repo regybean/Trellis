@@ -20,5 +20,11 @@ export const unlimitedEntitlements: EntitlementsProvider = {
   consume() {
     return Promise.resolve();
   },
+  // No ledger to credit back — a no-billing deployment charged nothing, so it
+  // refunds nothing. The symmetry with `consume` keeps the seam swappable
+  // without importing `@acme/subscriptions`.
+  refund() {
+    return Promise.resolve();
+  },
   isTierAtLeast,
 };
