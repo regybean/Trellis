@@ -57,10 +57,12 @@ export function useChat(
   const [turnActive, setTurnActive] = useState(false);
 
   // Resuming a Conversation: load its persisted Messages. A brand-new
-  // Conversation has no thread yet, so `get` returns NOT_FOUND — not an error
-  // here, just "show an empty pane". `retry: false` fails fast and the rejection
-  // stays silent (no global query error handler). The component is keyed by
-  // sessionId, so a fresh query runs per Conversation.
+  // Conversation has no thread yet, so `get` returns an empty list `[]` (not an
+  // error) — just "show an empty pane". `retry: false` fails fast and any
+  // rejection stays silent (no global query error handler). The component is
+  // keyed by sessionId, so a fresh query runs per Conversation. The completed
+  // Turn's Messages are folded back into this cache by `settleStream` (invalidate
+  // on settle), so its persisted copy stays current for the next cold open.
   const historyQuery = useQuery(
     trpc.chat.get.queryOptions(
       { sessionId },
@@ -147,21 +149,48 @@ export function useChat(
     );
   };
 
-  // The messages to show while resuming a Turn: the persisted history
-  // (authoritative — it already includes the user Message saved at send) plus a
-  // loading assistant bubble the Stream fills. Read from the query cache so it's
-  // the freshest history rather than a value captured when the subscription
-  // options were built.
+  // The optimistic first paint while resuming a Turn: whatever history is in the
+  // cache right now, plus a loading assistant bubble the Stream fills. On a
+  // mid-stream reload the cached `chat.get` is often a stale persisted snapshot
+  // (an empty `[]` for a first Turn) that `staleTime` keeps from revalidating,
+  // so this prefix can be wrong/empty — `adoptFreshHistory` (below) forces a
+  // fresh read and splices the authoritative history in front of the bubble.
   const resumeSeed = (): Message[] => {
     const history =
       queryClient.getQueryData<Message[]>(
         trpc.chat.get.queryKey({ sessionId }),
       ) ?? [];
-    const persisted = history.length > 0 ? history : [];
     return [
-      ...persisted,
+      ...history,
       { text: '', role: 'assistant' as const, loading: true, error: false },
     ];
+  };
+
+  // Resume-adopt correctness: `resumeSeed` paints from a possibly-stale cache,
+  // so fetch the authoritative history (staleTime: 0 forces past the persister's
+  // stale-serve) and splice it in front of the still-streaming assistant bubble.
+  // Without this a first-Turn reload restores `[]`, drops the already-persisted
+  // user Message, and — because `localMessages` is sticky — never shows it until
+  // a later reload. Guarded so a read that resolves after settle can't duplicate
+  // the assistant: only reconcile while this mount's Turn is still streaming.
+  const adoptFreshHistory = async () => {
+    let fresh: Message[];
+    try {
+      fresh = await queryClient.fetchQuery(
+        trpc.chat.get.queryOptions(
+          { sessionId },
+          { retry: false, meta: persistMeta, staleTime: 0 },
+        ),
+      );
+    } catch {
+      return; // keep the optimistic seed
+    }
+    setLocalMessages((prev) => {
+      if (prev === null || !streamingRef.current) return prev;
+      const tail = prev.at(-1);
+      if (tail?.role !== 'assistant') return prev;
+      return [...fresh, tail];
+    });
   };
 
   // Idempotent orphan cleanup + refund. Called when the reader closed without a
@@ -226,6 +255,17 @@ export function useChat(
     onTokensConsumed?.();
     void queryClient.invalidateQueries(trpc.chat.list.queryFilter());
     void queryClient.invalidateQueries(trpc.chat.inflightTurn.queryFilter());
+    // Fold the just-completed Turn into chat.get. The assistant Message streamed
+    // only into `localMessages`, so without this the query cache — and its
+    // persisted copy (ADR 0025) — keeps the pre-Turn state: an empty `[]` on a
+    // first Turn, or a snapshot missing the latest Turn. A cold reload then
+    // restores that stale copy (the greeting pane for a first Turn) and, under
+    // the 30s staleTime, doesn't revalidate for ~30s. Invalidating refetches
+    // server truth now (this mount's historyQuery is active) so the persister
+    // rewrites a current snapshot.
+    void queryClient.invalidateQueries(
+      trpc.chat.get.queryFilter({ sessionId }),
+    );
 
     const turnId = inflightTurnIdRef.current;
     inflightTurnIdRef.current = null;
@@ -289,6 +329,9 @@ export function useChat(
               )?.turnId ?? null;
             setTurnActive(true);
             setLocalMessages((prev) => prev ?? resumeSeed());
+            // The seed's history prefix may be a stale/empty persisted snapshot;
+            // replace it with server truth so the user Message shows immediately.
+            void adoptFreshHistory();
           }
           // Scroll to bottom after starting
           setTimeout(() => scrollToBottomRef.current?.(), 0);
