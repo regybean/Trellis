@@ -2,7 +2,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import type React from 'react';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createTRPCClient,
@@ -69,6 +69,26 @@ export const { useTRPC, TRPCProvider } = createTRPCContext<
   { keyPrefix: true }
 >();
 
+// Feedback's queries must run on *feedback's* QueryClient (the persister-bearing
+// one), not the nearest QueryClientProvider in React context. Apps nest several
+// feature providers, so `useQueryClient()` would resolve whichever is innermost
+// and feedback's `forMessage` query would silently run on a foreign,
+// persister-less client and never persist (#82). This context pins feedback's
+// own client; the hook reads it and passes it explicitly to `useQuery`.
+const FeedbackQueryClientContext = createContext<QueryClient | undefined>(
+  undefined,
+);
+
+export function useFeedbackQueryClient() {
+  const client = useContext(FeedbackQueryClientContext);
+  if (client === undefined) {
+    throw new Error(
+      'useFeedbackQueryClient must be used within TRPCReactProvider',
+    );
+  }
+  return client;
+}
+
 /**
  * Empty the feedback feature's persisted cache (`rq-feedback`). App-driven: the
  * full apps call this — alongside `queryClient.clear()` — on the Clerk logout
@@ -130,15 +150,17 @@ export function TRPCReactProvider(
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider
-        trpcClient={trpcClient}
-        queryClient={queryClient}
-        keyPrefix="feedback"
-      >
-        {props.children}
-      </TRPCProvider>
-    </QueryClientProvider>
+    <FeedbackQueryClientContext.Provider value={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <TRPCProvider
+          trpcClient={trpcClient}
+          queryClient={queryClient}
+          keyPrefix="feedback"
+        >
+          {props.children}
+        </TRPCProvider>
+      </QueryClientProvider>
+    </FeedbackQueryClientContext.Provider>
   );
 }
 

@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { IDBFactory } from 'fake-indexeddb';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
@@ -26,6 +27,14 @@ beforeEach(() => {
  * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
  * the `renderHook` wrapper for `integration/hooks` tests. A `scopeKey` opts
  * persistence on (offline-read tests); omitted, the feature runs network-only.
+ *
+ * A *foreign* `QueryClientProvider` is nested inside feedback's provider to
+ * mirror how apps mount several feature providers (feedback lives inside chat's
+ * message list, itself inside chat's provider). react-query's `useQuery` binds
+ * to the nearest client in context, so unless feedback's hook pins its own
+ * client (#82) its `forMessage` query would run on this persister-less foreign
+ * client and never persist. Keeping it makes the offline-restore case a
+ * regression guard for that pinning.
  */
 export const Providers = ({
   children,
@@ -33,7 +42,13 @@ export const Providers = ({
 }: {
   children: ReactNode;
   scopeKey?: string;
-}) => <TRPCReactProvider scopeKey={scopeKey}>{children}</TRPCReactProvider>;
+}) => (
+  <TRPCReactProvider scopeKey={scopeKey}>
+    <QueryClientProvider client={new QueryClient()}>
+      {children}
+    </QueryClientProvider>
+  </TRPCReactProvider>
+);
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */
 export const renderWithProviders = (

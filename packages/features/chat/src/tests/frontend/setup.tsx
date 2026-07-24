@@ -2,6 +2,7 @@ import 'fake-indexeddb/auto';
 
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { IDBFactory } from 'fake-indexeddb';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
@@ -44,13 +45,22 @@ export const Providers = ({ children }: { children: ReactNode }) => (
  * (ADR 0025). Used by the offline-restore test to prime and then cold-restore a
  * persisted cache; the default `Providers` passes no `scopeKey`, so persistence
  * stays off for every other test (network-only, unchanged).
+ *
+ * A *foreign* `QueryClientProvider` is nested between chat's provider and the
+ * component to mirror how apps mount several feature providers (chat → ingest →
+ * …). react-query's `useQuery` binds to the nearest client in context, so unless
+ * chat's hooks pin their own client (#82) their queries would run on this
+ * persister-less foreign client and never persist. Keeping it here makes the
+ * offline-restore cases a regression guard for that pinning.
  */
 export const ScopedProviders =
   (scopeKey: string) =>
   ({ children }: { children: ReactNode }) => (
     <TRPCReactProvider scopeKey={scopeKey}>
-      {children}
-      <ToastContainer />
+      <QueryClientProvider client={new QueryClient()}>
+        {children}
+        <ToastContainer />
+      </QueryClientProvider>
     </TRPCReactProvider>
   );
 

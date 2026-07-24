@@ -10,6 +10,7 @@
  */
 import { renderHook, waitFor } from '@testing-library/react';
 import { createStore, keys } from 'idb-keyval';
+import { delay } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -71,6 +72,54 @@ describe('chat offline read — Conversation History (chat.list)', () => {
         expect.objectContaining({ title: 'Persisted chat' }),
       ),
     );
+  });
+});
+
+describe('chat offline read — history shows before Folders resolve', () => {
+  it('renders the persisted Conversation list without waiting on chat.folders.list', async () => {
+    const c1: SelectConversationSummary = {
+      sessionId: crypto.randomUUID(),
+      title: 'Persisted chat',
+      updatedAt: new Date('2020-01-01T00:00:00.000Z'),
+      folderId: null,
+    };
+
+    // Prime: chat.list persists; folders served so the warm mount settles.
+    server.use(
+      trpcMsw.chat.list.query(() => [c1]),
+      trpcMsw.chat.folders.list.query(() => []),
+    );
+    const warm = renderHook(() => useConversations(), {
+      wrapper: ScopedProviders(SCOPE),
+    });
+    await waitFor(() =>
+      expect(warm.result.current.conversations).toHaveLength(1),
+    );
+    await waitFor(async () => expect(await persisted()).not.toHaveLength(0));
+    warm.unmount();
+
+    // Cold open, slow network: chat.list restores from IndexedDB, but Folders
+    // (never persisted) never resolves. The Conversation History must render
+    // instantly from the restored list — not sit behind the Folders spinner.
+    server.resetHandlers(
+      trpcMsw.chat.list.query(mustNotHit('chat.list')),
+      trpcMsw.chat.folders.list.query(async () => {
+        await delay('infinite');
+        return [];
+      }),
+    );
+    const cold = renderHook(() => useConversations(), {
+      wrapper: ScopedProviders(SCOPE),
+    });
+
+    await waitFor(() =>
+      expect(cold.result.current.conversations).toContainEqual(
+        expect.objectContaining({ title: 'Persisted chat' }),
+      ),
+    );
+    // The sidebar gates its skeleton on this flag; it must be false so the
+    // restored history is shown while Folders is still in flight.
+    expect(cold.result.current.isLoading).toBe(false);
   });
 });
 

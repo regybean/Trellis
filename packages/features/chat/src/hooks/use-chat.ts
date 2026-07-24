@@ -1,6 +1,6 @@
 // hooks/use-chat.ts
 import { useRef, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useSubscription } from '@trpc/tanstack-react-query';
 import { toast } from 'react-toastify';
 
@@ -9,7 +9,7 @@ import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
 import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
-import { useTRPC } from '../trpc/react';
+import { useChatQueryClient, useTRPC } from '../trpc/react';
 
 export function useChat(
   sessionId: string,
@@ -27,7 +27,9 @@ export function useChat(
   const [queryInput, setQueryInput] = useState<string>();
   const genericErrorHandle = useGenericErrorHandler();
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  // Pin to chat's own QueryClient (the persister-bearing one), not the nearest
+  // provider in context — see useChatQueryClient / #82.
+  const queryClient = useChatQueryClient();
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
   // Turn bookkeeping read only inside the subscription/mutation callbacks (never
@@ -64,6 +66,7 @@ export function useChat(
       { sessionId },
       { retry: false, meta: persistMeta },
     ),
+    queryClient,
   );
 
   // Resume-after-refresh: on mount ask whether a Turn is already generating for
@@ -74,6 +77,7 @@ export function useChat(
   // switch and never leaks a stale in-flight signal across Conversations.
   const inflightQuery = useQuery(
     trpc.chat.inflightTurn.queryOptions({ conversationId: sessionId }),
+    queryClient,
   );
   const resumedTurnId = inflightQuery.data?.turnId ?? null;
 
@@ -447,6 +451,7 @@ export function useChat(
   const useGetMessages = (sessionId: string) => {
     return useQuery(
       trpc.chat.get.queryOptions({ sessionId }, { meta: persistMeta }),
+      queryClient,
     );
   };
 
