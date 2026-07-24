@@ -38,9 +38,9 @@ import type { DateBucket } from '../lib/date-buckets';
 import { useConversations } from '../hooks/use-conversations';
 import { useLocalStorage } from '../hooks/use-local-storage';
 import {
-  bucketOf,
   DATE_BUCKET_LABELS,
   DATE_BUCKET_ORDER,
+  groupConversations,
 } from '../lib/date-buckets';
 
 const UNFILED_DROP_ID = 'date-buckets';
@@ -116,29 +116,15 @@ export function ConversationSidebar({
     setNewFolderName('');
   };
 
-  // A Conversation belongs to a Folder only if its folderId still resolves to a
-  // known Folder; a dangling id (deleted Folder) falls through to the buckets.
+  // Folder-resolution (dangling ids fall back to Date Buckets) and Date-Bucket
+  // grouping are the pure seam in lib/date-buckets. `conversations` arrives
+  // sorted updatedAt DESC, so per-group and per-bucket order is preserved.
   const folderIds = new Set(folders.map((f) => f.id));
-  const byFolder = new Map<string, SelectConversationSummary[]>();
-  const unfiled: SelectConversationSummary[] = [];
-  for (const c of conversations) {
-    if (c.folderId && folderIds.has(c.folderId)) {
-      const list = byFolder.get(c.folderId) ?? [];
-      list.push(c);
-      byFolder.set(c.folderId, list);
-    } else {
-      unfiled.push(c);
-    }
-  }
-
-  // `conversations` arrives sorted updatedAt DESC, so per-bucket order is kept.
-  const now = new Date();
-  const buckets: Record<DateBucket, SelectConversationSummary[]> = {
-    today: [],
-    week: [],
-    older: [],
-  };
-  for (const c of unfiled) buckets[bucketOf(c.updatedAt, now)].push(c);
+  const { byFolder, buckets } = groupConversations(
+    conversations,
+    folderIds,
+    new Date(),
+  );
 
   return (
     <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
