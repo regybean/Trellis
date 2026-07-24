@@ -287,6 +287,9 @@ importers:
       '@acme/feedback':
         specifier: workspace:*
         version: link:../../packages/features/feedback
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -725,6 +728,9 @@ importers:
       '@acme/feedback':
         specifier: workspace:*
         version: link:../../packages/features/feedback
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -1816,6 +1822,9 @@ importers:
       '@acme/vitest-config':
         specifier: workspace:*
         version: link:../../../tooling/vitest
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
