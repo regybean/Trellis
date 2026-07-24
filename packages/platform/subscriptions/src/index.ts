@@ -14,4 +14,3 @@ export {
   setStripeCustomerId,
   setSubscriptionCache,
 } from './subscriptions';
-export { isTierAtLeast } from './tiers';
