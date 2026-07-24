@@ -1,8 +1,12 @@
 import { redis } from '@acme/redis';
 
-import type { StreamReaderEvent } from '../schemas/chat-schema';
+import type { ReaderEntry } from './chat-stream-parser';
 import { chatStreamKey } from '../chat-keys';
-import { streamReaderEventSchema } from '../schemas/chat-schema';
+import {
+  coalesceBatch,
+  isTerminalEvent,
+  rangeStart,
+} from './chat-stream-parser';
 import { readInflightTurn } from './chat-turn-lifecycle';
 
 // Poll cadence while a Turn is still in-flight. The reader tails the Redis
@@ -10,35 +14,6 @@ import { readInflightTurn } from './chat-turn-lifecycle';
 // XREAD — that would stall every other Redis op in the process. It polls XRANGE
 // instead; the spec accepts the resulting read amplification (see spec #44).
 const POLL_INTERVAL_MS = 100;
-
-const TERMINAL_TYPES = new Set(['done', 'cancelled', 'error']);
-
-interface ReaderEntry {
-  id: string;
-  event: StreamReaderEvent;
-}
-
-// A Redis Stream entry arrives as a flat [k, v, k, v, ...] field array. Delta
-// entries carry only `chunk` (no `type`); terminals carry `type` (+ optional
-// `messageId`). We normalise to the discriminated shape, then validate through
-// the shared zod schema: an absent `type` is a delta, but a *present* `type`
-// MUST be a known terminal. A producer typo (`type: 'don'`) therefore throws
-// here rather than degrading to a non-terminal delta that keeps the reader
-// polling forever.
-function parseEntry(fields: string[]): StreamReaderEvent {
-  const rec = new Map<string, string>();
-  for (let i = 0; i + 1 < fields.length; i += 2) {
-    const key = fields[i];
-    const value = fields[i + 1];
-    if (key !== undefined && value !== undefined) rec.set(key, value);
-  }
-  const type = rec.get('type');
-  const candidate =
-    type === undefined
-      ? { type: 'delta', chunk: rec.get('chunk') ?? '' }
-      : { type, messageId: rec.get('messageId') ?? null };
-  return streamReaderEventSchema.parse(candidate);
-}
 
 // A delay that also settles early on abort, so a disconnecting client tears the
 // reader down within one tick rather than after the full poll interval.
@@ -56,49 +31,14 @@ function delay(ms: number, signal?: AbortSignal) {
   });
 }
 
-// '-' = from the head (inclusive); '(id' = strictly after the last seen id
-// (exclusive), so a resuming client never re-reads the entry it already had.
-const rangeStart = (cursor: string | null) =>
-  cursor === null ? '-' : `(${cursor}`;
-
-// Coalesce consecutive deltas within one xRange batch into a single emission.
-// On a cold resume (no Last-Event-ID) the reader tails from the head, so the
-// whole accumulated backlog arrives in ONE xRange. Emitting it token-by-token
-// makes the client re-render — and re-parse the growing markdown string — once
-// per token, i.e. O(n^2) work crammed into a burst: visible jitter for a long
-// partial. One coalesced delta ⇒ one client render. Live polls return a single
-// entry, so this is a no-op during normal streaming. The coalesced entry
-// carries the LAST delta's id, so a client that reconnects with that
-// Last-Event-ID resumes strictly after everything it already received.
-function* coalesceBatch(
-  entries: Awaited<ReturnType<typeof redis.xRange>>,
-): Generator<ReaderEntry> {
-  let chunk = '';
-  let deltaId: string | null = null;
-  for (const [id, fields] of entries) {
-    const event = parseEntry(fields);
-    if (event.type === 'delta') {
-      chunk += event.chunk;
-      deltaId = id;
-      continue;
-    }
-    // A terminal: flush any buffered deltas first, then emit it.
-    if (deltaId !== null)
-      yield { id: deltaId, event: { type: 'delta', chunk } };
-    chunk = '';
-    deltaId = null;
-    yield { id, event };
-  }
-  // Flush deltas buffered when the batch ended without a terminal.
-  if (deltaId !== null) yield { id: deltaId, event: { type: 'delta', chunk } };
-}
-
 // Pure, stateless tail of a Conversation's token Stream — no writes, no LLM, no
 // lock operations. Yields each Redis entry as `{ id, event }`; the router hands
 // `id` to tRPC `tracked()` so a reconnecting client (passing `lastEventId`)
 // resumes exactly here. The generator closes when it re-emits a terminal, when
 // the client aborts, or when no Turn is in-flight and the Stream is drained
-// (idle or orphaned — the client polls or reconciles on reconnect).
+// (idle or orphaned — the client polls or reconciles on reconnect). The parse /
+// coalesce / cursor / terminal logic is the pure seam in chat-stream-parser.ts;
+// this composes it around the actual xRange polling and lock probe.
 export async function* tailChatStream(
   conversationId: string,
   lastEventId: string | null,
@@ -116,7 +56,7 @@ export async function* tailChatStream(
     for (const entry of coalesceBatch(entries)) {
       cursor = entry.id;
       yield entry;
-      if (TERMINAL_TYPES.has(entry.event.type)) return;
+      if (isTerminalEvent(entry.event)) return;
     }
 
     if (draining) return;
