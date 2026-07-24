@@ -19,6 +19,9 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "format": "prettier --check . --ignore-path ../../../.prettierignore",
     "lint": "eslint",
+    "test": "pnpm test:backend",
+    "test:backend": "vitest run --config vitest.config.backend.ts",
+    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -34,15 +37,16 @@
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
+    "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
+    "@acme/vitest-config": "workspace:*",
     "eslint": "catalog:",
     "prettier": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   },
   "prettier": "@acme/prettier-config",
   "acme": {
-    "testClass": "backend-library",
-    "testStatus": "todo",
-    "reason": "Provider resolution logic; tests not yet written."
+    "testClass": "backend-library"
   }
 }
