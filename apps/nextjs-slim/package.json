@@ -64,6 +64,7 @@
     "lint": "eslint",
     "start": "pnpm with-env next start --hostname 0.0.0.0 --port 3002",
     "start:ecs": "next start --hostname 0.0.0.0 --port 3002",
+    "start:worker": "pnpm with-env tsx --conditions=react-server worker.ts",
     "typecheck": "tsc --noEmit",
     "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
   },
