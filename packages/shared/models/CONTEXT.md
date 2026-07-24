@@ -40,6 +40,20 @@ demands `OPENROUTER_API_KEY`. A missing/invalid env for an _active_ provider sti
 blocks eagerly at import, matching the other `env.ts` files. `modelsEnv`
 (provider selection + `EMBED_DIMENSIONS`) is always validated.
 
+**Pure provider-parameterised core, capped by eager singletons**: resolution is
+split in `resolve.ts` into a pure core that reads no module-scope env —
+`resolveChatModel/resolveTitleModel/resolveEmbedModel(provider)` and
+`embedProviderOptionsFor(provider, purpose)`, each keyed by an explicit provider
+argument — and thin caps (`chatModel`, `titleModel`, `embedModel`,
+`embedProviderOptions`) that bind the `modelsEnv()`-selected provider and delegate
+to it. The split makes the provider matrix table-testable (see
+`src/tests/unit/resolve.test.ts`) without a per-provider env for every branch. The
+caps stay eager at import (a missing/invalid env for an active provider still
+fails there, per ADR 0014 / 0024) — the build and test infra rely on it. The
+embed resolver accepts the full `LlmProvider` set and rejects `openrouter` (no
+embeddings API) with a clear error, rather than leaving the invalid case
+unrepresentable.
+
 **`EMBED_DIMENSIONS` lives here, consumed by `@acme/rag`**: the embed model fixes
 the vector dimension, so it is configured (not baked in) and is the single source
 of truth for both the PgVector index and the Drizzle mirror over in `@acme/rag`.
