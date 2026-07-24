@@ -26,7 +26,8 @@ A `{ start, end }` pair of Unix timestamps. For active subscriptions: the Stripe
 - `getUserSubscriptionFromRedis(userId)` → returns **Subscription cache** (or a `status: 'none'` default)
 - `getSubscriptionType(subscription)` → derives **Subscription tier** from the cache
 - `credits.read(userId, subscription, tier)` → reads or eagerly initialises the **Credit balance** key
-- `credits.consume(userId, tier, amount)` → decrements the balance (the rate-limit middleware)
+- `credits.consume(userId, tier, amount)` → decrements the balance (via `subscriptionsEntitlements.consume`, called inline by `chat.send`)
+- `credits.refund(userId, tier, amount)` → increments the balance back (via `subscriptionsEntitlements.refund` — the adapter side of the `refund` seam; the chat control plane owns the idempotency guard)
 - `credits.reset(userId)` / `credits.maxOut(userId)` → set the balance to the full limit / to zero, with the billing-window expiry in one atomic command
 - `credits.overrideExpiry(userId, expiresAt)` → moves the **Billing window** expiry (creating the key if missing)
 - `credits.status(userId)` → the admin balance view (balance + whether the key is materialised)

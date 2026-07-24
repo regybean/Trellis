@@ -63,7 +63,25 @@ _Avoid_: "archive" as a verb/action — there is no archive action, only the tim
 
 ## Design decisions
 
-**Rate limiting**: `chat.send` consumes credits via the `rateLimit()` middleware **at enqueue**, after ownership + In-flight lock but before the worker runs. Exhausted credits produce a `TOO_MANY_REQUESTS` error before any job is enqueued. Credits are **refunded** on a non-`done` terminal that the user didn't choose: the worker refunds on `error`; `chat.reconcileTurn` refunds on orphan (crashed worker). No refund on `done` or `cancelled` (a Stop consumed the partial). All refunds are idempotent via `chat:refunded:{turnId}` (`SET NX`), so the worker and reconcile paths can't double-refund.
+**Credits cross the `EntitlementsProvider` seam, both ways**: `chat.send`
+consumes a credit **inline** (not via a `rateLimit()` middleware) after ownership
+
+- In-flight lock but before enqueue — it guards on `ctx.credits.remaining` then
+  calls `ctx.entitlements.consume`, so exhausted credits produce a
+  `TOO_MANY_REQUESTS` before any job is enqueued and a rejected request consumes
+  none. Credits are **refunded** on a non-`done` terminal the user didn't choose:
+  the Generation worker refunds on `error`; `chat.reconcileTurn` refunds on orphan
+  (crashed worker). No refund on `done` or `cancelled` (a Stop consumed the
+  partial). The refund crosses the **same** provider seam as the consume — the
+  worker refunds through its injected provider, `chat.reconcileTurn` through
+  `ctx.entitlements.refund` — so a billing swap changes one adapter, not two, and a
+  slim app refunds nothing without importing `@acme/subscriptions` (amends
+  [ADR 0006](../../../docs/adr/0006-entitlements-injection-seam.md)). Only the
+  idempotency guard is chat-owned: all refunds are idempotent via
+  `chat:refunded:{turnId}` (`SET NX`), local to the chat control plane
+  (`chat-turn-lifecycle.ts`), so the worker and reconcile paths can't
+  double-refund. `@acme/chat` therefore has **no** direct dependency on
+  `@acme/subscriptions` — the canary that proves the seam holds.
 
 **Offline read via a per-query persister (opt-in)**: `ChatTRPCReactProvider` accepts an app-supplied `scopeKey`; when present, chat's `QueryClient` attaches the shared `@acme/hooks` per-query persister ([ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md)) under its own IndexedDB store `rq-chat`. Only `chat.list` (Conversation History) and `chat.get` (a Conversation's Messages) are marked persistable via `meta: persistMeta` — the `chat.stream` subscription, in-flight Turn state, `chat.inflightTurn`, and Folder queries are never persisted. `maxAge` is 7 days (`gcTime >= maxAge`); the existing `staleTime: 30s` is kept, so a restored list/history renders instantly on cold open and background-refetches when online. `buster` is `NEXT_PUBLIC_APP_VERSION:scopeKey`, so a new deploy or a different user never rehydrates a prior snapshot. The provider exposes `clearChatPersistedCache()` for the app's logout path (full apps call it alongside `queryClient.clear()`; slim apps never do). With no `scopeKey` — or if IndexedDB is unavailable / a persist-restore fails — chat is network-only, exactly as before: persistence is a pure read-time optimisation, never a hard dependency. The app-side `scopeKey` supply and logout-clear wiring land in their own tickets.
 

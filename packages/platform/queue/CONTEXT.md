@@ -16,7 +16,7 @@ _Avoid_: "the chat queue", "the worker queue"
 Factory that returns a `Queue` instance wired to the shared internal connection. Adds an error listener that routes to the logger. Callers: enqueue-side code (`enqueueGenerationTurn` in `@acme/chat`).
 
 **`createWorker(name, processor, options?)`**:
-Factory that returns a `Worker` instance wired to the same connection. `processor` is the job handler (lives in `@acme/chat` as `chatGenerationProcessor`). Callers: app-owned `worker.ts` entry points.
+Factory that returns a `Worker` instance wired to the same connection. `processor` is the job handler (built in `@acme/chat` by the `createChatGenerationProcessor(entitlements)` factory, which closes over the app-injected `EntitlementsProvider`). Callers: app-owned `worker.ts` entry points, which inject the same provider their route handler injects.
 
 ## Relationships
 
