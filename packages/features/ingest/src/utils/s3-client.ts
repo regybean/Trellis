@@ -79,8 +79,8 @@ export async function downloadFileFromS3(key: string) {
   };
 }
 
-/** Delete a single file from S3. */
-export async function deleteFileFromS3(key: string) {
+/** Delete a single file from S3. Module-private — callers use `deleteFilesFromS3`. */
+async function deleteFileFromS3(key: string) {
   await s3Client.send(
     new DeleteObjectCommand({ Bucket: env.S3_UPLOAD_BUCKET, Key: key }),
   );
