@@ -88,6 +88,7 @@ pnpm infra:down          # Stop services
 pnpm infra:logs          # Tail compose logs
 pnpm with-env <cmd>      # Run cmd with .env hydrated
 pnpm db:push             # Push schema changes, dev only (run)
+pnpm preview [app...]    # Serve the COMPILED build locally (no HMR) for true paint-time — same args/infra as dev; runs turbo `start` (dependsOn: build) instead of `watch dev`. Ports: nextjs 3000 · tanstack-start 3001 · nextjs-slim 3002 · tanstack-slim 3003 (issue #101)
 ```
 
 ### Full Validation
@@ -100,7 +101,7 @@ pnpm quality-gate        # READ-ONLY verify, parallel: turbo(lint+format+typeche
 How and when to run these — incremental per-package checks and the end-of-task
 gate — is [docs/agents/quality-gate.md](docs/agents/quality-gate.md); the rationale is [ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md).
 
-> In a git worktree, dev/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. Tests are the exception: in a worktree `pnpm test` self-provisions isolated testcontainers (it's treated as CI — no `pnpm infra:up` needed) and the turbo cache is partitioned so a worktree run never replays the primary checkout's result. See [ADR 0019](docs/adr/0019-worktrees-mirror-ci-test-infra.md).
+> In a git worktree, dev/preview/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. Tests are the exception: in a worktree `pnpm test` self-provisions isolated testcontainers (it's treated as CI — no `pnpm infra:up` needed) and the turbo cache is partitioned so a worktree run never replays the primary checkout's result. See [ADR 0019](docs/adr/0019-worktrees-mirror-ci-test-infra.md).
 
 ## Architecture
 
