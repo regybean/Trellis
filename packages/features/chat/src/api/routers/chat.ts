@@ -193,6 +193,8 @@ export const chatRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { conversationId, turnId } = input;
       const refunded = await refundTurnCredits(
+        (uid, creditTier, amount) =>
+          ctx.entitlements.refund(uid, creditTier, amount),
         ctx.auth.userId,
         ctx.tier,
         turnId,

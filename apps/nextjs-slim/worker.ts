@@ -20,11 +20,19 @@
  * to its empty stub rather than the guard that throws outside an RSC bundle.
  */
 
-import { chatGenerationProcessor } from '@acme/chat/server';
+import { createChatGenerationProcessor } from '@acme/chat/server';
+import { unlimitedEntitlements } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
 
-const worker = createWorker(QUEUE_NAMES.GENERATION, chatGenerationProcessor);
+// Inject the SAME provider this slim app's route handler injects into
+// `createTRPCContext` (ADR 0006 / ADR 0010): `unlimitedEntitlements`, whose
+// `refund` is a no-op — a no-billing app charged nothing, so it refunds nothing,
+// and never imports `@acme/subscriptions`.
+const worker = createWorker(
+  QUEUE_NAMES.GENERATION,
+  createChatGenerationProcessor(unlimitedEntitlements),
+);
 
 logger.info(
   { queue: QUEUE_NAMES.GENERATION, app: 'nextjs-slim' },

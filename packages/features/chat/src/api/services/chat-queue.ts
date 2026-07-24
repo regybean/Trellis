@@ -1,4 +1,4 @@
-import type { SubscriptionTier } from '@acme/subscriptions';
+import type { SubscriptionTier } from '@acme/entitlements';
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
 export interface GenerationJob {
