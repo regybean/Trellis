@@ -12,7 +12,8 @@
     "dev:worker": "pnpm with-env tsx watch --conditions=react-server worker.ts",
     "format": "prettier --check . --ignore-path ../../.prettierignore",
     "lint": "eslint",
-    "start": "pnpm with-env node .output/server/index.mjs",
+    "start": "PORT=3001 pnpm with-env node .output/server/index.mjs",
+    "start:worker": "pnpm with-env tsx --conditions=react-server worker.ts",
     "typecheck": "tsc --noEmit",
     "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
   },
