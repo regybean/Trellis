@@ -45,7 +45,12 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          <ChatTRPCReactProvider>
+          {/* Slim has no auth, so there is no per-user scope and no logout to
+              clear the cache — persistence is scoped to a constant 'anon'
+              principal (ADR 0025). The load pain is data-load, not auth, so the
+              instant-load win is identical to the full app; `buster` still
+              discards on version change. */}
+          <ChatTRPCReactProvider scopeKey="anon">
             <IngestTRPCReactProvider>
               <TooltipProvider>
                 <SidebarProvider>
