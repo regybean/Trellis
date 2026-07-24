@@ -1,6 +1,5 @@
 import type { OwnedThread } from '@acme/rag';
 import { memory } from '@acme/rag';
-import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 
 import type { Message } from '../schemas/message-schema';
 
@@ -73,17 +72,6 @@ export function toMessages(
     }));
 }
 
-// Load a Conversation and enforce ownership. Returns null when the thread does
-// not exist yet (the stream/create procedures operate before the thread is
-// stamped). Throws FORBIDDEN when the thread is owned by another user — the
-// security invariant the ownership middleware seats at the request pipeline.
-// The ownership rule and its single tRPC mapping both live in `@acme/rag`
-// (`assertOwnedThreadForTRPC`), so a new ownership variant is handled in one
-// place shared with the feedback feature.
-export async function loadOwnedConversation(sessionId: string, userId: string) {
-  return assertOwnedThreadForTRPC(sessionId, userId);
-}
-
 export async function createConversation(sessionId: string, userId: string) {
   return memory.createThread({
     threadId: sessionId,
@@ -127,24 +115,6 @@ export async function persistUserMessage(
       },
     ],
   });
-}
-
-// The id Mastra minted for the most recently persisted assistant turn in this
-// Conversation. Sourced by re-reading the thread once the stream completes
-// (rather than parsing Mastra's stream-result shape) so it stays robust across
-// Mastra versions. Returns null when no assistant message exists yet. The
-// `done` stream event carries this id so the client can attach feedback to the
-// settled message without a refetch.
-export async function latestAssistantMessageId(
-  sessionId: string,
-  userId: string,
-) {
-  const messages = await recallMessages(sessionId, userId);
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages.at(i);
-    if (message?.role === 'assistant') return message.id;
-  }
-  return null;
 }
 
 // Admin bypass: read any Conversation without an ownership check. Named
