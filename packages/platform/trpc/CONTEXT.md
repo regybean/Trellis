@@ -12,13 +12,24 @@ The per-feature tRPC instance (router, procedures, context) produced by one call
 _Avoid_: "the tRPC setup", "the router config"
 
 **Base context**:
-The request context every procedure receives — Clerk `auth`, `user`, billing context
-(`subscription`/`tier`/`credits`), and `telemetry`.
+The request context every procedure receives — the app-injected `auth` and `user`,
+the injected `entitlements` provider, and the billing context
+(`subscription`/`tier`/`credits`) resolved from it. There is no `telemetry` on the
+context: telemetry is ambient (ADR 0023).
 _Avoid_: "the session"
 
+**Entitlements provider**:
+The `EntitlementsProvider` (`@acme/entitlements`) injected into `createTRPCContext`
+as `ctx.entitlements` — the billing seam. Required, with no implicit default
+(ADR 0006): the full apps inject `@acme/subscriptions`'s `subscriptionsEntitlements`
+(Stripe/Redis-backed), a no-billing build injects `unlimitedEntitlements`. The
+substrate names no billing implementation — it depends only on the neutral contract.
+_Avoid_: "the billing service", "the subscription client"
+
 **Billing context**:
-The `subscription` / `tier` / `credits` triple. Always fetched eagerly per-request
-from Redis via `@acme/subscriptions`. Every feature pays this cost; no opt-out.
+The `subscription` / `tier` / `credits` triple, resolved once per request by calling
+`entitlements.resolve(userId)` on the injected **Entitlements provider** — never by
+importing a billing package into the substrate.
 
 **Protected procedure**:
 A procedure requiring an authenticated Clerk user (`isAuthed`).
@@ -59,15 +70,28 @@ policy; the trivial 204 `Response` is built at each app's `OPTIONS` seam.
   every procedure
 - Every procedure receives the **Base context**, which always contains a **Billing context**
 - **Admin procedure** and **Protected procedure** build on the public procedure (telemetry + timing middleware)
-- **Rate limit** reads `credits`/`tier` from the **Billing context**
+- The telemetry middleware creates and _activates_ the per-procedure span; the other
+  middlewares emit their events through the active span read ambiently via
+  `trace.getActiveSpan()`, not through `ctx` (ADR 0023)
+- **Rate limit** reads `credits`/`tier` from the **Billing context** and calls
+  `ctx.entitlements.consume` on the injected **Entitlements provider**
 - **Require tier** reads `tier` from the **Billing context** and delegates the ordering
-  comparison to `isTierAtLeast` in `@acme/subscriptions`
+  comparison to `ctx.entitlements.isTierAtLeast` on the injected **Entitlements provider**
 
 ## Design decisions
 
-**Billing context is always eager**: every feature always performs the Redis subscription
-lookup in `createTRPCContext`. No opt-out callback. The simplicity of a single code path
-outweighs the minor Redis cost for features that don't gate on subscription.
+**Billing is injected, not imported** (ADR 0006): `createTRPCContext` takes a required
+`entitlements` provider and resolves the billing context through it, rather than
+importing `@acme/subscriptions` (and its Stripe env) directly. This keeps the substrate
+— and therefore every feature that reuses it — free of a billing/Stripe dependency, so a
+no-billing app injects `unlimitedEntitlements` and drops Stripe from its graph. A missing
+provider is a type error, not a silent default (mirroring the auth seam).
+
+**Telemetry is ambient** (ADR 0023): there is no `telemetry` on the context. The telemetry
+middleware is the sole span source — it creates and activates the per-procedure span, and
+everything else reads it via `trace.getActiveSpan()`. This removes the `BaseContext`-typing
+blocker that a threaded telemetry object once imposed, with no generic and no
+conditional-type explosion.
 
 **Two factories instead of one generic**: a generic context parameter
 (`initTRPC.context<TContext>()`) makes tRPC's middleware conditional types explode.
