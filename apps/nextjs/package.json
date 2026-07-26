@@ -5,6 +5,7 @@
     "@acme/billing": "workspace:*",
     "@acme/chat": "workspace:*",
     "@acme/config": "workspace:*",
+    "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/feedback": "workspace:*",
     "@acme/hooks": "workspace:*",

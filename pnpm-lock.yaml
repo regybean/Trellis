@@ -292,6 +292,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -446,6 +449,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -588,6 +594,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -736,6 +745,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -1462,6 +1474,9 @@ importers:
 
   packages/platform/db:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../config
       '@acme/env':
         specifier: workspace:*
         version: link:../env
