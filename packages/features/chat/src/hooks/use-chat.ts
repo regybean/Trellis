@@ -316,6 +316,12 @@ export function useChat(
             trpc.chat.inflightTurn.queryKey({ conversationId: sessionId }),
           )?.turnId ?? null;
         setPhase('streaming');
+        // Cancel the mount-time chat.get fetch so it can't resolve and clobber
+        // the bubble/deltas we're about to stream in; refreshHistoryPrefix
+        // supplies the authoritative prefix instead.
+        void queryClient.cancelQueries(
+          trpc.chat.get.queryFilter({ sessionId }),
+        );
         setMessages((prev) => {
           const tail = prev.at(-1);
           if (tail?.role === 'assistant' && tail.loading) return prev;
