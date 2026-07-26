@@ -2,10 +2,6 @@ import { nsKey, redis } from '@acme/redis';
 
 import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
 import { billingWindow, creditLimitFor } from './credit-policy';
-import {
-  getSubscriptionType,
-  getUserSubscriptionFromRedis,
-} from './subscriptions';
 
 /**
  * The storage layer for the Credit balance policy: the Redis key format and
@@ -65,12 +61,15 @@ async function refund(userId: string, tier: SubscriptionTier, amount: number) {
 /**
  * Resets a user's Credit balance to the full limit for their tier, atomically
  * setting the value and the billing-window expiry in one command (no immortal
- * key on a partial failure). Fetches the subscription itself — admin callers
- * target an arbitrary user, not the request's own context.
+ * key on a partial failure). Takes the resolved subscription + tier — admin
+ * callers target an arbitrary user and resolve them through the injected
+ * entitlements provider (ADR 0026: plan IDs no longer live in this module).
  */
-async function reset(userId: string) {
-  const subscription = await getUserSubscriptionFromRedis(userId);
-  const tier = getSubscriptionType(subscription);
+async function reset(
+  userId: string,
+  subscription: SubscriptionCache,
+  tier: SubscriptionTier,
+) {
   const limit = creditLimitFor(tier);
   const window = billingWindow(subscription);
   await redis.set(creditKey(userId, tier), String(limit), {
@@ -83,9 +82,11 @@ async function reset(userId: string) {
  * Exhausts a user's Credit balance (sets it to 0), atomically with the
  * billing-window expiry.
  */
-async function maxOut(userId: string) {
-  const subscription = await getUserSubscriptionFromRedis(userId);
-  const tier = getSubscriptionType(subscription);
+async function maxOut(
+  userId: string,
+  subscription: SubscriptionCache,
+  tier: SubscriptionTier,
+) {
   const previousLimit = creditLimitFor(tier);
   const window = billingWindow(subscription);
   await redis.set(creditKey(userId, tier), '0', { EXAT: window.end });
@@ -97,9 +98,11 @@ async function maxOut(userId: string) {
  * exists, only its expiry moves; when it is missing, it is created with the
  * full limit and the new expiry in one atomic command.
  */
-async function overrideExpiry(userId: string, expiresAt: number) {
-  const subscription = await getUserSubscriptionFromRedis(userId);
-  const tier = getSubscriptionType(subscription);
+async function overrideExpiry(
+  userId: string,
+  tier: SubscriptionTier,
+  expiresAt: number,
+) {
   const key = creditKey(userId, tier);
   // ttl: -2 missing, -1 exists-without-expiry, >0 seconds remaining.
   const ttl = await redis.ttl(key);
@@ -116,9 +119,11 @@ async function overrideExpiry(userId: string, expiresAt: number) {
  * Reports a user's current Credit balance plus whether the Redis key is
  * materialised — for the admin status view.
  */
-async function status(userId: string) {
-  const subscription = await getUserSubscriptionFromRedis(userId);
-  const tier = getSubscriptionType(subscription);
+async function status(
+  userId: string,
+  subscription: SubscriptionCache,
+  tier: SubscriptionTier,
+) {
   const key = creditKey(userId, tier);
   const { remaining, limit, resetAt } = await read(userId, subscription, tier);
   const keyExists = (await redis.exists(key)) === 1;
