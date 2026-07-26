@@ -1,0 +1,68 @@
+diff --git a/build/modern/createPersister.js b/build/modern/createPersister.js
+index b8dd818..1fb628c 100644
+--- a/build/modern/createPersister.js
++++ b/build/modern/createPersister.js
+@@ -97,7 +97,11 @@ function experimental_createQueryPersister({
+             errorUpdatedAt: persistedQuery.state.errorUpdatedAt
+           });
+           if (query.isStale()) {
+-            query.fetch();
++            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // The restored snapshot is already shown; with staleTime:0 this fetch
++            // fires on every mount, and a failed one (e.g. offline) would be an
++            // unhandled rejection since Query.fetch() re-throws. Data survives.
++            query.fetch().catch(() => {});
+           }
+         }
+       );
+diff --git a/build/legacy/createPersister.js b/build/legacy/createPersister.js
+index 6d2f742..007e6b9 100644
+--- a/build/legacy/createPersister.js
++++ b/build/legacy/createPersister.js
+@@ -97,7 +97,11 @@ function experimental_createQueryPersister({
+             errorUpdatedAt: persistedQuery.state.errorUpdatedAt
+           });
+           if (query.isStale()) {
+-            query.fetch();
++            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // The restored snapshot is already shown; with staleTime:0 this fetch
++            // fires on every mount, and a failed one (e.g. offline) would be an
++            // unhandled rejection since Query.fetch() re-throws. Data survives.
++            query.fetch().catch(() => {});
+           }
+         }
+       );
+diff --git a/build/modern/createPersister.cjs b/build/modern/createPersister.cjs
+index f0803de..f82cd2f 100644
+--- a/build/modern/createPersister.cjs
++++ b/build/modern/createPersister.cjs
+@@ -117,7 +117,11 @@ function experimental_createQueryPersister({
+             errorUpdatedAt: persistedQuery.state.errorUpdatedAt
+           });
+           if (query.isStale()) {
+-            query.fetch();
++            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // The restored snapshot is already shown; with staleTime:0 this fetch
++            // fires on every mount, and a failed one (e.g. offline) would be an
++            // unhandled rejection since Query.fetch() re-throws. Data survives.
++            query.fetch().catch(() => {});
+           }
+         }
+       );
+diff --git a/build/legacy/createPersister.cjs b/build/legacy/createPersister.cjs
+index 3bb9b9b..6252717 100644
+--- a/build/legacy/createPersister.cjs
++++ b/build/legacy/createPersister.cjs
+@@ -117,7 +117,11 @@ function experimental_createQueryPersister({
+             errorUpdatedAt: persistedQuery.state.errorUpdatedAt
+           });
+           if (query.isStale()) {
+-            query.fetch();
++            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // The restored snapshot is already shown; with staleTime:0 this fetch
++            // fires on every mount, and a failed one (e.g. offline) would be an
++            // unhandled rejection since Query.fetch() re-throws. Data survives.
++            query.fetch().catch(() => {});
+           }
+         }
+       );

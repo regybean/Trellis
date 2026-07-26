@@ -1,0 +1,31 @@
+sequenceDiagram
+    participant U as User
+    participant H as useChat
+    participant C as chat.get cache
+    participant Send as chat.send
+    participant R as Redis
+    participant W as Worker
+    participant Str as chat.stream reader
+
+    U->>H: send Hi
+    H->>C: cancelQueries then setQueryData(user + assistant-loading)
+    H->>H: upsertConversationInList New chat
+    H->>H: onSend then replaceState URL (resumable now)
+    H->>Send: mutate query cid turnId
+    Send->>R: SET NX inflight=turnId (ok)
+    Send->>R: DEL stale stream
+    Send->>W: ensure convo, persist USER msg, consume credit, enqueue
+    Send-->>H: accepted turnId
+    H->>H: openReader then phase=streaming, ownedTurnId=turnId
+    H->>Str: subscription enabled then attach (lastEventId=null)
+    W->>R: xAdd delta chunks
+    Str->>R: XRANGE poll 100ms
+    Str-->>H: onData delta
+    H->>C: appendToLastAssistant(chunk)
+    W->>W: persist ASSISTANT msg, generate title
+    W->>R: xAdd done + messageId
+    W->>R: finalizeTurn releases lock, stream TTL 60s
+    Str-->>H: onData done (terminal)
+    H->>C: settleLastAssistant(messageId)
+    H->>H: finishTurn invalidates list + inflightTurn, onTokensConsumed, phase=idle
+    Note over H,C: chat.get NOT invalidated — the cache already holds the finished Turn

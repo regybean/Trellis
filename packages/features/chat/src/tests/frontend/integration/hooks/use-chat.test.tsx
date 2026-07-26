@@ -188,10 +188,16 @@ describe('useChat – message length validation', () => {
     const longText = 'a'.repeat(MAX_MESSAGE_LENGTH + 1);
     act(() => result.current.send(longText));
 
-    const msgs = result.current.messages;
-    const errorMsg = msgs.find((m) => m.error && m.role === 'assistant');
-    expect(errorMsg).toBeDefined();
-    expect(errorMsg?.text).toContain(`${longText.length} characters`);
+    // `messages` now derives from the reactive chat.get cache (#115); the
+    // validation path writes it without a co-incident React setState, so the
+    // re-render lands on the next microtask — observe via waitFor.
+    await waitFor(() => {
+      const errorMsg = result.current.messages.find(
+        (m) => m.error && m.role === 'assistant',
+      );
+      expect(errorMsg).toBeDefined();
+      expect(errorMsg?.text).toContain(`${longText.length} characters`);
+    });
   });
 
   it('still shows the user message alongside the error', async () => {
@@ -203,10 +209,13 @@ describe('useChat – message length validation', () => {
     const longText = 'x'.repeat(MAX_MESSAGE_LENGTH + 1);
     act(() => result.current.send(longText));
 
-    const msgs = result.current.messages;
-    expect(
-      msgs.find((m) => m.role === 'user' && m.text === longText),
-    ).toBeDefined();
+    await waitFor(() =>
+      expect(
+        result.current.messages.find(
+          (m) => m.role === 'user' && m.text === longText,
+        ),
+      ).toBeDefined(),
+    );
   });
 
   it('does not set isLoading for a too-long message', async () => {
