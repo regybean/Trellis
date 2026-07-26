@@ -2,15 +2,15 @@ import { jsonb, pgSchema, serial, text, vector } from 'drizzle-orm/pg-core';
 import { createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
-import { modelsEnv } from '@acme/models/env';
+import { modelsConfig } from '@acme/models/config';
 
-import { env } from '../env';
+import { appEnv, env } from '../env';
 
 // Vector dimension of the active embed model — single source of truth lives in
-// `@acme/models` (imported from `/env`, not the package root, so this schema
-// never triggers provider resolution). Switching embed model means changing
-// EMBED_DIMENSIONS and re-pushing the schema.
-export const { EMBED_DIMENSIONS } = modelsEnv();
+// `@acme/models` (read from `/config`, which imports only zod, not the package
+// root, so this schema never triggers provider resolution). Switching embed
+// model means changing EMBED_DIMENSIONS and re-pushing the schema.
+export const { EMBED_DIMENSIONS } = modelsConfig({ appEnv, isServer: true });
 
 // Knowledge-base table name. Mastra-owned (PgVector creates it), but the name is
 // ours — so it carries the `mastra_` prefix to mark it Mastra-owned, matching the

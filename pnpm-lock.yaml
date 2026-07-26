@@ -1918,6 +1918,9 @@ importers:
 
   packages/shared/models:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -1973,6 +1976,9 @@ importers:
 
   packages/shared/rag:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db

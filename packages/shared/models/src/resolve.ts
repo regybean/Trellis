@@ -5,18 +5,19 @@ import {
   bedrockEmbedModel,
   bedrockTitleModel,
 } from './bedrock';
-import { modelsEnv } from './env';
+import { modelsConfig } from './config';
+import { appEnv } from './env';
 import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
 import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
-// Provider identifiers, derived from the public env schema so the resolver's
-// switch and the env parser can never drift. `EmbedProvider` is the narrower set
+// Provider identifiers, derived from the config schema so the resolver's switch
+// and the config parser can never drift. `EmbedProvider` is the narrower set
 // (OpenRouter has no embeddings API); the embed resolver still accepts the full
 // `LlmProvider` set so an invalid selection is rejected here with a clear message
 // rather than being unrepresentable.
-type ModelsEnv = ReturnType<typeof modelsEnv>;
-type LlmProvider = ModelsEnv['LLM_PROVIDER'];
-type EmbedProvider = ModelsEnv['EMBED_PROVIDER'];
+type ModelsConfig = ReturnType<typeof modelsConfig>;
+type LlmProvider = ModelsConfig['LLM_PROVIDER'];
+type EmbedProvider = ModelsConfig['EMBED_PROVIDER'];
 
 // --- Pure core: provider-parameterised resolvers reading NO module-scope env ---
 //
@@ -95,19 +96,19 @@ export function embedProviderOptionsFor(
 
 // --- Eager singletons: thin caps binding the env-selected provider ---
 //
-// The active providers are constructed once at import and a missing/invalid env
-// for an active provider blocks here (as the env.ts files do) rather than failing
-// deep inside a request. This eager-at-import behaviour is deliberately retained
-// (ADR 0014 / ADR 0024): the build and test infra rely on it.
-const env = modelsEnv();
+// The active providers are constructed once at import and a missing/invalid
+// config for an active provider blocks here rather than failing deep inside a
+// request. This eager-at-import behaviour is deliberately retained (ADR 0014 /
+// ADR 0024): the build and test infra rely on it.
+const config = modelsConfig({ appEnv, isServer: true });
 
-export const chatModel = resolveChatModel(env.LLM_PROVIDER);
-export const titleModel = resolveTitleModel(env.LLM_PROVIDER);
-export const embedModel = resolveEmbedModel(env.EMBED_PROVIDER);
+export const chatModel = resolveChatModel(config.LLM_PROVIDER);
+export const titleModel = resolveTitleModel(config.LLM_PROVIDER);
+export const embedModel = resolveEmbedModel(config.EMBED_PROVIDER);
 
-// Thin cap over `embedProviderOptionsFor`, binding the env-selected embed
+// Thin cap over `embedProviderOptionsFor`, binding the config-selected embed
 // provider. Callers pass the result straight to `embedMany` / the vector query
 // tool without knowing which provider is active.
 export function embedProviderOptions(purpose: 'document' | 'query') {
-  return embedProviderOptionsFor(env.EMBED_PROVIDER, purpose);
+  return embedProviderOptionsFor(config.EMBED_PROVIDER, purpose);
 }

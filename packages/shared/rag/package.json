@@ -41,6 +41,7 @@
   },
   "prettier": "@acme/prettier-config",
   "dependencies": {
+    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
