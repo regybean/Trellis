@@ -23,14 +23,21 @@
 import { createChatGenerationProcessor } from '@acme/chat/server';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
-import { subscriptionsEntitlements } from '@acme/subscriptions';
+import { createSubscriptionsEntitlements } from '@acme/subscriptions';
+
+import { config } from './src/config';
 
 // Inject the SAME provider this app's route handler injects into
-// `createTRPCContext` (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter, so
-// a worker error refunds the real Credit ledger.
+// `createTRPCContext` (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter,
+// built from the app's `billingConfig` plan IDs (ADR 0026), so a worker error
+// refunds the real Credit ledger.
+const entitlements = createSubscriptionsEntitlements({
+  standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
+  proPlanId: config.STRIPE_PRO_PLAN_ID,
+});
 const worker = createWorker(
   QUEUE_NAMES.GENERATION,
-  createChatGenerationProcessor(subscriptionsEntitlements),
+  createChatGenerationProcessor(entitlements),
 );
 
 logger.info(

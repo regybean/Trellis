@@ -1,11 +1,23 @@
 import type { AnyRouter } from '@trpc/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 
-import { subscriptionsEntitlements } from '@acme/subscriptions';
+import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
   corsPreflightHeaders,
   createTRPCFetchHandler,
 } from '@acme/trpc/handler';
+
+import { config } from '../config';
+
+/**
+ * The Stripe/Redis entitlements provider, closing over the `billingConfig` plan
+ * IDs resolved once at the app edge (ADR 0026) — the product→tier mapping needs
+ * them, and the platform no longer reads them from `process.env`.
+ */
+const entitlements = createSubscriptionsEntitlements({
+  standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
+  proPlanId: config.STRIPE_PRO_PLAN_ID,
+});
 
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error
@@ -23,7 +35,7 @@ const resolveContext = async (req: Request) => ({
   req,
   auth: await auth(),
   user: await currentUser(),
-  entitlements: subscriptionsEntitlements,
+  entitlements,
 });
 
 /** CORS preflight: a 204 with the shared cross-app CORS policy. */

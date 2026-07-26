@@ -7,9 +7,9 @@ import { FileText, MessageSquare, SquareTerminal, Tag } from 'lucide-react';
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@acme/auth';
 import { NavUserSubscription } from '@acme/billing';
-import { env } from '@acme/billing/env';
 import { Button, StripeIcon } from '@acme/ui';
 
+import { config } from '../config';
 import { StatusBar } from './status-bar';
 
 const ProfileIcon = () => (
@@ -97,10 +97,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                   label="Manage Billing"
                   labelIcon={<StripeIcon />}
                   onClick={() =>
-                    window.open(
-                      env.NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL,
-                      '_blank',
-                    )
+                    window.open(config.STRIPE_MANAGE_BILLING_URL, '_blank')
                   }
                 />
               </UserButton.MenuItems>
