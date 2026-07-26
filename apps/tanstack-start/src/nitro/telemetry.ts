@@ -1,6 +1,9 @@
 import { definePlugin } from 'nitro';
 
 import { initTelemetry } from '@acme/telemetry';
+import { telemetryConfig } from '@acme/telemetry/config';
+
+import { appEnv } from '../env';
 
 /**
  * Telemetry bootstrap — the app-owned half of the telemetry seam.
@@ -23,12 +26,14 @@ import { initTelemetry } from '@acme/telemetry';
  * `@acme/telemetry/register` via NODE_OPTIONS instead. See
  * docs/adr/0005-telemetry-init-seam.md.
  */
+// OTLP endpoint is config-as-code (ADR 0026); the per-app service name stays an
+// app-owned literal (app identity, not shared config).
+const config = telemetryConfig({ appEnv, isServer: true });
+
 initTelemetry({
   serviceName: 'trellis-tanstack-start',
   serviceVersion: process.env.npm_package_version ?? '0.0.0',
-  otlpEndpoint:
-    process.env.OTEL_EXPORTER_OTLP_ENDPOINT ??
-    'http://localhost:4318/v1/traces',
+  otlpEndpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
   debug: process.env.NODE_ENV === 'development',
 });
 

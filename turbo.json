@@ -137,6 +137,7 @@
     "DB_PORT",
     "DB_HOST",
     "NEXT_PUBLIC_WEBAPP",
+    "APP_ENV",
     "IS_NEXT_BUILD",
     "LLM_PROVIDER",
     "EMBED_PROVIDER",
@@ -176,8 +177,6 @@
     "VERCEL_URL",
     "npm_lifecycle_event",
     "npm_package_version",
-    "OTEL_SERVICE_NAME",
-    "OTEL_EXPORTER_OTLP_ENDPOINT",
     "DOCKER_HOST",
     "TESTCONTAINERS_RYUK_DISABLED",
     "TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"
