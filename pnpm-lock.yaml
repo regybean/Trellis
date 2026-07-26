@@ -1301,6 +1301,9 @@ importers:
 
   packages/features/ingest:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
