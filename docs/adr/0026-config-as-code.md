@@ -197,25 +197,39 @@ testcontainers).
 - **Dynamic/remote runtime config** (a config service, hot-reload,
   LaunchDarkly-style flags). Out of scope; this is static config-as-code only.
 
-## Open sub-decisions for implementation
+## Sub-decisions — resolved in Phase 0 (#93)
 
-Deferred to the build effort — they refine the mechanism but don't change this
-decision:
+These refined the mechanism without changing the decision; resolved while
+building `@acme/config`:
 
-- **Array-merge strategy** — the #79 prototype _replaces_ arrays; `ts-deepmerge`
-  _concatenates_ by default. Pick one and configure the helper explicitly.
-- **Client guard** — a throwing `Proxy` on server-only keys (prototype) vs
-  omitting server keys from the client object structurally.
-- **`isServer`** — injected via context vs a structural client/server split.
-- **Authoring-time safety** — TS-check the raw profile literals against the shape,
-  not just runtime validation.
-- **`@acme/config` exports map + layer placement** — finalise against
-  [ADR 0015](0015-package-exports-convention.md); assumed home
-  `packages/platform/config`, tag `platform`.
-- **`staticTestEnv`** — add `APP_ENV=development` explicitly to
-  `tooling/test-utils` for clarity vs relying on the unset→development default.
-- **Config error UX** — `ConfigValidationError(zodError)` is the raw shape; the
-  human-facing surfacing is unspecified.
+- **Array-merge strategy** — arrays **replace**, not concatenate
+  (`merge.withOptions({ mergeArrays: false }, …)`). An overlay that sets a list
+  means "use this list", not "append to the base's".
+- **Client guard** — a **throwing `Proxy`** on server-only keys (not structural
+  omission). Reading a server key on the client throws loudly; the return type
+  is uniform across contexts, so no conditional-on-`isServer` type is needed.
+  Validation itself is context-independent (the merged shape always validates);
+  only _access_ is guarded.
+- **`isServer`** — **injected via `context`** (keeps the module pure — no
+  `window`/`NODE_ENV` sniffing inside config). The app resolves it once at its
+  edge (via `@tanstack/react-query`'s `isServer`).
+- **Authoring-time safety** — profile literals are typed against **`z.input`** of
+  each shape's schema, so a wrong literal is a compile error. Runtime zod
+  validation still enforces base-profile completeness (loose only for coerced
+  fields, whose input is `unknown`).
+- **`@acme/config` exports map + layer placement** — home
+  `packages/platform/config`, tag `platform`, single `.` export
+  ([ADR 0015](0015-package-exports-convention.md)). Slices surface their factory
+  under a new `./config` role, registered in `scripts/check-exports.mjs`.
+- **`staticTestEnv`** — `APP_ENV=development` added explicitly to
+  `tooling/test-utils`.
+- **Config error UX** — `ConfigValidationError` wraps the `ZodError` and renders
+  `z.prettifyError(zodError)` in its message; `.zodError` stays available for
+  structured detail.
+- **`APP_ENV` build-time resolvability** — inlined into the client bundle via
+  each framework's build config (Next `env`, Vite `define`), so the selected
+  profile bakes identically server- and client-side. A Dockerfile guard fails a
+  staging/production image build whose `APP_ENV` is unset/invalid.
 
 ## Migration plan
 
@@ -288,7 +302,8 @@ feedback,billing`); recommend keeping whole in env unless the split is cheap.
 
 ## Status
 
-proposed
+accepted — Phase 0 (the `@acme/config` mechanism + app composition edge)
+built in #93; Phases 1–3 (the slice-by-slice migration) remain.
 
 ## Consequences
 

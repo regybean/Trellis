@@ -73,8 +73,14 @@ export default defineConfig({
   // Expose the shared NEXT_PUBLIC_* env (reused from the Next.js app) to the
   // client bundle so <ClerkProvider> can read the publishable key.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
-  // Inline public env into the client bundle (see publicEnvDefine above).
-  define: publicEnvDefine,
+  // Inline public env into the client bundle (see publicEnvDefine above), plus
+  // the config-as-code deploy-target selector so env.ts's
+  // `resolveAppEnv(process.env.APP_ENV)` resolves in the client bundle too
+  // (ADR 0026). Unset → '' → the `development` base.
+  define: {
+    ...publicEnvDefine,
+    'process.env.APP_ENV': JSON.stringify(process.env.APP_ENV ?? ''),
+  },
   // Pre-declare deps only reachable through subpath/lazy imports so Vite's
   // first-pass crawl bundles them all. Otherwise they're discovered at runtime,
   // triggering a second optimize pass that rewrites .vite/deps with new chunk

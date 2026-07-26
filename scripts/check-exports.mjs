@@ -50,6 +50,7 @@ const ALLOWED_KEYS = new Set([
   "./server",
   "./schema",
   "./env",
+  "./config", // config-as-code factory, sibling to ./env (ADR 0026)
   "./testing", // backend/test helpers shipped for consumers' suites
   // registered one-off seams
   "./handler", // @acme/trpc — framework-parametric fetch handler
@@ -124,7 +125,10 @@ for (const pkg of findPackages()) {
         `${name}: export \`${key}\`.types must match ./dist/<name>.d.ts (got \`${String(record.types)}\`)`,
       );
     }
-    if (typeof record.default !== "string" || !DEFAULT_RE.test(record.default)) {
+    if (
+      typeof record.default !== "string" ||
+      !DEFAULT_RE.test(record.default)
+    ) {
       errors.push(
         `${name}: export \`${key}\`.default must match ./src/<name>.ts (got \`${String(record.default)}\`)`,
       );

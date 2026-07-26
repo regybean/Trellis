@@ -21,6 +21,7 @@
     "@acme/auth": "workspace:*",
     "@acme/billing": "workspace:*",
     "@acme/chat": "workspace:*",
+    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/feedback": "workspace:*",
     "@acme/hooks": "workspace:*",
