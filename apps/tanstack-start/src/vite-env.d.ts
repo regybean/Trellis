@@ -1,12 +1,5 @@
 /// <reference types="vite/client" />
 
-// Typed client env. Vite exposes keys matching `envPrefix` (VITE_*,
-// NEXT_PUBLIC_*) on `import.meta.env`; declaring them here keeps reads
-// type-safe instead of `any`.
-interface ImportMetaEnv {
-  readonly NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: string;
-}
-
-interface ImportMeta {
-  readonly env: ImportMetaEnv;
-}
+// No custom `import.meta.env` keys: the Clerk publishable key that used to be
+// read here is now config-as-code (authConfig, ADR 0026). `vite/client` supplies
+// the base `ImportMetaEnv`/`ImportMeta` types.

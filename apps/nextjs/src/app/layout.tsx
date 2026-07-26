@@ -41,7 +41,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
         <ClerkProvider
-          publishableKey={env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          publishableKey={config.CLERK_PUBLISHABLE_KEY}
           signInUrl={config.CLERK_SIGN_IN_URL}
           signUpUrl={config.CLERK_SIGN_UP_URL}
           signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}

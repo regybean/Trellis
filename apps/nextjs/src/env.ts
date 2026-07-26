@@ -1,5 +1,4 @@
 import { createEnv } from '@t3-oss/env-nextjs';
-import { z } from 'zod/v4';
 
 import { billingEnv } from '@acme/billing/env';
 import { chatEnv } from '@acme/chat/env';
@@ -20,12 +19,9 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
 export const env = createEnv({
   extends: [chatEnv(), ingestEnv(), billingEnv()],
   server: {},
-  client: {
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: z.string(),
-  },
-  runtimeEnv: {
-    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY:
-      process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY,
-  },
+  // The Clerk publishable key is now config-as-code (authConfig, ADR 0026),
+  // threaded into <ClerkProvider> + clerkMiddleware; it no longer lives in env.
+  client: {},
+  runtimeEnv: {},
   skipValidation,
 });

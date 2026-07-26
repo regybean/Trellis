@@ -19,4 +19,9 @@ regexes = [
   '''sk_test_localstripe''',
   '''whsec_localstripe''',
   '''pk_test_localstripe''',
+  # Publishable keys (Stripe/Clerk `pk_test_`/`pk_live_`) are PUBLIC by design —
+  # they ship in the client bundle — and now live in config-as-code (ADR 0026)
+  # rather than env, so the entropy-based generic rule must not flag them. Only
+  # publishable (`pk_`) keys; secret keys (`sk_`, `whsec_`) stay caught.
+  '''pk_(test|live)_[A-Za-z0-9]+''',
 ]

@@ -65,7 +65,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <ClerkProvider
-          publishableKey={import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          publishableKey={config.CLERK_PUBLISHABLE_KEY}
           signInUrl={config.CLERK_SIGN_IN_URL}
           signUpUrl={config.CLERK_SIGN_UP_URL}
           signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
