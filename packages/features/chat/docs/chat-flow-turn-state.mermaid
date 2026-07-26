@@ -15,7 +15,7 @@ stateDiagram-v2
         Optimistic : cancelQueries(chat.get)
         Optimistic : setQueryData(chat.get, prev + user + assistant-loading)
         Optimistic : upsertConversationInList New chat
-        Optimistic : onFirstSend() stamps URL (idempotent)
+        Optimistic : onSend() stamps URL (idempotent)
         Optimistic --> MutPending : sendMutation.mutate
         MutPending --> Streaming : onSuccess then openReader(ownedTurnId | null)
         MutPending --> SendError : onError then markLastAssistantError
@@ -31,9 +31,9 @@ stateDiagram-v2
 
     Streaming --> Settled : onData done/cancelled then settleLastAssistant + finishTurn
     Streaming --> Settled : onData error then markLastAssistantError + finishTurn
-    Streaming --> Settled : stop() then chat.stop, terminalSeen, finishTurn
+    Streaming --> Settled : stop() then chat.stop, finishTurn (phase leaves streaming)
 
-    Streaming --> Settling : reader close (idle / onError) with terminalSeen=false
+    Streaming --> Settling : reader close (idle / onError) while phase=streaming (no terminal seen)
 
     state Settling {
         [*] --> Reconcile

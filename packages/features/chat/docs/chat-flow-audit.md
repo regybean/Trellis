@@ -61,9 +61,12 @@ Message into the **`chat.get` React Query cache**. See
   all derive from it. `phaseRef` mirrors it for synchronous reads inside the
   async subscription/mutation callbacks.
 - **Refs** remain only where a synchronous read inside an async callback is
-  unavoidable: `ownedTurnIdRef` (the `turnId` we minted and own, for reconcile),
-  `terminalSeenRef` (did a terminal arrive before the reader closed?). Resume
-  bookkeeping (`resumeConsumed`) is plain state — it is read during render.
+  unavoidable: `ownedTurnIdRef` (the `turnId` we minted and own, for reconcile).
+  There is no separate "terminal seen" ref — every terminal path calls
+  `finishTurn`, moving `phase` off `streaming`, so the reader-close handler's
+  `phase === 'streaming'` guard already discriminates a settled Turn from an
+  orphaned close. Resume bookkeeping (`resumeConsumed`) is plain state — it is
+  read during render.
 - **Settle triggers on the terminal event** (`done`/`cancelled`/`error`), which
   folds the finished Turn into the cache and returns `phase` to `idle`. A reader
   **close without a terminal** (a clean `idle` drain or an unrecoverable
@@ -72,7 +75,7 @@ Message into the **`chat.get` React Query cache**. See
 ## 3. First-message happy path
 
 See [`chat-flow-first-message.mermaid`](chat-flow-first-message.mermaid). The URL
-is stamped **synchronously** inside `send()` (via `onFirstSend`), so the
+is stamped **synchronously** inside `send()` (via `onSend`), so the
 Conversation is resumable almost the instant the user hits send.
 
 ## 4. Refresh points & what happens on reload

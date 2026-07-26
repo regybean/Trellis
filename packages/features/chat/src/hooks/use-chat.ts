@@ -23,17 +23,18 @@ type Phase = 'idle' | 'sending' | 'streaming' | 'settling';
 const ERROR_TEXT = 'Sorry, there was an error processing your request.';
 
 // A fresh loading assistant bubble for the Stream to fill.
-const loadingAssistant = (): Message => ({
-  text: '',
-  role: 'assistant',
-  loading: true,
-  error: false,
-});
+const loadingAssistant = () =>
+  ({
+    text: '',
+    role: 'assistant',
+    loading: true,
+    error: false,
+  }) satisfies Message;
 
 export function useChat(
   sessionId: string,
   onTokensConsumed?: () => void,
-  onFirstSend?: () => void,
+  onSend?: () => void,
 ) {
   const genericErrorHandle = useGenericErrorHandler();
   const trpc = useTRPC();
@@ -56,14 +57,11 @@ export function useChat(
     setPhaseState(next);
   };
 
-  // Turn bookkeeping read ONLY inside async callbacks, so refs (not state):
-  // - `ownedTurnIdRef`    — the turnId THIS client minted and got `accepted`
-  //   for; null when we merely attached to another tab's Turn. Only the owner
-  //   reconciles/refunds an orphan.
-  // - `terminalSeenRef`   — the reader delivered a done/cancelled/error terminal
-  //   for the current Turn; a reader close WITHOUT one is the orphan trigger.
+  // Turn bookkeeping read ONLY inside async callbacks, so a ref (not state):
+  // `ownedTurnIdRef` is the turnId THIS client minted and got `accepted` for;
+  // null when we merely attached to another tab's Turn. Only the owner
+  // reconciles/refunds an orphan.
   const ownedTurnIdRef = useRef<string | null>(null);
-  const terminalSeenRef = useRef(false);
   // Has this mount already taken over a Turn (via send or resume-adopt)? Gates
   // `shouldResume` (read in render → state, not a ref), so a still-cached
   // inflightTurn can't re-trigger a phantom resume once the Turn has settled.
@@ -244,7 +242,6 @@ export function useChat(
   // `idle` that trails a terminal — does nothing.
   const handleReaderClose = () => {
     if (phaseRef.current !== 'streaming') return;
-    if (terminalSeenRef.current) return;
     setPhase('settling');
     void reconcileOrAdopt(ownedTurnIdRef.current).finally(finishTurn);
   };
@@ -288,13 +285,11 @@ export function useChat(
       // Ignore events from a torn-down reader once the Turn has settled.
       if (phaseRef.current !== 'streaming') return;
       if (event.type === 'done' || event.type === 'cancelled') {
-        terminalSeenRef.current = true;
         settleLastAssistant(event.messageId);
         finishTurn();
         return;
       }
       if (event.type === 'error') {
-        terminalSeenRef.current = true;
         markLastAssistantError();
         finishTurn();
         return;
@@ -304,13 +299,12 @@ export function useChat(
     onStarted: () => {
       // Resume-after-refresh: the reader opened without a local `send` having
       // armed the lifecycle (phase still idle), so a Turn was already
-      // in-flight when we mounted. Adopt it — arm the refs from the lock's
-      // turnId (so an orphan is reconciled by us) and ensure a loading
+      // in-flight when we mounted. Adopt it — arm `ownedTurnIdRef` from the
+      // lock's turnId (so an orphan is reconciled by us) and ensure a loading
       // assistant bubble the Stream can fill. A reconnect during our own Turn
       // (phase already streaming) skips this.
       if (phaseRef.current !== 'streaming') {
         setResumeConsumed(true);
-        terminalSeenRef.current = false;
         ownedTurnIdRef.current =
           queryClient.getQueryData<{ turnId: string | null }>(
             trpc.chat.inflightTurn.queryKey({ conversationId: sessionId }),
@@ -348,7 +342,6 @@ export function useChat(
   // in-flight Turn (`alreadyInflight`). Opening here (not on send) means the
   // reader's eventual close always sees the correct ownership.
   const openReader = (ownedTurnId: string | null) => {
-    terminalSeenRef.current = false;
     ownedTurnIdRef.current = ownedTurnId;
     // This mount now owns the Turn lifecycle: a later (possibly stale)
     // inflightTurn result must not re-trigger a resume for it.
@@ -412,9 +405,11 @@ export function useChat(
     // Surface the Conversation in the history sidebar right away.
     upsertConversationInList();
 
-    // Stamp the deep-link URL so the Conversation survives a mid-generation
-    // refresh (idempotent upstream, so a resend is a no-op).
-    onFirstSend?.();
+    // Ask the parent to stamp the deep-link URL so the Conversation survives a
+    // mid-generation refresh. Fires on every send (the single-source-of-truth
+    // rework dropped the first-send signal, #115); the caller's stamp is
+    // idempotent — a no-op once the URL already matches — so resends are free.
+    onSend?.();
 
     setPhase('sending');
     sendMutation.mutate({
@@ -425,12 +420,12 @@ export function useChat(
   };
 
   // Cancel the in-flight Turn (chat.stop). The worker also emits a `cancelled`
-  // terminal via the Stream, but we settle the UI now and mark the Turn terminal
-  // so the closing reader is not mistaken for an orphan.
+  // terminal via the Stream, but we settle the UI now; `finishTurn` moves the
+  // phase to idle, so the closing reader's `phase === 'streaming'` guard keeps
+  // it from being mistaken for an orphan.
   const stopMutation = useMutation({
     ...trpc.chat.stop.mutationOptions(),
     onSuccess: () => {
-      terminalSeenRef.current = true;
       settleLastAssistant(null);
       finishTurn();
     },
