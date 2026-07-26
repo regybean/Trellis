@@ -23,10 +23,14 @@ import {
 // refund can never differ from the charge.
 export const CREDITS_PER_TURN = 1;
 
-// The In-flight lock doubles as crash detection: a worker renews it as a
-// heartbeat, so a lock whose TTL lapses without a terminal signals a dead
-// worker and the next send may re-acquire. The abort signal shares the TTL so a
-// never-observed stop cannot linger past the Turn it referenced.
+// The In-flight lock's TTL is also the crash-recovery bound: the worker does
+// NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
+// the lock to self-expire after this window, after which the next `chat.send`
+// can re-acquire. Until then a wedged Conversation is recovered by
+// `chat.reconcileTurn` (client-driven refund + teardown when a reader closes
+// with no terminal). Keep this comfortably longer than the longest expected
+// generation so a live worker's lock never lapses under it. The abort signal
+// shares the TTL so a never-observed stop cannot linger past its Turn.
 const INFLIGHT_LOCK_TTL = 600;
 const ABORT_SIGNAL_TTL = 600;
 

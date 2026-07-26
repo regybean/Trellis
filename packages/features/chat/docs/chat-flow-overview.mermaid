@@ -1,0 +1,52 @@
+flowchart LR
+    subgraph Client["Browser (useChat)"]
+        UI[ChatAssistant / MessageList]
+        CACHE["chat.get cache (single source of truth)"]
+        SUB["chat.stream subscription (pure reader)"]
+    end
+
+    subgraph Server["tRPC (per-app route)"]
+        SEND[chat.send]
+        STOP[chat.stop]
+        REC[chat.reconcileTurn]
+        INF[chat.inflightTurn]
+        GET[chat.get]
+        LIST[chat.list]
+        STREAM[chat.stream]
+    end
+
+    subgraph Redis
+        LOCK["inflight lock chat:inflight:{cid} = turnId"]
+        STREAMKEY["token stream chat:stream:{cid}"]
+        ABORT["chat:abort:{cid}"]
+        REFUND["chat:refunded:{turnId}"]
+        QUEUE[(BullMQ generation queue)]
+    end
+
+    WORKER["Generation worker chatGenerationProcessor"]
+    MEM[("Mastra Memory / Postgres")]
+
+    UI -->|send text| SEND
+    UI -->|optimistic user msg| CACHE
+    SEND -->|SET NX| LOCK
+    SEND -->|discard stale| STREAMKEY
+    SEND -->|persist USER msg| MEM
+    SEND -->|consume credit| REFUND
+    SEND -->|enqueue| QUEUE
+    QUEUE --> WORKER
+    WORKER -->|xAdd delta / terminal| STREAMKEY
+    WORKER -->|persist ASSISTANT msg + title| MEM
+    WORKER -->|poll| ABORT
+    WORKER -->|finalizeTurn: release| LOCK
+
+    UI -->|Stop| STOP --> ABORT
+    STREAM -->|XRANGE poll| STREAMKEY
+    STREAM -->|read lock to decide drain| LOCK
+    SUB <-->|SSE tracked events| STREAM
+    SUB -->|append deltas / stamp terminal| CACHE
+    CACHE --> UI
+
+    UI -->|mount probe| INF --> LOCK
+    UI -->|orphan refund| REC --> REFUND
+    CACHE -->|history read / resume-adopt via vanilla client| GET --> MEM
+    UI -->|sidebar| LIST --> MEM
