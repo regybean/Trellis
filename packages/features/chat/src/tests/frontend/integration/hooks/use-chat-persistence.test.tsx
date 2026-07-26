@@ -1,12 +1,15 @@
 /**
  * Offline read of Conversation History + Messages (#84, ADR 0025).
  *
- * The one new behaviour this ticket adds at the existing hook seam (ADR 0018):
- * a persisted query renders from IndexedDB on a cold `QueryClient` with the
- * network blocked. Each case primes the cache with the network available, then
- * mounts a fresh client whose only handler for the persisted query THROWS — so
- * a pass proves the data came from the persisted cache, not the wire. Asserts
- * hook state only; no mock call counts, no persister internals.
+ * The behaviour under test at the existing hook seam (ADR 0018): a persisted
+ * query paints from IndexedDB on a cold `QueryClient`. Chat's client revalidates
+ * on every mount (`refetchOnMount: 'always'`), so the guarantee is
+ * stale-while-revalidate: the restored snapshot renders instantly AND a failed
+ * background revalidation must never blank it. Each case primes the cache with
+ * the network available, then mounts a fresh client whose only handler for the
+ * persisted query THROWS (a stand-in for offline / an unreachable endpoint) — so
+ * a pass proves the restored data survives even when the revalidation fetch
+ * fails. Asserts hook state only; no mock call counts, no persister internals.
  */
 import { renderHook, waitFor } from '@testing-library/react';
 import { createStore, keys } from 'idb-keyval';
@@ -30,8 +33,10 @@ const chatStore = () => createStore('rq-chat', 'cache');
 const persisted = async () => keys(chatStore());
 const SCOPE = 'user-1';
 
-const mustNotHit = (name: string) => () => {
-  throw new Error(`${name} network hit — offline restore failed`);
+// Stand-in for offline / an unreachable endpoint: the revalidation fetch that
+// `refetchOnMount: 'always'` fires errors, and the restored cache must survive.
+const offlineEndpoint = (name: string) => () => {
+  throw new Error(`${name} unreachable — offline`);
 };
 
 describe('chat offline read — Conversation History (chat.list)', () => {
@@ -57,10 +62,11 @@ describe('chat offline read — Conversation History (chat.list)', () => {
     await waitFor(async () => expect(await persisted()).not.toHaveLength(0));
     warm.unmount();
 
-    // Cold open, offline: chat.list would throw if reached, so a restored list
-    // proves the read came from IndexedDB. Folders (not persisted) stay served.
+    // Cold open, offline: the mount revalidation of chat.list errors, so a
+    // restored list proves the persisted cache paints and survives the failed
+    // refetch. Folders (not persisted) stay served.
     server.resetHandlers(
-      trpcMsw.chat.list.query(mustNotHit('chat.list')),
+      trpcMsw.chat.list.query(offlineEndpoint('chat.list')),
       trpcMsw.chat.folders.list.query(() => []),
     );
     const cold = renderHook(() => useConversations(), {
@@ -102,7 +108,7 @@ describe('chat offline read — history shows before Folders resolve', () => {
     // (never persisted) never resolves. The Conversation History must render
     // instantly from the restored list — not sit behind the Folders spinner.
     server.resetHandlers(
-      trpcMsw.chat.list.query(mustNotHit('chat.list')),
+      trpcMsw.chat.list.query(offlineEndpoint('chat.list')),
       trpcMsw.chat.folders.list.query(async () => {
         await delay('infinite');
         return [];
@@ -161,11 +167,12 @@ describe('chat offline read — a Conversation’s Messages (chat.get)', () => {
     await waitFor(async () => expect(await persisted()).not.toHaveLength(0));
     warm.unmount();
 
-    // Cold open, offline: chat.get would throw if reached; the restored Messages
-    // prove the read came from IndexedDB. inflightTurn (not persisted) still
-    // resolves so the mount probe is quiet and no stream opens.
+    // Cold open, offline: the mount revalidation of chat.get errors; the
+    // restored Messages must still render (a failed refetch never blanks the
+    // cache). inflightTurn (not persisted) still resolves so the mount probe is
+    // quiet and no stream opens.
     server.resetHandlers(
-      trpcMsw.chat.get.query(mustNotHit('chat.get')),
+      trpcMsw.chat.get.query(offlineEndpoint('chat.get')),
       trpcMsw.chat.inflightTurn.query(() => ({ turnId: null })),
     );
     const cold = renderHook(() => useChat(sessionId), {

@@ -84,16 +84,28 @@ Behaviour on refresh depends on **(a)** whether the URL was stamped and **(b)**
 what `chat.inflightTurn` + `chat.get` return at mount. See
 [`chat-flow-refresh.mermaid`](chat-flow-refresh.mermaid).
 
-`chat.get` uses **`refetchOnMount: 'always'`** — the persisted snapshot paints
-instantly (ADR 0025) but a mount always revalidates it against server truth.
-This is load-bearing: the persister only stores _successful fetches_, so a
-first-Turn Conversation persists the empty greeting load (`[]`) with a _recent_
-`dataUpdatedAt`; the optimistic + streamed Messages are `setQueryData` writes
-that never bump the persisted copy. Without the mount refetch that stale-but-
-"fresh" `[]` is served under `staleTime` and the pane stays blank whenever the
-resume path doesn't fire (Turn already settled, or the lock released as we
-reloaded) — the resume-adopt was the _only_ thing repainting `base`, so a
-non-inflight refresh showed nothing until some later refetch.
+Chat's `QueryClient` defaults to **`refetchOnMount: 'always'`** (query-client.ts)
+— every persisted read (`chat.get`, `chat.list`) paints its restored snapshot
+instantly (ADR 0025) but revalidates against server truth on every mount. This
+is load-bearing: the persister only stores _successful fetches_, but these caches
+are also written optimistically via `setQueryData` (the streamed Messages; the
+"New chat" sidebar row), and those writes never reach the persisted snapshot. So
+the restored snapshot lags reality — a first-Turn Conversation persists the empty
+greeting load (`[]`) with a _recent_ `dataUpdatedAt`; the sidebar persists the
+list _before_ the new thread. Without the mount refetch that stale-but-"fresh"
+snapshot is served under `staleTime`, so on refresh the message pane stays blank
+whenever the resume path doesn't fire (Turn already settled, or the lock released
+as we reloaded — the resume-adopt was the _only_ thing repainting `base`) **and**
+the just-created Conversation is missing from the sidebar. Two consequences:
+
+- **`isHistoryLoading` keys on `isFetching` while `base` is empty**, not just the
+  no-data `isLoading`. So the mount revalidation of a stale/empty snapshot shows
+  the skeleton, not a flash of the empty greeting pane, right as a Turn settles
+  and the resume path stops repainting.
+- **Wedged detection waits for the fetch to settle** (`!historyQuery.isFetching`)
+  — a refresh landing mid-finalize (lock released, assistant not yet persisted)
+  reads `[user]` + `inflightTurn: null`, which would otherwise flash a spurious
+  error bubble before the refetch delivers the assistant Message.
 
 | When you refresh                            | URL stamped? | `inflightTurn`       | `chat.get` (after mount refetch) | Result                                                                                                                                                              |
 | ------------------------------------------- | ------------ | -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

@@ -1,7 +1,7 @@
 flowchart TD
     RELOAD([Page reload]) --> URLQ{URL carries sessionId?}
     URLQ -->|"No: bare route, refresh before first send"| NEW["New random sessionId minted, optimistic state LOST, empty pane"]
-    URLQ -->|Yes| MOUNT["useChat mounts: phase=idle, fire chat.get (refetchOnMount: always — revalidate the persisted snapshot) + chat.inflightTurn"]
+    URLQ -->|Yes| MOUNT["useChat mounts: phase=idle, fire chat.get + chat.inflightTurn (chat client defaults refetchOnMount: always — revalidate the persisted snapshot; sidebar chat.list revalidates the same way)"]
 
     MOUNT --> INFQ{inflightTurn.turnId?}
 

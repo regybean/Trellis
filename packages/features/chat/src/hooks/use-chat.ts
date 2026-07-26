@@ -77,23 +77,14 @@ export function useChat(
   // the optimistic user Message + a loading assistant bubble into it, and the
   // Stream appends deltas into the same entry — there is no separate sticky copy
   // to reconcile. The Turn's finished Messages are already in this cache, so the
-  // persister keeps a current snapshot for the next cold open.
-  //
-  // `refetchOnMount: 'always'` is load-bearing for resume-after-refresh (#115).
-  // Only a *successful fetch* is persisted; the optimistic + streamed Messages
-  // are `setQueryData` writes, so the persisted snapshot of a first-Turn
-  // Conversation is the empty greeting load (`[]`). Under the 30s `staleTime`
-  // that stale `[]` would be restored and served without revalidating, leaving
-  // the pane blank on refresh whenever the resume path doesn't fire (the Turn
-  // already settled, or the In-flight lock was released as we reloaded). Forcing
-  // a mount refetch makes `base` converge to server truth regardless; the
-  // persister still paints the restored snapshot instantly (ADR 0025). The
-  // in-flight Stream is unaffected — `onStarted` cancels this fetch and
-  // `refreshHistoryPrefix` re-reads authoritative history without clobbering.
+  // persister keeps a current snapshot for the next cold open. The cache is
+  // revalidated on every mount (`refetchOnMount: 'always'`, set on chat's
+  // QueryClient) so a stale persisted snapshot never survives a refresh — see
+  // query-client.ts.
   const historyQuery = useQuery(
     trpc.chat.get.queryOptions(
       { sessionId },
-      { retry: false, meta: persistMeta, refetchOnMount: 'always' },
+      { retry: false, meta: persistMeta },
     ),
     queryClient,
   );
@@ -118,10 +109,15 @@ export function useChat(
   // no reader will ever open to surface the failure. Show an error bubble rather
   // than stalling silently. Pure derivation (no effect, no cache write): a later
   // refetch that carries the answer simply drops it.
+  // `!historyQuery.isFetching` defers the verdict until the mount revalidation
+  // settles: a refresh that lands mid-finalize (lock released, assistant not yet
+  // persisted) would otherwise read `[user]` + `inflightTurn: null` and flash a
+  // spurious error before the refetch delivers the assistant Message.
   const isWedged =
     phase === 'idle' &&
     resumedTurnId === null &&
     inflightQuery.isSuccess &&
+    !historyQuery.isFetching &&
     base.length > 0 &&
     base.at(-1)?.role === 'user';
 
@@ -132,9 +128,16 @@ export function useChat(
       ]
     : base;
 
-  // Skeleton only while a resumed Conversation's history is loading and no Turn
-  // has started. A brand-new session resolves near-instantly (empty).
-  const isHistoryLoading = historyQuery.isLoading && phase === 'idle';
+  // Skeleton whenever there is nothing to show yet AND a fetch is resolving — the
+  // initial load, but also the mount revalidation of a stale/empty persisted
+  // snapshot. Keying on `isFetching` (not just the no-data `isLoading`) is what
+  // stops a refresh from flashing the empty greeting pane before the refetch
+  // lands: right as a Turn settles the resume path stops repainting `base`,
+  // exposing that refetch window. A *settled* empty result (not fetching) falls
+  // through to the empty pane; once a Turn is live (`phase !== 'idle'`) the
+  // streaming bubble renders instead.
+  const isHistoryLoading =
+    phase === 'idle' && base.length === 0 && historyQuery.isFetching;
 
   // ── chat.get cache writers (the single source of truth) ───────────────────
   const setMessages = (updater: (prev: Message[]) => Message[]) => {

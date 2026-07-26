@@ -50,15 +50,18 @@ simply never marked.
 > a stuck spinner (`useChat` wedged-Turn detection). No new data _class_ is
 > persisted; only its timing changed.
 >
-> Because only _successful fetches_ are persisted (the optimistic + streamed
-> Messages are `setQueryData` writes), a first-Turn Conversation's persisted
-> snapshot is the empty greeting load (`[]`) stamped with a recent
-> `dataUpdatedAt` — "fresh" under `staleTime` yet wrong. `chat.get` therefore
-> sets **`refetchOnMount: 'always'`**: the snapshot still paints instantly, but
-> every cold open revalidates it against server truth. This is the "revalidate"
-> half of the stale-while-revalidate contract made explicit for the one query
-> whose cache doubles as live Turn state; without it a non-inflight refresh
-> (Turn already settled) would render the stale empty snapshot.
+> Because only _successful fetches_ are persisted, but chat's caches are also
+> written optimistically via `setQueryData` (the streamed Messages in `chat.get`;
+> the "New chat" row in `chat.list`), the restored snapshot lags reality: a
+> first-Turn Conversation's `chat.get` is the empty greeting load (`[]`) stamped
+> with a recent `dataUpdatedAt` — "fresh" under `staleTime` yet wrong — and
+> `chat.list` is the list from _before_ the new thread. Chat's `QueryClient`
+> therefore defaults to **`refetchOnMount: 'always'`**: the snapshot still paints
+> instantly, but every cold open revalidates against server truth. This is the
+> "revalidate" half of the stale-while-revalidate contract made explicit for the
+> caches that double as optimistic UI state; without it a non-inflight refresh
+> renders a stale empty message pane and a sidebar missing the just-created
+> Conversation.
 
 **Per-feature storage key.** Each feature's cache lives in its own IndexedDB
 store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`), derived from the
