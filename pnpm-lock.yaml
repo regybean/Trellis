@@ -1011,6 +1011,9 @@ importers:
 
   packages/features/chat:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db

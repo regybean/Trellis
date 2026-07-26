@@ -4,12 +4,17 @@ import type {
 } from '@acme/entitlements';
 import { redis } from '@acme/redis';
 
+import { chatConfig } from '../../config';
+import { appEnv } from '../../env';
 import {
   chatAbortKey,
   chatInflightKey,
   chatRefundedKey,
   chatStreamKey,
 } from '../chat-keys';
+
+// Turn-lifecycle tunables are config-as-code (ADR 0026).
+const config = chatConfig({ appEnv, isServer: true });
 
 // The Redis control plane for a Turn's lifecycle — the one home for the
 // In-flight lock, the abort signal, the idempotent credit refund, and the
@@ -21,24 +26,21 @@ import {
 // call site remembering the guard.
 
 // Credits charged per Turn. The consume (in chat.send) and every refund path
-// (worker error terminal, chat.reconcileTurn) read this one constant so a
-// refund can never differ from the charge.
-export const CREDITS_PER_TURN = 1;
+// (worker error terminal, chat.reconcileTurn) read this one value so a refund
+// can never differ from the charge. Re-exported so the router shares it.
+export const CREDITS_PER_TURN = config.CREDITS_PER_TURN;
 
-// The In-flight lock's TTL is also the crash-recovery bound: the worker does
-// NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
-// the lock to self-expire after this window, after which the next `chat.send`
-// can re-acquire. Until then a wedged Conversation is recovered by
-// `chat.reconcileTurn` (client-driven refund + teardown when a reader closes
-// with no terminal). Keep this comfortably longer than the longest expected
-// generation so a live worker's lock never lapses under it. The abort signal
-// shares the TTL so a never-observed stop cannot linger past its Turn.
-const INFLIGHT_LOCK_TTL = 600;
-const ABORT_SIGNAL_TTL = 600;
-
-// After a terminal the Stream is shortened to a brief safety window and then
-// proactively deleted — the TTL is only a net for a failed delete.
-const STREAM_POST_TERMINAL_TTL = 60;
+// The In-flight lock's TTL (`config.INFLIGHT_LOCK_TTL`) is also the
+// crash-recovery bound: the worker does NOT renew it (there is no heartbeat), so
+// a worker that dies mid-Turn leaves the lock to self-expire after this window,
+// after which the next `chat.send` can re-acquire. Until then a wedged
+// Conversation is recovered by `chat.reconcileTurn` (client-driven refund +
+// teardown when a reader closes with no terminal). Keep this comfortably longer
+// than the longest expected generation so a live worker's lock never lapses
+// under it. The abort signal (`config.ABORT_SIGNAL_TTL`) shares the value so a
+// never-observed stop cannot linger past its Turn. After a terminal the Stream
+// is shortened to a brief safety window (`config.STREAM_POST_TERMINAL_TTL`) and
+// then proactively deleted — that TTL is only a net for a failed delete.
 
 // Acquire the one-in-flight-per-Conversation lock, valued by `turnId`. Returns
 // false when a Turn is already in flight (a second tab, or a live worker) — the
@@ -49,7 +51,7 @@ export async function acquireInflightLock(
 ) {
   const acquired = await redis.set(chatInflightKey(conversationId), turnId, {
     NX: true,
-    EX: INFLIGHT_LOCK_TTL,
+    EX: config.INFLIGHT_LOCK_TTL,
   });
   return acquired !== null;
 }
@@ -73,7 +75,7 @@ export async function releaseInflightLock(
 // stream iteration and halts when the value matches its own `turnId`.
 export async function publishAbort(conversationId: string, turnId: string) {
   await redis.set(chatAbortKey(conversationId), turnId, {
-    EX: ABORT_SIGNAL_TTL,
+    EX: config.ABORT_SIGNAL_TTL,
   });
 }
 
@@ -105,7 +107,10 @@ export async function refundTurnCredits(
 // the stale-stream cleanup that stops the *next* Turn re-reading this one is
 // `discardStaleStream`, called by `chat.send` after it wins the lock — see #43.)
 export async function finalizeTurn(conversationId: string, turnId: string) {
-  await redis.expire(chatStreamKey(conversationId), STREAM_POST_TERMINAL_TTL);
+  await redis.expire(
+    chatStreamKey(conversationId),
+    config.STREAM_POST_TERMINAL_TTL,
+  );
   await redis.del(chatAbortKey(conversationId));
   await releaseInflightLock(conversationId, turnId);
 }

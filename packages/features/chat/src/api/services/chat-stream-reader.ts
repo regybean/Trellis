@@ -1,6 +1,8 @@
 import { redis } from '@acme/redis';
 
 import type { ReaderEntry } from './chat-stream-parser';
+import { chatConfig } from '../../config';
+import { appEnv } from '../../env';
 import { chatStreamKey } from '../chat-keys';
 import {
   coalesceBatch,
@@ -9,11 +11,12 @@ import {
 } from './chat-stream-parser';
 import { readInflightTurn } from './chat-turn-lifecycle';
 
-// Poll cadence while a Turn is still in-flight. The reader tails the Redis
-// Stream on the SHARED redis connection, so it must never issue a blocking
-// XREAD — that would stall every other Redis op in the process. It polls XRANGE
-// instead; the spec accepts the resulting read amplification (see spec #44).
-const POLL_INTERVAL_MS = 100;
+// Poll cadence (`config.POLL_INTERVAL_MS`) while a Turn is still in-flight. The
+// reader tails the Redis Stream on the SHARED redis connection, so it must never
+// issue a blocking XREAD — that would stall every other Redis op in the process.
+// It polls XRANGE instead; the spec accepts the resulting read amplification
+// (see spec #44). Config-as-code (ADR 0026).
+const config = chatConfig({ appEnv, isServer: true });
 
 // A delay that also settles early on abort, so a disconnecting client tears the
 // reader down within one tick rather than after the full poll interval.
@@ -62,7 +65,7 @@ export async function* tailChatStream(
     if (draining) return;
 
     if (await readInflightTurn(conversationId)) {
-      await delay(POLL_INTERVAL_MS, signal);
+      await delay(config.POLL_INTERVAL_MS, signal);
     } else {
       draining = true;
     }
