@@ -241,6 +241,11 @@ overrides:
   '@clerk/backend': ^2.33.5
   fast-xml-parser: '>=5.3.5'
 
+patchedDependencies:
+  '@tanstack/query-persist-client-core@5.90.2':
+    hash: 65ec05a4ae3adce1580990d98e5aa3af490b7a1b94dc463af40ad69a84d7d52f
+    path: patches/@tanstack__query-persist-client-core@5.90.2.patch
+
 importers:
 
   .:
@@ -1784,7 +1789,7 @@ importers:
     dependencies:
       '@tanstack/query-persist-client-core':
         specifier: 'catalog:'
-        version: 5.90.2
+        version: 5.90.2(patch_hash=65ec05a4ae3adce1580990d98e5aa3af490b7a1b94dc463af40ad69a84d7d52f)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.16(react@19.2.3)
@@ -15627,7 +15632,7 @@ snapshots:
 
   '@tanstack/query-core@5.90.16': {}
 
-  '@tanstack/query-persist-client-core@5.90.2':
+  '@tanstack/query-persist-client-core@5.90.2(patch_hash=65ec05a4ae3adce1580990d98e5aa3af490b7a1b94dc463af40ad69a84d7d52f)':
     dependencies:
       '@tanstack/query-core': 5.90.16
 

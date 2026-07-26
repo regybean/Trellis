@@ -78,9 +78,9 @@ export function useChat(
   // Stream appends deltas into the same entry — there is no separate sticky copy
   // to reconcile. The Turn's finished Messages are already in this cache, so the
   // persister keeps a current snapshot for the next cold open. The cache is
-  // revalidated on every mount (`refetchOnMount: 'always'`, set on chat's
-  // QueryClient) so a stale persisted snapshot never survives a refresh — see
-  // query-client.ts.
+  // revalidated on every mount (`staleTime: 0` on chat's QueryClient makes the
+  // persister's post-restore refetch always fire) so a stale persisted snapshot
+  // never survives a refresh — see query-client.ts.
   const historyQuery = useQuery(
     trpc.chat.get.queryOptions(
       { sessionId },

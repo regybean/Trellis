@@ -84,19 +84,24 @@ Behaviour on refresh depends on **(a)** whether the URL was stamped and **(b)**
 what `chat.inflightTurn` + `chat.get` return at mount. See
 [`chat-flow-refresh.mermaid`](chat-flow-refresh.mermaid).
 
-Chat's `QueryClient` defaults to **`refetchOnMount: 'always'`** (query-client.ts)
-— every persisted read (`chat.get`, `chat.list`) paints its restored snapshot
-instantly (ADR 0025) but revalidates against server truth on every mount. This
-is load-bearing: the persister only stores _successful fetches_, but these caches
-are also written optimistically via `setQueryData` (the streamed Messages; the
-"New chat" sidebar row), and those writes never reach the persisted snapshot. So
-the restored snapshot lags reality — a first-Turn Conversation persists the empty
-greeting load (`[]`) with a _recent_ `dataUpdatedAt`; the sidebar persists the
-list _before_ the new thread. Without the mount refetch that stale-but-"fresh"
-snapshot is served under `staleTime`, so on refresh the message pane stays blank
-whenever the resume path doesn't fire (Turn already settled, or the lock released
-as we reloaded — the resume-adopt was the _only_ thing repainting `base`) **and**
-the just-created Conversation is missing from the sidebar. Two consequences:
+Chat's `QueryClient` sets **`staleTime: 0`** (query-client.ts) so every persisted
+read (`chat.get`, `chat.list`) paints its restored snapshot instantly (ADR 0025)
+but revalidates against server truth on every mount. This is load-bearing: the
+persister only stores _successful fetches_, but these caches are also written
+optimistically via `setQueryData` (the streamed Messages; the "New chat" sidebar
+row), and those writes never reach the persisted snapshot. So the restored
+snapshot lags reality — a first-Turn Conversation persists the empty greeting
+load (`[]`) with a _recent_ `dataUpdatedAt`; the sidebar persists the list
+_before_ the new thread. The lever is `staleTime`, NOT `refetchOnMount`: on a
+cold open the persister _is_ the queryFn — it restores and returns the snapshot,
+then background-refetches only `if (query.isStale())`, which reads `staleTime` and
+ignores `refetchOnMount` (see the ADR 0025 note). So any `staleTime > 0` served
+the stale-but-"fresh" snapshot without revalidating, and on refresh the message
+pane stayed blank whenever the resume path didn't fire (Turn already settled, or
+the lock released as we reloaded — the resume-adopt was the _only_ thing
+repainting `base`) **and** the just-created Conversation was missing from the
+sidebar. `staleTime: 0` makes every restored entry stale so the refetch always
+fires. Two further consequences:
 
 - **`isHistoryLoading` keys on `isFetching` while `base` is empty**, not just the
   no-data `isLoading`. So the mount revalidation of a stale/empty snapshot shows
@@ -107,14 +112,14 @@ the just-created Conversation is missing from the sidebar. Two consequences:
   reads `[user]` + `inflightTurn: null`, which would otherwise flash a spurious
   error bubble before the refetch delivers the assistant Message.
 
-| When you refresh                            | URL stamped? | `inflightTurn`       | `chat.get` (after mount refetch) | Result                                                                                                                                                              |
-| ------------------------------------------- | ------------ | -------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Before 1st send                             | No (bare)    | —                    | —                                | New id, empty pane. Optimistic msg lost.                                                                                                                            |
-| Just after 1st send, mid-stream             | Yes          | `turnId`             | `[user]` (refetched)             | **Resume-adopt**: `onStarted` appends a loading bubble into the cache and `refreshHistoryPrefix` splices the authoritative `[user]` in front, then tails the stream |
-| 2nd+ message mid-stream                     | Yes          | `turnId`             | `[…prior turns]`                 | Same resume-adopt; mount refetch keeps the prefix current                                                                                                           |
-| After `done`, within stream TTL (60s)       | Yes          | null (lock released) | `[user, assistant]` (refetched)  | History only, no subscription — the mount refetch shows the settled Turn instead of a stale empty snapshot                                                          |
-| After worker crash, lock still held (<600s) | Yes          | `turnId`             | `[user]`                         | Reader opens, polls until lock TTL; on close → orphan → refund                                                                                                      |
-| After lock TTL lapsed                       | Yes          | null                 | `[user]` only                    | **Wedged-Turn detection**: `chat.get` ends on a user Message with no reply and the probe is null, so `useChat` renders an error bubble instead of stalling silently |
+| When you refresh                            | URL stamped? | `inflightTurn`       | `chat.get` (after mount refetch)  | Result                                                                                                                                                              |
+| ------------------------------------------- | ------------ | -------------------- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Before 1st send                             | No (bare)    | —                    | —                                 | New id, empty pane. Optimistic msg lost.                                                                                                                            |
+| Just after 1st send, mid-stream             | Yes          | `turnId`             | `[user]` (revalidated)            | **Resume-adopt**: `onStarted` appends a loading bubble into the cache and `refreshHistoryPrefix` splices the authoritative `[user]` in front, then tails the stream |
+| 2nd+ message mid-stream                     | Yes          | `turnId`             | `[…prior turns]`                  | Same resume-adopt; the mount revalidation keeps the prefix current                                                                                                  |
+| After `done`, within stream TTL (60s)       | Yes          | null (lock released) | `[user, assistant]` (revalidated) | History only, no subscription — the mount revalidation shows the settled Turn instead of a stale empty snapshot                                                     |
+| After worker crash, lock still held (<600s) | Yes          | `turnId`             | `[user]`                          | Reader opens, polls until lock TTL; on close → orphan → refund                                                                                                      |
+| After lock TTL lapsed                       | Yes          | null                 | `[user]` only                     | **Wedged-Turn detection**: `chat.get` ends on a user Message with no reply and the probe is null, so `useChat` renders an error bubble instead of stalling silently |
 
 ---
 
@@ -148,7 +153,7 @@ The prior audit flagged six issues; this is how the current code addresses them.
   resume reads use the **vanilla tRPC client** (`useTRPCClient`) precisely so a
   fetch does not write the cache; `send` `cancelQueries` first for the same
   reason. `finishTurn` deliberately does **not** invalidate `chat.get`. The one
-  refetch that _does_ run mid-Turn is the `refetchOnMount: 'always'` fetch on a
+  refetch that _does_ run mid-Turn is the `staleTime: 0` mount revalidation on a
   resume-after-refresh — `onStarted` `cancelQueries` cancels it before deltas
   flow, and `refreshHistoryPrefix` supplies the authoritative prefix via the
   vanilla client, so it never clobbers the bubble.

@@ -55,13 +55,29 @@ simply never marked.
 > the "New chat" row in `chat.list`), the restored snapshot lags reality: a
 > first-Turn Conversation's `chat.get` is the empty greeting load (`[]`) stamped
 > with a recent `dataUpdatedAt` — "fresh" under `staleTime` yet wrong — and
-> `chat.list` is the list from _before_ the new thread. Chat's `QueryClient`
-> therefore defaults to **`refetchOnMount: 'always'`**: the snapshot still paints
-> instantly, but every cold open revalidates against server truth. This is the
-> "revalidate" half of the stale-while-revalidate contract made explicit for the
-> caches that double as optimistic UI state; without it a non-inflight refresh
-> renders a stale empty message pane and a sidebar missing the just-created
+> `chat.list` is the list from _before_ the new thread. So a quick refresh
+> rendered a stale empty message pane and a sidebar missing the just-created
 > Conversation.
+>
+> The revalidation lever is **`staleTime: 0`** on chat's `QueryClient`, NOT
+> `refetchOnMount`. This is a subtle, load-bearing interaction with the persister
+> and was mis-diagnosed once (a `refetchOnMount: 'always'` default that did
+> nothing): on a cold open the persister _is_ the queryFn — it restores the
+> snapshot and returns it, then schedules the background refetch only
+> `if (query.isStale())`, a check that reads `staleTime` and ignores
+> `refetchOnMount` (the observer's mount-fetch is fully consumed by the persister
+> handing back cached data; there is no second, independent network hit). So any
+> `staleTime > 0` serves a snapshot younger than it without revalidating.
+> `staleTime: 0` makes every restored entry stale, so the persister always fires
+> the refetch — instant paint preserved, server truth always revalidated.
+>
+> That background refetch is a **floating `query.fetch()`** inside the persister,
+> and `Query.fetch()` re-throws on failure, so a failed revalidation (offline, or
+> a 5xx) became an _unhandled rejection_ — now on every offline cold open, since
+> `staleTime: 0` always fires it. The persister is **patched** (`pnpm patch`,
+> `patches/@tanstack__query-persist-client-core@5.90.2.patch`) to `.catch()` that
+> one call: the restored data is already shown and a failed background
+> revalidation must degrade silently. Re-verify the patch on any persister bump.
 
 **Per-feature storage key.** Each feature's cache lives in its own IndexedDB
 store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`), derived from the
