@@ -29,22 +29,14 @@ function ragEnv() {
           'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
         ),
     },
-    server: {
-      // Dedicated vector database name — the knowledge base lives here. The
-      // connection host/port/creds are owned by `@acme/db/env`; this stays here
-      // as a rag-specific value (its only consumer). See docs/adr/0016.
-      DB_VECTOR_NAME: z.string().nonempty(),
-      CHUNK_SIZE: z.coerce.number().default(1024),
-      CHUNK_OVERLAP: z.coerce.number().default(20),
-    },
+    // The vector database name and chunker knobs are config-as-code now
+    // (`config.ts`, ADR 0026). Only the per-app schema selector + runtime mode
+    // remain env; `@acme/rag` has no non-selector server env left.
+    server: {},
     client: {},
     runtimeEnv: {
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
       NODE_ENV: process.env.NODE_ENV,
-      // Use the dedicated vector database name; do NOT alias to DB_NAME
-      DB_VECTOR_NAME: process.env.DB_VECTOR_NAME,
-      CHUNK_OVERLAP: process.env.CHUNK_OVERLAP,
-      CHUNK_SIZE: process.env.CHUNK_SIZE,
     },
     skipValidation,
   });

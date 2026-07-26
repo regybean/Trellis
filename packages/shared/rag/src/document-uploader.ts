@@ -8,10 +8,14 @@ import { logger } from '@acme/logger';
 import { embedModel, embedProviderOptions } from '@acme/models';
 
 import type { DocumentMetadata } from './schemas/documents-schema';
-import { env } from './env';
+import { ragConfig } from './config';
+import { appEnv } from './env';
 import { extractText } from './parsing';
 import { documents } from './schemas/documents-schema';
 import { ensureVectorIndex, indexName, pgVector } from './vector';
+
+// Chunker knobs + the vector database name are config-as-code (ADR 0026).
+const config = ragConfig({ appEnv, isServer: true });
 
 const TEXT_NODE_NAMESPACE = '3b241101-e2bb-4255-8caf-4136c566a962';
 
@@ -41,7 +45,7 @@ export function dedupeChunks(parsed: ParsedDocument[]) {
         text: chunk.text,
         file_name: file.name,
         upload_timestamp: uploadTimestamp,
-        chunk_size: env.CHUNK_SIZE,
+        chunk_size: config.CHUNK_SIZE,
         parser: 'officeparser',
       });
     }
@@ -52,7 +56,7 @@ export function dedupeChunks(parsed: ParsedDocument[]) {
 // Drizzle client against the vector database, for direct reads/deletes that
 // don't need the vector store (listing and deletion by filename). Module-private
 // so callers can't run arbitrary SQL against the knowledge base.
-const vdb = createDb({ database: env.DB_VECTOR_NAME });
+const vdb = createDb({ database: config.DB_VECTOR_NAME });
 
 export interface DocumentFilenameSummary {
   filename: string;
@@ -74,13 +78,13 @@ export async function uploadDocs(files: File[]) {
       const doc = MDocument.fromText(text, {
         file_name: file.name,
         upload_timestamp: uploadTimestamp,
-        chunk_size: env.CHUNK_SIZE,
+        chunk_size: config.CHUNK_SIZE,
         parser: 'officeparser',
       });
       const chunks = await doc.chunk({
         strategy: 'sentence',
-        maxSize: env.CHUNK_SIZE,
-        overlap: env.CHUNK_OVERLAP,
+        maxSize: config.CHUNK_SIZE,
+        overlap: config.CHUNK_OVERLAP,
       });
       return { file, uploadTimestamp, chunks };
     }),
