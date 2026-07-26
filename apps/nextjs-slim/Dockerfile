@@ -44,15 +44,24 @@ RUN case "$APP_ENV" in \
   *) echo "ERROR: APP_ENV must be 'staging' or 'production' for an image build (got '${APP_ENV:-unset}'); set the STAGE build-arg." >&2 && exit 1 ;; \
   esac
 
+# The WEBAPP selector is `trellis` for every deployed image (dev differs per
+# app). Next inlines NEXT_PUBLIC_* into the client bundle at build; it is also
+# read at runtime for the Redis/Postgres namespace. Was in .env.<stage> (#94).
+ENV NEXT_PUBLIC_WEBAPP=trellis
+
 # Install dependencies
 COPY --from=prepare /app/out/json/ .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --ignore-scripts
 
-# Build the project
+# Build the project. Non-secret per-env values — Stripe plan IDs/publishable
+# key/manage URL (billingConfig) and the Clerk publishable key (authConfig) —
+# are config-as-code, baked into the client bundle via APP_ENV (ADR 0026), so
+# there is no .env.<stage> file to load. No SKIP_ENV_VALIDATION needed: the app
+# build script sets IS_NEXT_BUILD, which shouldSkipEnvValidation() honours.
 COPY --from=prepare /app/out/full/ .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
-  dotenv -e ./apps/nextjs/.env.${STAGE} -- pnpm turbo build --filter=@acme/nextjs
+  pnpm turbo build --filter=@acme/nextjs
 
 ### PRODUCTION
 FROM base AS production
