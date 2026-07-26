@@ -1,6 +1,7 @@
 import { tracked, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 
 import {
@@ -196,7 +197,7 @@ export const chatRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { conversationId, turnId } = input;
       const refunded = await refundTurnCredits(
-        (uid, creditTier, amount) =>
+        (uid: string, creditTier: SubscriptionTier, amount: number) =>
           ctx.entitlements.refund(uid, creditTier, amount),
         ctx.auth.userId,
         ctx.tier,
