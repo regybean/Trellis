@@ -80,11 +80,11 @@ export function ConversationView({
           key={sessionId}
           sessionId={sessionId}
           onTokensConsumed={onTokensConsumed}
-          // First send stamps the id so the Conversation survives a refresh
+          // Each send stamps the id so the Conversation survives a refresh
           // mid-generation (durable stream + worker resume). Threaded up from
-          // useChat.send; idempotent, so a resend or an already-stamped resume
-          // is a no-op.
-          onFirstSend={() => syncUrl(`${basePath}/${sessionId}`)}
+          // useChat.send; syncUrl is idempotent, so a resend or an
+          // already-stamped resume is a no-op.
+          onSend={() => syncUrl(`${basePath}/${sessionId}`)}
           renderMessageActions={renderMessageActions}
         />
       </div>
