@@ -33,20 +33,14 @@ export const staticTestEnv = {
   // leaning on the unset→development default) so suites document that they
   // validate against the base profile. See ADR 0026.
   APP_ENV: 'development',
-  // @acme/models
-  LLM_PROVIDER: 'ollama',
-  EMBED_PROVIDER: 'ollama',
-  EMBED_DIMENSIONS: '768',
-  OLLAMA_BASE_URL: 'http://localhost:11434/v1',
-  OLLAMA_CHAT_MODEL: 'test-chat',
-  OLLAMA_EMBED_MODEL: 'test-embed',
-  // @acme/rag (CHUNK_SIZE/OVERLAP have defaults)
-  DB_VECTOR_NAME: 'vectordb',
-  // @acme/ingest — AWS/S3. Never contacted (S3 client + doc store are mocked).
-  AWS_REGION: 'eu-west-2',
+  // @acme/models / @acme/rag / @acme/ingest tunables (provider selection, model
+  // ids, region, S3 endpoint + bucket, vector db name, chunk sizes, embedding
+  // dimension) are config-as-code now (ADR 0026) — served from each slice's
+  // config.ts base profile, so no test env is needed. Only the AWS credentials
+  // stay env secrets (S3/Bedrock are never contacted — the S3 client + doc store
+  // are mocked).
   AWS_ACCESS_KEY_ID: 'test',
   AWS_SECRET_ACCESS_KEY: 'test',
-  S3_UPLOAD_BUCKET: 'test-bucket',
   // Fallback for infra-less suites (e.g. ingest, whose @acme/redis/env only
   // needs a valid url — Redis is never contacted). Backend suites with a
   // testcontainer have this overwritten per-run by hydrate-env.
