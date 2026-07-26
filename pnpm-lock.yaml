@@ -1661,6 +1661,9 @@ importers:
 
   packages/platform/subscriptions:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../entitlements

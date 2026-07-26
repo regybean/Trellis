@@ -31,6 +31,17 @@ the values a selector picks. See [ADR 0026](../../../docs/adr/0026-config-as-cod
   validated `AppEnv`.
 - `ConfigValidationError` — wraps the `ZodError`; message is `z.prettifyError`.
 
+## Context-less server edges (slice-internal consumption)
+
+A slice that consumes its **own** config server-side (not at the app edge —
+`createDb()`, `resolve.ts`, a worker) resolves the context at its sanctioned
+`process.env` edge, its `env.ts`: `export const appEnv =
+resolveAppEnv(process.env.APP_ENV)`, exactly as the app's `env.ts` does. The
+slice's runtime module then builds the singleton with `xConfig({ appEnv,
+isServer: true })`. `config.ts` stays pure (it never reads `process.env` — the
+ESLint guard enforces this); only `env.ts` (and `.config.*` build files like
+`drizzle.config.ts`) may read the `APP_ENV` selector.
+
 ## Authoring a slice config
 
 A slice owns a `config.ts` (exported under the `./config` subpath) that reads like
