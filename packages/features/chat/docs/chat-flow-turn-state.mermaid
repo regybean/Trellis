@@ -1,0 +1,49 @@
+stateDiagram-v2
+    [*] --> Idle
+
+    note right of Idle
+        messages derive from the chat.get cache.
+        If chat.get ends on a user msg with no reply
+        and inflightTurn=null then render a wedged-Turn
+        error bubble (pure derivation, no cache write).
+    end note
+
+    Idle --> Sending : send(text)
+
+    state Sending {
+        [*] --> Optimistic
+        Optimistic : cancelQueries(chat.get)
+        Optimistic : setQueryData(chat.get, prev + user + assistant-loading)
+        Optimistic : upsertConversationInList New chat
+        Optimistic : onFirstSend() stamps URL (idempotent)
+        Optimistic --> MutPending : sendMutation.mutate
+        MutPending --> Streaming : onSuccess then openReader(ownedTurnId | null)
+        MutPending --> SendError : onError then markLastAssistantError
+    }
+
+    Idle --> Streaming : resume-adopt (onStarted, shouldResume)
+
+    state Streaming {
+        [*] --> Reading
+        Reading : subscription enabled (phase=streaming or shouldResume)
+        Reading --> Reading : onData delta then appendToLastAssistant
+    }
+
+    Streaming --> Settled : onData done/cancelled then settleLastAssistant + finishTurn
+    Streaming --> Settled : onData error then markLastAssistantError + finishTurn
+    Streaming --> Settled : stop() then chat.stop, terminalSeen, finishTurn
+
+    Streaming --> Settling : reader close (idle / onError) with terminalSeen=false
+
+    state Settling {
+        [*] --> Reconcile
+        Reconcile : reconcileOrAdopt(ownedTurnId) reads chat.get via vanilla client
+        Reconcile --> AdoptServer : assistant >= user then setQueryData(chat.get, fresh)
+        Reconcile --> Orphan : still missing then markLastAssistantError + reconcileTurn refund (if owned)
+    }
+
+    Settling --> Settled : finishTurn
+
+    Settled : finishTurn invalidates list + inflightTurn, onTokensConsumed, phase=idle
+    Settled --> Idle
+    SendError --> Idle

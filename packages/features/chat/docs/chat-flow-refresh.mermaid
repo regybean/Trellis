@@ -1,0 +1,21 @@
+flowchart TD
+    RELOAD([Page reload]) --> URLQ{URL carries sessionId?}
+    URLQ -->|"No: bare route, refresh before first send"| NEW["New random sessionId minted, optimistic state LOST, empty pane"]
+    URLQ -->|Yes| MOUNT["useChat mounts: phase=idle, fire chat.get + chat.inflightTurn"]
+
+    MOUNT --> INFQ{inflightTurn.turnId?}
+
+    INFQ -->|"null"| DANGLE{chat.get ends on a user msg with no reply?}
+    DANGLE -->|"no: settled"| DONE["messages = chat.get, no subscription, shows full history"]
+    DANGLE -->|"yes: wedged"| WEDGE["render an error bubble (derived, no cache write) — worker died, lock TTL lapsed"]
+
+    INFQ -->|"non-null: Turn in flight"| RESUME["shouldResume=true, subscription enabled"]
+    RESUME --> STARTED["onStarted: phase idle so ADOPT — phase=streaming, ownedTurnId from lock"]
+    STARTED --> SEED["append a loading assistant bubble into chat.get"]
+    SEED --> ADOPT["refreshHistoryPrefix(): read chat.get via vanilla client, splice fresh history before the bubble (no cache clobber)"]
+    ADOPT --> TAIL["tail stream from head, coalesced backlog + live deltas append into chat.get"]
+    TAIL --> TERM{terminal arrives before reader closes?}
+    TERM -->|yes| SETTLEOK["settleLastAssistant + finishTurn"]
+    TERM -->|"no: close without terminal"| ORPHANCHK["reconcileOrAdopt(ownedTurnId): re-read chat.get (vanilla client)"]
+    ORPHANCHK -->|"assistant >= user"| ADOPTSRV["missed terminal: setQueryData(chat.get, server truth)"]
+    ORPHANCHK -->|still missing| ORPHAN["orphan: error bubble + reconcileTurn refund toast (if owned)"]

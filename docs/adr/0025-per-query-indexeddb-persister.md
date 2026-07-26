@@ -36,6 +36,20 @@ successful queries are ever written. Sensitive/volatile queries
 (credits/subscription, the `chat.stream` subscription, in-flight Turn state) are
 simply never marked.
 
+> **Note (amended by #115): `chat.get` transiently holds an in-flight Turn.**
+> As of the chat Turn-lifecycle simplification, `chat.get` is the single source
+> of truth for the rendered Messages: the optimistic user Message and the
+> assistant's streaming deltas are written into that query's cache, not a
+> separate client-only list. Because `chat.get` is `persistMeta`-marked, the
+> persister therefore _briefly_ writes the in-flight assistant partial (a
+> `loading` bubble whose text grows delta-by-delta) to IndexedDB during a Turn.
+> This is accepted: it is the same auth-scoped PII the store already holds, it is
+> overwritten by the settled Message on the terminal, and a cold reload
+> reconciles it — a resumed Turn re-attaches to the durable Stream, and a Turn
+> that wedged (worker died, lock TTL lapsed) is surfaced as an error rather than
+> a stuck spinner (`useChat` wedged-Turn detection). No new data _class_ is
+> persisted; only its timing changed.
+
 **Per-feature storage key.** Each feature's cache lives in its own IndexedDB
 store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`), derived from the
 feature's existing `keyPrefix`. Mounting several features in one app never
