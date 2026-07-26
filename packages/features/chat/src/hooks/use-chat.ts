@@ -78,10 +78,22 @@ export function useChat(
   // Stream appends deltas into the same entry — there is no separate sticky copy
   // to reconcile. The Turn's finished Messages are already in this cache, so the
   // persister keeps a current snapshot for the next cold open.
+  //
+  // `refetchOnMount: 'always'` is load-bearing for resume-after-refresh (#115).
+  // Only a *successful fetch* is persisted; the optimistic + streamed Messages
+  // are `setQueryData` writes, so the persisted snapshot of a first-Turn
+  // Conversation is the empty greeting load (`[]`). Under the 30s `staleTime`
+  // that stale `[]` would be restored and served without revalidating, leaving
+  // the pane blank on refresh whenever the resume path doesn't fire (the Turn
+  // already settled, or the In-flight lock was released as we reloaded). Forcing
+  // a mount refetch makes `base` converge to server truth regardless; the
+  // persister still paints the restored snapshot instantly (ADR 0025). The
+  // in-flight Stream is unaffected — `onStarted` cancels this fetch and
+  // `refreshHistoryPrefix` re-reads authoritative history without clobbering.
   const historyQuery = useQuery(
     trpc.chat.get.queryOptions(
       { sessionId },
-      { retry: false, meta: persistMeta },
+      { retry: false, meta: persistMeta, refetchOnMount: 'always' },
     ),
     queryClient,
   );

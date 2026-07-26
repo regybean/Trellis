@@ -49,6 +49,16 @@ simply never marked.
 > that wedged (worker died, lock TTL lapsed) is surfaced as an error rather than
 > a stuck spinner (`useChat` wedged-Turn detection). No new data _class_ is
 > persisted; only its timing changed.
+>
+> Because only _successful fetches_ are persisted (the optimistic + streamed
+> Messages are `setQueryData` writes), a first-Turn Conversation's persisted
+> snapshot is the empty greeting load (`[]`) stamped with a recent
+> `dataUpdatedAt` — "fresh" under `staleTime` yet wrong. `chat.get` therefore
+> sets **`refetchOnMount: 'always'`**: the snapshot still paints instantly, but
+> every cold open revalidates it against server truth. This is the "revalidate"
+> half of the stale-while-revalidate contract made explicit for the one query
+> whose cache doubles as live Turn state; without it a non-inflight refresh
+> (Turn already settled) would render the stale empty snapshot.
 
 **Per-feature storage key.** Each feature's cache lives in its own IndexedDB
 store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`), derived from the

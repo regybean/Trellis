@@ -1,12 +1,12 @@
 flowchart TD
     RELOAD([Page reload]) --> URLQ{URL carries sessionId?}
     URLQ -->|"No: bare route, refresh before first send"| NEW["New random sessionId minted, optimistic state LOST, empty pane"]
-    URLQ -->|Yes| MOUNT["useChat mounts: phase=idle, fire chat.get + chat.inflightTurn"]
+    URLQ -->|Yes| MOUNT["useChat mounts: phase=idle, fire chat.get (refetchOnMount: always — revalidate the persisted snapshot) + chat.inflightTurn"]
 
     MOUNT --> INFQ{inflightTurn.turnId?}
 
     INFQ -->|"null"| DANGLE{chat.get ends on a user msg with no reply?}
-    DANGLE -->|"no: settled"| DONE["messages = chat.get, no subscription, shows full history"]
+    DANGLE -->|"no: settled"| DONE["messages = chat.get (revalidated on mount), no subscription, shows full history"]
     DANGLE -->|"yes: wedged"| WEDGE["render an error bubble (derived, no cache write) — worker died, lock TTL lapsed"]
 
     INFQ -->|"non-null: Turn in flight"| RESUME["shouldResume=true, subscription enabled"]
