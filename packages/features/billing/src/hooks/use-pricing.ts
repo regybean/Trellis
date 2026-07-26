@@ -10,7 +10,8 @@ import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { PricingPlan } from '../data/pricing-data';
 import type { ButtonState } from '../lib/plan-selection';
-import { pricingPlans } from '../data/pricing-data';
+import { useBillingConfig } from '../config-context';
+import { buildPricingPlans } from '../data/pricing-data';
 import { env } from '../env';
 import { getButtonState } from '../lib/plan-selection';
 import { useTRPC } from '../trpc/react';
@@ -38,6 +39,12 @@ export function usePricing() {
   const trpc = useTRPC();
   const { isSignedIn, isLoaded } = useAuth();
   const handleError = useGenericErrorHandler();
+  const config = useBillingConfig();
+  const planIds = {
+    standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
+    proPlanId: config.STRIPE_PRO_PLAN_ID,
+  };
+  const pricingPlans = buildPricingPlans(planIds);
 
   const subscription = useQuery(
     trpc.account.getSubscriptionDetails.queryOptions(undefined, {
@@ -141,5 +148,5 @@ export function usePricing() {
     isProcessing: processingPlanId === plan.id,
   }));
 
-  return { cards, selectPlan, isDev };
+  return { cards, selectPlan, isDev, planIds };
 }

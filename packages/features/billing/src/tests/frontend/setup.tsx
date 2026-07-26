@@ -7,9 +7,22 @@ import superjson from 'superjson';
 import { vi } from 'vitest';
 
 import type { AppRouter } from '../../api/root';
+import { BillingConfigProvider } from '../../config-context';
 import { TRPCReactProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
+
+/**
+ * The billing config the client seam reads (ADR 0026), supplied directly here —
+ * config is pure, so a test constructs it with no env. The plan IDs match the
+ * subscription-cache products the MSW handlers/backends seed.
+ */
+const testBillingConfig = {
+  STRIPE_STANDARD_PLAN_ID: 'price_standard_test',
+  STRIPE_PRO_PLAN_ID: 'price_pro_test',
+  STRIPE_PUBLISHABLE_KEY: 'pk_test_123',
+  STRIPE_MANAGE_BILLING_URL: 'https://billing.example.test/manage',
+};
 
 // NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
 // msw-trpc can intercept. Env is real (validated by ../../env). We fake the
@@ -33,8 +46,10 @@ vi.mock('@acme/auth', () => ({
  */
 export const Providers = ({ children }: { children: ReactNode }) => (
   <TRPCReactProvider>
-    {children}
-    <ToastContainer />
+    <BillingConfigProvider config={testBillingConfig}>
+      {children}
+      <ToastContainer />
+    </BillingConfigProvider>
   </TRPCReactProvider>
 );
 

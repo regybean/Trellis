@@ -2,7 +2,14 @@
 // decision tree (getButtonState) lives in the hooks layer (lib/plan-selection).
 import { BarChart3, FileText, HelpCircle, MessageSquare } from 'lucide-react';
 
-import { env } from '../env';
+/**
+ * The Stripe product IDs the paid tiers map to — `billingConfig` values (ADR
+ * 0026) read from `useBillingConfig` and passed in, never from `process.env`.
+ */
+export interface PlanIds {
+  standardPlanId: string;
+  proPlanId: string;
+}
 
 export interface PricingFeature {
   name: string;
@@ -22,7 +29,12 @@ export interface PricingPlan {
   features: PricingFeature[];
 }
 
-export const pricingPlans: PricingPlan[] = [
+/**
+ * The pricing cards. The two paid tiers' `id`s are `billingConfig` plan IDs
+ * (ADR 0026), so this is a builder taking the resolved IDs rather than a module
+ * const — call it from `usePricing` with `useBillingConfig`'s values.
+ */
+export const buildPricingPlans = (planIds: PlanIds): PricingPlan[] => [
   {
     id: 'basic',
     name: 'Basic',
@@ -56,7 +68,7 @@ export const pricingPlans: PricingPlan[] = [
     ],
   },
   {
-    id: env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID,
+    id: planIds.standardPlanId,
     name: 'Standard',
     description: 'Perfect for individuals and small teams getting started',
     monthlyPrice: 30,
@@ -88,7 +100,7 @@ export const pricingPlans: PricingPlan[] = [
     ],
   },
   {
-    id: env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID,
+    id: planIds.proPlanId,
     name: 'Pro',
     description: 'For growing teams with higher usage needs',
     monthlyPrice: 80,
@@ -190,6 +202,7 @@ export const getTierColors = (
   planId: string,
   popular: boolean,
   highlight: boolean,
+  planIds: PlanIds,
 ) => {
   switch (planId) {
     case 'basic': {
@@ -200,7 +213,7 @@ export const getTierColors = (
         badge: 'bg-slate-700',
       };
     }
-    case env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID: {
+    case planIds.standardPlanId: {
       return {
         border: popular
           ? 'border-blue-200 ring-1 ring-blue-100 dark:border-blue-700 dark:ring-blue-800'
@@ -210,7 +223,7 @@ export const getTierColors = (
         badge: 'bg-blue-600',
       };
     }
-    case env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID: {
+    case planIds.proPlanId: {
       return {
         border: highlight
           ? 'border-violet-200 ring-1 ring-violet-100 dark:border-violet-700 dark:ring-violet-800'
