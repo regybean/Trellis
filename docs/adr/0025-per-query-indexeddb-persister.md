@@ -171,6 +171,15 @@ accepted
 - The `@tanstack/query-core` override is load-bearing and coupled to
   react-query's version: bump it whenever react-query's `query-core` moves, or
   typecheck fails.
+- A `pnpm patch` on the persister (`.catch()` on its background-revalidation
+  fetch) is load-bearing and pinned to `5.90.2`: line offsets shift on a bump, so
+  regenerate and re-verify the patch whenever the persister version moves. It is
+  only reachable because chat sets `staleTime: 0` (so the revalidation always
+  fires) — a consumer that leaves `staleTime > 0` never hits the floating fetch.
+- `staleTime: 0` on chat's `QueryClient` means every chat query revalidates on
+  every mount (the cost of correct stale-while-revalidate through the persister):
+  more network chatter than a non-zero `staleTime`, accepted for a chat surface
+  where freshness matters and the persister still gives the instant paint.
 - Opting a feature in is now a small, uniform step: attach `createQueryPersister`
   to its `QueryClient`, mark queries with `persistMeta`, and expose
   `clearPersistedCache` for the app's logout path.
