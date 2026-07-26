@@ -70,7 +70,8 @@ function resolveEntitlements(opts: {
 
 /**
  * A mock `EntitlementsProvider`: `resolve` echoes the tier/credits with a
- * tier-faithful subscription, `consume` is a no-op (no Redis), and
+ * tier-faithful subscription, `consume` and `refund` are no-ops (no Redis —
+ * the real Redis-backed ledger is covered in `@acme/subscriptions`), and
  * `isTierAtLeast` is the REAL ordering from `@acme/entitlements` so `requireTier`
  * gates behave exactly as in production.
  */
@@ -82,6 +83,7 @@ export function createMockEntitlements(opts: {
   return {
     resolve: () => Promise.resolve(resolved),
     consume: () => Promise.resolve(),
+    refund: () => Promise.resolve(),
     isTierAtLeast,
   } satisfies EntitlementsProvider;
 }

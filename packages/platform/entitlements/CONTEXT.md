@@ -16,11 +16,16 @@ admitted. The `Entitlements` value is `{ subscription, tier, credits }`.
 _Avoid_: "permissions", "plan", "quota"
 
 **Entitlements provider**:
-The injected policy the platform calls instead of importing a billing
-implementation: `resolve(userId)` → `Entitlements`, `consume(userId, tier,
-amount)` decrements credits after a guarded request, `isTierAtLeast(tier,
-minTier)` tests the tier ordering. Apps wire one concrete provider into
-`createTRPCContext` per request.
+The injected policy the platform (and any request-less executor, e.g. the chat
+Generation worker) calls instead of importing a billing implementation:
+`resolve(userId)` → `Entitlements`, `consume(userId, tier, amount)` decrements
+credits after a guarded request, `refund(userId, tier, amount)` credits them back
+(the inverse of `consume`, for a charged request that did not deliver its value),
+`isTierAtLeast(tier, minTier)` tests the tier ordering. `consume` and `refund`
+are symmetric — a Credit crosses this one seam in both directions, so a billing
+swap changes a single adapter. Any per-caller idempotency guard on a refund is
+the caller's concern, not the provider's. Apps wire one concrete provider into
+`createTRPCContext` per request (and into their worker entrypoint).
 _Avoid_: "billing service", "subscription client"
 
 **Subscription tier**:
@@ -47,14 +52,17 @@ _Avoid_: "subscription record", "billing data"
 **Unlimited provider**:
 `unlimitedEntitlements` — the no-billing implementation: every caller is the top
 tier (`Pro`, so `requireTier` always admits) with effectively infinite credits
-and a no-op `consume`. Pure; injected by deployments that drop
-`@acme/subscriptions` (e.g. a single-user slim app).
+and a no-op `consume` **and** a no-op `refund` (a deployment that charged nothing
+refunds nothing). Pure; injected by deployments that drop `@acme/subscriptions`
+(e.g. a single-user slim app) — both into `createTRPCContext` and into the app's
+worker entrypoint.
 _Avoid_: "free tier", "dev provider", a new `Unlimited` tier
 
 ## Relationships
 
 - `EntitlementsProvider.resolve(userId)` → `Entitlements` (`{ subscription, tier, credits }`)
-- `EntitlementsProvider.consume(userId, tier, amount)` → decrements the **Credit balance** (the rate-limit middleware in `@acme/trpc`)
+- `EntitlementsProvider.consume(userId, tier, amount)` → decrements the **Credit balance** (called inline by `chat.send` after a guarded request)
+- `EntitlementsProvider.refund(userId, tier, amount)` → increments the **Credit balance** back (called by the chat Generation worker on `error` and by `chat.reconcileTurn` on orphan; the chat control plane owns the idempotency guard)
 - `EntitlementsProvider.isTierAtLeast(tier, minTier)` → tier-ordering test (the source of truth for `requireTier`)
 - `unlimitedEntitlements` → the no-billing `EntitlementsProvider`
 - `subscriptionsEntitlements` (in `@acme/subscriptions`) → the Stripe/Redis-backed `EntitlementsProvider`

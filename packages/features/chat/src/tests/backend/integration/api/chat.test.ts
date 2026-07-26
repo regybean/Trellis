@@ -15,7 +15,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import { memory } from '@acme/rag';
-import { nsKey, redis } from '@acme/redis';
+import { redis } from '@acme/redis';
 
 import type { StreamReaderEvent } from '../../../../api/schemas/chat-schema';
 import type { TestContextOptions } from '../../utils/test-context';
@@ -72,10 +72,6 @@ const baseCredits = {
   limit: 100,
   resetAt: Date.now() + 86_400_000,
 };
-
-// The Redis credit key for a test user on the Basic tier — the tier the caller
-// contexts below use, so refunds land on the key reconcileTurn writes.
-const creditKey = (userId: string) => nsKey('credits', userId, 'Basic');
 
 describe('chatRouter', () => {
   beforeEach(async () => {
@@ -663,7 +659,7 @@ describe('chatRouter', () => {
   // (no dependence on poll timing).
   // ==========================================================================
   describe('stream (reader)', () => {
-    it('re-emits delta entries in order, then closes on the done terminal', async () => {
+    it('coalesces consecutive deltas drained in one batch, then closes on the done terminal', async () => {
       const conversationId = createTestSessionId();
       const streamKey = chatStreamKey(conversationId);
       await redis.xAdd(streamKey, '*', { chunk: 'Hello' });
@@ -674,9 +670,11 @@ describe('chatRouter', () => {
 
       const entries = await drainReader(conversationId);
 
+      // Consecutive deltas that arrive in a single xRange collapse into one
+      // delta carrying the full text (the resume-jitter fix: one client render
+      // for the backlog instead of one per token); the terminal follows.
       expect(entries.map((e) => e.event)).toEqual([
-        { type: 'delta', chunk: 'Hello' },
-        { type: 'delta', chunk: ' world' },
+        { type: 'delta', chunk: 'Hello world' },
         { type: 'done', messageId: 'msg-1' },
       ]);
     });
@@ -686,17 +684,25 @@ describe('chatRouter', () => {
       const streamKey = chatStreamKey(conversationId);
       await redis.xAdd(streamKey, '*', { chunk: 'a' });
       await redis.xAdd(streamKey, '*', { chunk: 'b' });
+
+      // First attach coalesces the backlog into one delta carrying the id of
+      // the LAST entry it consumed — that id is the client's Last-Event-ID.
+      const first = await drainReader(conversationId);
+      expect(first.map((e) => e.event)).toEqual([
+        { type: 'delta', chunk: 'ab' },
+      ]);
+      const lastSeenId = first.at(-1)?.id;
+      expect(lastSeenId).toBeDefined();
+
+      // More tokens land, then the terminal.
+      await redis.xAdd(streamKey, '*', { chunk: 'c' });
       await redis.xAdd(streamKey, '*', { type: 'done', messageId: 'm' });
 
-      // First attach reads everything; capture the id of the first delta.
-      const first = await drainReader(conversationId);
-      const firstDeltaId = first[0]?.id;
-      expect(firstDeltaId).toBeDefined();
-
-      // Second attach resuming after the first delta sees only b + done.
-      const resumed = await drainReader(conversationId, firstDeltaId);
+      // Resuming after the coalesced id sees only what came after — no re-read
+      // of a/b, no gap before c.
+      const resumed = await drainReader(conversationId, lastSeenId);
       expect(resumed.map((e) => e.event)).toEqual([
-        { type: 'delta', chunk: 'b' },
+        { type: 'delta', chunk: 'c' },
         { type: 'done', messageId: 'm' },
       ]);
     });
@@ -763,10 +769,11 @@ describe('chatRouter', () => {
   //
   // The observable contract: Redis lock + abort keys, the persisted user
   // Message (via chat.get), the enqueued job, and the discriminated returns.
-  // Credit *consumption* runs through the mock entitlements provider (a no-op in
-  // the caller harness — real decrement is covered in @acme/subscriptions), so
-  // the credit contract asserted here is the rate-limit *gate* and the refund
-  // path (which does hit real Redis).
+  // Both credit *consumption* and *refund* now cross the injected entitlements
+  // provider (a no-op in the caller harness — the real Redis-backed decrement /
+  // credit-back is covered in @acme/subscriptions), so the credit contract
+  // asserted here is the rate-limit *gate* and the chat-owned refund
+  // idempotency guard (`chat:refunded:{turnId}`), not the ledger balance.
   // ==========================================================================
   describe('send', () => {
     it('acquires the lock, persists the user Message, enqueues a job, returns accepted', async () => {
@@ -1002,7 +1009,7 @@ describe('chatRouter', () => {
   });
 
   describe('reconcileTurn', () => {
-    it('refunds the credit once; the second call is a no-op', async () => {
+    it('refunds once; the guard makes the second call a no-op', async () => {
       const userId = createTestUserId();
       const conversationId = createTestSessionId();
       const turnId = crypto.randomUUID();
@@ -1014,20 +1021,19 @@ describe('chatRouter', () => {
         credits: baseCredits,
       });
 
-      await redis.set(creditKey(userId), '5');
-
+      // The credit-back itself crosses the injected provider (a no-op here); the
+      // observable chat-owned contract is the discriminated `refunded` result
+      // plus the `chat:refunded:{turnId}` guard that makes it idempotent.
       const first = await caller.chat.reconcileTurn({ conversationId, turnId });
       expect(first).toEqual({ refunded: true });
-      expect(await redis.get(creditKey(userId))).toBe('6');
       expect(await redis.get(chatRefundedKey(turnId))).toBe('1');
 
       const second = await caller.chat.reconcileTurn({
         conversationId,
         turnId,
       });
+      // The guard held — no second refund crosses the seam.
       expect(second).toEqual({ refunded: false });
-      // No double refund: the guard held.
-      expect(await redis.get(creditKey(userId))).toBe('6');
     });
 
     it('clears the in-flight lock and deletes the Stream key', async () => {

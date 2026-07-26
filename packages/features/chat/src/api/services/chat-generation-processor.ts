@@ -1,56 +1,22 @@
+import type { EntitlementsProvider } from '@acme/entitlements';
 import type { Job } from '@acme/queue';
 import { logger } from '@acme/logger';
-import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
 
 import type { GenerationJob } from './chat-queue';
 import { chatAbortKey, chatStreamKey } from '../chat-keys';
 import { chatAgent } from './chat-agent';
+import {
+  generateThreadTitle,
+  latestAssistantMessageId,
+  persistAssistantMessage,
+} from './chat-memory';
 import { finalizeTurn, refundTurnCredits } from './chat-turn-lifecycle';
 
 // Safety TTL (seconds) set on the Stream's first write so a crashed worker
 // cannot leave a dangling key. The lock/abort TTLs and the post-terminal
 // teardown live in chat-turn-lifecycle, the one home for the Turn control plane.
 const STREAM_SAFETY_TTL = 600;
-
-async function persistAssistantMessage(
-  conversationId: string,
-  userId: string,
-  text: string,
-) {
-  await memory.saveMessages({
-    messages: [
-      {
-        id: crypto.randomUUID(),
-        role: 'assistant' as const,
-        createdAt: new Date(),
-        threadId: conversationId,
-        resourceId: userId,
-        content: {
-          format: 2,
-          parts: [{ type: 'text', text }],
-          content: text,
-        },
-      },
-    ],
-  });
-}
-
-async function latestAssistantMessageId(
-  conversationId: string,
-  userId: string,
-) {
-  const { messages } = await memory.recall({
-    threadId: conversationId,
-    resourceId: userId,
-    perPage: false,
-  });
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m?.role === 'assistant') return m.id;
-  }
-  return null;
-}
 
 // Persist any non-empty partial and emit the `cancelled` terminal. Teardown
 // (lock release, post-terminal TTL) is left to the processor's `finally`, which
@@ -75,10 +41,25 @@ async function handleAbort(
   }
 }
 
-// BullMQ job processor — called by the worker entrypoint in each app
-// (apps/*/worker.ts). Ownership was asserted by chat.send before enqueueing;
-// userId from the job payload stamps resourceId for Mastra. See ADR 0004.
-export async function chatGenerationProcessor(job: Job<GenerationJob>) {
+// Factory for the BullMQ job processor. It closes over an injected
+// `EntitlementsProvider` so the request-less worker refunds through the SAME
+// seam the request path does (ADR 0006 / ADR 0010): each app's worker entrypoint
+// (apps/*/worker.ts) injects the exact provider its route handler injects — full
+// apps `subscriptionsEntitlements`, slim apps `unlimitedEntitlements`. Ownership
+// was asserted by chat.send before enqueueing; userId from the job payload
+// stamps resourceId for Mastra. See ADR 0004.
+export function createChatGenerationProcessor(
+  entitlements: EntitlementsProvider,
+) {
+  return async function chatGenerationProcessor(job: Job<GenerationJob>) {
+    return runGenerationTurn(entitlements, job);
+  };
+}
+
+async function runGenerationTurn(
+  entitlements: EntitlementsProvider,
+  job: Job<GenerationJob>,
+) {
   const { conversationId, turnId, userId, tier, query } = job.data;
   const streamKey = chatStreamKey(conversationId);
   const abortKey = chatAbortKey(conversationId);
@@ -87,9 +68,6 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
   logger.info({ conversationId, turnId }, 'generation worker: starting');
 
   try {
-    const thread = await memory.getThreadById({ threadId: conversationId });
-    const isFirstTurn = !thread?.title || thread.title === 'New conversation';
-
     // readOnly: true — Mastra recalls context but does NOT auto-persist the
     // user or assistant turn. We persist the assistant message explicitly on
     // terminal so we control the messageId and persistence timing.
@@ -139,14 +117,9 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
       ...(messageId ? { messageId } : {}),
     });
 
-    // On the first Turn, update the thread title from the initial query.
-    if (isFirstTurn) {
-      await memory.updateThread({
-        id: conversationId,
-        title: query.slice(0, 80),
-        metadata: thread?.metadata ?? {},
-      });
-    }
+    // On the first Turn, generate the thread title from the initial query. The
+    // adapter owns the first-Turn check + Mastra write.
+    await generateThreadTitle(conversationId, query);
 
     logger.info({ conversationId, turnId }, 'generation worker: done');
   } catch (error) {
@@ -159,7 +132,12 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
       await redis.expire(chatStreamKey(conversationId), STREAM_SAFETY_TTL);
     }
     await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
-    await refundTurnCredits(userId, tier, turnId);
+    await refundTurnCredits(
+      (uid, creditTier, amount) => entitlements.refund(uid, creditTier, amount),
+      userId,
+      tier,
+      turnId,
+    );
   } finally {
     await finalizeTurn(conversationId, turnId);
   }

@@ -2,7 +2,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import type React from 'react';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createTRPCClient,
@@ -15,22 +15,52 @@ import {
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import SuperJSON from 'superjson';
 
+import {
+  clearPersistedCache as clearFeatureStore,
+  createQueryPersister,
+} from '@acme/hooks';
+
 import type { AppRouter } from '../api/root';
 import { env } from '../env';
-import { createQueryClient } from './query-client';
+import {
+  createQueryClient,
+  FEEDBACK_PERSIST_MAX_AGE,
+  FEEDBACK_PERSIST_VERSION,
+} from './query-client';
+
+// The feature's persisted cache lives under `rq-feedback` (ADR 0025), derived
+// from this keyPrefix so mounting alongside other features never collides.
+const KEY_PREFIX = 'feedback';
+
+/**
+ * Build the per-query persister for a given app-supplied scope, or `undefined`
+ * when persistence must stay off — no scope, or IndexedDB unavailable (e.g. some
+ * privacy modes / SSR). In every off case the feature runs network-only, exactly
+ * as before: persistence is a pure optimisation, never a hard dependency.
+ */
+const persisterFor = (scopeKey: string | undefined) =>
+  scopeKey && typeof indexedDB !== 'undefined'
+    ? createQueryPersister({
+        keyPrefix: KEY_PREFIX,
+        scopeKey,
+        appVersion: FEEDBACK_PERSIST_VERSION,
+        maxAge: FEEDBACK_PERSIST_MAX_AGE,
+      })
+    : undefined;
 
 let clientQueryClientSingleton: QueryClient | undefined;
-const getQueryClient = () => {
+const getQueryClient = (scopeKey: string | undefined) => {
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
   if (globalThis.window == undefined) {
     return createQueryClient(); // Server: always make a new query client
   }
+  const persister = persisterFor(scopeKey);
   // Tests: never reuse the singleton, or cache leaks across test cases.
   if (env.NODE_ENV === 'test') {
-    return createQueryClient();
+    return createQueryClient(persister);
   }
   // Browser: use singleton pattern to keep the same query client
-  clientQueryClientSingleton ??= createQueryClient();
+  clientQueryClientSingleton ??= createQueryClient(persister);
   return clientQueryClientSingleton;
 };
 
@@ -39,10 +69,46 @@ export const { useTRPC, TRPCProvider } = createTRPCContext<
   { keyPrefix: true }
 >();
 
+// Feedback's queries must run on *feedback's* QueryClient (the persister-bearing
+// one), not the nearest QueryClientProvider in React context. Apps nest several
+// feature providers, so `useQueryClient()` would resolve whichever is innermost
+// and feedback's `forMessage` query would silently run on a foreign,
+// persister-less client and never persist (#82). This context pins feedback's
+// own client; the hook reads it and passes it explicitly to `useQuery`.
+const FeedbackQueryClientContext = createContext<QueryClient | undefined>(
+  undefined,
+);
+
+export function useFeedbackQueryClient() {
+  const client = useContext(FeedbackQueryClientContext);
+  if (client === undefined) {
+    throw new Error(
+      'useFeedbackQueryClient must be used within TRPCReactProvider',
+    );
+  }
+  return client;
+}
+
+/**
+ * Empty the feedback feature's persisted cache (`rq-feedback`). App-driven: the
+ * full apps call this — alongside `queryClient.clear()` — on the Clerk logout
+ * path so a shared machine never leaks one user's Rating state to the next. Slim
+ * apps have no logout and never call it. Safe no-op if storage is unavailable.
+ */
+export const clearPersistedCache = () => clearFeatureStore(KEY_PREFIX);
+
 export function TRPCReactProvider(
-  props: Readonly<{ children: React.ReactNode }>,
+  props: Readonly<{
+    children: React.ReactNode;
+    /**
+     * App-supplied per-user scope. Full (Clerk) apps pass the signed-in user id
+     * via the `@acme/auth` seam; slim (no-auth) apps pass a constant `'anon'`.
+     * When absent, persistence stays off and the feature runs network-only.
+     */
+    scopeKey?: string;
+  }>,
 ) {
-  const queryClient = getQueryClient();
+  const queryClient = getQueryClient(props.scopeKey);
 
   const [trpcClient] = useState(() =>
     createTRPCClient<AppRouter>({
@@ -84,15 +150,17 @@ export function TRPCReactProvider(
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider
-        trpcClient={trpcClient}
-        queryClient={queryClient}
-        keyPrefix="feedback"
-      >
-        {props.children}
-      </TRPCProvider>
-    </QueryClientProvider>
+    <FeedbackQueryClientContext.Provider value={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <TRPCProvider
+          trpcClient={trpcClient}
+          queryClient={queryClient}
+          keyPrefix="feedback"
+        >
+          {props.children}
+        </TRPCProvider>
+      </QueryClientProvider>
+    </FeedbackQueryClientContext.Provider>
   );
 }
 

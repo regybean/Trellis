@@ -19,11 +19,12 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
+import { createMockEntitlements } from '@acme/trpc/testing';
 
 import type { GenerationJob } from '../../../../api/services/chat-queue';
 import type { TestContextOptions } from '../../utils/test-context';
 import { appRouter } from '../../../../api/root';
-import { chatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
+import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
 import { _generationQueue } from '../../../../api/services/chat-queue';
 import { tailChatStream } from '../../../../api/services/chat-stream-reader';
 import { createTestSessionId, createTestUserId } from '../../utils/fixtures';
@@ -60,9 +61,17 @@ let worker: ReturnType<typeof createWorker<GenerationJob>>;
 
 describe('generation worker (end-to-end via BullMQ)', () => {
   beforeAll(() => {
+    // Mirror apps/*/worker.ts: the processor is a factory closing over the
+    // injected provider. The e2e asserts the stream round trip, not billing, so
+    // the mock provider (no-op refund) stands in for the app-injected one.
     worker = createWorker<GenerationJob>(
       QUEUE_NAMES.GENERATION,
-      chatGenerationProcessor,
+      createChatGenerationProcessor(
+        createMockEntitlements({
+          tier: 'Basic',
+          credits: baseCredits,
+        }),
+      ),
     );
   });
 

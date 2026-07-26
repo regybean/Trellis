@@ -14,6 +14,7 @@
     "@acme/prettier-config": "workspace:*",
     "@acme/tsconfig": "workspace:*",
     "@acme/vitest-config": "workspace:*",
+    "@testing-library/react": "catalog:",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
     "fake-indexeddb": "catalog:",

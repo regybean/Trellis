@@ -1,12 +1,12 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { SelectFolder } from '../api/schemas/folder-schema';
-import { useTRPC } from '../trpc/react';
+import { useChatQueryClient, useTRPC } from '../trpc/react';
 
 // Data access for the Conversation History sidebar. Components stay UI-focused
 // and delegate here (see CLAUDE.md). All list-mutating actions are optimistic —
@@ -15,16 +15,21 @@ import { useTRPC } from '../trpc/react';
 // server stays lazy (e.g. folder delete leaves dangling thread metadata).
 export function useConversations() {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const queryClient = useChatQueryClient();
   const handleError = useGenericErrorHandler();
 
   // Conversation History persists for offline read (ADR 0025); Folders do not
   // (only `chat.list` and `chat.get` are marked — a dangling folderId simply
-  // falls back to its Date Bucket).
+  // falls back to its Date Bucket). Both are pinned to chat's own QueryClient
+  // (#82) so they run on the persister-bearing client, not a nested foreign one.
   const conversationsQuery = useQuery(
     trpc.chat.list.queryOptions(undefined, { meta: persistMeta }),
+    queryClient,
   );
-  const foldersQuery = useQuery(trpc.chat.folders.list.queryOptions());
+  const foldersQuery = useQuery(
+    trpc.chat.folders.list.queryOptions(),
+    queryClient,
+  );
 
   const listKey = trpc.chat.list.queryKey();
   const foldersKey = trpc.chat.folders.list.queryKey();
@@ -127,7 +132,12 @@ export function useConversations() {
   return {
     conversations: conversationsQuery.data ?? [],
     folders: foldersQuery.data ?? [],
-    isLoading: conversationsQuery.isLoading || foldersQuery.isLoading,
+    // Gate the sidebar skeleton on the *persisted* history query only (#82).
+    // Folders are not persisted, so `||`-ing them in would keep the whole
+    // sidebar skeletoned until the network responds — defeating the instant
+    // offline restore of the Conversation History. A Conversation whose folder
+    // hasn't loaded yet simply falls back to its Date Bucket until it does.
+    isLoading: conversationsQuery.isLoading,
     setFolder: (sessionId: string, folderId: string | null) =>
       setFolderMutation.mutate({ sessionId, folderId }),
     deleteConversation: (sessionId: string) =>

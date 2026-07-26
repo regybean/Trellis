@@ -78,6 +78,8 @@
     "@vitejs/plugin-react": "catalog:",
     "drizzle-kit": "^0.31.8",
     "eslint": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "idb-keyval": "catalog:",
     "jsdom": "catalog:",
     "msw": "catalog:",
     "msw-trpc": "catalog:",

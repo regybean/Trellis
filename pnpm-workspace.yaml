@@ -115,6 +115,14 @@ nodeLinker: hoisted
 onlyBuiltDependencies:
   - esbuild
 
+patchedDependencies:
+  # The persister's background-revalidation fires a floating `query.fetch()`
+  # (createPersister.js) and `Query.fetch()` re-throws on failure — so with
+  # `staleTime: 0` (chat's QueryClient, needed so a recent persisted snapshot
+  # still revalidates) a failed offline refetch becomes an unhandled rejection.
+  # The patch adds `.catch()`. Re-verify on any persister bump (ADR 0025).
+  "@tanstack/query-persist-client-core@5.90.2": patches/@tanstack__query-persist-client-core@5.90.2.patch
+
 overrides:
   # Force a single @tanstack/query-core so the per-query persister
   # (@tanstack/query-persist-client-core) and react-query share one QueryClient

@@ -1,6 +1,8 @@
-import type { SubscriptionTier } from '@acme/subscriptions';
+import type {
+  EntitlementsProvider,
+  SubscriptionTier,
+} from '@acme/entitlements';
 import { redis } from '@acme/redis';
-import { credits } from '@acme/subscriptions';
 
 import {
   chatAbortKey,
@@ -23,10 +25,14 @@ import {
 // refund can never differ from the charge.
 export const CREDITS_PER_TURN = 1;
 
-// The In-flight lock doubles as crash detection: a worker renews it as a
-// heartbeat, so a lock whose TTL lapses without a terminal signals a dead
-// worker and the next send may re-acquire. The abort signal shares the TTL so a
-// never-observed stop cannot linger past the Turn it referenced.
+// The In-flight lock's TTL is also the crash-recovery bound: the worker does
+// NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
+// the lock to self-expire after this window, after which the next `chat.send`
+// can re-acquire. Until then a wedged Conversation is recovered by
+// `chat.reconcileTurn` (client-driven refund + teardown when a reader closes
+// with no terminal). Keep this comfortably longer than the longest expected
+// generation so a live worker's lock never lapses under it. The abort signal
+// shares the TTL so a never-observed stop cannot linger past its Turn.
 const INFLIGHT_LOCK_TTL = 600;
 const ABORT_SIGNAL_TTL = 600;
 
@@ -71,18 +77,23 @@ export async function publishAbort(conversationId: string, turnId: string) {
   });
 }
 
-// Idempotent credit refund. The SET NX guard (`chat:refunded:{turnId}`) admits
-// exactly one refund per Turn, so the worker error path and chat.reconcileTurn
-// can race without ever double-refunding. Returns whether this call performed
-// the refund (false ⇒ already refunded).
+// Idempotent credit refund. The SET NX guard (`chat:refunded:{turnId}`) is the
+// chat control plane's own concern and stays local here; it admits exactly one
+// refund per Turn, so the worker error path and chat.reconcileTurn can race
+// without ever double-refunding. The actual credit-back crosses the injected
+// `EntitlementsProvider` seam — `refund` is passed in (the router supplies
+// `ctx.entitlements.refund`; the worker supplies its injected provider's), so
+// this module never imports a billing implementation. Returns whether this call
+// performed the refund (false ⇒ already refunded).
 export async function refundTurnCredits(
+  refund: EntitlementsProvider['refund'],
   userId: string,
   tier: SubscriptionTier,
   turnId: string,
 ) {
   const acquired = await redis.set(chatRefundedKey(turnId), '1', { NX: true });
   if (acquired === null) return false;
-  await credits.refund(userId, tier, CREDITS_PER_TURN);
+  await refund(userId, tier, CREDITS_PER_TURN);
   return true;
 }
 

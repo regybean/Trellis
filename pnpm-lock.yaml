@@ -244,6 +244,11 @@ overrides:
   '@clerk/backend': ^2.33.5
   fast-xml-parser: '>=5.3.5'
 
+patchedDependencies:
+  '@tanstack/query-persist-client-core@5.90.2':
+    hash: 65ec05a4ae3adce1580990d98e5aa3af490b7a1b94dc463af40ad69a84d7d52f
+    path: patches/@tanstack__query-persist-client-core@5.90.2.patch
+
 importers:
 
   .:
@@ -293,6 +298,9 @@ importers:
       '@acme/feedback':
         specifier: workspace:*
         version: link:../../packages/features/feedback
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -365,9 +373,6 @@ importers:
       next:
         specifier: 'catalog:'
         version: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -510,9 +515,6 @@ importers:
       next:
         specifier: 'catalog:'
         version: 15.5.9(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      next-themes:
-        specifier: 'catalog:'
-        version: 0.4.6(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       postcss:
         specifier: ^8.5.6
         version: 8.5.6
@@ -740,6 +742,9 @@ importers:
       '@acme/feedback':
         specifier: workspace:*
         version: link:../../packages/features/feedback
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -1009,6 +1014,9 @@ importers:
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
+      '@acme/entitlements':
+        specifier: workspace:*
+        version: link:../../platform/entitlements
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -1030,9 +1038,6 @@ importers:
       '@acme/redis':
         specifier: workspace:*
         version: link:../../platform/redis
-      '@acme/subscriptions':
-        specifier: workspace:*
-        version: link:../../platform/subscriptions
       '@acme/telemetry':
         specifier: workspace:*
         version: link:../../platform/telemetry
@@ -1269,6 +1274,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      fake-indexeddb:
+        specifier: 'catalog:'
+        version: 6.2.5
+      idb-keyval:
+        specifier: 'catalog:'
+        version: 6.2.5
       jsdom:
         specifier: 'catalog:'
         version: 27.1.0
@@ -1494,9 +1505,15 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
@@ -1506,6 +1523,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: ^4.0.1
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
   packages/platform/env:
     devDependencies:
@@ -1833,7 +1853,7 @@ importers:
     dependencies:
       '@tanstack/query-persist-client-core':
         specifier: 'catalog:'
-        version: 5.90.2
+        version: 5.90.2(patch_hash=65ec05a4ae3adce1580990d98e5aa3af490b7a1b94dc463af40ad69a84d7d52f)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.16(react@19.2.3)
@@ -1865,6 +1885,9 @@ importers:
       '@acme/vitest-config':
         specifier: workspace:*
         version: link:../../../tooling/vitest
+      '@testing-library/react':
+        specifier: 'catalog:'
+        version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@vitejs/plugin-react':
         specifier: 'catalog:'
         version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.8.2))
@@ -1920,9 +1943,15 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
@@ -1932,6 +1961,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: ^4.0.1
+        version: 4.0.18(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jiti@2.7.0)(jsdom@27.1.0)(lightningcss@1.32.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(tsx@4.21.0)(yaml@2.8.2)
 
   packages/shared/rag:
     dependencies:
@@ -15668,7 +15700,7 @@ snapshots:
 
   '@tanstack/query-core@5.90.16': {}
 
-  '@tanstack/query-persist-client-core@5.90.2':
+  '@tanstack/query-persist-client-core@5.90.2(patch_hash=65ec05a4ae3adce1580990d98e5aa3af490b7a1b94dc463af40ad69a84d7d52f)':
     dependencies:
       '@tanstack/query-core': 5.90.16
 

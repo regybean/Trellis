@@ -27,7 +27,7 @@ function HomeRoute() {
 
       <div className="flex flex-wrap gap-3 font-mono">
         <Button asChild>
-          <Link to="/chat-assistant">
+          <Link to="/chat-assistant/{-$sessionId}">
             <MessageSquare className="h-4 w-4" />
             open chat
             <ArrowRight className="h-4 w-4" />

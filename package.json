@@ -64,6 +64,7 @@
     "seed:localstripe": "pnpm with-env pnpm --filter @acme/billing seed:localstripe",
     "studio": "pnpm with-env pnpm --filter @acme/chat studio",
     "predev": "scripts/check-remote-cache.sh",
+    "preview": "pnpm with-env ./scripts/preview.sh",
     "test": "scripts/test.sh test",
     "test:nextjs": "scripts/test.sh test",
     "test:backend": "scripts/test.sh test:backend",

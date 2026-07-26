@@ -2,9 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { createDb } from '@acme/db';
+import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 import { createFeatureTRPCWithDb } from '@acme/trpc';
-
-import { loadOwnedConversation } from './services/chat-memory';
 
 const _db = createDb();
 
@@ -31,7 +30,7 @@ const conversationInput = z.object({ sessionId: z.uuid() });
 export const ownedConversationProcedure = protectedProcedure.use(
   async ({ ctx, getRawInput, next }) => {
     const { sessionId } = conversationInput.parse(await getRawInput());
-    const conversation = await loadOwnedConversation(
+    const conversation = await assertOwnedThreadForTRPC(
       sessionId,
       ctx.auth.userId,
     );
@@ -44,7 +43,7 @@ export const ownedConversationProcedure = protectedProcedure.use(
 export const existingConversationProcedure = protectedProcedure.use(
   async ({ ctx, getRawInput, next }) => {
     const { sessionId } = conversationInput.parse(await getRawInput());
-    const conversation = await loadOwnedConversation(
+    const conversation = await assertOwnedThreadForTRPC(
       sessionId,
       ctx.auth.userId,
     );
@@ -68,7 +67,7 @@ const conversationIdInput = z.object({ conversationId: z.uuid() });
 export const ownedConversationByIdProcedure = protectedProcedure.use(
   async ({ ctx, getRawInput, next }) => {
     const { conversationId } = conversationIdInput.parse(await getRawInput());
-    const conversation = await loadOwnedConversation(
+    const conversation = await assertOwnedThreadForTRPC(
       conversationId,
       ctx.auth.userId,
     );

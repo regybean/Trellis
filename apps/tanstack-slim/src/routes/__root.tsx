@@ -42,6 +42,11 @@ function RootComponent() {
  * Chat/Ingest tRPC → tooltip). No Clerk, no billing/feedback providers — the
  * slim app injects a constant principal at the tRPC route seam instead. The
  * theme is locked dark to match the developer-console shell.
+ *
+ * Chat persistence is scoped to a constant 'anon' principal (ADR 0025): slim has
+ * no auth, so no per-user scope and no logout to clear the cache. The load pain
+ * is data-load, not auth, so the instant-load win is identical to the full app;
+ * `buster` still discards on version change.
  */
 function RootDocument({ children }: { children: ReactNode }) {
   return (
@@ -55,7 +60,7 @@ function RootDocument({ children }: { children: ReactNode }) {
           forcedTheme="dark"
           disableTransitionOnChange
         >
-          <ChatTRPCReactProvider>
+          <ChatTRPCReactProvider scopeKey="anon">
             <IngestTRPCReactProvider>
               <TooltipProvider>
                 <ConsoleShell>{children}</ConsoleShell>

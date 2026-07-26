@@ -8,7 +8,12 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { toConversation, toMessages } from '../../../api/services/chat-memory';
+import {
+  isFirstTurn,
+  NEW_CONVERSATION_TITLE,
+  toConversation,
+  toMessages,
+} from '../../../api/services/chat-memory';
 
 type Thread = Parameters<typeof toConversation>[0];
 type DBMessage = Parameters<typeof toMessages>[0][number];
@@ -41,6 +46,21 @@ function makeMessage(
     ...overrides,
   } as unknown as DBMessage;
 }
+
+describe('isFirstTurn', () => {
+  it('is true when the thread still carries the sentinel title', () => {
+    expect(isFirstTurn(NEW_CONVERSATION_TITLE)).toBe(true);
+  });
+
+  it('is true when the thread has no title yet', () => {
+    expect(isFirstTurn()).toBe(true);
+    expect(isFirstTurn('')).toBe(true);
+  });
+
+  it('is false once a real title has been generated', () => {
+    expect(isFirstTurn('What is the capital of France?')).toBe(false);
+  });
+});
 
 describe('toConversation', () => {
   it('maps a thread to the client-facing Conversation view', () => {

@@ -1,6 +1,5 @@
 import type { OwnedThread } from '@acme/rag';
 import { memory } from '@acme/rag';
-import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 
 import type { Message } from '../schemas/message-schema';
 
@@ -18,6 +17,20 @@ import type { Message } from '../schemas/message-schema';
 export type Conversation = OwnedThread;
 
 type DBMessage = Awaited<ReturnType<typeof memory.recall>>['messages'][number];
+
+// The sentinel title a thread carries until a real title is generated from its
+// first user Message. One definition, referenced by summary rendering, thread
+// creation, folder-preserving updates, and first-Turn detection — so the
+// sentinel can never drift between the sites that compare against it.
+export const NEW_CONVERSATION_TITLE = 'New conversation';
+
+// First-Turn detection. A Conversation is on its first Turn while its thread
+// still carries the sentinel title (or none) — no title has been generated yet.
+// Pure over the title so it is unit-testable without a live thread store; owned
+// here so the Generation worker never re-derives the rule.
+export function isFirstTurn(title?: string) {
+  return !title || title === NEW_CONVERSATION_TITLE;
+}
 
 // A thread (Mastra storage) rendered as the client-facing Conversation view.
 export function toConversation(thread: Conversation) {
@@ -41,7 +54,7 @@ function folderIdOf(metadata: Conversation['metadata']) {
 export function toConversationSummary(thread: Conversation) {
   return {
     sessionId: thread.id,
-    title: thread.title ?? 'New conversation',
+    title: thread.title ?? NEW_CONVERSATION_TITLE,
     updatedAt: thread.updatedAt,
     folderId: folderIdOf(thread.metadata),
   };
@@ -73,22 +86,11 @@ export function toMessages(
     }));
 }
 
-// Load a Conversation and enforce ownership. Returns null when the thread does
-// not exist yet (the stream/create procedures operate before the thread is
-// stamped). Throws FORBIDDEN when the thread is owned by another user — the
-// security invariant the ownership middleware seats at the request pipeline.
-// The ownership rule and its single tRPC mapping both live in `@acme/rag`
-// (`assertOwnedThreadForTRPC`), so a new ownership variant is handled in one
-// place shared with the feedback feature.
-export async function loadOwnedConversation(sessionId: string, userId: string) {
-  return assertOwnedThreadForTRPC(sessionId, userId);
-}
-
 export async function createConversation(sessionId: string, userId: string) {
   return memory.createThread({
     threadId: sessionId,
     resourceId: userId,
-    title: 'New conversation',
+    title: NEW_CONVERSATION_TITLE,
   });
 }
 
@@ -105,12 +107,13 @@ export async function recallMessages(sessionId: string, userId: string) {
   return messages;
 }
 
-// Persist the user's Message explicitly, before any token is generated, so it
-// is durable in `chat.get` the moment `chat.send` accepts — the durable-stream
-// flow drives generation from a worker (readOnly memory), so nothing else
-// writes the user turn. Mirrors the worker's assistant persist; `resourceId =
-// userId` is what makes the row the caller's own.
-export async function persistUserMessage(
+// The single `saveMessages` envelope. Both the user Message (persisted by
+// `chat.send` before the first token) and the assistant Message (persisted by
+// the Generation worker on terminal) go through here, so the Mastra stored-
+// message shape has exactly one definition. `resourceId = userId` is what makes
+// the row the caller's own.
+async function saveMessage(
+  role: 'user' | 'assistant',
   sessionId: string,
   userId: string,
   text: string,
@@ -119,7 +122,7 @@ export async function persistUserMessage(
     messages: [
       {
         id: crypto.randomUUID(),
-        role: 'user' as const,
+        role,
         createdAt: new Date(),
         threadId: sessionId,
         resourceId: userId,
@@ -129,22 +132,59 @@ export async function persistUserMessage(
   });
 }
 
-// The id Mastra minted for the most recently persisted assistant turn in this
-// Conversation. Sourced by re-reading the thread once the stream completes
-// (rather than parsing Mastra's stream-result shape) so it stays robust across
-// Mastra versions. Returns null when no assistant message exists yet. The
-// `done` stream event carries this id so the client can attach feedback to the
-// settled message without a refetch.
+// Persist the user's Message explicitly, before any token is generated, so it
+// is durable in `chat.get` the moment `chat.send` accepts — the durable-stream
+// flow drives generation from a worker (readOnly memory), so nothing else
+// writes the user turn.
+export async function persistUserMessage(
+  sessionId: string,
+  userId: string,
+  text: string,
+) {
+  await saveMessage('user', sessionId, userId, text);
+}
+
+// Persist the assistant's Message on a terminal, driven by the Generation
+// worker: `done` → full text, `cancelled` → non-empty partial. The worker owns
+// the terminal policy (empty ⇒ no persist, `error` ⇒ nothing); the adapter owns
+// the write so raw Mastra vocabulary never leaks into the worker.
+export async function persistAssistantMessage(
+  sessionId: string,
+  userId: string,
+  text: string,
+) {
+  await saveMessage('assistant', sessionId, userId, text);
+}
+
+// The id of the most-recently-persisted assistant Message, found by scanning
+// recall newest-first. The Generation worker puts this id on the `done` /
+// `cancelled` terminal so clients (e.g. feedback) can key off the settled
+// Message. Lives here — the only seam to Mastra recall — not in the worker.
 export async function latestAssistantMessageId(
   sessionId: string,
   userId: string,
 ) {
   const messages = await recallMessages(sessionId, userId);
   for (let i = messages.length - 1; i >= 0; i--) {
-    const message = messages.at(i);
-    if (message?.role === 'assistant') return message.id;
+    const m = messages[i];
+    if (m?.role === 'assistant') return m.id;
   }
   return null;
+}
+
+// Generate and persist a thread's title from its first user Message — a no-op
+// unless the Conversation is still on its first Turn. Encapsulates the
+// thread read + first-Turn check + update so the worker drives title generation
+// without touching Mastra directly. Mastra requires the title on `updateThread`
+// and existing metadata is preserved.
+export async function generateThreadTitle(sessionId: string, query: string) {
+  const thread = await memory.getThreadById({ threadId: sessionId });
+  if (!isFirstTurn(thread?.title)) return;
+  await memory.updateThread({
+    id: sessionId,
+    title: query.slice(0, 80),
+    metadata: thread?.metadata ?? {},
+  });
 }
 
 // Admin bypass: read any Conversation without an ownership check. Named
@@ -185,7 +225,7 @@ export async function setThreadFolder(
 ) {
   return memory.updateThread({
     id: thread.id,
-    title: thread.title ?? 'New conversation',
+    title: thread.title ?? NEW_CONVERSATION_TITLE,
     metadata: { ...thread.metadata, folderId },
   });
 }

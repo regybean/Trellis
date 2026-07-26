@@ -68,6 +68,14 @@ export interface EntitlementsProvider {
     tier: SubscriptionTier,
     amount: number,
   ): Promise<void>;
+  /**
+   * Credit the caller's balance back — the inverse of `consume`. Called when a
+   * charged request did not deliver its value (a failed generation, an orphaned
+   * Turn). Crosses the same seam as `consume` so a billing swap changes one
+   * adapter, not two; any per-caller idempotency guard is the caller's concern,
+   * not the provider's.
+   */
+  refund(userId: string, tier: SubscriptionTier, amount: number): Promise<void>;
   /** Tier ordering test: `true` when `tier` is at least `minTier`. */
   isTierAtLeast(tier: SubscriptionTier, minTier: SubscriptionTier): boolean;
 }

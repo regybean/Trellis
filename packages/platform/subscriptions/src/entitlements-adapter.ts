@@ -24,5 +24,8 @@ export const subscriptionsEntitlements: EntitlementsProvider = {
   consume(userId, tier, amount) {
     return credits.consume(userId, tier, amount);
   },
+  refund(userId, tier, amount) {
+    return credits.refund(userId, tier, amount);
+  },
   isTierAtLeast,
 };

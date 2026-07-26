@@ -15,6 +15,16 @@
       "cache": false,
       "persistent": true
     },
+    "start": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "persistent": true,
+      "with": ["start:worker"]
+    },
+    "start:worker": {
+      "cache": false,
+      "persistent": true
+    },
     "typecheck": {
       "dependsOn": ["^topo", "^build", "build"]
     }

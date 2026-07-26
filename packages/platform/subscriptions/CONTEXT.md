@@ -2,7 +2,7 @@
 
 Server-only package. Single source of truth for reading a user's Subscription state and Credit balance from Redis. No Stripe API calls — that is `@acme/billing`'s job. This package only reads what `@acme/billing` has already synced.
 
-It is the **Stripe/Redis-backed adapter** for the `@acme/entitlements` contract: it implements `EntitlementsProvider` as `subscriptionsEntitlements` and re-exports the relocated contract types (`SubscriptionTier`, `SubscriptionCache`, `isTierAtLeast`). The neutral types live in `@acme/entitlements`; the Zod `SubscriptionCacheSchema` that validates the Stripe-shaped variant stays here, guarded by a conformance assertion against the contract type. See [`docs/adr/0006-entitlements-injection-seam.md`](../../../docs/adr/0006-entitlements-injection-seam.md).
+It is the **Stripe/Redis-backed adapter** for the `@acme/entitlements` contract: it implements `EntitlementsProvider` as `subscriptionsEntitlements` and re-exports the relocated contract types (`SubscriptionTier`, `SubscriptionCache`). The neutral types live in `@acme/entitlements`; the tier ordering (`isTierAtLeast`) is imported from `@acme/entitlements` directly, not re-exported here. The Zod `SubscriptionCacheSchema` that validates the Stripe-shaped variant stays here, guarded by a conformance assertion against the contract type. See [`docs/adr/0006-entitlements-injection-seam.md`](../../../docs/adr/0006-entitlements-injection-seam.md).
 
 ## Language
 
@@ -26,11 +26,11 @@ A `{ start, end }` pair of Unix timestamps. For active subscriptions: the Stripe
 - `getUserSubscriptionFromRedis(userId)` → returns **Subscription cache** (or a `status: 'none'` default)
 - `getSubscriptionType(subscription)` → derives **Subscription tier** from the cache
 - `credits.read(userId, subscription, tier)` → reads or eagerly initialises the **Credit balance** key
-- `credits.consume(userId, tier, amount)` → decrements the balance (the rate-limit middleware)
+- `credits.consume(userId, tier, amount)` → decrements the balance (via `subscriptionsEntitlements.consume`, called inline by `chat.send`)
+- `credits.refund(userId, tier, amount)` → increments the balance back (via `subscriptionsEntitlements.refund` — the adapter side of the `refund` seam; the chat control plane owns the idempotency guard)
 - `credits.reset(userId)` / `credits.maxOut(userId)` → set the balance to the full limit / to zero, with the billing-window expiry in one atomic command
 - `credits.overrideExpiry(userId, expiresAt)` → moves the **Billing window** expiry (creating the key if missing)
 - `credits.status(userId)` → the admin balance view (balance + whether the key is materialised)
-- `isTierAtLeast(tier, minTier)` → tests the tier ordering (`Basic < Standard < Pro`); the source of truth for tier-gating in `@acme/trpc`'s `requireTier`
 
 The `reset`/`maxOut`/`overrideExpiry`/`status` operations fetch the **Subscription cache** and derive the **Subscription tier** themselves, because their callers (the billing admin router) target an arbitrary user rather than the request's own context.
 

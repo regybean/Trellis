@@ -8,9 +8,14 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type {
+  EntitlementsProvider,
+  SubscriptionTier,
+} from '@acme/entitlements';
 import type { Job } from '@acme/queue';
 import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
+import { createMockEntitlements } from '@acme/trpc/testing';
 
 import type { GenerationJob } from '../../../../api/services/chat-queue';
 import {
@@ -20,13 +25,39 @@ import {
   chatStreamKey,
 } from '../../../../api/chat-keys';
 import { chatAgent } from '../../../../api/services/chat-agent';
-import { chatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
+import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
+import { CREDITS_PER_TURN } from '../../../../api/services/chat-turn-lifecycle';
 import { fakeAgentStream, throwingAgentStream } from '../../setup';
 import {
   createTestChat,
   createTestSessionId,
   createTestUserId,
 } from '../../utils/fixtures';
+
+interface RefundCall {
+  userId: string;
+  tier: SubscriptionTier;
+  amount: number;
+}
+
+// Build a provider that records refunds so the error→refund path can be
+// asserted through the INJECTED seam (never a `vi.mock` of a seam the feature
+// owns; the provider IS the injection point). Everything else is the real mock
+// provider from @acme/trpc/testing.
+function makeRecordingProvider() {
+  const refundCalls: RefundCall[] = [];
+  const provider: EntitlementsProvider = {
+    ...createMockEntitlements({
+      tier: 'Basic',
+      credits: { remaining: 100, limit: 100, resetAt: 0 },
+    }),
+    refund(userId, tier, amount) {
+      refundCalls.push({ userId, tier, amount });
+      return Promise.resolve();
+    },
+  };
+  return { provider, refundCalls };
+}
 
 function makeJob(overrides: Partial<GenerationJob> = {}): Job<GenerationJob> {
   const sessionId = createTestSessionId();
@@ -52,7 +83,14 @@ function streamField(fields: string[], name: string): string | undefined {
 }
 
 describe('chatGenerationProcessor', () => {
+  let refundCalls: RefundCall[];
+  let processor: ReturnType<typeof createChatGenerationProcessor>;
+
   beforeEach(() => {
+    const recording = makeRecordingProvider();
+    refundCalls = recording.refundCalls;
+    processor = createChatGenerationProcessor(recording.provider);
+
     vi.spyOn(chatAgent, 'stream').mockResolvedValue(
       fakeAgentStream(['Test ', 'response ', 'from ', 'mocked ', 'LLM.']),
     );
@@ -67,7 +105,7 @@ describe('chatGenerationProcessor', () => {
         sessionId: conversationId,
         userId: job.data.userId,
       });
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const entries = await redis.xRange(
         chatStreamKey(conversationId),
@@ -85,7 +123,7 @@ describe('chatGenerationProcessor', () => {
       const { conversationId, userId } = job.data;
 
       await createTestChat({ sessionId: conversationId, userId });
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const { messages } = await memory.recall({
         threadId: conversationId,
@@ -102,7 +140,7 @@ describe('chatGenerationProcessor', () => {
       const { conversationId, userId } = job.data;
 
       await createTestChat({ sessionId: conversationId, userId });
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const entries = await redis.xRange(
         chatStreamKey(conversationId),
@@ -129,7 +167,7 @@ describe('chatGenerationProcessor', () => {
         NX: true,
       });
 
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const lock = await redis.get(chatInflightKey(conversationId));
       expect(lock).toBeNull();
@@ -140,7 +178,7 @@ describe('chatGenerationProcessor', () => {
       const { conversationId, userId } = job.data;
 
       await createTestChat({ sessionId: conversationId, userId });
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const thread = await memory.getThreadById({ threadId: conversationId });
       expect(thread?.title).not.toBe('New conversation');
@@ -162,7 +200,7 @@ describe('chatGenerationProcessor', () => {
       // Set abort signal before the processor starts so it fires on first check.
       await redis.set(chatAbortKey(conversationId), turnId, { EX: 300 });
 
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const entries = await redis.xRange(
         chatStreamKey(conversationId),
@@ -186,7 +224,7 @@ describe('chatGenerationProcessor', () => {
       vi.spyOn(chatAgent, 'stream').mockResolvedValue(fakeAgentStream([]));
       await redis.set(chatAbortKey(conversationId), turnId, { EX: 300 });
 
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const entries = await redis.xRange(
         chatStreamKey(conversationId),
@@ -209,7 +247,7 @@ describe('chatGenerationProcessor', () => {
         throwingAgentStream(['partial'], new Error('LLM exploded')),
       );
 
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const entries = await redis.xRange(
         chatStreamKey(conversationId),
@@ -236,10 +274,26 @@ describe('chatGenerationProcessor', () => {
         throwingAgentStream([], new Error('LLM failed')),
       );
 
-      await chatGenerationProcessor(job);
+      await processor(job);
 
       const guardValue = await redis.get(chatRefundedKey(turnId));
       expect(guardValue).toBe('1');
+    });
+
+    it('refunds the Turn credit through the injected provider on error', async () => {
+      const job = makeJob({ tier: 'Standard' });
+      const { conversationId, userId, tier } = job.data;
+
+      await createTestChat({ sessionId: conversationId, userId });
+      vi.spyOn(chatAgent, 'stream').mockResolvedValue(
+        throwingAgentStream([], new Error('LLM failed')),
+      );
+
+      await processor(job);
+
+      // The credit-back crosses the injected EntitlementsProvider seam — the
+      // worker refunds exactly the per-Turn charge for the job's userId + tier.
+      expect(refundCalls).toEqual([{ userId, tier, amount: CREDITS_PER_TURN }]);
     });
 
     it('does not double-refund when refund guard is already set', async () => {
@@ -256,7 +310,9 @@ describe('chatGenerationProcessor', () => {
       );
 
       // Should not throw even with guard already set.
-      await expect(chatGenerationProcessor(job)).resolves.not.toThrow();
+      await expect(processor(job)).resolves.not.toThrow();
+      // The guard short-circuits before the provider seam — no refund crossed.
+      expect(refundCalls).toEqual([]);
     });
   });
 });

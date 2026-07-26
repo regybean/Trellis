@@ -2,7 +2,7 @@
 
 import type { QueryClient } from '@tanstack/react-query';
 import type React from 'react';
-import { useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 import { QueryClientProvider } from '@tanstack/react-query';
 import {
   createTRPCClient,
@@ -65,10 +65,30 @@ const getQueryClient = (scopeKey?: string) => {
   return clientQueryClientSingleton;
 };
 
-export const { useTRPC, TRPCProvider } = createTRPCContext<
+export const { useTRPC, useTRPCClient, TRPCProvider } = createTRPCContext<
   AppRouter,
   { keyPrefix: true }
 >();
+
+// Chat's queries must run on *chat's* QueryClient (the one carrying the
+// persister), not the nearest QueryClientProvider in React context. Apps nest
+// several feature providers (chat, ingest, feedback…), each with its own
+// QueryClientProvider; `useQueryClient()` would resolve whichever is innermost,
+// so chat's queries would silently run on a foreign, persister-less client and
+// never persist (#82). This context pins chat's own client; hooks read it and
+// pass it explicitly to `useQuery`, keeping every chat query on the client whose
+// defaults include the persister.
+const ChatQueryClientContext = createContext<QueryClient | undefined>(
+  undefined,
+);
+
+export function useChatQueryClient() {
+  const client = useContext(ChatQueryClientContext);
+  if (client === undefined) {
+    throw new Error('useChatQueryClient must be used within TRPCReactProvider');
+  }
+  return client;
+}
 
 // https://discord-questions.trpc.io/m/1343947836143960066
 export function TRPCReactProvider(
@@ -140,15 +160,17 @@ export function TRPCReactProvider(
   );
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider
-        trpcClient={trpcClient}
-        queryClient={queryClient}
-        keyPrefix="chat"
-      >
-        {props.children}
-      </TRPCProvider>
-    </QueryClientProvider>
+    <ChatQueryClientContext.Provider value={queryClient}>
+      <QueryClientProvider client={queryClient}>
+        <TRPCProvider
+          trpcClient={trpcClient}
+          queryClient={queryClient}
+          keyPrefix="chat"
+        >
+          {props.children}
+        </TRPCProvider>
+      </QueryClientProvider>
+    </ChatQueryClientContext.Provider>
   );
 }
 

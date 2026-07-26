@@ -7,6 +7,7 @@
     "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/feedback": "workspace:*",
+    "@acme/hooks": "workspace:*",
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
@@ -31,7 +32,6 @@
     "drizzle-orm": "catalog:",
     "lucide-react": "catalog:",
     "next": "catalog:",
-    "next-themes": "catalog:",
     "postcss": "^8.5.6",
     "postgres": "catalog:",
     "react": "catalog:react19",
@@ -70,6 +70,7 @@
     "lint": "eslint",
     "start": "pnpm with-env next start --hostname 0.0.0.0 --port 3000",
     "start:ecs": "next start --hostname 0.0.0.0 --port 3000",
+    "start:worker": "pnpm with-env tsx --conditions=react-server worker.ts",
     "typecheck": "tsc --noEmit",
     "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
   },
