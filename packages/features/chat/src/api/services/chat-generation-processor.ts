@@ -1,3 +1,4 @@
+import type { EntitlementsProvider } from '@acme/entitlements';
 import type { Job } from '@acme/queue';
 import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
@@ -40,10 +41,25 @@ async function handleAbort(
   }
 }
 
-// BullMQ job processor — called by the worker entrypoint in each app
-// (apps/*/worker.ts). Ownership was asserted by chat.send before enqueueing;
-// userId from the job payload stamps resourceId for Mastra. See ADR 0004.
-export async function chatGenerationProcessor(job: Job<GenerationJob>) {
+// Factory for the BullMQ job processor. It closes over an injected
+// `EntitlementsProvider` so the request-less worker refunds through the SAME
+// seam the request path does (ADR 0006 / ADR 0010): each app's worker entrypoint
+// (apps/*/worker.ts) injects the exact provider its route handler injects — full
+// apps `subscriptionsEntitlements`, slim apps `unlimitedEntitlements`. Ownership
+// was asserted by chat.send before enqueueing; userId from the job payload
+// stamps resourceId for Mastra. See ADR 0004.
+export function createChatGenerationProcessor(
+  entitlements: EntitlementsProvider,
+) {
+  return async function chatGenerationProcessor(job: Job<GenerationJob>) {
+    return runGenerationTurn(entitlements, job);
+  };
+}
+
+async function runGenerationTurn(
+  entitlements: EntitlementsProvider,
+  job: Job<GenerationJob>,
+) {
   const { conversationId, turnId, userId, tier, query } = job.data;
   const streamKey = chatStreamKey(conversationId);
   const abortKey = chatAbortKey(conversationId);
@@ -116,7 +132,12 @@ export async function chatGenerationProcessor(job: Job<GenerationJob>) {
       await redis.expire(chatStreamKey(conversationId), STREAM_SAFETY_TTL);
     }
     await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
-    await refundTurnCredits(userId, tier, turnId);
+    await refundTurnCredits(
+      (uid, creditTier, amount) => entitlements.refund(uid, creditTier, amount),
+      userId,
+      tier,
+      turnId,
+    );
   } finally {
     await finalizeTurn(conversationId, turnId);
   }

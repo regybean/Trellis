@@ -2,6 +2,7 @@
   "name": "@acme/chat",
   "dependencies": {
     "@acme/db": "workspace:*",
+    "@acme/entitlements": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
@@ -9,7 +10,6 @@
     "@acme/queue": "workspace:*",
     "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",
-    "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",

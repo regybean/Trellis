@@ -20,11 +20,18 @@
  * to its empty stub rather than the guard that throws outside an RSC bundle.
  */
 
-import { chatGenerationProcessor } from '@acme/chat/server';
+import { createChatGenerationProcessor } from '@acme/chat/server';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
+import { subscriptionsEntitlements } from '@acme/subscriptions';
 
-const worker = createWorker(QUEUE_NAMES.GENERATION, chatGenerationProcessor);
+// Inject the SAME provider this app's route handler injects into
+// `createTRPCContext` (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter, so
+// a worker error refunds the real Credit ledger.
+const worker = createWorker(
+  QUEUE_NAMES.GENERATION,
+  createChatGenerationProcessor(subscriptionsEntitlements),
+);
 
 logger.info(
   { queue: QUEUE_NAMES.GENERATION, app: 'tanstack-start' },
