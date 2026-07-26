@@ -14,7 +14,10 @@ import {
   StreamReaderRequest,
 } from '../schemas/chat-schema';
 import { SetFolderRequest } from '../schemas/folder-schema';
-import { selectMessageSchema } from '../schemas/message-schema';
+import {
+  selectMessageSchema,
+  uiMessageSchema,
+} from '../schemas/message-schema';
 import {
   createConversation,
   deleteConversation,
@@ -250,8 +253,16 @@ export const chatRouter = createTRPCRouter({
       }
     }),
 
+  // Output is the UI Message shape (`uiMessageSchema`), not the bare persisted
+  // row: the client streams the optimistic user Message and the assistant's
+  // deltas into THIS query's cache (single source of truth — see use-chat), so
+  // an entry may transiently carry `loading`/`error` and lack an `id`. The
+  // server only ever returns settled rows (those optional fields absent), but
+  // typing the query as `Message[]` is what lets `setQueryData` write in-flight
+  // entries without a cast.
   get: ownedConversationProcedure
     .input(z.object({ sessionId: z.uuid() }))
+    .output(z.array(uiMessageSchema))
     .query(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
 

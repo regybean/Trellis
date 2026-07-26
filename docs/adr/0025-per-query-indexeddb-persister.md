@@ -36,6 +36,49 @@ successful queries are ever written. Sensitive/volatile queries
 (credits/subscription, the `chat.stream` subscription, in-flight Turn state) are
 simply never marked.
 
+> **Note (amended by #115): `chat.get` transiently holds an in-flight Turn.**
+> As of the chat Turn-lifecycle simplification, `chat.get` is the single source
+> of truth for the rendered Messages: the optimistic user Message and the
+> assistant's streaming deltas are written into that query's cache, not a
+> separate client-only list. Because `chat.get` is `persistMeta`-marked, the
+> persister therefore _briefly_ writes the in-flight assistant partial (a
+> `loading` bubble whose text grows delta-by-delta) to IndexedDB during a Turn.
+> This is accepted: it is the same auth-scoped PII the store already holds, it is
+> overwritten by the settled Message on the terminal, and a cold reload
+> reconciles it — a resumed Turn re-attaches to the durable Stream, and a Turn
+> that wedged (worker died, lock TTL lapsed) is surfaced as an error rather than
+> a stuck spinner (`useChat` wedged-Turn detection). No new data _class_ is
+> persisted; only its timing changed.
+>
+> Because only _successful fetches_ are persisted, but chat's caches are also
+> written optimistically via `setQueryData` (the streamed Messages in `chat.get`;
+> the "New chat" row in `chat.list`), the restored snapshot lags reality: a
+> first-Turn Conversation's `chat.get` is the empty greeting load (`[]`) stamped
+> with a recent `dataUpdatedAt` — "fresh" under `staleTime` yet wrong — and
+> `chat.list` is the list from _before_ the new thread. So a quick refresh
+> rendered a stale empty message pane and a sidebar missing the just-created
+> Conversation.
+>
+> The revalidation lever is **`staleTime: 0`** on chat's `QueryClient`, NOT
+> `refetchOnMount`. This is a subtle, load-bearing interaction with the persister
+> and was mis-diagnosed once (a `refetchOnMount: 'always'` default that did
+> nothing): on a cold open the persister _is_ the queryFn — it restores the
+> snapshot and returns it, then schedules the background refetch only
+> `if (query.isStale())`, a check that reads `staleTime` and ignores
+> `refetchOnMount` (the observer's mount-fetch is fully consumed by the persister
+> handing back cached data; there is no second, independent network hit). So any
+> `staleTime > 0` serves a snapshot younger than it without revalidating.
+> `staleTime: 0` makes every restored entry stale, so the persister always fires
+> the refetch — instant paint preserved, server truth always revalidated.
+>
+> That background refetch is a **floating `query.fetch()`** inside the persister,
+> and `Query.fetch()` re-throws on failure, so a failed revalidation (offline, or
+> a 5xx) became an _unhandled rejection_ — now on every offline cold open, since
+> `staleTime: 0` always fires it. The persister is **patched** (`pnpm patch`,
+> `patches/@tanstack__query-persist-client-core@5.90.2.patch`) to `.catch()` that
+> one call: the restored data is already shown and a failed background
+> revalidation must degrade silently. Re-verify the patch on any persister bump.
+
 **Per-feature storage key.** Each feature's cache lives in its own IndexedDB
 store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`), derived from the
 feature's existing `keyPrefix`. Mounting several features in one app never
@@ -128,6 +171,15 @@ accepted
 - The `@tanstack/query-core` override is load-bearing and coupled to
   react-query's version: bump it whenever react-query's `query-core` moves, or
   typecheck fails.
+- A `pnpm patch` on the persister (`.catch()` on its background-revalidation
+  fetch) is load-bearing and pinned to `5.90.2`: line offsets shift on a bump, so
+  regenerate and re-verify the patch whenever the persister version moves. It is
+  only reachable because chat sets `staleTime: 0` (so the revalidation always
+  fires) — a consumer that leaves `staleTime > 0` never hits the floating fetch.
+- `staleTime: 0` on chat's `QueryClient` means every chat query revalidates on
+  every mount (the cost of correct stale-while-revalidate through the persister):
+  more network chatter than a non-zero `staleTime`, accepted for a chat surface
+  where freshness matters and the persister still gives the instant paint.
 - Opting a feature in is now a small, uniform step: attach `createQueryPersister`
   to its `QueryClient`, mark queries with `persistMeta`, and expose
   `clearPersistedCache` for the app's logout path.
