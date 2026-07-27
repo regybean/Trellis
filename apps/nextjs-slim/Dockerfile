@@ -44,10 +44,14 @@ RUN case "$APP_ENV" in \
   *) echo "ERROR: APP_ENV must be 'staging' or 'production' for an image build (got '${APP_ENV:-unset}'); set the STAGE build-arg." >&2 && exit 1 ;; \
   esac
 
-# The WEBAPP selector is `trellis` for every deployed image (dev differs per
-# app). Next inlines NEXT_PUBLIC_* into the client bundle at build; it is also
-# read at runtime for the Redis/Postgres namespace. Was in .env.<stage> (#94).
-ENV NEXT_PUBLIC_WEBAPP=trellis
+# The WEBAPP selector is per-app — it's the isolation key for every shared
+# datastore (Postgres/pgvector schema via pgSchema(NEXT_PUBLIC_WEBAPP), Redis
+# prefix; ADR-0008). Baking the same value into every image would collapse
+# co-deployed apps onto one schema/prefix and collide, so each Dockerfile bakes
+# its own (must be a valid Postgres identifier — underscores, not dashes). Next
+# inlines NEXT_PUBLIC_* into the client bundle at build; also read at runtime for
+# the namespace. Was in .env.<stage> (#94).
+ENV NEXT_PUBLIC_WEBAPP=nextjs_slim
 
 # Install dependencies
 COPY --from=prepare /app/out/json/ .
