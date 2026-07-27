@@ -65,7 +65,10 @@ with an actionable error in `@acme/rag`, never a raw pgvector error.
 **Ollama is the dev default, over the OpenAI-compatible endpoint**: Ollama serves
 an OpenAI-compatible API on `/v1` covering both chat and embeddings, so a single
 `@ai-sdk/openai-compatible` provider handles both. Default models are tiny and
-CPU-only — for local dev/test, not production quality.
+CPU-only — for local dev/test, not production quality. The `config.ts` base
+profile is the **single source** for the two ollama model IDs: the local ollama
+container's pull list is derived from it by `scripts/resolve-ollama-models.ts`
+(run by `scripts/compose.sh`), not duplicated in `.env.example` (ADR 0026, #120).
 
 ## Known limitations
 
