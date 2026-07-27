@@ -7,7 +7,7 @@
 #   pnpm preview --no-push nextjs-slim
 #
 # Mirrors dev.sh exactly — same short/full app args, same --no-push flag, same
-# infra resolution (resolve-infra.mjs → compose up --wait → db:push unless
+# infra resolution (resolve-infra.ts → compose up --wait → db:push unless
 # --no-push). The ONLY difference is the tail: it runs the COMPILED production
 # build via `turbo run start` (dependsOn: build, so turbo rebuilds first) instead
 # of `turbo watch dev`. Purpose: measure true time-to-paint — no HMR, no
@@ -16,7 +16,7 @@
 # sidecar (without it chat.send never generates a response), same as dev, minus
 # `watch`.
 #
-# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.mjs
+# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.ts
 # normalises them (turbo's -F needs the full @acme/* name).
 #
 # Infra is left running on exit (tear down with `pnpm infra:down`) — re-running is
@@ -42,11 +42,11 @@ done
 # when none are named. Guard the array expansion so an empty list is safe under
 # `set -u` (macOS bash 3.2).
 if [ ${#apps[@]} -gt 0 ]; then
-  app_names="$(node scripts/resolve-infra.mjs --names "${apps[@]}")"
-  profiles="$(node scripts/resolve-infra.mjs "${apps[@]}")"
+  app_names="$(pnpm exec tsx scripts/resolve-infra.ts --names "${apps[@]}")"
+  profiles="$(pnpm exec tsx scripts/resolve-infra.ts "${apps[@]}")"
 else
   app_names=""
-  profiles="$(node scripts/resolve-infra.mjs)"
+  profiles="$(pnpm exec tsx scripts/resolve-infra.ts)"
 fi
 echo "preview: infra → ${profiles:-(none)}"
 

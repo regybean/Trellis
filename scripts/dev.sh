@@ -6,10 +6,10 @@
 #   pnpm dev nextjs tanstack-start
 #   pnpm dev --no-push nextjs-slim
 #
-# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.mjs
+# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.ts
 # normalises them (turbo's -F needs the full @acme/* name).
 #
-# Infra is DERIVED from the dependency graph (scripts/resolve-infra.mjs reads each
+# Infra is DERIVED from the dependency graph (scripts/resolve-infra.ts reads each
 # package's `acme.infra`), unioned across the target apps, then env-pruned. Only
 # that subset is brought up; nothing is assumed on. Infra is left running on exit
 # (tear down with `pnpm infra:down`) — re-running is cheap because `up --wait` is
@@ -34,11 +34,11 @@ done
 # when none are named. Guard the array expansion so an empty list is safe under
 # `set -u` (macOS bash 3.2).
 if [ ${#apps[@]} -gt 0 ]; then
-  app_names="$(node scripts/resolve-infra.mjs --names "${apps[@]}")"
-  profiles="$(node scripts/resolve-infra.mjs "${apps[@]}")"
+  app_names="$(pnpm exec tsx scripts/resolve-infra.ts --names "${apps[@]}")"
+  profiles="$(pnpm exec tsx scripts/resolve-infra.ts "${apps[@]}")"
 else
   app_names=""
-  profiles="$(node scripts/resolve-infra.mjs)"
+  profiles="$(pnpm exec tsx scripts/resolve-infra.ts)"
 fi
 echo "dev: infra → ${profiles:-(none)}"
 

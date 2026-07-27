@@ -352,6 +352,27 @@ mechanism — just classification and cleanup.
 staging|production) … *) exit 1`). The two TanStack apps ship no Dockerfile;
   their `APP_ENV` is baked at build via Vite `define`.
 
+### Post-completion corrections (follow-up)
+
+Two claims above were overstated and were corrected after the migration was
+declared complete:
+
+- **The straggler dividing line has an exception: Node infra scripts.** The rule
+  "a value only ever read by a shell script or a compose file cannot consume
+  config" is right for shell/compose, but `scripts/resolve-infra.ts` (which prunes
+  the `ollama` compose profile) is a **Node** script — it _can_ import config via
+  `pnpm exec tsx` (the `resolve-ollama-models.ts` precedent). It was still reading
+  `LLM_PROVIDER`/`EMBED_PROVIDER` from `process.env` after Phase 2 moved them to
+  `modelsConfig`, so on a fresh clone (no `.env` rows) it silently pruned `ollama`
+  despite ollama being the default provider. Fixed: it reads `modelsConfig` now.
+  The refined line is "shell/compose can't consume config, but a Node build/infra
+  script can — and therefore must, once the value it reads is config."
+- **"`.env.example` needs no further cleanup" was false for the slim apps.** Both
+  `*-slim/.env.example` still carried dead `CLERK_*` + `STRIPE_*` blocks even
+  though the slim apps compose neither auth nor billing env (ADR 0010). Removed —
+  their `.env.example` is now selectors-only, which _demonstrates_ the ADR 0010
+  subset rather than contradicting it.
+
 ## Migration plan
 
 Concrete, executable handoff for the follow-on build effort. Ordered so each step

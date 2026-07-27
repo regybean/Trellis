@@ -12,7 +12,7 @@ Each package that touches an infra service declares it in its `package.json` und
 `@acme/rag`/`@acme/chat` → `["postgres", "ollama"]`, `@acme/billing` →
 `["postgres", "billing"]`, `@acme/telemetry` → `["jaeger"]`). An app's required
 infra is the **union of `acme.infra` over its transitive workspace closure**
-(`scripts/resolve-infra.mjs`, via `pnpm --filter "<app>..." ls`). Each entry is a
+(`scripts/resolve-infra.ts`, via `pnpm --filter "<app>..." ls`). Each entry is a
 Compose **profile** of the same name in `compose.yaml`.
 
 This follows the slice contract ([ADR 0010](0010-slim-no-auth-apps.md)): infra need
@@ -27,19 +27,22 @@ closure declares no infra starts none — which is the point: it keeps any futur
 reduced-runtime app (a core-only case) honest, and makes the resolver's
 output an audit of what an app truly couples to.
 
-## The graph gives candidates; env prunes them
+## The graph gives candidates; env/config prunes them
 
 Two services are only needed under a configuration, so the graph yields a candidate
-set that env then prunes:
+set that env/config then prunes:
 
 - `billing` (localstripe) is dropped unless `STRIPE_API_BASE` is set — real Stripe
   needs no local container ([ADR 0004](0004-localstripe-dev-billing.md)).
+  `STRIPE_API_BASE` is a deliberate env carve-out, so this prune reads `process.env`.
 - `ollama` is dropped unless `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — the
-  provider is a runtime choice; the graph only records "this package does LLM/
-  embeddings" ([ADR 0003](0003-multi-provider-models.md)).
+  provider is a deploy-target choice read from `modelsConfig` (config-as-code,
+  [ADR 0026](0026-config-as-code.md)), **not** `process.env`; the graph only records
+  "this package does LLM/embeddings" ([ADR 0003](0003-multi-provider-models.md)). The
+  resolver runs via `pnpm exec tsx` (not `node`) so this config import resolves.
 
 Both are _prunes of graph-derived candidates_, not special cases bolted on — the
-model stays uniform: **graph = candidate set, env = prune.** `infra:up` reuses the
+model stays uniform: **graph = candidate set, env/config = prune.** `infra:up` reuses the
 same resolver with no app args (the union over every app) so the standalone-infra
 command and dev can't drift.
 
