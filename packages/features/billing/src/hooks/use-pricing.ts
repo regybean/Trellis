@@ -10,6 +10,7 @@ import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { PricingPlan } from '../data/pricing-data';
 import type { ButtonState } from '../lib/plan-selection';
+import { toPlanIds } from '../config';
 import { useBillingConfig } from '../config-context';
 import { buildPricingPlans } from '../data/pricing-data';
 import { env } from '../env';
@@ -40,10 +41,7 @@ export function usePricing() {
   const { isSignedIn, isLoaded } = useAuth();
   const handleError = useGenericErrorHandler();
   const config = useBillingConfig();
-  const planIds = {
-    standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
-    proPlanId: config.STRIPE_PRO_PLAN_ID,
-  };
+  const planIds = toPlanIds(config);
   const pricingPlans = buildPricingPlans(planIds);
 
   const subscription = useQuery(

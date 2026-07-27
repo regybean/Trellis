@@ -1,5 +1,6 @@
 import { auth, clerkClient } from '@clerk/tanstack-react-start/server';
 
+import { toPlanIds } from '@acme/billing/config';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
 import { config } from '../config';
@@ -8,10 +9,7 @@ import { config } from '../config';
  * The Stripe/Redis entitlements provider, closing over the `billingConfig` plan
  * IDs resolved once at the app edge (ADR 0026).
  */
-const entitlements = createSubscriptionsEntitlements({
-  standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
-  proPlanId: config.STRIPE_PRO_PLAN_ID,
-});
+const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
 
 /**
  * App-owned auth seam: resolve Clerk on the server (session auth + full user)

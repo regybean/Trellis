@@ -1,6 +1,7 @@
 import type { AnyRouter } from '@trpc/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 
+import { toPlanIds } from '@acme/billing/config';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
   corsPreflightHeaders,
@@ -14,10 +15,7 @@ import { config } from '../config';
  * IDs resolved once at the app edge (ADR 0026) — the product→tier mapping needs
  * them, and the platform no longer reads them from `process.env`.
  */
-const entitlements = createSubscriptionsEntitlements({
-  standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
-  proPlanId: config.STRIPE_PRO_PLAN_ID,
-});
+const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
 
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error

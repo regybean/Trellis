@@ -35,7 +35,7 @@ export function BillingConfigProvider(props: {
 }
 
 /** Read the billing config inside the feature. Throws if the provider is absent. */
-export function useBillingConfig(): BillingClientConfig {
+export function useBillingConfig() {
   const config = useContext(BillingConfigContext);
   if (!config) {
     throw new Error(

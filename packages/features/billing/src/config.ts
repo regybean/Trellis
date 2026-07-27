@@ -3,6 +3,8 @@ import { z } from 'zod/v4';
 import type { ConfigContext } from '@acme/config';
 import { createConfig } from '@acme/config';
 
+import type { BillingClientConfig } from './config-context';
+
 /**
  * Billing config-as-code (ADR 0026). The Stripe values that differ per deploy
  * target but are non-sensitive — the plan/product IDs, the (publishable, not
@@ -65,3 +67,17 @@ export function billingConfig(context: ConfigContext) {
     context,
   });
 }
+
+/**
+ * The single config→`PlanIds` mapper (ADR 0026). Every edge that needs the
+ * product→tier plan IDs — the tRPC route, the Clerk context, the generation
+ * workers, and `usePricing` — resolves the composed `billingConfig` and threads
+ * it through here, rather than each hand-rolling `{ standardPlanId, proPlanId }`
+ * (a data clump). Adding a plan touches this mapper alone. Shape matches
+ * `@acme/subscriptions`' `PlanIds`, consumed by `createSubscriptionsEntitlements`
+ * / `buildPricingPlans`.
+ */
+export const toPlanIds = (config: BillingClientConfig) => ({
+  standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
+  proPlanId: config.STRIPE_PRO_PLAN_ID,
+});

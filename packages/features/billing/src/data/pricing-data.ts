@@ -2,14 +2,11 @@
 // decision tree (getButtonState) lives in the hooks layer (lib/plan-selection).
 import { BarChart3, FileText, HelpCircle, MessageSquare } from 'lucide-react';
 
-/**
- * The Stripe product IDs the paid tiers map to — `billingConfig` values (ADR
- * 0026) read from `useBillingConfig` and passed in, never from `process.env`.
- */
-export interface PlanIds {
-  standardPlanId: string;
-  proPlanId: string;
-}
+// The Stripe product IDs the paid tiers map to are `@acme/subscriptions`' own
+// `PlanIds` (ADR 0026) — read from `useBillingConfig` via `toPlanIds` and passed
+// in, never from `process.env`. Imported rather than redeclared so the shape has
+// one home.
+import type { PlanIds } from '@acme/subscriptions';
 
 export interface PricingFeature {
   name: string;
@@ -34,7 +31,7 @@ export interface PricingPlan {
  * (ADR 0026), so this is a builder taking the resolved IDs rather than a module
  * const — call it from `usePricing` with `useBillingConfig`'s values.
  */
-export const buildPricingPlans = (planIds: PlanIds): PricingPlan[] => [
+export const buildPricingPlans = (planIds: PlanIds) => [
   {
     id: 'basic',
     name: 'Basic',
