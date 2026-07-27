@@ -292,6 +292,66 @@ migration follows. Resolved while building it:
   joins `turbo.json` `globalEnv` — it is now the build-cache discriminator that
   the per-env `NEXT_PUBLIC_*` used to be.
 
+## Sub-decisions — resolved in Phase 3 (#96)
+
+Phase 3 closes the migration: the one ambiguous call (`REDIS_URL`), the stragglers
+not in the ADR tables, and the final `turbo.json`/`.env` sweep. No new config
+mechanism — just classification and cleanup.
+
+- **`REDIS_URL` stays whole in `env`, treated as a secret.** The split (host/port/
+  db-index → config + `REDIS_PASSWORD` → env secret) was rejected: a prod DSN
+  embeds the password inseparably (`redis://:pw@host:port/db`), so the "non-secret
+  parts" only exist in dev; and the split touches every Redis client
+  (`@acme/redis,queue,chat,feedback,billing`) plus the test harness for marginal
+  config coverage — not cheap, per the ticket's "only if cheap" bar. `REDIS_URL`
+  therefore remains a single `process.env` secret; no Redis client changed.
+- **Stragglers classified** (named in #78 but outside the ADR tables). None become
+  config-as-code — config is a browser-safe TypeScript runtime, so a value that is
+  only ever read by a shell script or a compose file cannot consume it:
+  - **`SECRETS_BACKEND`** — a shell-tooling _selector_ (`localstack`/`aws`) read
+    only by the `scripts/secrets-backends/*` bash and `env:pull`/`env:push`,
+    pre-composition. Stays in the shell env; never entered the app runtime or
+    `globalEnv`.
+  - **`REDIS_PORT`, `OLLAMA_PORT`** — infra/compose-only vars (`compose.yaml`
+    port maps, `ollama pull`), never in an app `createEnv` schema or `globalEnv`.
+    Stay as compose env.
+  - **`PORT`** — a runtime deploy _signal_ (per-app dev/prod server port, and the
+    tRPC client base-URL fallback `http://localhost:${PORT ?? 3000}`), consumed
+    pre-composition at server bootstrap / client-URL construction and assigned by
+    the platform at runtime — not a per-target value authored in code. Stays in
+    `env`/`globalEnv`.
+- **`turbo.json` `globalEnv` swept.** `DB_NAME` and `DB_USER` dropped — they are
+  now pure config-as-code (`dbConfig`), with no functional `process.env` read (the
+  only remaining reads are `compose.yaml` provisioning `POSTGRES_*` and a
+  diagnostic log line, neither a turbo-task input). A duplicate `APP_ENV` entry was
+  removed. The residual non-secret entries are **intentional, documented
+  carve-outs, not misses**: `DB_HOST`/`DB_PORT` are _dynamic runtime overrides_
+  (a testcontainer's mapped port, an infra-injected prod endpoint) layered over the
+  config defaults — genuine `process.env` reads that must stay cache-tracked;
+  `STRIPE_API_BASE`/`STRIPE_SUCCESS_URL`/`STRIPE_CANCEL_URL` are the Phase-1
+  server-only/pre-composition carve-outs; `PORT` is the runtime signal above.
+  Everything else is a secret (`DB_PASSWORD`, `CLERK_*`, `STRIPE_SECRET_KEY`/
+  `STRIPE_WEBHOOK_SECRET`, `REDIS_URL`, `NPM_TOKEN`) or a build/Node signal
+  (`APP_ENV`, `NEXT_PUBLIC_WEBAPP`, `IS_NEXT_BUILD`, `NODE_*`, `WATCHPACK_POLLING`,
+  `REACT_EDITOR`).
+- **`.env.example` needs no further cleanup.** The per-slice row deletions shipped
+  with Phases 1–2; what remains is already reduced to secrets, infra/compose-
+  consumed provisioning values (`DB_*`, `REDIS_PORT`/`REDIS_PASSWORD`,
+  `OLLAMA_PORT`/model IDs, `DB_VECTOR_NAME` — read by `compose.yaml` + the
+  `ops/db-init` / Docker entrypoint shell, not the app), and the Phase-1 carved
+  Stripe runtime URLs.
+- **Code-constant carve-outs reaffirmed** (per the Phase-3 migration-plan bullet):
+  UI layout/timers, identifiers (`TEXT_NODE_NAMESPACE`, `QUEUE_NAMES`,
+  `KNOWLEDGE_BASE_TABLE`), infra flags (`lazyConnect`, `maxRetriesPerRequest`),
+  test-only DB defaults, and the env-invariant validation limits
+  (`MAX_MESSAGE_LENGTH`, `MAX_FILE_SIZE_BYTES`, `ACCEPTED_EXTENSIONS`) stay source
+  constants — no per-target variance, so not config.
+- **`APP_ENV` CI guard verified (regression).** The staging/production image guard
+  built in Phase 0 still fails an image build whose `APP_ENV` is unset/invalid —
+  `apps/nextjs/Dockerfile` and `apps/nextjs-slim/Dockerfile` (`case "$APP_ENV" in
+staging|production) … *) exit 1`). The two TanStack apps ship no Dockerfile;
+  their `APP_ENV` is baked at build via Vite `define`.
+
 ## Migration plan
 
 Concrete, executable handoff for the follow-on build effort. Ordered so each step
@@ -368,10 +428,12 @@ feedback,billing`); recommend keeping whole in env unless the split is cheap.
 
 ## Status
 
-accepted — Phase 0 (the `@acme/config` mechanism + app composition edge)
-built in #93; Phase 1 (the billing/Stripe + Clerk publishable-key dedup, and the
-retirement of `.env.{staging,production}`) in #94; Phases 2–3 (the remaining
-per-slice tunables + `REDIS_URL`/final sweep) remain.
+accepted — migration complete. Phase 0 (the `@acme/config` mechanism + app
+composition edge) built in #93; Phase 1 (the billing/Stripe + Clerk
+publishable-key dedup, and the retirement of `.env.{staging,production}`) in #94;
+Phase 2 (the remaining per-slice tunables) in #95; Phase 3 (the `REDIS_URL`
+keep-whole decision, straggler classification, and the final `turbo.json`/`.env`
+sweep) in #96.
 
 ## Consequences
 
