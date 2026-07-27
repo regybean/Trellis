@@ -9,6 +9,8 @@ import type {
 } from '../../../subscription-cache';
 import { credits } from '../../../credits';
 import {
+  getSubscriptionType,
+  getUserSubscriptionFromRedis,
   setStripeCustomerId,
   setSubscriptionCache,
 } from '../../../subscriptions';
@@ -21,14 +23,31 @@ import {
  *
  * Tier is controlled the way production sets it: by seeding the Stripe
  * subscription cache in Redis (`setStripeCustomerId` + `setSubscriptionCache`),
- * which `getUserSubscriptionFromRedis` + `getSubscriptionType` then resolve — the
- * product ids map to tiers via the staticTestEnv `NEXT_PUBLIC_STRIPE_*_PLAN_ID`.
+ * which `getUserSubscriptionFromRedis` + `getSubscriptionType` then resolve. The
+ * `credits.*` admin ops take the resolved `(subscription, tier)` (ADR 0026 — plan
+ * IDs are config, injected, not read from env); `resolve` below stands in for the
+ * entitlements provider, mapping the seeded product ids via `PLAN_IDS`.
  */
 
 const USER = 'user_1';
 
+/** The plan IDs `seedTier`'s products map to — the billingConfig values a
+ *  provider would inject; here supplied directly (config is pure). */
+const PLAN_IDS = {
+  standardPlanId: 'price_standard_test',
+  proPlanId: 'price_pro_test',
+};
+
 const keyFor = (tier: SubscriptionTier) => nsKey('credits', USER, tier);
 const now = () => Math.floor(Date.now() / 1000);
+
+/** Resolve `(subscription, tier)` the way the entitlements provider does, so a
+ *  test can call the credit admin ops with what production passes them. */
+async function resolve(userId: string) {
+  const subscription = await getUserSubscriptionFromRedis(userId);
+  const tier = getSubscriptionType(subscription, PLAN_IDS);
+  return { subscription, tier };
+}
 
 /** Seed a paid subscription so `credits.*` resolves the given tier for USER. */
 async function seedTier(userId: string, tier: 'Standard' | 'Pro') {
@@ -55,7 +74,8 @@ beforeEach(async () => {
 
 describe('credit key + tier limits', () => {
   it('uses the canonical credits:{userId}:{tier} key format', async () => {
-    await credits.reset(USER);
+    const { subscription, tier } = await resolve(USER);
+    await credits.reset(USER, subscription, tier);
     expect(await redis.exists(keyFor('Basic'))).toBe(1);
   });
 
@@ -64,13 +84,19 @@ describe('credit key + tier limits', () => {
     ['Pro', 1600],
   ] as const)('resets %s to its limit of %i', async (tier, limit) => {
     await seedTier(USER, tier);
-    const result = await credits.reset(USER);
+    const resolved = await resolve(USER);
+    const result = await credits.reset(
+      USER,
+      resolved.subscription,
+      resolved.tier,
+    );
     expect(result).toMatchObject({ tier, limit });
     expect(await redis.get(keyFor(tier))).toBe(String(limit));
   });
 
   it('resets Basic (no subscription) to the default limit', async () => {
-    const result = await credits.reset(USER);
+    const { subscription, tier } = await resolve(USER);
+    const result = await credits.reset(USER, subscription, tier);
     expect(result).toMatchObject({ tier: 'Basic', limit: 250 });
     expect(await redis.get(keyFor('Basic'))).toBe('250');
   });
@@ -110,14 +136,16 @@ describe('consume', () => {
 
 describe('reset / maxOut carry an expiry (no immortal key)', () => {
   it('reset writes the full limit with an expiry', async () => {
-    await credits.reset(USER);
+    const { subscription, tier } = await resolve(USER);
+    await credits.reset(USER, subscription, tier);
     expect(await redis.get(keyFor('Basic'))).toBe('250');
     expect(await redis.ttl(keyFor('Basic'))).toBeGreaterThan(0);
   });
 
   it('maxOut writes zero with an expiry and reports the previous limit', async () => {
     await seedTier(USER, 'Pro');
-    const result = await credits.maxOut(USER);
+    const { subscription, tier } = await resolve(USER);
+    const result = await credits.maxOut(USER, subscription, tier);
     expect(result).toMatchObject({ tier: 'Pro', previousLimit: 1600 });
     expect(await redis.get(keyFor('Pro'))).toBe('0');
     expect(await redis.ttl(keyFor('Pro'))).toBeGreaterThan(0);
@@ -129,7 +157,8 @@ describe('overrideExpiry', () => {
     await redis.set(keyFor('Basic'), '99', { EXAT: now() + 100 });
     const newExpiry = now() + 5000;
 
-    const result = await credits.overrideExpiry(USER, newExpiry);
+    const { tier } = await resolve(USER);
+    const result = await credits.overrideExpiry(USER, tier, newExpiry);
 
     expect(result.keyExisted).toBe(true);
     expect(result.previousExpiryTimestamp).not.toBeNull();
@@ -141,7 +170,8 @@ describe('overrideExpiry', () => {
   it('creates the key with the full limit and new expiry when missing', async () => {
     const newExpiry = now() + 5000;
 
-    const result = await credits.overrideExpiry(USER, newExpiry);
+    const { tier } = await resolve(USER);
+    const result = await credits.overrideExpiry(USER, tier, newExpiry);
 
     expect(result.keyExisted).toBe(false);
     expect(result.previousExpiryTimestamp).toBeNull();
@@ -152,7 +182,8 @@ describe('overrideExpiry', () => {
 
 describe('status', () => {
   it('reports the balance plus whether the key is materialised', async () => {
-    const result = await credits.status(USER);
+    const { subscription, tier } = await resolve(USER);
+    const result = await credits.status(USER, subscription, tier);
     expect(result).toMatchObject({
       tier: 'Basic',
       remaining: 250,

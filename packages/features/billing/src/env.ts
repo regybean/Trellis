@@ -14,32 +14,23 @@ export function billingEnv() {
     },
     server: {
       // Dev-only: point the Stripe SDK at a localstripe server instead of the
-      // real Stripe API. Unset in prod → real Stripe. See docs/adr/0003.
+      // real Stripe API. Unset in prod → real Stripe. See docs/adr/0003. A
+      // pre-composition infra switch (read by the `getStripe` SDK singleton and
+      // the seed script), so it stays in env rather than moving to config.
       STRIPE_API_BASE: z.url().optional(),
       STRIPE_SECRET_KEY: z.string(),
       STRIPE_WEBHOOK_SECRET: z.string(),
+      // Server-only checkout redirect targets, injected per deploy (no committed
+      // staging/production values) — stay in env (ADR 0026). The non-sensitive,
+      // per-env-duplicated client values live in `./config` (`billingConfig`).
       STRIPE_SUCCESS_URL: z.url(),
       STRIPE_CANCEL_URL: z.url(),
       REDIS_URL: z.url(),
     },
-    client: {
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: z.string(),
-      NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL: z.url(),
-      NEXT_PUBLIC_STRIPE_PRO_PLAN_ID: z.string(),
-      NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID: z.string(),
-    },
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
-      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:
-        process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
-      NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL:
-        process.env.NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL,
       STRIPE_CANCEL_URL: process.env.STRIPE_CANCEL_URL,
       STRIPE_SUCCESS_URL: process.env.STRIPE_SUCCESS_URL,
-      NEXT_PUBLIC_STRIPE_PRO_PLAN_ID:
-        process.env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID,
-      NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID:
-        process.env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID,
       STRIPE_API_BASE: process.env.STRIPE_API_BASE,
       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,

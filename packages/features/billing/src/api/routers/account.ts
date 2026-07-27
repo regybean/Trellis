@@ -153,11 +153,19 @@ export const accountRouter = createTRPCRouter({
 
   resetUserRateLimit: adminProcedure
     .input(ResetRateLimitRequest)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { userId } = input;
 
       try {
-        const { tier, limit, resetAt } = await credits.reset(userId);
+        // Resolve the target user's subscription + tier through the injected
+        // entitlements provider (which closes over the `billingConfig` plan IDs,
+        // ADR 0026) rather than reading them here.
+        const { subscription, tier } = await ctx.entitlements.resolve(userId);
+        const { limit, resetAt } = await credits.reset(
+          userId,
+          subscription,
+          tier,
+        );
 
         return {
           message: `Successfully reset rate limit for user ${userId}`,
@@ -179,11 +187,16 @@ export const accountRouter = createTRPCRouter({
    */
   maxOutUserRateLimit: adminProcedure
     .input(MaxOutRateLimitRequest)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { userId } = input;
 
       try {
-        const { tier, previousLimit, resetAt } = await credits.maxOut(userId);
+        const { subscription, tier } = await ctx.entitlements.resolve(userId);
+        const { previousLimit, resetAt } = await credits.maxOut(
+          userId,
+          subscription,
+          tier,
+        );
 
         return {
           message: `Successfully maxed out rate limit for user ${userId}`,
@@ -206,11 +219,13 @@ export const accountRouter = createTRPCRouter({
    */
   overrideUserRateLimitExpiry: adminProcedure
     .input(OverrideExpiryRequest)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { userId, expiryTimestamp } = input;
 
+      const { tier } = await ctx.entitlements.resolve(userId);
       const { previousExpiryTimestamp } = await credits.overrideExpiry(
         userId,
+        tier,
         expiryTimestamp,
       );
 
@@ -227,11 +242,15 @@ export const accountRouter = createTRPCRouter({
    */
   getUserRateLimitStatus: adminProcedure
     .input(GetUserRateLimitStatusRequest)
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
       const { userId } = input;
 
-      const { tier, remaining, limit, resetAt, keyExists } =
-        await credits.status(userId);
+      const { subscription, tier } = await ctx.entitlements.resolve(userId);
+      const { remaining, limit, resetAt, keyExists } = await credits.status(
+        userId,
+        subscription,
+        tier,
+      );
 
       return {
         userId,
@@ -266,9 +285,14 @@ export const accountRouter = createTRPCRouter({
   setUserTier: adminProcedure
     .input(SetUserTierRequest)
     .mutation(async ({ input }) => {
-      const { userId, email, tier } = input;
+      const { userId, email, tier, productId } = input;
 
-      const subscription = await setUserTier({ userId, email, tier });
+      const subscription = await setUserTier({
+        userId,
+        email,
+        tier,
+        productId,
+      });
 
       return {
         message: `Successfully set ${userId} to ${tier}`,

@@ -12,13 +12,14 @@ import {
   CardTitle,
 } from '@acme/ui';
 
-import { env } from '../../env';
+import { useBillingConfig } from '../../config-context';
 import { useStripeTesting } from '../../hooks/use-stripe-testing';
 
 export function StripeTesting() {
   const [activeTest, setActiveTest] = useState<null | 'standard' | 'pro'>(null);
   const { testCheckout, isCreatingCheckout, runFeatureTest } =
     useStripeTesting();
+  const config = useBillingConfig();
 
   const runTest = async (which: 'standard' | 'pro') => {
     setActiveTest(which);
@@ -49,9 +50,7 @@ export function StripeTesting() {
               Test Stripe checkout session creation with a demo product.
             </p>
             <Button
-              onClick={() =>
-                testCheckout(env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID)
-              }
+              onClick={() => testCheckout(config.STRIPE_STANDARD_PLAN_ID)}
               className="bg-primary text-on-primary hover:bg-primary/90"
               disabled={isCreatingCheckout}
             >

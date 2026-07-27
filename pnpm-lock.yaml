@@ -890,6 +890,9 @@ importers:
       '@acme/auth':
         specifier: workspace:*
         version: link:../../shared/auth
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
@@ -1664,18 +1667,12 @@ importers:
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../entitlements
-      '@acme/env':
-        specifier: workspace:*
-        version: link:../env
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
       '@acme/redis':
         specifier: workspace:*
         version: link:../redis
-      '@t3-oss/env-nextjs':
-        specifier: 'catalog:'
-        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       server-only:
         specifier: 'catalog:'
         version: 0.0.1

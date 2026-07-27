@@ -10,7 +10,7 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 
-import { BillingTRPCReactProvider } from '@acme/billing';
+import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
@@ -65,7 +65,7 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <ClerkProvider
-          publishableKey={import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY}
+          publishableKey={config.CLERK_PUBLISHABLE_KEY}
           signInUrl={config.CLERK_SIGN_IN_URL}
           signUpUrl={config.CLERK_SIGN_UP_URL}
           signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
@@ -77,16 +77,18 @@ function RootDocument({ children }: { children: ReactNode }) {
             forcedTheme="dark"
             disableTransitionOnChange
           >
-            <BillingTRPCReactProvider>
-              <PersistedFeatureProviders scopeKey={userId ?? undefined}>
-                <IngestTRPCReactProvider>
-                  <TooltipProvider>
-                    <ConsoleShell>{children}</ConsoleShell>
-                    <ToastThemeClient />
-                  </TooltipProvider>
-                </IngestTRPCReactProvider>
-              </PersistedFeatureProviders>
-            </BillingTRPCReactProvider>
+            <BillingConfigProvider config={config}>
+              <BillingTRPCReactProvider>
+                <PersistedFeatureProviders scopeKey={userId ?? undefined}>
+                  <IngestTRPCReactProvider>
+                    <TooltipProvider>
+                      <ConsoleShell>{children}</ConsoleShell>
+                      <ToastThemeClient />
+                    </TooltipProvider>
+                  </IngestTRPCReactProvider>
+                </PersistedFeatureProviders>
+              </BillingTRPCReactProvider>
+            </BillingConfigProvider>
           </NextThemeProvider>
         </ClerkProvider>
         <Scripts />

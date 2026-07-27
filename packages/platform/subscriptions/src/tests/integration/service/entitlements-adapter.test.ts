@@ -2,7 +2,14 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { flushTestDb } from '@acme/redis/testing';
 
-import { subscriptionsEntitlements } from '../../../entitlements-adapter';
+import { createSubscriptionsEntitlements } from '../../../entitlements-adapter';
+
+// Plan IDs the provider maps products to (billingConfig values, injected at the
+// app edge in production — supplied directly here since config is pure).
+const subscriptionsEntitlements = createSubscriptionsEntitlements({
+  standardPlanId: 'price_standard_test',
+  proPlanId: 'price_pro_test',
+});
 
 /**
  * Service test for the Stripe/Redis-backed `EntitlementsProvider` against a REAL

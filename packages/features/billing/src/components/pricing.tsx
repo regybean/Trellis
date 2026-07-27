@@ -17,7 +17,7 @@ import { usePricing } from '../hooks/use-pricing';
 import { ButtonSkeleton } from './pricing-components';
 
 export function PricingPage() {
-  const { cards, selectPlan, isDev } = usePricing();
+  const { cards, selectPlan, isDev, planIds } = usePricing();
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -58,7 +58,12 @@ export function PricingPage() {
         className="mx-auto grid max-w-7xl grid-cols-1 gap-8 lg:grid-cols-3"
       >
         {cards.map(({ plan, buttonState, isProcessing }, index) => {
-          const colors = getTierColors(plan.id, plan.popular, plan.highlight);
+          const colors = getTierColors(
+            plan.id,
+            plan.popular,
+            plan.highlight,
+            planIds,
+          );
 
           return (
             <motion.div

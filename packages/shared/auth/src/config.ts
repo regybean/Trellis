@@ -11,10 +11,14 @@ import { createConfig } from '@acme/config';
  * app's `.env.*`. The `NEXT_PUBLIC_` prefix is dropped: it was an env-bundling
  * mechanism, and config bakes at build regardless.
  *
- * Clerk *secrets* (secret key, webhook signing secret) and the publishable key
- * stay in `process.env`. The app threads these into its `<ClerkProvider>`
- * (`signInUrl` etc.) at the composition edge; the Clerk SDK no longer reads them
- * implicitly from env.
+ * The Clerk **publishable key** is a public, per-deploy-target value (it differs
+ * per Clerk instance but is safe to embed in the client bundle), so it too is
+ * config-as-code with `development | staging | production` profiles — no longer a
+ * `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` copy-pasted across every app's `.env.*`.
+ * The app threads it into `<ClerkProvider publishableKey>` and
+ * `clerkMiddleware({ publishableKey })`; Clerk no longer reads it from env.
+ *
+ * Clerk *secrets* (secret key, webhook signing secret) stay in `process.env`.
  */
 export function authConfig(context: ConfigContext) {
   return createConfig({
@@ -23,6 +27,7 @@ export function authConfig(context: ConfigContext) {
       CLERK_SIGN_UP_URL: z.string().startsWith('/'),
       CLERK_SIGN_IN_FORCE_REDIRECT_URL: z.string().startsWith('/'),
       CLERK_SIGN_UP_FORCE_REDIRECT_URL: z.string().startsWith('/'),
+      CLERK_PUBLISHABLE_KEY: z.string().startsWith('pk_'),
     },
     profiles: {
       default: {
@@ -31,6 +36,18 @@ export function authConfig(context: ConfigContext) {
           CLERK_SIGN_UP_URL: '/sign-up',
           CLERK_SIGN_IN_FORCE_REDIRECT_URL: '/',
           CLERK_SIGN_UP_FORCE_REDIRECT_URL: '/',
+          CLERK_PUBLISHABLE_KEY:
+            'pk_test_dG9sZXJhbnQtb3J5eC05My5jbGVyay5hY2NvdW50cy5kZXYk',
+        },
+      },
+      staging: {
+        client: {
+          CLERK_PUBLISHABLE_KEY: 'pk_live_Y2xlcmsuc3RhZ2luZy5jeXJhaWwuY28udWsk',
+        },
+      },
+      production: {
+        client: {
+          CLERK_PUBLISHABLE_KEY: 'pk_live_Y2xlcmsuY3lyYWlsLmNvLnVrJA',
         },
       },
     },

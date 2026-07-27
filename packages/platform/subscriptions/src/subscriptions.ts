@@ -4,8 +4,19 @@ import { logger } from '@acme/logger';
 import { nsKey, redis } from '@acme/redis';
 
 import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
-import { env } from './env';
 import { SubscriptionCacheSchema } from './subscription-cache';
+
+/**
+ * The Stripe product IDs a paid tier maps to. Config-as-code (ADR 0026): the
+ * plan IDs are non-sensitive, per-deploy-target values owned by `@acme/billing`'s
+ * `billingConfig`, resolved once at the app edge and threaded in — never read
+ * from `process.env` here. Injected into `createSubscriptionsEntitlements` and
+ * passed to `getSubscriptionType`.
+ */
+export interface PlanIds {
+  standardPlanId: string;
+  proPlanId: string;
+}
 
 /**
  * The Stripe cache keys, namespaced per app. The single home for the
@@ -87,10 +98,10 @@ export async function getUserSubscriptionFromRedis(
 
 export function getSubscriptionType(
   subscription: SubscriptionCache,
+  planIds: PlanIds,
 ): SubscriptionTier {
   if (subscription.status !== 'active') return 'Basic';
-  if (subscription.product === env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID)
-    return 'Standard';
-  if (subscription.product === env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID) return 'Pro';
+  if (subscription.product === planIds.standardPlanId) return 'Standard';
+  if (subscription.product === planIds.proPlanId) return 'Pro';
   return 'Basic';
 }
