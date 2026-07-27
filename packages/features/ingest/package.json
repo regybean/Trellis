@@ -1,6 +1,7 @@
 {
   "name": "@acme/ingest",
   "dependencies": {
+    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
@@ -47,6 +48,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./src/config.ts"
     },
     "./server": {
       "types": "./dist/index-server.d.ts",

@@ -8,6 +8,10 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./src/config.ts"
+    },
     "./schema": {
       "types": "./dist/index-schema.d.ts",
       "default": "./src/index-schema.ts"
@@ -41,6 +45,7 @@
   },
   "prettier": "@acme/prettier-config",
   "dependencies": {
+    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",

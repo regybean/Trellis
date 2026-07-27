@@ -15,6 +15,10 @@ paths = [
 ]
 # Fixed, non-secret placeholders for the local dev localstripe server (no real
 # Stripe account/keys involved). See docs/adr/0003.
+#
+# Publishable keys (Clerk/Stripe `pk_test_`/`pk_live_`) are non-secret by design —
+# they ship in the browser bundle. Config-as-code (ADR 0026) moved them out of the
+# path-allowlisted `.env.*` files into slice `config.ts`, so allowlist the prefix.
 regexes = [
   '''sk_test_localstripe''',
   '''whsec_localstripe''',

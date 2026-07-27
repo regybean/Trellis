@@ -1,6 +1,7 @@
 {
   "name": "@acme/chat",
   "dependencies": {
+    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/entitlements": "workspace:*",
     "@acme/env": "workspace:*",
@@ -59,6 +60,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./src/config.ts"
     },
     "./server": {
       "types": "./dist/index-server.d.ts",

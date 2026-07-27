@@ -4,6 +4,8 @@ import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 
 import type { GenerationJob } from './chat-queue';
+import { chatConfig } from '../../config';
+import { appEnv } from '../../env';
 import { chatAbortKey, chatStreamKey } from '../chat-keys';
 import { chatAgent } from './chat-agent';
 import {
@@ -13,10 +15,11 @@ import {
 } from './chat-memory';
 import { finalizeTurn, refundTurnCredits } from './chat-turn-lifecycle';
 
-// Safety TTL (seconds) set on the Stream's first write so a crashed worker
-// cannot leave a dangling key. The lock/abort TTLs and the post-terminal
-// teardown live in chat-turn-lifecycle, the one home for the Turn control plane.
-const STREAM_SAFETY_TTL = 600;
+// Safety TTL (`config.STREAM_SAFETY_TTL`, seconds) set on the Stream's first
+// write so a crashed worker cannot leave a dangling key. The lock/abort TTLs and
+// the post-terminal teardown live in chat-turn-lifecycle, the one home for the
+// Turn control plane. Config-as-code (ADR 0026).
+const config = chatConfig({ appEnv, isServer: true });
 
 // Persist any non-empty partial and emit the `cancelled` terminal. Teardown
 // (lock release, post-terminal TTL) is left to the processor's `finally`, which
@@ -92,7 +95,7 @@ async function runGenerationTurn(
       // Set safety TTL on the first write so a crashed worker doesn't leave
       // a dangling stream key.
       if (!safetyTtlSet) {
-        await redis.expire(streamKey, STREAM_SAFETY_TTL);
+        await redis.expire(streamKey, config.STREAM_SAFETY_TTL);
         safetyTtlSet = true;
       }
 
@@ -129,7 +132,10 @@ async function runGenerationTurn(
     );
 
     if (!safetyTtlSet) {
-      await redis.expire(chatStreamKey(conversationId), STREAM_SAFETY_TTL);
+      await redis.expire(
+        chatStreamKey(conversationId),
+        config.STREAM_SAFETY_TTL,
+      );
     }
     await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
     await refundTurnCredits(

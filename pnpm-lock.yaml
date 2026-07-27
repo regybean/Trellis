@@ -292,6 +292,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -446,6 +449,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -588,6 +594,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../../packages/platform/entitlements
@@ -736,6 +745,9 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../packages/platform/config
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../packages/platform/db
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
@@ -1014,6 +1026,9 @@ importers:
 
   packages/features/chat:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
@@ -1304,6 +1319,9 @@ importers:
 
   packages/features/ingest:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -1459,6 +1477,9 @@ importers:
 
   packages/platform/db:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../config
       '@acme/env':
         specifier: workspace:*
         version: link:../env
@@ -1664,6 +1685,9 @@ importers:
 
   packages/platform/subscriptions:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../entitlements
@@ -1710,6 +1734,9 @@ importers:
 
   packages/platform/telemetry:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../config
       '@kubiks/otel-drizzle':
         specifier: 'catalog:'
         version: 2.1.0(@opentelemetry/api@1.9.0)(drizzle-orm@0.44.7(@opentelemetry/api@1.9.0)(@types/pg@8.15.4)(pg@8.21.0)(postgres@3.4.7))
@@ -1909,6 +1936,9 @@ importers:
 
   packages/shared/models:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -1964,6 +1994,9 @@ importers:
 
   packages/shared/rag:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db

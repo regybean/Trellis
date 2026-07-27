@@ -1,6 +1,12 @@
 import type { SubscriptionTier } from '@acme/entitlements';
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
+import { chatConfig } from '../../config';
+import { appEnv } from '../../env';
+
+// BullMQ job-retention counts are config-as-code (ADR 0026).
+const config = chatConfig({ appEnv, isServer: true });
+
 export interface GenerationJob {
   conversationId: string;
   turnId: string;
@@ -23,8 +29,8 @@ export const generationJobId = (conversationId: string, turnId: string) =>
 export const enqueueGenerationTurn = (job: GenerationJob) =>
   generationQueue.add('generate', job, {
     jobId: generationJobId(job.conversationId, job.turnId),
-    removeOnComplete: 1000,
-    removeOnFail: 1000,
+    removeOnComplete: config.QUEUE_REMOVE_ON_COMPLETE,
+    removeOnFail: config.QUEUE_REMOVE_ON_FAIL,
   });
 
 // Exposed for tests: allows test suites to drain or inspect the queue without
