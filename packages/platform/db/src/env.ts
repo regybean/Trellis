@@ -29,11 +29,15 @@ const secretEnv = createEnv({
 const config = dbConfig({ appEnv, isServer: true });
 
 /**
- * The resolved Postgres connection (ADR 0026, Option 1). `config.ts` is the
- * authored source — development works from its defaults with no `.env` rows — but
- * the host/port accept a runtime `process.env` override, the seam a dynamic
- * testcontainer endpoint (and an infra-injected prod endpoint) needs: static
- * config cannot know a mapped port. `DB_PASSWORD` is the sole secret.
+ * The resolved Postgres connection (ADR 0026). `config.ts` is the authored
+ * source — development works from its defaults with no `.env` rows.
+ *
+ * Only `host`/`port` carry a runtime `process.env` override: they are *dynamic*
+ * (a testcontainer hands back a mapped port, a prod endpoint is infra-injected)
+ * so static config cannot know them. `user`/`name` are *static per deploy target*
+ * — pure config-as-code; a target that needs different values adds a config
+ * profile, not an env override (the testcontainer already runs as the config
+ * default `postgres`/`testdb`, see `testing.ts`). `DB_PASSWORD` is the sole secret.
  *
  * Kept as the `env` export (same `DB_*` shape as before) so `createDb()` and the
  * rag storage/vector clients read it unchanged.
@@ -41,7 +45,7 @@ const config = dbConfig({ appEnv, isServer: true });
 export const env = {
   DB_HOST: process.env.DB_HOST ?? config.DB_HOST,
   DB_PORT: process.env.DB_PORT ? Number(process.env.DB_PORT) : config.DB_PORT,
-  DB_USER: process.env.DB_USER ?? config.DB_USER,
-  DB_NAME: process.env.DB_NAME ?? config.DB_NAME,
+  DB_USER: config.DB_USER,
+  DB_NAME: config.DB_NAME,
   DB_PASSWORD: secretEnv.DB_PASSWORD,
 };
