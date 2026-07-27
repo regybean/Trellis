@@ -124,13 +124,24 @@ applied last at composition**, never by forking each app's profile set.
 
 Config is **pure**: a `config.ts` module never reads `process.env` and never
 reads `NODE_ENV`. `appEnv` and `isServer` arrive via an injected `context`. Each
-slice exports a factory `xConfig(context)`; the **app resolves the context once
-at its composition edge** — the single sanctioned `process.env.APP_ENV` read,
-exactly where the app's `env.ts` already touches `process.env` — and threads it
-into every slice through a `configExtends`-style list mirroring the existing
-`extends: [chatEnv(), ingestEnv(), billingEnv()]` shape. **No thread-local /
-module-init global** (it would break purity and testability). Tests construct
+slice exports a factory `xConfig(context)`; the context is resolved at a
+**sanctioned `env.ts` edge** — where the app (or a slice) already touches
+`process.env` — and threaded in explicitly. **No thread-local / module-init
+global** (it would break purity and testability). Tests construct
 `xConfig({ appEnv: 'staging', isServer: true })` with no env at all.
+
+There are two such edges. At **composition** the app resolves `APP_ENV` once and
+threads it into every slice through a `configExtends`-style list mirroring the
+existing `extends: [chatEnv(), ingestEnv(), billingEnv()]` shape. A slice that
+consumes its **own** config server-side **pre-composition** — `createDb()`,
+`resolve.ts`, a worker, where no injected context exists — instead resolves
+`APP_ENV` at its own `env.ts`: `export const appEnv = resolveAppEnv(process.env.APP_ENV)`,
+the same sanctioned kind of read as the app's `env.ts`, and builds its singleton
+with `xConfig({ appEnv, isServer: true })`. That per-slice read is still a
+per-edge read threaded explicitly — not a module-init global — and `config.ts`
+stays pure either way. This "context-less server edge" convention is documented
+in [`@acme/config`'s CONTEXT.md](../../packages/platform/config/CONTEXT.md) and is
+what the shipped Phase-2 slices use.
 
 `NODE_ENV` is deliberately not consulted: it is tooling-owned runtime-mode and
 can't even express `staging` (staging builds run `NODE_ENV=production`).
@@ -266,15 +277,15 @@ now largely empty (they existed only to bake these) and remove the ones that are
 
 ### Phase 2 — per-slice tunables
 
-| Slice                    | Vars → `config.ts`                                                                                                                                                                                                                    |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@acme/models`           | `LLM_PROVIDER`, `EMBED_PROVIDER`, `EMBED_DIMENSIONS`, all `OLLAMA_*`/`BEDROCK_*`/`OPENROUTER_*` model IDs, `OLLAMA_BASE_URL`, `AWS_REGION`. Secrets (`OPENROUTER_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) stay in env. |
-| `@acme/db` / `@acme/rag` | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_VECTOR_NAME`. `DB_PASSWORD` stays in env.                                                                                                                                             |
-| `@acme/ingest`           | `S3_ENDPOINT`, `S3_UPLOAD_BUCKET`; `MAX_FILE_SIZE_BYTES`, `ACCEPTED_EXTENSIONS` (from source constants).                                                                                                                              |
-| `@acme/rag`              | `CHUNK_SIZE`, `CHUNK_OVERLAP`; memory `lastMessages`, `semanticRecall`, title word-cap.                                                                                                                                               |
-| `@acme/chat` / queue     | `INFLIGHT_LOCK_TTL`, `ABORT_SIGNAL_TTL`, `STREAM_POST_TERMINAL_TTL`, `STREAM_SAFETY_TTL`, `POLL_INTERVAL_MS`, `MAX_MESSAGE_LENGTH`, `CREDITS_PER_TURN`, queue `removeOnComplete/Fail`.                                                |
-| `@acme/subscriptions`    | `CREDIT_LIMITS` per tier, `DEFAULT_LIMIT`.                                                                                                                                                                                            |
-| telemetry                | `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` (+ default OTLP endpoint source constant).                                                                                                                                         |
+| Slice                    | Vars → `config.ts`                                                                                                                                                                                                                                                                    |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@acme/models`           | `LLM_PROVIDER`, `EMBED_PROVIDER`, `EMBED_DIMENSIONS`, all `OLLAMA_*`/`BEDROCK_*`/`OPENROUTER_*` model IDs, `OLLAMA_BASE_URL`, `AWS_REGION`. Secrets (`OPENROUTER_API_KEY`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) stay in env.                                                 |
+| `@acme/db` / `@acme/rag` | `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_NAME`, `DB_VECTOR_NAME`. `DB_PASSWORD` stays in env.                                                                                                                                                                                             |
+| `@acme/ingest`           | `S3_ENDPOINT`, `S3_UPLOAD_BUCKET`. (`MAX_FILE_SIZE_BYTES`, `ACCEPTED_EXTENSIONS` reclassified as env-invariant validation limits → stay code constants, Phase-3 carve-out.)                                                                                                           |
+| `@acme/rag`              | `CHUNK_SIZE`, `CHUNK_OVERLAP`; memory `lastMessages`, `semanticRecall`, title word-cap.                                                                                                                                                                                               |
+| `@acme/chat` / queue     | `INFLIGHT_LOCK_TTL`, `ABORT_SIGNAL_TTL`, `STREAM_POST_TERMINAL_TTL`, `STREAM_SAFETY_TTL`, `POLL_INTERVAL_MS`, `CREDITS_PER_TURN`, queue `removeOnComplete/Fail`. (`MAX_MESSAGE_LENGTH` reclassified as an env-invariant validation limit → stays a code constant, Phase-3 carve-out.) |
+| `@acme/subscriptions`    | `CREDIT_LIMITS` per tier, `DEFAULT_LIMIT`.                                                                                                                                                                                                                                            |
+| telemetry                | `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_ENDPOINT` (+ default OTLP endpoint source constant).                                                                                                                                                                                         |
 
 ### Phase 3 — decide `REDIS_URL`, then finish env cleanup
 
@@ -289,7 +300,12 @@ feedback,billing`); recommend keeping whole in env unless the split is cheap.
 - **Leave as code constants** (not config — structural, not env-varying): UI
   layout/timers (`SIDEBAR_*`, `MOBILE_BREAKPOINT`, redirect delays), identifiers
   (`TEXT_NODE_NAMESPACE`, `QUEUE_NAMES`, `KNOWLEDGE_BASE_TABLE`), infra flags
-  (`lazyConnect`, `maxRetriesPerRequest`), test-only DB defaults.
+  (`lazyConnect`, `maxRetriesPerRequest`), test-only DB defaults, and
+  **env-invariant validation limits** — `MAX_MESSAGE_LENGTH` (chat),
+  `MAX_FILE_SIZE_BYTES` / `ACCEPTED_EXTENSIONS` (ingest): bounds enforced
+  identically in every environment and read in client-safe schema/validation
+  barrels, so they stay code constants rather than per-target config (the
+  Phase-2 table originally slated these — reclassified here).
 
 ### Rollout / backward-compat
 

@@ -9,6 +9,10 @@ import { createConfig } from '@acme/config';
  * profile example: LocalStack in development, the real AWS endpoint (empty → SDK
  * default) in staging/production. The AWS credentials stay in `env.ts` (secrets).
  * Server-side — the S3 client runs on the backend.
+ *
+ * `MAX_FILE_SIZE_BYTES` and `ACCEPTED_EXTENSIONS` deliberately stay code
+ * constants in `lib/upload-validation.ts`: env-invariant validation limits read
+ * in a client-safe barrel (ADR 0026 phase 3, "leave structural constants as code").
  */
 export function ingestConfig(context: ConfigContext) {
   return createConfig({
