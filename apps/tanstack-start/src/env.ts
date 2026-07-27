@@ -21,10 +21,9 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * Server env for the TanStack Start app. Composes the same feature env presets
  * the Next.js app uses, so both apps validate the identical runtime surface.
  *
- * The client-side Clerk publishable key is read directly from
- * `import.meta.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (Vite `envPrefix` exposes
- * it) rather than through this schema, since `@t3-oss/env` reads `process.env`
- * which Vite does not populate in the browser.
+ * The Clerk publishable key is config-as-code (authConfig, ADR 0026), threaded
+ * into `<ClerkProvider>` + `clerkMiddleware` from the composed config — not read
+ * from env here.
  */
 export const env = createEnv({
   extends: [chatEnv(), ingestEnv(), billingEnv()],

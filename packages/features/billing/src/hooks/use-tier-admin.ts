@@ -2,6 +2,7 @@
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { useBillingConfig } from '../config-context';
 import { useTRPC } from '../trpc/react';
 
 export const TIERS = ['Basic', 'Standard', 'Pro'] as const;
@@ -15,6 +16,13 @@ export type Tier = (typeof TIERS)[number];
 export function useTierAdmin(user: { id: string; email: string }) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const config = useBillingConfig();
+
+  /** The Stripe product a paid tier maps to (billingConfig, ADR 0026); the
+   *  dev-only `setUserTier` receives it so the server needs no plan-ID env. The
+   *  server ignores it for `Basic` (which just cancels), so it is always sent. */
+  const productForTier = (tier: Tier) =>
+    tier === 'Pro' ? config.STRIPE_PRO_PLAN_ID : config.STRIPE_STANDARD_PLAN_ID;
 
   const setUserTier = useMutation(
     trpc.account.setUserTier.mutationOptions({
@@ -35,7 +43,12 @@ export function useTierAdmin(user: { id: string; email: string }) {
   return {
     setTier: (tier: Tier, onDone: () => void) =>
       setUserTier.mutate(
-        { userId: user.id, email: user.email, tier },
+        {
+          userId: user.id,
+          email: user.email,
+          tier,
+          productId: productForTier(tier),
+        },
         { onSuccess: onDone },
       ),
     isPending: setUserTier.isPending,

@@ -67,8 +67,15 @@ export async function setUserTier(args: {
   userId: string;
   email: string;
   tier: SubscriptionTier;
+  /**
+   * The Stripe product the paid tier maps to. A `billingConfig` plan ID
+   * (ADR 0026), resolved on the client from `useBillingConfig` and threaded
+   * through the mutation — so this dev-only tool needs no server-side plan-ID
+   * env. Unused for `Basic` (which just cancels).
+   */
+  productId?: string;
 }): Promise<STRIPE_SUB_CACHE> {
-  const { userId, email, tier } = args;
+  const { userId, email, tier, productId } = args;
 
   if (!env.STRIPE_API_BASE) {
     throw billingError(
@@ -95,10 +102,13 @@ export async function setUserTier(args: {
   }
 
   if (tier !== 'Basic') {
-    const productId =
-      tier === 'Pro'
-        ? env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID
-        : env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID;
+    if (!productId) {
+      throw billingError(
+        BillingErrorCode.MissingPlan,
+        'BAD_REQUEST',
+        `No product id supplied for tier ${tier}`,
+      );
+    }
     const plan = await findPlanForProduct(productId);
 
     // Attach localstripe's built-in 4242 test card and make it the customer's

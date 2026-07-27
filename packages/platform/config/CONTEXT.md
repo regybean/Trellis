@@ -61,3 +61,21 @@ export function xConfig(context: ConfigContext) {
 ```
 
 The app composes them: `configExtends([xConfig(context), yConfig(context)])`.
+
+## Consuming config in a feature
+
+A feature never re-resolves `APP_ENV` or builds its own config singleton (that is
+the banned module-init global). The app threads the composed `config` in; how a
+feature reads it depends on where (ADR 0026, resolved in #94):
+
+- **App edge only** (simplest): the app reads `config.X` and passes it to a
+  provider/component it owns — e.g. `<ClerkProvider publishableKey={config...}>`.
+  Good when nothing deep in the feature needs the value (`authConfig`).
+- **Client-deep:** the slice ships a React provider + hook (see
+  `@acme/billing`'s `BillingConfigProvider` / `useBillingConfig`), mounted at the
+  app edge with `config`; components/hooks read through the hook. Turn any
+  import-time module const into a builder that takes the resolved values.
+- **Server-deep:** ride an existing injection point rather than threading a param
+  through every call — e.g. `@acme/billing` feeds plan IDs to
+  `createSubscriptionsEntitlements(planIds)` (the ADR 0006 entitlements seam) and
+  passes the Clerk publishable key to `clerkMiddleware({ publishableKey })`.

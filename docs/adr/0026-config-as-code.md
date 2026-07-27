@@ -242,6 +242,56 @@ building `@acme/config`:
   profile bakes identically server- and client-side. A Dockerfile guard fails a
   staging/production image build whose `APP_ENV` is unset/invalid.
 
+## Sub-decisions — resolved in Phase 1 (#94)
+
+Phase 0 only had one config consumer (`authConfig`), read **at the app edge**
+(`<ClerkProvider>` props). Phase 1 (`@acme/billing` + the Clerk publishable key)
+is the first slice whose values are consumed **deep in feature runtime**, on both
+the client and the server — which forced the consumption seam the rest of the
+migration follows. Resolved while building it:
+
+- **Feature config-consumption seam.** A feature never resolves `APP_ENV` or
+  builds its own config singleton (that would be the banned module-init global).
+  The app resolves the composed `config` once at its edge and threads it in two
+  ways, reusing seams that already exist:
+  - **Client:** a slice ships a React provider + hook
+    (`BillingConfigProvider` / `useBillingConfig`), mounted at the app edge with
+    the composed `config`. Components/hooks read config through the hook; a
+    module-const that baked a value at import (e.g. `pricingPlans`) becomes a
+    builder taking the resolved values (`buildPricingPlans(planIds)`).
+  - **Server:** config rides the **existing injection points**, not a new
+    thread-through-every-call. The product→tier plan IDs are injected via the
+    `createSubscriptionsEntitlements(planIds)` factory through the ADR 0006
+    entitlements seam (so `@acme/subscriptions`' `credits`/`getSubscriptionType`
+    take the resolved values, never env); the Clerk publishable key is passed to
+    `clerkMiddleware({ publishableKey })`. A dev-only admin path (`setUserTier`)
+    takes the target `productId` from the client mutation rather than adding a
+    server plan-ID source.
+- **What stays in `env` (not every listed var migrates).** `STRIPE_API_BASE` (the
+  dev-only localstripe switch, read pre-composition by the `getStripe` SDK
+  singleton and the seed script) and `STRIPE_SUCCESS_URL`/`STRIPE_CANCEL_URL`
+  (server-only checkout redirects, injected per deploy — they had **no committed
+  staging/production values** to author as profiles) stay in `process.env`. The
+  dedup win — the values copy-pasted across every app's `.env.*` — is the
+  `NEXT_PUBLIC_*` client set, and that is what migrated.
+- **Clerk publishable key is config.** Public but per-deploy-target, so it joins
+  `authConfig` (dev/staging/production profiles) and is fed to `<ClerkProvider>` +
+  `clerkMiddleware`. Only `publishableKey` is passed to middleware — passing
+  `secretKey` would flip Clerk into Dynamic Keys mode and require
+  `CLERK_ENCRYPTION_KEY` — so `CLERK_SECRET_KEY` stays env. The Next.js Edge
+  middleware resolves just the `authConfig` slice (not `~/env`), so the
+  feature-env `createEnv` graph never executes in the Edge runtime. Residual: the
+  TanStack Start server SDK's need for the bare `CLERK_PUBLISHABLE_KEY` is
+  unverified in docs, so that env var is kept as a safety net pending a staging
+  auth smoke test.
+- **`.env.staging`/`.env.production` retired.** Once every `NEXT_PUBLIC_*` baked
+  into the client bundle is config-as-code (baked via `APP_ENV`), those files held
+  only the `NEXT_PUBLIC_WEBAPP` selector (now a Dockerfile `ENV`) and a dead
+  `SKIP_ENV_VALIDATION` (build-skip runs off `IS_NEXT_BUILD`). All four files are
+  deleted and the Dockerfile `dotenv -e .env.<stage>` load removed. `APP_ENV`
+  joins `turbo.json` `globalEnv` — it is now the build-cache discriminator that
+  the per-env `NEXT_PUBLIC_*` used to be.
+
 ## Migration plan
 
 Concrete, executable handoff for the follow-on build effort. Ordered so each step
@@ -319,7 +369,9 @@ feedback,billing`); recommend keeping whole in env unless the split is cheap.
 ## Status
 
 accepted — Phase 0 (the `@acme/config` mechanism + app composition edge)
-built in #93; Phases 1–3 (the slice-by-slice migration) remain.
+built in #93; Phase 1 (the billing/Stripe + Clerk publishable-key dedup, and the
+retirement of `.env.{staging,production}`) in #94; Phases 2–3 (the remaining
+per-slice tunables + `REDIS_URL`/final sweep) remain.
 
 ## Consequences
 

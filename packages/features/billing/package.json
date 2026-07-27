@@ -2,6 +2,7 @@
   "name": "@acme/billing",
   "dependencies": {
     "@acme/auth": "workspace:*",
+    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
@@ -60,6 +61,10 @@
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./src/config.ts"
     }
   },
   "sideEffects": [

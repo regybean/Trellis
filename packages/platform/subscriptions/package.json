@@ -3,10 +3,8 @@
   "dependencies": {
     "@acme/config": "workspace:*",
     "@acme/entitlements": "workspace:*",
-    "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/redis": "workspace:*",
-    "@t3-oss/env-nextjs": "catalog:",
     "server-only": "catalog:",
     "zod": "catalog:"
   },

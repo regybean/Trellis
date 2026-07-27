@@ -1,3 +1,8 @@
+export {
+  BillingConfigProvider,
+  useBillingConfig,
+  type BillingClientConfig,
+} from './config-context';
 export { SubscriptionCancellation } from './components/stripe/stripe-cancellation';
 export { StripeTesting } from './components/stripe/stripe-testing';
 export {

@@ -1,7 +1,7 @@
 import 'server-only';
 
 export { credits } from './credits';
-export { subscriptionsEntitlements } from './entitlements-adapter';
+export { createSubscriptionsEntitlements } from './entitlements-adapter';
 export {
   SubscriptionCacheSchema,
   type SubscriptionCache,
@@ -13,4 +13,5 @@ export {
   getUserSubscriptionFromRedis,
   setStripeCustomerId,
   setSubscriptionCache,
+  type PlanIds,
 } from './subscriptions';
