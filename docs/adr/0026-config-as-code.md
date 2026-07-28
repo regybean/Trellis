@@ -524,3 +524,25 @@ sweep) in #96.
   `LLM_PROVIDER`/`EMBED_PROVIDER` off `modelsConfig` (gone under the union) and so
   silently pruned the `ollama` profile on a fresh clone; it now reads
   `config.chat.provider`/`config.embed.provider`.
+- **Dev-deployment moves into `deploy/`; env splits infra vs app (#127).** With the
+  provisioning inputs derived (#126), the only non-derived infra values left in
+  `.env` were the container-password secrets — still tangled with the app's own
+  secrets in one root file. #127 makes the "how the dev stack is stood up" vs "how
+  the app runs" divide legible on disk. The dev-deployment concern moves into a
+  self-contained `deploy/`: `compose.yaml` + its mounted assets (`ops/db-init`,
+  `ops/jaeger`, `localstack-init.sh`), run via `-f deploy/compose.yaml
+--project-directory deploy` so the in-file relative paths (`./ops/*`,
+  `./localstack-init.sh`, `env_file: ./.env`) resolve local to `deploy/`. Env splits
+  into two disjoint files: `deploy/.env` owns the container secrets (`DB_PASSWORD`,
+  `REDIS_PASSWORD`); root `.env` owns app secrets + the `STRIPE_API_BASE` selector.
+  `with-env` = `dotenv -e ./.env -e ./deploy/.env --` loads both, so the passwords
+  are single-sourced in `deploy/.env` yet read by both compose (interpolated at
+  parse time) and the app (its Postgres/Redis clients); keys are disjoint, so
+  load-order precedence is immaterial. Root `.env.example` is thereby reduced to app
+  secrets + `STRIPE_API_BASE`; a `deploy/.env.example` carries the infra secrets, is
+  wired into the `env:pull`/`env:push` `SECRET_MAP` (`infra`), and is symlinked into
+  linked worktrees alongside root `.env` (`link-worktree-env.mjs`). The compose
+  project name becomes `deploy` (volumes `deploy_pg_data`/`deploy_ollama_data`) — a
+  one-time dev reprovision, harmless since dev accepts infra data loss and the
+  containers carry fixed `container_name`s. `@acme/db`'s test bindMount `repoPath`
+  followed the assets to `deploy/ops/db-init`.

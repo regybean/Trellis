@@ -87,7 +87,9 @@ Requires **Node 22.19.0** ([.nvmrc](.nvmrc)), **pnpm ≥ 10.15.1**, and **Docker
 nvm use                      # 22.19.0
 npm install -g pnpm@latest-10
 pnpm i                       # installs + builds packages + sets up git hooks
-cp .env.example .env         # non-secret local-dev defaults work as-is
+cp .env.example .env         # app env — non-secret local-dev defaults work as-is
+cp deploy/.env.example deploy/.env   # infra env (container passwords) — same
+
 pnpm dev                     # starts only the infra each app needs, then the dev servers
 ```
 
