@@ -26,7 +26,7 @@ export const postgresContainer: InfraDescriptor = {
     POSTGRES_USER: TEST_USER,
     POSTGRES_PASSWORD: TEST_SECRET,
     POSTGRES_DB: TEST_DB,
-    // Consumed by ops/db-init/01-vector.sh to create the vector database.
+    // Consumed by deploy/ops/db-init/01-vector.sh to create the vector database.
     DB_VECTOR_NAME: TEST_VECTOR_DB,
   },
   // The pgvector image logs this once during init and again when finally ready.
@@ -34,7 +34,7 @@ export const postgresContainer: InfraDescriptor = {
   waitLogTimes: 2,
   bindMounts: [
     {
-      repoPath: 'ops/db-init',
+      repoPath: 'deploy/ops/db-init',
       target: '/docker-entrypoint-initdb.d',
       mode: 'ro',
     },

@@ -13,7 +13,7 @@ Each package that touches an infra service declares it in its `package.json` und
 `["postgres", "billing"]`, `@acme/telemetry` → `["jaeger"]`). An app's required
 infra is the **union of `acme.infra` over its transitive workspace closure**
 (`scripts/resolve-infra.ts`, via `pnpm --filter "<app>..." ls`). Each entry is a
-Compose **profile** of the same name in `compose.yaml`.
+Compose **profile** of the same name in `deploy/compose.yaml`.
 
 This follows the slice contract ([ADR 0010](0010-slim-no-auth-apps.md)): infra need
 travels with the package that owns it, down the dependency edges, exactly like code.
