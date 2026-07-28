@@ -75,6 +75,6 @@
     "tidy": "pnpm lint:fix && pnpm format:fix",
     "typecheck": "turbo run typecheck",
     "ui-add": "turbo run ui-add",
-    "with-env": " dotenv -e ./.env --"
+    "with-env": " dotenv -e ./.env -e ./deploy/.env --"
   }
 }

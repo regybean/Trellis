@@ -3,6 +3,15 @@
 # Override with CONTAINER_ENGINE=docker|podman.
 set -euo pipefail
 
+# The dev-deployment concern lives in its own self-contained `deploy/` folder
+# (ADR 0026, #127): the compose file + its mounted assets + the infra-secret
+# `deploy/.env` all sit under it. Run with `-f deploy/compose.yaml
+# --project-directory deploy` so the in-file relative paths (`./ops/*`,
+# `./localstack-init.sh`, `env_file: ./.env`) all resolve local to `deploy/`.
+script_dir="$(cd "$(dirname "$0")" && pwd)"
+repo_root="$(cd "$script_dir/.." && pwd)"
+deploy_dir="$repo_root/deploy"
+
 engine="${CONTAINER_ENGINE:-}"
 
 if [ -z "$engine" ]; then
@@ -20,7 +29,7 @@ fi
 # are single-sourced from the slice configs (ADR 0026, #126), not duplicated .env
 # rows. Resolve + export them so compose substitutes the `${...}` refs across the
 # whole compose.yaml at parse time (regardless of the active profile).
-compose_env="$(pnpm exec tsx "$(dirname "$0")/resolve-compose-env.ts")"
+compose_env="$(pnpm exec tsx "$script_dir/resolve-compose-env.ts")"
 while IFS= read -r line; do
   [ -n "$line" ] && export "$line"
 done <<<"$compose_env"
@@ -35,4 +44,7 @@ if [ -n "${COMPOSE_PROFILES:-}" ]; then
   done
 fi
 
-exec "$engine" compose "${profile_args[@]}" "$@"
+exec "$engine" compose \
+  -f "$deploy_dir/compose.yaml" \
+  --project-directory "$deploy_dir" \
+  "${profile_args[@]}" "$@"

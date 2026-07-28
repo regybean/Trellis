@@ -19,13 +19,14 @@ pnpm i
 
 ## 2. Configure env
 
-The committed [`.env.example`](../.env.example) holds non-secret local-dev defaults that work as-is:
+Env is split into two disjoint files (ADR 0026, #127): the root [`.env`](../.env.example) holds the **application** surface (app secrets + the `STRIPE_API_BASE` selector); [`deploy/.env`](../deploy/.env.example) holds the **infra** surface (the container-password secrets compose provisions with). Both hold non-secret local-dev defaults that work as-is:
 
 ```bash
-cp .env.example .env
+cp .env.example .env                 # application env
+cp deploy/.env.example deploy/.env   # infra (dev-deployment) env
 ```
 
-For secrets (anything declared with an empty value in `.env.example`), you can fill them by hand, or use the pluggable sync. Sync is opt-in: pick a backend with one env var:
+`pnpm with-env` loads both, so the passwords are single-sourced in `deploy/.env` yet read by both compose and the app. For secrets (anything declared with an empty value in either `.example`), you can fill them by hand, or use the pluggable sync. Sync is opt-in: pick a backend with one env var:
 
 ```bash
 SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vault

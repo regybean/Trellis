@@ -69,7 +69,7 @@ services:
       - DEBUG=1
       - LOCALSTACK_HOST=localhost.localstack.cloud
     volumes:
-      - ./scripts/localstack-init.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
+      - ./localstack-init.sh:/etc/localstack/init/ready.d/init-s3.sh:ro
     healthcheck:
       test:
         - CMD
