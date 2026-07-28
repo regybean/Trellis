@@ -32,9 +32,11 @@ output an audit of what an app truly couples to.
 Two services are only needed under a configuration, so the graph yields a candidate
 set that env/config then prunes:
 
-- `billing` (localstripe) is dropped unless `STRIPE_API_BASE` is set — real Stripe
-  needs no local container ([ADR 0004](0004-localstripe-dev-billing.md)).
-  `STRIPE_API_BASE` is a deliberate env carve-out, so this prune reads `process.env`.
+- `billing` (localstripe) is dropped unless the Stripe connection resolves to
+  `localstripe` — real Stripe needs no local container
+  ([ADR 0004](0004-localstripe-dev-billing.md)). The connection is config-as-code
+  (`stripeConnectionConfig`'s discriminated union, ADR 0026 follow-up #146), so
+  this prune reads the config's `stripe.mode`, **not** `process.env`.
 - `ollama` is dropped unless `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — the
   provider is a deploy-target choice read from `modelsConfig` (config-as-code,
   [ADR 0026](0026-config-as-code.md)), **not** `process.env`; the graph only records

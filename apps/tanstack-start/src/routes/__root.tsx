@@ -25,8 +25,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     // Server-resolved so the chat/feedback persisters have their scope on the
     // first render (see PersistedFeatureProviders). Signed out ⇒ userId null ⇒
-    // network-only. localstripeMode is server-derived from STRIPE_API_BASE and
-    // threaded to the client through the BillingConfigProvider seam below.
+    // network-only. localstripeMode is server-derived from the connection config
+    // (ADR 0026 follow-up) and threaded to the client through the
+    // BillingConfigProvider seam below.
     beforeLoad: async () => {
       const [{ userId }, localstripeMode] = await Promise.all([
         getAuthState(),

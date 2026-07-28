@@ -19,7 +19,7 @@ pnpm i
 
 ## 2. Configure env
 
-Env is split into two disjoint files (ADR 0026, #127): the root [`.env`](../.env.example) holds the **application** surface (app secrets + the `STRIPE_API_BASE` selector); [`deploy/.env`](../deploy/.env.example) holds the **infra** surface (the container-password secrets compose provisions with). Both hold non-secret local-dev defaults that work as-is:
+Env is split into two disjoint files (ADR 0026, #127): the root [`.env`](../.env.example) holds the **application** surface (app secrets only — every non-secret Stripe value is now config-as-code); [`deploy/.env`](../deploy/.env.example) holds the **infra** surface (the container-password secrets compose provisions with). Both hold non-secret local-dev defaults that work as-is:
 
 ```bash
 cp .env.example .env                 # application env

@@ -13,11 +13,13 @@ no API keys, and no network. Five decisions are load-bearing:
    Instead, paid tiers are granted on demand from the **admin page**
    (`TierManagement` → `account.setUserTier`), which creates/cancels
    subscriptions directly via the API.
-2. **The SDK is retargeted by env, not forked.** When `STRIPE_API_BASE` is set,
-   `getStripe()` parses it into the `host`/`port`/`protocol` overrides the Stripe
-   Node SDK already supports. Unset (prod/CI) → the SDK's real defaults are
-   untouched. Every localstripe-only branch keys off `STRIPE_API_BASE`, so the
-   real-Stripe path is unchanged when it is absent.
+2. **The SDK is retargeted by config, not forked.** In `localstripe` mode
+   `getStripe()` parses the connection's `apiBase` into the `host`/`port`/
+   `protocol` overrides the Stripe Node SDK already supports; in `real` mode the
+   SDK's defaults are untouched. Every localstripe-only branch keys off the single
+   `localstripeMode` boolean, so the real-Stripe path is unchanged. (Originally an
+   `STRIPE_API_BASE` env switch; migrated to the `stripeConnectionConfig`
+   discriminated union in #146 — see ADR 0026's follow-up.)
 3. **Legacy Plans fallback — localstripe predates the Prices API.** localstripe
    models the deprecated **Plans** API: subscription items carry `plan`, not
    `price`; there is no `/v1/prices`, no `default_price`, and no
@@ -38,7 +40,7 @@ no API keys, and no network. Five decisions are load-bearing:
 5. **Webhooks run in dev.** The seed registers a localstripe webhook
    (`POST /_config/webhooks/...`) pointing at the app's `/api/stripe` handler via
    `host.docker.internal`, signed with `STRIPE_WEBHOOK_SECRET`. `setUserTier`
-   *also* calls `syncStripeDataToKV` directly so the admin UI updates
+   _also_ calls `syncStripeDataToKV` directly so the admin UI updates
    deterministically without depending on webhook delivery timing.
 
 ## Status
@@ -50,8 +52,8 @@ accepted
 - **Stripe CLI + a real (test-mode) Stripe account.** Needs an account, API keys,
   and network; each developer configures their own. localstripe needs none of
   that and is the lower-friction default. Rejected for the default dev path
-  (real Stripe is still one env change away — unset `STRIPE_API_BASE` and
-  `pnpm env:pull`).
+  (real Stripe is still one switch away — run under the `staging` profile
+  (`APP_ENV=staging`, which resolves the connection to `real`) and `pnpm env:pull`).
 - **Reproducing hosted Checkout / Billing Portal locally.** localstripe serves
   the API, not Stripe's hosted pages. Rebuilding them would be large and
   divergent from production. The admin grant action covers the only thing dev

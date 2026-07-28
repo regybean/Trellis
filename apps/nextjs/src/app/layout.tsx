@@ -5,9 +5,9 @@ import { ClerkProvider } from '@clerk/nextjs';
 import { auth } from '@clerk/nextjs/server';
 
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
-// Server-derived from process.env.STRIPE_API_BASE (ADR 0003/0004); threaded to
-// the client through the BillingConfigProvider seam so the client never proxies
-// billing mode through NODE_ENV.
+// Server-derived from the connection config (stripeConnectionConfig, ADR 0026
+// follow-up); threaded to the client through the BillingConfigProvider seam so
+// the client never proxies billing mode through NODE_ENV.
 import { localstripeMode } from '@acme/billing/server';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 // Toast container is rendered client-side to safely access localStorage
