@@ -1,5 +1,6 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 
+import { authEnv } from '@acme/auth/env';
 import { billingEnv } from '@acme/billing/env';
 import { chatEnv } from '@acme/chat/env';
 import { resolveAppEnv } from '@acme/config';
@@ -23,10 +24,11 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  *
  * The Clerk publishable key is config-as-code (authConfig, ADR 0026), threaded
  * into `<ClerkProvider>` + `clerkMiddleware` from the composed config — not read
- * from env here.
+ * from env here; only CLERK_SECRET_KEY stays in env, validated by `authEnv()`
+ * (composed by full apps only, ADR 0010).
  */
 export const env = createEnv({
-  extends: [chatEnv(), ingestEnv(), billingEnv()],
+  extends: [chatEnv(), ingestEnv(), billingEnv(), authEnv()],
   server: {},
   client: {},
   runtimeEnv: {},
