@@ -9,6 +9,7 @@
  */
 export { createConfig, configExtends } from './create-config';
 export type { ConfigContext } from './create-config';
+export { isServer } from './runtime';
 export { resolveAppEnv, appEnvSchema, APP_ENVS } from './app-env';
 export type { AppEnv } from './app-env';
 export { ConfigValidationError } from './errors';

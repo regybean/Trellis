@@ -1,8 +1,6 @@
-import { isServer } from '@tanstack/react-query';
-
 import { authConfig } from '@acme/auth/config';
 import { billingConfig } from '@acme/billing/config';
-import { configExtends } from '@acme/config';
+import { configExtends, isServer } from '@acme/config';
 
 import { appEnv } from './env';
 
