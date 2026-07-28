@@ -166,7 +166,7 @@ export const chatRouter = createTRPCRouter({
       if (!turnId) {
         return { status: 'notInflight' as const };
       }
-      await abortTurn(conversationId, turnId);
+      await abortTurn({ conversationId, turnId });
       logger.info(
         { userId: ctx.auth.userId, conversationId, turnId },
         'chat.stop: abort published',
@@ -188,8 +188,7 @@ export const chatRouter = createTRPCRouter({
           ctx.entitlements.refund(uid, creditTier, amount),
         ctx.auth.userId,
         ctx.tier,
-        conversationId,
-        turnId,
+        { conversationId, turnId },
       );
       logger.info(
         { userId: ctx.auth.userId, conversationId, turnId, refunded },

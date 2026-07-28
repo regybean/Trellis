@@ -50,14 +50,21 @@ const config = chatConfig({ appEnv, isServer: true });
 // teardown is uniform across the three (all shorten the Stream — see below).
 export type TurnTerminalKind = 'done' | 'cancelled' | 'error';
 
+// A durable Turn's identity: the Conversation it runs in plus its own `turnId`.
+// Bundled so the two same-typed ids travel as one named handle through the
+// transitions below — the Data Clump that two adjacent `string` params invited,
+// which also removes the positional-swap hazard between them.
+export interface TurnRef {
+  conversationId: string;
+  turnId: string;
+}
+
 // Steps `chat.send` still authors but `beginTurn` orders and guards. `consume` is
 // the credit gate + consume closure: it stays inline in `chat.send` (ADR 0006
 // amendment + chat CONTEXT) so a rejected send consumes nothing, and `beginTurn`
 // runs it at the one correct point in the ordering — after ownership + lock and
 // the user-Message persist, before enqueue.
-export interface BeginTurnInput {
-  conversationId: string;
-  turnId: string;
+export interface BeginTurnInput extends TurnRef {
   userId: string;
   tier: SubscriptionTier;
   query: string;
@@ -67,7 +74,7 @@ export interface BeginTurnInput {
 
 // Acquire the one-in-flight-per-Conversation lock, valued by `turnId`. Returns
 // false when a Turn is already in flight (a second tab, or a live worker).
-async function acquireInflightLock(conversationId: string, turnId: string) {
+async function acquireInflightLock({ conversationId, turnId }: TurnRef) {
   const acquired = await redis.set(chatInflightKey(conversationId), turnId, {
     NX: true,
     EX: config.INFLIGHT_LOCK_TTL,
@@ -77,7 +84,7 @@ async function acquireInflightLock(conversationId: string, turnId: string) {
 
 // Release the lock only if it still points to this Turn — a crashed worker may
 // have let the TTL lapse and a newer Turn may already own it.
-async function releaseInflightLock(conversationId: string, turnId: string) {
+async function releaseInflightLock({ conversationId, turnId }: TurnRef) {
   const lockValue = await redis.get(chatInflightKey(conversationId));
   if (lockValue === turnId) await redis.del(chatInflightKey(conversationId));
 }
@@ -104,7 +111,7 @@ export async function readInflightTurn(conversationId: string) {
 // The abort-signal read, paired with `abortTurn`'s write. The Generation worker
 // asks this each stream iteration — "has this Turn been told to stop?" — instead
 // of reading the abort key directly.
-export async function isTurnAborted(conversationId: string, turnId: string) {
+export async function isTurnAborted({ conversationId, turnId }: TurnRef) {
   return (await redis.get(chatAbortKey(conversationId))) === turnId;
 }
 
@@ -141,8 +148,9 @@ export async function refundTurnCredits(
 // Reports winner (`accepted`) vs loser (`alreadyInflight`).
 export async function beginTurn(input: BeginTurnInput) {
   const { conversationId, turnId, userId, tier, query } = input;
+  const ref: TurnRef = { conversationId, turnId };
 
-  const acquired = await acquireInflightLock(conversationId, turnId);
+  const acquired = await acquireInflightLock(ref);
   if (!acquired) return { status: 'alreadyInflight' as const };
 
   try {
@@ -161,7 +169,7 @@ export async function beginTurn(input: BeginTurnInput) {
     });
     return { status: 'accepted' as const };
   } catch (error) {
-    await releaseInflightLock(conversationId, turnId);
+    await releaseInflightLock(ref);
     throw error;
   }
 }
@@ -174,24 +182,21 @@ export async function beginTurn(input: BeginTurnInput) {
 // terminal would race a reconnecting reader and lose the terminal; hard-delete of
 // an orphan's Stream is `reconcileTurn`, and the stale-stream discard that stops
 // the *next* Turn re-reading this one is inside `beginTurn` — see #43.)
-export async function settleTurn(
-  kind: TurnTerminalKind,
-  conversationId: string,
-  turnId: string,
-) {
+export async function settleTurn(kind: TurnTerminalKind, ref: TurnRef) {
+  const { conversationId, turnId } = ref;
   logger.debug({ conversationId, turnId, kind }, 'chat: turn settled');
   await redis.expire(
     chatStreamKey(conversationId),
     config.STREAM_POST_TERMINAL_TTL,
   );
   await redis.del(chatAbortKey(conversationId));
-  await releaseInflightLock(conversationId, turnId);
+  await releaseInflightLock(ref);
 }
 
 // Publish the abort signal for a Turn (was `publishAbort`). The worker polls
 // `isTurnAborted` on each stream iteration and halts when it matches its own
 // `turnId`.
-export async function abortTurn(conversationId: string, turnId: string) {
+export async function abortTurn({ conversationId, turnId }: TurnRef) {
   await redis.set(chatAbortKey(conversationId), turnId, {
     EX: config.ABORT_SIGNAL_TTL,
   });
@@ -208,12 +213,11 @@ export async function reconcileTurn(
   refund: EntitlementsProvider['refund'],
   userId: string,
   tier: SubscriptionTier,
-  conversationId: string,
-  turnId: string,
+  ref: TurnRef,
 ) {
-  const refunded = await refundTurnCredits(refund, userId, tier, turnId);
-  await redis.del(chatStreamKey(conversationId));
-  await redis.del(chatAbortKey(conversationId));
-  await releaseInflightLock(conversationId, turnId);
+  const refunded = await refundTurnCredits(refund, userId, tier, ref.turnId);
+  await redis.del(chatStreamKey(ref.conversationId));
+  await redis.del(chatAbortKey(ref.conversationId));
+  await releaseInflightLock(ref);
   return { refunded };
 }

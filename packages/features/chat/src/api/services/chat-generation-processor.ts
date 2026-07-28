@@ -92,7 +92,7 @@ async function runGenerationTurn(
     });
 
     let accumulated = '';
-    const aborted = () => isTurnAborted(conversationId, turnId);
+    const aborted = () => isTurnAborted({ conversationId, turnId });
 
     for await (const chunk of result.textStream) {
       // Accumulate and publish the delta first, THEN honour an abort — so the
@@ -158,6 +158,6 @@ async function runGenerationTurn(
     );
     terminal = 'error';
   } finally {
-    await settleTurn(terminal, conversationId, turnId);
+    await settleTurn(terminal, { conversationId, turnId });
   }
 }
