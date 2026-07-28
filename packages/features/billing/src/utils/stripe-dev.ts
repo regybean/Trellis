@@ -5,8 +5,7 @@ import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 import { setSpanAttributes } from '@acme/telemetry/server';
 
 import type { STRIPE_SUB_CACHE } from './stripe-client';
-import { env } from '../env';
-import { getStripe } from './stripe-client';
+import { getStripe, localstripeMode } from './stripe-client';
 import { billingError, BillingErrorCode } from './stripe-errors';
 import { syncStripeDataToKV } from './stripe-sync';
 
@@ -61,7 +60,7 @@ async function findPlanForProduct(productId: string): Promise<Stripe.Plan> {
  * card and creates an active subscription on the matching plan. 'Basic' just
  * cancels. Syncs Redis immediately so the admin UI is deterministic.
  *
- * Guarded on STRIPE_API_BASE so it can never run against real Stripe.
+ * Guarded on localstripe mode so it can never run against real Stripe.
  */
 export async function setUserTier(args: {
   userId: string;
@@ -77,7 +76,7 @@ export async function setUserTier(args: {
 }): Promise<STRIPE_SUB_CACHE> {
   const { userId, email, tier, productId } = args;
 
-  if (!env.STRIPE_API_BASE) {
+  if (!localstripeMode) {
     throw billingError(
       BillingErrorCode.DevOnly,
       'PRECONDITION_FAILED',

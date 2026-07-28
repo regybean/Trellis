@@ -7,8 +7,10 @@
  * Billing portal. Drive the real hook through a real QueryClient with the
  * network faked at the HTTP boundary (MSW); @acme/auth is the blessed framework
  * external. Assert returned card state + observable toast/navigation outcomes,
- * never spy on mutations. NODE_ENV==='test' so `isDev` is false — the real
- * checkout/portal branches run (not the dev shortcut).
+ * never spy on mutations. `localstripeMode` arrives through the
+ * `BillingConfigProvider` seam (never `NODE_ENV`): the default providers thread
+ * `false`, so the real checkout/portal branches run; a localstripe test opts in
+ * with `makeProviders({ localstripeMode: true })`.
  */
 import type { Mock } from 'vitest';
 import { act, renderHook, screen, waitFor } from '@testing-library/react';
@@ -27,7 +29,7 @@ import {
 import { useAuth } from '@acme/auth';
 
 import { usePricing } from '../../../../hooks/use-pricing';
-import { Providers, trpcMsw } from '../../setup';
+import { makeProviders, Providers, trpcMsw } from '../../setup';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -93,13 +95,41 @@ const card = (
 ) => result.current.cards.find((c) => c.plan.name === name);
 
 describe('usePricing', () => {
-  it('reports isDev=false and one card per plan under the test env', () => {
+  it('reports localstripeMode=false (real Stripe) and one card per plan under the default config', () => {
     setAuth({ signedIn: false });
 
     const { result } = renderUsePricing();
 
-    expect(result.current.isDev).toBe(false);
+    expect(result.current.localstripeMode).toBe(false);
     expect(result.current.cards).toHaveLength(3);
+  });
+
+  it('reads localstripe mode from the config seam and blocks Checkout with an admin-grant toast', async () => {
+    // Config threaded with localstripeMode=true (not NODE_ENV): a signed-in
+    // Basic user selecting a paid plan is told to use the admin page rather than
+    // routed to Checkout, since localstripe has no Checkout API.
+    setAuth({ signedIn: true });
+    server.use(basicSub());
+
+    const { result } = renderHook(() => usePricing(), {
+      wrapper: makeProviders({ localstripeMode: true }),
+    });
+
+    await waitFor(() =>
+      expect(card(result, 'Standard')?.buttonState.variant).toBe('purchase'),
+    );
+    expect(result.current.localstripeMode).toBe(true);
+
+    act(() => {
+      const standard = card(result, 'Standard');
+      if (standard) result.current.selectPlan(standard.plan);
+    });
+
+    // Observable outcome: the admin-grant toast, and no redirect to Checkout.
+    expect(
+      await screen.findByText(/checkout is unavailable in dev/i),
+    ).toBeInTheDocument();
+    expect(assignedHref).toBeNull();
   });
 
   it('derives sign-in CTA states when logged out', () => {

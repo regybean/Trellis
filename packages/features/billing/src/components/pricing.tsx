@@ -17,7 +17,7 @@ import { usePricing } from '../hooks/use-pricing';
 import { ButtonSkeleton } from './pricing-components';
 
 export function PricingPage() {
-  const { cards, selectPlan, isDev, planIds } = usePricing();
+  const { cards, selectPlan, localstripeMode, planIds } = usePricing();
 
   return (
     <div className="container mx-auto px-4 py-16">
@@ -37,7 +37,7 @@ export function PricingPage() {
           </p>
         </motion.div>
 
-        {isDev && (
+        {localstripeMode && (
           <div className="mx-auto mt-8 max-w-3xl rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
             <strong className="font-semibold">Dev mode:</strong> checkout is
             unavailable here — local billing runs on localstripe, which has no

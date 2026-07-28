@@ -13,7 +13,7 @@
  * stay stable; import the specific module directly in new code.
  */
 export type { StripeCustomer, STRIPE_SUB_CACHE } from './stripe-client';
-export { getStripe } from './stripe-client';
+export { getStripe, localstripeMode } from './stripe-client';
 export {
   createCheckoutSession,
   createDashboardSession,
