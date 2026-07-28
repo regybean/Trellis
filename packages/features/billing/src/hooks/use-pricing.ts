@@ -1,12 +1,10 @@
 'use client';
 
 import React from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { CreditCard } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
 import { useAuth } from '@acme/auth';
-import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { PricingPlan } from '../data/pricing-data';
 import type { ButtonState } from '../lib/plan-selection';
@@ -15,6 +13,7 @@ import { useBillingConfig } from '../config-context';
 import { buildPricingPlans } from '../data/pricing-data';
 import { getButtonState } from '../lib/plan-selection';
 import { useTRPC } from '../trpc/react';
+import { useBillingRedirect } from './use-billing-redirect';
 
 export interface PricingCard {
   plan: PricingPlan;
@@ -26,14 +25,21 @@ export interface PricingCard {
  * Deep module for the pricing page: reads the viewer's Subscription, derives
  * each plan's CTA state (via the pure plan-selection tree), and drives plan
  * selection — routing new customers to Checkout and existing ones to the
- * Billing portal. Keeps `PricingPage` UI-only (see CLAUDE.md).
+ * Billing portal.
  *
- * Runtime-agnostic: navigates via `globalThis.location`, not next/navigation.
+ * The create-session → redirect-URL → navigate flow (plus its loading toast and
+ * typed billing-error → toast mapping) lives in the Billing redirect module
+ * (use-billing-redirect.ts); this hook composes it and layers only its own
+ * routing on top — the signed-out → `/sign-in` hop, the localstripe-CTA gate
+ * (reading the config mode, never NODE_ENV), and the per-plan `isProcessing` UI
+ * state. So the pricing page and the standalone checkout path can never drift.
+ *
+ * Keeps `PricingPage` UI-only (see CLAUDE.md). Runtime-agnostic: navigates via
+ * `globalThis.location`, not next/navigation.
  */
 export function usePricing() {
   const trpc = useTRPC();
   const { isSignedIn, isLoaded } = useAuth();
-  const handleError = useGenericErrorHandler();
   const config = useBillingConfig();
   // localstripe has no Checkout Sessions API — the pricing CTAs can't create a
   // checkout. Tiers are granted from the admin page (account.setUserTier)
@@ -49,68 +55,16 @@ export function usePricing() {
     }),
   );
 
+  const redirect = useBillingRedirect();
   const [processingPlanId, setProcessingPlanId] = React.useState<string | null>(
     null,
-  );
-  const [redirectUrl, setRedirectUrl] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    if (redirectUrl) {
-      globalThis.location.href = redirectUrl;
-    }
-  }, [redirectUrl]);
-
-  const createCheckoutSession = useMutation(
-    trpc.account.createCheckoutSession.mutationOptions({
-      onSuccess: (data) => {
-        if (data.checkoutUrl) {
-          toast.success('Redirecting to checkout...', {
-            autoClose: 1000,
-            closeButton: true,
-            icon: () =>
-              React.createElement(CreditCard, { className: 'h-4 w-4' }),
-          });
-          setRedirectUrl(data.checkoutUrl);
-        } else {
-          toast.error('Failed to create checkout session');
-        }
-      },
-      onError: (err) => {
-        setProcessingPlanId(null);
-        handleError(err);
-      },
-      onSettled: () => {
-        // If redirect didn't happen (e.g. error), clear processing state.
-        setTimeout(() => setProcessingPlanId(null), 1500);
-      },
-    }),
-  );
-
-  const createDashboardSession = useMutation(
-    trpc.account.createDashboardSession.mutationOptions({
-      onSuccess: (data) => {
-        toast.success('Redirecting to Stripe dashboard...', {
-          autoClose: 1000,
-          closeButton: true,
-          icon: () => React.createElement(CreditCard, { className: 'h-4 w-4' }),
-        });
-        setRedirectUrl(data.billingPortalUrl);
-      },
-      onError: (err) => {
-        setProcessingPlanId(null);
-        handleError(err);
-      },
-      onSettled: () => {
-        setTimeout(() => setProcessingPlanId(null), 1500);
-      },
-    }),
   );
 
   const selectPlan = (plan: PricingPlan) => {
     if (!isLoaded) return;
 
     if (!isSignedIn) {
-      setRedirectUrl('/sign-in');
+      globalThis.location.href = '/sign-in';
       return;
     }
 
@@ -126,10 +80,10 @@ export function usePricing() {
     setProcessingPlanId(plan.id);
 
     if (currentSubscription === 'Basic') {
-      createCheckoutSession.mutate({ productId: plan.id });
+      redirect.checkout(plan.id);
     } else {
       // Existing paid Subscription — all changes go through the Billing portal.
-      createDashboardSession.mutate();
+      redirect.openBillingPortal();
     }
   };
 
@@ -142,7 +96,10 @@ export function usePricing() {
       isSignedIn,
       isLoaded,
     ),
-    isProcessing: processingPlanId === plan.id,
+    // The clicked plan shows its processing UI while the shared redirect's
+    // create-session mutation is in flight; it clears when the mutation settles
+    // (success navigates away, error re-enables the CTA).
+    isProcessing: redirect.isPending && processingPlanId === plan.id,
   }));
 
   return { cards, selectPlan, localstripeMode, planIds };
