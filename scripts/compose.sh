@@ -12,18 +12,10 @@ script_dir="$(cd "$(dirname "$0")" && pwd)"
 repo_root="$(cd "$script_dir/.." && pwd)"
 deploy_dir="$repo_root/deploy"
 
-engine="${CONTAINER_ENGINE:-}"
+# shellcheck source=scripts/lib/dev-logs.sh
+. "$script_dir/lib/dev-logs.sh"
 
-if [ -z "$engine" ]; then
-  if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
-    engine=docker
-  elif command -v podman >/dev/null 2>&1; then
-    engine=podman
-  else
-    echo "compose.sh: no usable container engine found (need docker or podman)." >&2
-    exit 1
-  fi
-fi
+engine="$(resolve_engine)"
 
 # Compose's provisioning inputs (DB_*/REDIS_PORT/OLLAMA_PORT + ollama pull IDs)
 # are single-sourced from the slice configs (ADR 0026, #126), not duplicated .env
