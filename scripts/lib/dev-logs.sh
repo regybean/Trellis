@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Shared library for dev/compose log capture (ADR 0028). Sourced, not executed.
 #
-# The genuine shared primitive is the file-lifecycle contract; this first cut
-# holds only `resolve_engine`, extracted from compose.sh so both it and the
-# later dev.sh wiring resolve the container engine identically (no drift).
+# The genuine shared primitive is the file-lifecycle contract (identical header
+# shape across dev + infra files): `prepare_log` owns truncate + freshness
+# header; `mirror_stream` adds the infra follower on top. `resolve_engine`
+# (extracted from compose.sh) keeps engine detection identical across both.
 
 # resolve_engine — echo the container engine to use.
 # Honours CONTAINER_ENGINE override; else docker if usable, else podman, else
@@ -23,4 +24,27 @@ resolve_engine() {
   fi
 
   printf '%s\n' "$engine"
+}
+
+# prepare_log <label> <file> — start a fresh single-generation log: truncate
+# <file>, then write the dated freshness header `# <label> started <ISO8601Z>` as
+# line 1. The timestamp is single-sourced from $START (set once per pnpm dev
+# session by dev.sh), so every file from one launch shares the same instant and
+# the newest header across logs/*.log marks that launch (ADR 0028 §1, §6).
+prepare_log() {
+  local label="$1" file="$2"
+  : >"$file"
+  printf '# %s started %s\n' "$label" "$START" >>"$file"
+}
+
+# mirror_stream <label> <file> <cmd…> — prepare_log, then run <cmd…> as a
+# backgrounded follower appending its stdout+stderr to <file>. Echoes the
+# follower PID so the caller can collect it for the reap trap. Infra-only: the
+# dev-server branch appends below turbo instead (ADR 0028 §2, §5).
+mirror_stream() {
+  local label="$1" file="$2"
+  shift 2
+  prepare_log "$label" "$file"
+  "$@" >>"$file" 2>&1 &
+  printf '%s\n' "$!"
 }

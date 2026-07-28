@@ -20,6 +20,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# File-lifecycle + follower primitives + resolve_engine (ADR 0028 §5).
+# shellcheck source=scripts/lib/dev-logs.sh
+. scripts/lib/dev-logs.sh
+
 push=1
 apps=()
 for arg in "$@"; do
@@ -66,12 +70,47 @@ if [ -n "$profiles" ]; then
   fi
 fi
 
-# Start dev servers. No app args = all of them.
-if [ -z "$app_names" ]; then
-  exec turbo watch dev --continue
+# --- Log capture (ADR 0028, slice A: infra streams) --------------------------
+# While the human runs `pnpm dev`, mirror each running compose service's output
+# to a clean-text, single-generation, dated logs/infra-<svc>.log so the agent
+# reads it instead of `pnpm infra:logs`. Capture is coextensive with this session:
+# DEV_LOG_DIR is exported for the below-turbo dev-app wrappers (slice B), and the
+# infra followers below are reaped on exit while the containers themselves stay
+# up for `pnpm infra:down`. dev.sh keeps `exec` off so it stays alive to own the
+# reap trap and run turbo in the foreground.
+START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+mkdir -p logs
+export DEV_LOG_DIR="$PWD/logs"
+
+# One `<engine> logs -f` follower per running trellis-* container, addressed by
+# container name (so profile≠name resolves naturally: trellis-localstripe →
+# infra-localstripe.log). `--since "$START"` suppresses the full-history replay a
+# reused container would otherwise dump. Enumerate portably via `<engine> ps`
+# (podman-compose's `ps` lacks `--status`). Skip silently if no engine is usable.
+pids=()
+if engine="$(resolve_engine 2>/dev/null)"; then
+  while IFS= read -r name; do
+    [ -n "$name" ] || continue
+    svc="${name#trellis-}"
+    pid="$(mirror_stream "infra-$svc" "logs/infra-$svc.log" \
+      "$engine" logs -f --since "$START" "$name")"
+    pids+=("$pid")
+  done < <("$engine" ps --filter status=running --format '{{.Names}}' | grep '^trellis-' || true)
 fi
-filters=()
-while IFS= read -r app; do
-  [ -n "$app" ] && filters+=(-F "$app")
-done <<<"$app_names"
-exec turbo watch dev --continue "${filters[@]}"
+
+# Reap the followers (only) on exit — infra containers stay up for infra:down.
+# Guard the expansion so an empty list is safe under `set -u` (macOS bash 3.2).
+trap 'if [ ${#pids[@]} -gt 0 ]; then kill "${pids[@]}" 2>/dev/null || true; fi' EXIT INT TERM
+
+# Start dev servers in the FOREGROUND (no exec) so this shell holds the trap and
+# turbo keeps the tty/full-screen TUI; its exit code propagates via `set -e`.
+# No app args = all of them.
+if [ -z "$app_names" ]; then
+  turbo watch dev --continue
+else
+  filters=()
+  while IFS= read -r app; do
+    [ -n "$app" ] && filters+=(-F "$app")
+  done <<<"$app_names"
+  turbo watch dev --continue "${filters[@]}"
+fi
