@@ -572,3 +572,23 @@ sweep) in #96.
   one-time dev reprovision, harmless since dev accepts infra data loss and the
   containers carry fixed `container_name`s. `@acme/db`'s test bindMount `repoPath`
   followed the assets to `deploy/ops/db-init`.
+- **Two-axis secret validation; the Clerk gap closed (#165).** The secret/config
+  split above left _when_ a secret is required implicit. Made it a rule: a secret's
+  requiredness is never a permissive `.optional()` — it is decided on one of two
+  axes, and each secret is validated exactly when its consumer is active. The
+  **value axis** — a config discriminant selects _which_ secret within one app:
+  `@acme/models`' scattered per-provider `bedrockEnv()`/`openrouterEnv()`
+  side-effect calls collapsed into a single `modelsEnv(config)` (called once
+  eagerly in `resolve.ts`) whose required set is derived from `config.chat`/
+  `config.embed` (OpenRouter chat → `OPENROUTER_API_KEY`; Bedrock chat/embed → the
+  AWS creds; Ollama → none), preserving fail-fast-at-import. The **composition
+  axis** — whether the app mounts the slice at all: this closed a real gap where
+  `CLERK_SECRET_KEY` was validated _nowhere_ (the Clerk SDK read it implicitly from
+  `process.env`, so a full app missing it failed on the first Clerk call, not at
+  boot). A validation-only `authEnv()` (mirroring `bedrockEnv()`; the key is not
+  passed to Clerk) now lives in `@acme/auth/env`, composed by the two full apps
+  only — the `*-slim` apps mount no auth (ADR 0010), so they never demand it. No
+  `*.enabled` config toggle was introduced: activation stays the dependency graph,
+  not a second source of truth. The dead `CLERK_WEBHOOK_SIGNING_SECRET` (no handler,
+  no source reference) was dropped from both full apps' `.env.example`. Principle
+  recorded in [`@acme/config`'s CONTEXT.md](../../packages/platform/config/CONTEXT.md).
