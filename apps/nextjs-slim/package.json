@@ -59,7 +59,7 @@
     "db:generate": "pnpm with-env drizzle-kit generate --config drizzle.config.ts",
     "db:migrate": "pnpm drizzle-kit migrate",
     "db:push": "pnpm with-env drizzle-kit push --config drizzle.push.config.ts --force",
-    "dev": "pnpm with-env next dev --turbopack --port 3002",
+    "dev": "pnpm with-env ../../scripts/lib/dev-logs.sh dev-capture nextjs-slim next dev --turbopack --port 3002",
     "dev:worker": "pnpm with-env tsx watch --conditions=react-server worker.ts",
     "format": "prettier --check . --ignore-path ../../.prettierignore",
     "lint": "eslint",
