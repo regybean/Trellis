@@ -932,6 +932,39 @@ describe('chatRouter', () => {
       // for the lock's TTL.
       expect(await redis.get(chatInflightKey(conversationId))).toBeNull();
     });
+
+    it('releases the lock when a downstream begin step throws (catch-all branch)', async () => {
+      // The other failure branch: a non-TRPCError after the lock is won. Force it
+      // through the injected entitlements seam (consume rejects) rather than by
+      // spying on a lifecycle function — beginTurn must unwind the lock, and
+      // chat.send maps the error to INTERNAL_SERVER_ERROR. Asserted against real
+      // Redis, so the lock is not wedged for its TTL.
+      const userId = createTestUserId();
+      const conversationId = createTestSessionId();
+      const ctx = createTestContext({
+        userId,
+        role: 'user',
+        tier: 'Basic',
+        credits: baseCredits,
+      });
+      const caller = appRouter.createCaller({
+        ...ctx,
+        entitlements: {
+          ...ctx.entitlements,
+          consume: () => Promise.reject(new Error('ledger unavailable')),
+        },
+      });
+
+      await expect(
+        caller.chat.send({
+          query: 'Hello',
+          conversationId,
+          turnId: crypto.randomUUID(),
+        }),
+      ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
+
+      expect(await redis.get(chatInflightKey(conversationId))).toBeNull();
+    });
   });
 
   describe('inflightTurn (resume probe)', () => {

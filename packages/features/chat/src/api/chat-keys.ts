@@ -5,9 +5,9 @@ import { nsKey } from '@acme/redis';
 
 // Holds the token-delta Redis Stream for a Conversation's in-flight Turn.
 // Created on first xAdd with a 600 s safety TTL; shortened to a brief
-// post-terminal TTL by finalizeTurn (so late reconnects still read the
-// terminal); discarded by the NEXT chat.send after it wins the lock
-// (discardStaleStream) so a fresh Turn never re-reads the prior one.
+// post-terminal TTL by settleTurn (so late reconnects still read the terminal);
+// discarded by the NEXT Turn's beginTurn after it wins the lock so a fresh Turn
+// never re-reads the prior one; hard-deleted on orphan recovery by reconcileTurn.
 export const chatStreamKey = (conversationId: string) =>
   nsKey('chat', 'stream', conversationId);
 
