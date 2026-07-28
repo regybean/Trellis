@@ -26,13 +26,18 @@ import {
 } from '../../../../api/chat-keys';
 import { chatAgent } from '../../../../api/services/chat-agent';
 import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
-import { CREDITS_PER_TURN } from '../../../../api/services/chat-turn-lifecycle';
+import { chatConfig } from '../../../../config';
+import { appEnv } from '../../../../env';
 import { fakeAgentStream, throwingAgentStream } from '../../setup';
 import {
   createTestChat,
   createTestSessionId,
   createTestUserId,
 } from '../../utils/fixtures';
+
+// CREDITS_PER_TURN has one origin in config (ADR 0026) — the same value the
+// worker's refund charges, read here to assert the refund amount.
+const { CREDITS_PER_TURN } = chatConfig({ appEnv, isServer: true });
 
 interface RefundCall {
   userId: string;

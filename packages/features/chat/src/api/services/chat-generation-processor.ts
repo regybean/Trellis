@@ -4,21 +4,26 @@ import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 
 import type { GenerationJob } from './chat-queue';
+import type { TurnTerminalKind } from './chat-turn-lifecycle';
 import { chatConfig } from '../../config';
 import { appEnv } from '../../env';
-import { chatAbortKey, chatStreamKey } from '../chat-keys';
+import { chatStreamKey } from '../chat-keys';
 import { chatAgent } from './chat-agent';
 import {
   generateThreadTitle,
   latestAssistantMessageId,
   persistAssistantMessage,
 } from './chat-memory';
-import { finalizeTurn, refundTurnCredits } from './chat-turn-lifecycle';
+import {
+  isTurnAborted,
+  refundTurnCredits,
+  settleTurn,
+} from './chat-turn-lifecycle';
 
 // Safety TTL (`config.STREAM_SAFETY_TTL`, seconds) set on the Stream's first
 // write so a crashed worker cannot leave a dangling key. The lock/abort TTLs and
-// the post-terminal teardown live in chat-turn-lifecycle, the one home for the
-// Turn control plane. Config-as-code (ADR 0026).
+// the terminal teardown (`settleTurn`) live in chat-turn-lifecycle, the one home
+// for the Turn control plane. Config-as-code (ADR 0026).
 const config = chatConfig({ appEnv, isServer: true });
 
 // Persist any non-empty partial and emit the `cancelled` terminal. Teardown
@@ -65,8 +70,12 @@ async function runGenerationTurn(
 ) {
   const { conversationId, turnId, userId, tier, query } = job.data;
   const streamKey = chatStreamKey(conversationId);
-  const abortKey = chatAbortKey(conversationId);
   let safetyTtlSet = false;
+  // The terminal this Turn settled on — the worker names it for `settleTurn` in
+  // the `finally`. Defaults to `error` (the catch path); the success and abort
+  // paths overwrite it. The teardown is uniform across the three, so a title
+  // failure after `done` flips it to `error` with no observable difference.
+  let terminal: TurnTerminalKind = 'error';
 
   logger.info({ conversationId, turnId }, 'generation worker: starting');
 
@@ -83,7 +92,7 @@ async function runGenerationTurn(
     });
 
     let accumulated = '';
-    const aborted = async () => (await redis.get(abortKey)) === turnId;
+    const aborted = () => isTurnAborted(conversationId, turnId);
 
     for await (const chunk of result.textStream) {
       // Accumulate and publish the delta first, THEN honour an abort — so the
@@ -101,6 +110,7 @@ async function runGenerationTurn(
 
       if (await aborted()) {
         await handleAbort(conversationId, userId, accumulated);
+        terminal = 'cancelled';
         return;
       }
     }
@@ -109,6 +119,7 @@ async function runGenerationTurn(
     // yields a `cancelled` terminal (empty ⇒ no messageId) rather than `done`.
     if (await aborted()) {
       await handleAbort(conversationId, userId, accumulated);
+      terminal = 'cancelled';
       return;
     }
 
@@ -119,6 +130,7 @@ async function runGenerationTurn(
       type: 'done',
       ...(messageId ? { messageId } : {}),
     });
+    terminal = 'done';
 
     // On the first Turn, generate the thread title from the initial query. The
     // adapter owns the first-Turn check + Mastra write.
@@ -144,7 +156,8 @@ async function runGenerationTurn(
       tier,
       turnId,
     );
+    terminal = 'error';
   } finally {
-    await finalizeTurn(conversationId, turnId);
+    await settleTurn(terminal, conversationId, turnId);
   }
 }
