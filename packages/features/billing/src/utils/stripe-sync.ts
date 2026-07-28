@@ -8,8 +8,7 @@ import {
 import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 
 import type { STRIPE_SUB_CACHE } from './stripe-client';
-import { env } from '../env';
-import { getStripe } from './stripe-client';
+import { getStripe, localstripeMode } from './stripe-client';
 import { buildSubscriptionCache } from './subscription-cache';
 
 /**
@@ -31,7 +30,7 @@ export async function syncStripeDataToKV(
         // localstripe has no `price` on items and no `default_payment_method` on
         // subscriptions, and 400s on expand paths it can't resolve. Skip expands
         // there; buildSubscriptionCache reads the inline `plan` fallback instead.
-        expand: env.STRIPE_API_BASE
+        expand: localstripeMode
           ? []
           : ['data.default_payment_method', 'data.items.data.price'],
       });

@@ -7,6 +7,7 @@ export {
   processEvent,
   tryCatch,
   getStripe,
+  localstripeMode,
   syncStripeDataToKV,
 } from './utils/stripe';
 export { appRouter } from './api/root';

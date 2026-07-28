@@ -3,6 +3,7 @@ import Stripe from 'stripe';
 import type { SubscriptionCache } from '@acme/subscriptions';
 
 import { env } from '../env';
+import { deriveLocalstripeMode } from '../lib/localstripe-mode';
 
 // Shared Stripe types
 export interface StripeCustomer {
@@ -11,6 +12,17 @@ export interface StripeCustomer {
 }
 
 export type STRIPE_SUB_CACHE = SubscriptionCache;
+
+/**
+ * localstripe mode — derived once from the `STRIPE_API_BASE` env carve-out
+ * (ADR 0003/0004). The single boolean the server branches that only need a
+ * boolean (the skipped expands in `stripe-sync`, the `setUserTier` guard in
+ * `stripe-dev`) read, and — threaded through `BillingConfigProvider` — the value
+ * the client reads instead of proxying the condition through `NODE_ENV`. The SDK
+ * host override below still reads the raw `STRIPE_API_BASE` because it needs the
+ * URL to parse, not just the boolean.
+ */
+export const localstripeMode = deriveLocalstripeMode(env.STRIPE_API_BASE);
 
 // Lazy initialization to avoid module-time errors in CICD tests
 let _stripe: Stripe | null = null;
