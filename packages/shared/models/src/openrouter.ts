@@ -1,27 +1,26 @@
 import type { LanguageModelV3 } from '@ai-sdk/provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 
-import { modelsConfig } from './config';
-import { appEnv } from './env';
+import type { OpenRouterChatConfig } from './config';
 import { openrouterEnv } from './env-providers';
 
-// Model ids are config-as-code (ADR 0026); the API key is a secret read from env.
-const config = modelsConfig({ appEnv, isServer: true });
-
-// OpenRouter chat model. Chat only — OpenRouter exposes no embeddings API, so it
-// is not selectable as EMBED_PROVIDER.
-export function openrouterChatModel(): LanguageModelV3 {
+// Model ids arrive as the narrowed OpenRouter variant (`config.chat`, ADR 0026);
+// the API key is a secret read from env. Chat only — OpenRouter exposes no
+// embeddings API, so it is absent from the embed union.
+export function openrouterChatModel(
+  chat: OpenRouterChatConfig,
+): LanguageModelV3 {
   const env = openrouterEnv();
-  return createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(
-    config.OPENROUTER_CHAT_MODEL,
-  );
+  return createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(chat.model);
 }
 
 // Cheaper model for thread-title generation. Falls back to the chat model when
-// OPENROUTER_TITLE_MODEL is unset.
-export function openrouterTitleModel(): LanguageModelV3 {
+// no title model is set.
+export function openrouterTitleModel(
+  chat: OpenRouterChatConfig,
+): LanguageModelV3 {
   const env = openrouterEnv();
   return createOpenRouter({ apiKey: env.OPENROUTER_API_KEY }).chat(
-    config.OPENROUTER_TITLE_MODEL ?? config.OPENROUTER_CHAT_MODEL,
+    chat.titleModel ?? chat.model,
   );
 }

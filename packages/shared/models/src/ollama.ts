@@ -1,34 +1,27 @@
 import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 
-import { modelsConfig } from './config';
-import { appEnv } from './env';
+import type { OllamaChatConfig, OllamaEmbedConfig } from './config';
 
-// Base URL + model ids are config-as-code (ADR 0026); Ollama has no secret, so it
-// reads nothing from env. Ollama speaks the OpenAI-compatible API on `/v1`, which
+// Base URL + model ids arrive as the narrowed Ollama variant (`config.chat` /
+// `config.embed`, ADR 0026); Ollama has no secret, so these factories read
+// nothing from env. Ollama speaks the OpenAI-compatible API on `/v1`, which
 // covers both chat and embeddings, so one provider instance serves both. Dev/test
 // default: tiny CPU-only models, no GPU assumed.
-const config = modelsConfig({ appEnv, isServer: true });
-
-function ollamaProvider() {
-  return createOpenAICompatible({
-    name: 'ollama',
-    baseURL: config.OLLAMA_BASE_URL,
-  });
+function ollamaProvider(baseUrl: string) {
+  return createOpenAICompatible({ name: 'ollama', baseURL: baseUrl });
 }
 
-export function ollamaChatModel(): LanguageModelV3 {
-  return ollamaProvider().chatModel(config.OLLAMA_CHAT_MODEL);
+export function ollamaChatModel(chat: OllamaChatConfig): LanguageModelV3 {
+  return ollamaProvider(chat.baseUrl).chatModel(chat.model);
 }
 
 // Cheaper model for thread-title generation. Falls back to the chat model when
-// OLLAMA_TITLE_MODEL is unset.
-export function ollamaTitleModel(): LanguageModelV3 {
-  return ollamaProvider().chatModel(
-    config.OLLAMA_TITLE_MODEL ?? config.OLLAMA_CHAT_MODEL,
-  );
+// no title model is set.
+export function ollamaTitleModel(chat: OllamaChatConfig): LanguageModelV3 {
+  return ollamaProvider(chat.baseUrl).chatModel(chat.titleModel ?? chat.model);
 }
 
-export function ollamaEmbedModel(): EmbeddingModelV3 {
-  return ollamaProvider().embeddingModel(config.OLLAMA_EMBED_MODEL);
+export function ollamaEmbedModel(embed: OllamaEmbedConfig): EmbeddingModelV3 {
+  return ollamaProvider(embed.baseUrl).embeddingModel(embed.model);
 }
