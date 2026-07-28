@@ -7,27 +7,26 @@
 // `acme.infra` over its transitive workspace closure. Nothing is assumed on:
 // an app whose closure declares nothing starts no infra.
 //
-// The graph yields a CANDIDATE set; env/config then PRUNES it for services that
-// are only needed under a given configuration:
-//   - `billing` (localstripe) is dropped unless STRIPE_API_BASE is set (real
-//     Stripe needs no local container). STRIPE_API_BASE is a deliberate env
-//     carve-out (ADR 0026), so this prune reads process.env.
+// The graph yields a CANDIDATE set; config then PRUNES it for services that are
+// only needed under a given configuration. Both prunes read config-as-code now
+// (ADR 0026), NOT process.env:
+//   - `billing` (localstripe) is dropped unless the Stripe connection resolves
+//     to `localstripe` (real Stripe needs no local container). Reads
+//     `stripeConnectionConfig`'s discriminated union.
 //   - `ollama` is dropped unless the chat or embed role's provider is `ollama`.
-//     Provider selection is config-as-code now (@acme/models discriminated union,
-//     ADR 0026), NOT a process.env var — so this reads the role variants on
-//     modelsConfig, not env. Run via `pnpm exec tsx` (not `node`) so the TS config
-//     import resolves, mirroring scripts/resolve-compose-env.ts.
+//     Reads the role variants on `modelsConfig`.
+// Run via `pnpm exec tsx` (not `node`) so the TS config imports resolve,
+// mirroring scripts/resolve-compose-env.ts.
 //
 // Usage:  resolve-infra.ts [app ...]      (no args => every app under apps/*)
 //         app may be a full name (@acme/nextjs) or short (nextjs).
 // Output: comma-separated profile list (possibly empty) on stdout.
-//
-// Run under `pnpm with-env` so the STRIPE_API_BASE prune sees ./.env.
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { stripeConnectionConfig } from "../packages/features/billing/src/config";
 import { modelsConfig } from "../packages/shared/models/src/config";
 
 // `import.meta.dirname` is undefined under tsx's CJS transform; derive it from
@@ -90,11 +89,15 @@ for (const proj of projects) {
   if (Array.isArray(infra)) for (const p of infra) profiles.add(p);
 }
 
-// Env/config prunes (see header). `billing` reads its env carve-out; `ollama`
-// reads provider selection from config. Hardcode the development profile: infra
-// is a local dev/test concern and ollama has no staging/production override
-// (mirrors scripts/resolve-compose-env.ts).
-if (!process.env.STRIPE_API_BASE) profiles.delete("billing");
+// Config prunes (see header). Both `billing` and `ollama` read config-as-code.
+// Hardcode the development profile: infra is a local dev/test concern and
+// neither prune has a staging/production override (mirrors
+// scripts/resolve-compose-env.ts).
+const billing = stripeConnectionConfig({
+  appEnv: "development",
+  isServer: true,
+});
+if (billing.stripe.mode !== "localstripe") profiles.delete("billing");
 const models = modelsConfig({ appEnv: "development", isServer: true });
 const ollama =
   models.chat.provider === "ollama" || models.embed.provider === "ollama";
