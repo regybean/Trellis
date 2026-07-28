@@ -22,7 +22,7 @@ describe('resolveAppEnv', () => {
   );
 
   it('throws ConfigValidationError on an unknown value (loud, not silent)', () => {
-    expect(() => resolveAppEnv('prod')).toThrowError(ConfigValidationError);
+    expect(() => resolveAppEnv('prod')).toThrow(ConfigValidationError);
   });
 
   it('surfaces the zod error on the thrown instance', () => {
