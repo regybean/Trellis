@@ -17,11 +17,11 @@ import Stripe from 'stripe';
 
 import { resolveAppEnv } from '@acme/config';
 
-import { stripeConnectionConfig } from '../src/config';
+import { billingConfig } from '../src/config';
 
 // The Stripe connection is config-as-code now (ADR 0026 follow-up): localstripe
 // (dev) carries the `apiBase`; real Stripe carries none and needs no seeding.
-const connection = stripeConnectionConfig({
+const connection = billingConfig({
   appEnv: resolveAppEnv(process.env.APP_ENV),
   isServer: true,
 }).stripe;

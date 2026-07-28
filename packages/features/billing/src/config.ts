@@ -6,24 +6,54 @@ import { createConfig } from '@acme/config';
 import type { BillingConfigValues } from './config-context';
 
 /**
- * Billing config-as-code (ADR 0026). The Stripe values that differ per deploy
- * target but are non-sensitive — the plan/product IDs, the (publishable, not
- * secret) client key, and the billing-portal URL — were copy-pasted across every
- * app's `.env.staging`/`.env.production` purely to bake `NEXT_PUBLIC_*` into the
- * client bundle. They collapse here into one slice-owned, app-agnostic profile
- * set, baked at build from `APP_ENV`. The `NEXT_PUBLIC_` prefix is dropped: it
- * was an env-bundling mechanism, and config bakes at build regardless.
+ * How the Stripe SDK connects — a discriminated union so illegal states are
+ * unrepresentable. `apiBase` exists *only* in `localstripe` mode (local dev
+ * against the fake stateful Stripe server, ADR 0003/0004); the `real` variant
+ * carries no URL at all, so a staging/production build can never hold a stray
+ * localhost address.
  *
- * All four are **client** values (read in the browser: pricing cards, the admin
- * checkout test, the billing-portal link). Consumers read them through
- * `BillingConfigProvider` / `useBillingConfig` (client) and — for the server-side
- * product→tier mapping — through `createSubscriptionsEntitlements(planIds)`,
- * both fed the composed config once at the app's edge.
+ * The union is also the overlay-merge safety net: profiles are additive overlays
+ * over `default`, so a `staging`/`production` overlay of `{ mode: 'real' }`
+ * deep-merges onto the inherited `{ mode: 'localstripe', apiBase }` — and the
+ * `real` variant then strips the inherited `apiBase` at parse time (zod
+ * object-strip, the same mechanism `modelsConfig` relies on).
+ */
+export const stripeConnectionSchema = z.discriminatedUnion('mode', [
+  z.object({ mode: z.literal('localstripe'), apiBase: z.url() }),
+  z.object({ mode: z.literal('real') }),
+]);
+
+/** The narrowed Stripe connection a server consumer receives. */
+export type StripeConnection = z.output<typeof stripeConnectionSchema>;
+
+/**
+ * Billing config-as-code (ADR 0026). One slice-owned config carrying both the
+ * slice's `client` values (read in the browser) and its `server` values (read
+ * only at billing's own server edges) — a single `createConfig`, baked at build
+ * from `APP_ENV`. `@acme/config`'s client guard is what keeps the two sides
+ * honest: a server key read on the client throws, so both can share one profile
+ * set (this merged the former standalone `stripeConnectionConfig` factory back
+ * in — see ADR 0026 follow-up).
  *
- * The slice's **server** config-as-code lives in `stripeConnectionConfig` below
- * (a slice may own both a client and a server config; ADR 0026 follow-up). Only
- * the Stripe **secrets** (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`) remain in
- * `process.env`.
+ * **client** — browser-safe; threaded through `BillingConfigProvider` /
+ *   `useBillingConfig`, and — for the product→tier mapping — through
+ *   `createSubscriptionsEntitlements(toPlanIds(config))`. The plan/product IDs,
+ *   the (publishable, not secret) Stripe key, and the billing-portal URL. The
+ *   `NEXT_PUBLIC_` prefix is dropped: it was an env-bundling mechanism, and config
+ *   bakes at build regardless.
+ * **server** — read at billing's server edges (`stripe-client.ts`,
+ *   `stripe-checkout.ts`, `scripts/seed-localstripe.ts`):
+ *   - `stripe`: the localstripe-vs-real connection (see `stripeConnectionSchema`).
+ *     Replaces the `STRIPE_API_BASE` env switch; the boolean `localstripeMode`
+ *     derives from it.
+ *   - `checkoutSuccessPath` / `checkoutCancelPath`: the app- and env-invariant
+ *     path+query of the Stripe redirect targets. Only the **origin** varied per
+ *     app, so origin is threaded in at the app edge and combined with these paths.
+ *
+ * The app composes this with `configExtends`, but must thread only the client
+ * subset across the RSC/Flight boundary into `BillingConfigProvider` — see
+ * `toBillingClientConfig`. Only the Stripe **secrets** (`STRIPE_SECRET_KEY`,
+ * `STRIPE_WEBHOOK_SECRET`) remain in `process.env`.
  */
 export function billingConfig(context: ConfigContext) {
   return createConfig({
@@ -33,6 +63,11 @@ export function billingConfig(context: ConfigContext) {
       STRIPE_PUBLISHABLE_KEY: z.string(),
       STRIPE_MANAGE_BILLING_URL: z.url(),
     },
+    server: {
+      stripe: stripeConnectionSchema,
+      checkoutSuccessPath: z.string(),
+      checkoutCancelPath: z.string(),
+    },
     profiles: {
       default: {
         client: {
@@ -40,6 +75,11 @@ export function billingConfig(context: ConfigContext) {
           STRIPE_PRO_PLAN_ID: 'prod_dev_pro',
           STRIPE_PUBLISHABLE_KEY: 'pk_test_localstripe',
           STRIPE_MANAGE_BILLING_URL: 'http://localhost:3000/billing',
+        },
+        server: {
+          stripe: { mode: 'localstripe', apiBase: 'http://localhost:8420' },
+          checkoutSuccessPath: '/billing?success=true',
+          checkoutCancelPath: '/billing?canceled=true',
         },
       },
       staging: {
@@ -51,6 +91,7 @@ export function billingConfig(context: ConfigContext) {
           STRIPE_MANAGE_BILLING_URL:
             'https://billing.stripe.com/p/login/test_7sYfZjfjG6Ve6W14CU48000',
         },
+        server: { stripe: { mode: 'real' } },
       },
       production: {
         client: {
@@ -61,6 +102,7 @@ export function billingConfig(context: ConfigContext) {
           STRIPE_MANAGE_BILLING_URL:
             'https://billing.stripe.com/p/login/5kQ7sK6VG0XffTresjdjO00',
         },
+        server: { stripe: { mode: 'real' } },
       },
     },
     context,
@@ -82,62 +124,18 @@ export const toPlanIds = (config: BillingConfigValues) => ({
 });
 
 /**
- * How the Stripe SDK connects — a discriminated union so illegal states are
- * unrepresentable (ADR 0026 follow-up). `apiBase` exists *only* in `localstripe`
- * mode (local dev against the fake stateful Stripe server, ADR 0003/0004); the
- * `real` variant carries no URL at all, so a staging/production build can never
- * hold a stray localhost address.
- *
- * The union is also the overlay-merge safety net: profiles are additive overlays
- * over `default`, so a `staging`/`production` overlay of `{ mode: 'real' }`
- * deep-merges onto the inherited `{ mode: 'localstripe', apiBase }` — and the
- * `real` variant then strips the inherited `apiBase` at parse time (zod
- * object-strip, the same mechanism `modelsConfig` relies on).
+ * Narrow a composed config down to billing's client keys before it crosses the
+ * RSC/Flight boundary into `BillingConfigProvider`. `billingConfig` carries
+ * server keys too now, and the app composes everything with `configExtends`;
+ * passing that whole guarded object as a client-component prop would
+ * Flight-serialize the server values into the browser payload (serialization runs
+ * on the server, where the client guard can't fire). This picker keeps only the
+ * browser-safe keys — the client-guard invariant preserved at the seam instead of
+ * by splitting the config in two (mirrors `toPlanIds`).
  */
-export const stripeConnectionSchema = z.discriminatedUnion('mode', [
-  z.object({ mode: z.literal('localstripe'), apiBase: z.url() }),
-  z.object({ mode: z.literal('real') }),
-]);
-
-/** The narrowed Stripe connection a server consumer receives. */
-export type StripeConnection = z.output<typeof stripeConnectionSchema>;
-
-/**
- * Billing's **server** config-as-code (ADR 0026 follow-up): the last non-secret
- * Stripe values that were env carve-outs.
- *
- * - `stripe`: the localstripe-vs-real connection (see `stripeConnectionSchema`).
- *   Replaces the `STRIPE_API_BASE` env switch; the localstripe infra profile and
- *   the boolean `localstripeMode` both derive from it.
- * - `checkoutSuccessPath` / `checkoutCancelPath`: the app- and env-invariant
- *   path+query of the Stripe redirect targets. Only the **origin** varied per app
- *   (`localhost:3000` vs `3001`, prod domains), so origin is threaded in at the
- *   app edge and combined with these paths when building the absolute URL —
- *   replacing the per-app `STRIPE_SUCCESS_URL`/`STRIPE_CANCEL_URL` env rows.
- *
- * All-server, so it must NOT sit on `billingConfig` (the client config, threaded
- * wholesale across the RSC boundary — any server key there would bake into the
- * browser bundle). Resolved at billing's own env edge, mirroring
- * `ingestConfig`/`s3-client.ts`.
- */
-export function stripeConnectionConfig(context: ConfigContext) {
-  return createConfig({
-    server: {
-      stripe: stripeConnectionSchema,
-      checkoutSuccessPath: z.string(),
-      checkoutCancelPath: z.string(),
-    },
-    profiles: {
-      default: {
-        server: {
-          stripe: { mode: 'localstripe', apiBase: 'http://localhost:8420' },
-          checkoutSuccessPath: '/billing?success=true',
-          checkoutCancelPath: '/billing?canceled=true',
-        },
-      },
-      staging: { server: { stripe: { mode: 'real' } } },
-      production: { server: { stripe: { mode: 'real' } } },
-    },
-    context,
-  });
-}
+export const toBillingClientConfig = (config: BillingConfigValues) => ({
+  STRIPE_STANDARD_PLAN_ID: config.STRIPE_STANDARD_PLAN_ID,
+  STRIPE_PRO_PLAN_ID: config.STRIPE_PRO_PLAN_ID,
+  STRIPE_PUBLISHABLE_KEY: config.STRIPE_PUBLISHABLE_KEY,
+  STRIPE_MANAGE_BILLING_URL: config.STRIPE_MANAGE_BILLING_URL,
+});

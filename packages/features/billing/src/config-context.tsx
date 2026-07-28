@@ -18,7 +18,7 @@ export interface BillingConfigValues {
 /**
  * What the feature reads through the provider: the threaded config values plus
  * `localstripeMode` — the single localstripe-vs-real-Stripe signal, derived once
- * on the server from `stripeConnectionConfig` (ADR 0026 follow-up) and threaded
+ * on the server from `billingConfig (server side)` (ADR 0026 follow-up) and threaded
  * here so the client reads one value instead of proxying the condition through
  * `NODE_ENV`.
  */

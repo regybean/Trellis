@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-router';
 
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
+import { toBillingClientConfig } from '@acme/billing/config';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
@@ -84,7 +85,7 @@ function RootDocument({ children }: { children: ReactNode }) {
             disableTransitionOnChange
           >
             <BillingConfigProvider
-              config={config}
+              config={toBillingClientConfig(config)}
               localstripeMode={localstripeMode}
             >
               <BillingTRPCReactProvider>

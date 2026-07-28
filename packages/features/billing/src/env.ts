@@ -8,7 +8,7 @@ const skipValidation = shouldSkipEnvValidation();
 
 /**
  * The config-as-code deploy-target selector (ADR 0026), resolved at this slice's
- * sanctioned `process.env` edge and threaded into `stripeConnectionConfig` where
+ * sanctioned `process.env` edge and threaded into `billingConfig` where
  * the SDK connection + checkout paths are read (`utils/stripe-client.ts`,
  * `utils/stripe-checkout.ts`). Mirrors `ingest`'s env edge; keeps `config.ts` pure.
  */
@@ -23,7 +23,7 @@ export function billingEnv() {
     },
     // The localstripe switch (was `STRIPE_API_BASE`) and the checkout redirect
     // targets (were `STRIPE_SUCCESS_URL`/`STRIPE_CANCEL_URL`) are config-as-code
-    // now (`stripeConnectionConfig`, ADR 0026 follow-up). Only the Stripe secrets
+    // now (`billingConfig`, ADR 0026 follow-up). Only the Stripe secrets
     // remain here.
     server: {
       STRIPE_SECRET_KEY: z.string(),

@@ -281,13 +281,20 @@ migration follows. Resolved while building it:
 'real' }` (illegal states unrepresentable; the `real` overlay strips the
     inherited `apiBase` on merge), and the checkout redirects **decomposed**:
     their env-invariant path/query → config (`checkoutSuccessPath`/
-    `checkoutCancelPath`), their per-app origin → threaded at the app edge. All
-    three are **server-only**, so they do NOT sit on the client `billingConfig`
-    (which is Flight-serialized across the RSC boundary); they live in a second,
-    server-only `stripeConnectionConfig` factory in `@acme/billing`. This settles
-    that **a slice may own both a client and a server config** — each stays
-    single-sided, preserving the client-guard invariant. Only the Stripe secrets
-    remain in `env`.
+    `checkoutCancelPath`), their per-app origin → threaded at the app edge. These
+    three are **server-only**. They first lived in a second, server-only
+    `stripeConnectionConfig` factory, on the reasoning that the client
+    `billingConfig` is Flight-serialized wholesale across the RSC boundary so a
+    server key on it would bake into the browser payload. **Superseded (#146
+    follow-up): merged back into a single `billingConfig` with both a `client` and
+    a `server` shape.** `createConfig` already supports one config carrying both
+    (the client guard throws on a server-key read on the client), so the split was
+    never a platform limit — only that one wholesale-threaded prop. The invariant
+    is now preserved at the seam instead: the app narrows the composed config to
+    its client keys with `toBillingClientConfig(config)` before passing it into
+    `<BillingConfigProvider>` (mirrors `toPlanIds`), so server keys never cross the
+    Flight boundary. A slice owns **one** config; only the Stripe secrets remain in
+    `env`.
 - **Clerk publishable key is config.** Public but per-deploy-target, so it joins
   `authConfig` (dev/staging/production profiles) and is fed to `<ClerkProvider>` +
   `clerkMiddleware`. Only `publishableKey` is passed to middleware — passing
