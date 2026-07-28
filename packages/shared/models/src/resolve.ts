@@ -7,7 +7,7 @@ import {
   bedrockTitleModel,
 } from './bedrock';
 import { modelsConfig } from './config';
-import { appEnv } from './env';
+import { appEnv, modelsEnv } from './env';
 import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
 import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
@@ -19,12 +19,13 @@ type EmbedProvider = EmbedConfig['provider'];
 // --- Pure core: variant-parameterised resolvers reading NO module-scope env ---
 //
 // Each resolver takes the narrowed config variant (`config.chat` / `config.embed`)
-// and dispatches on its `provider` discriminant to that provider's factory. Only
-// the chosen factory runs, so only its env is validated (the per-provider
-// `createEnv` calls live inside the factories — see `env-providers.ts`). The
-// variant carries exactly the chosen provider's fields — no region on Ollama, no
-// base URL on Bedrock — so the factories need no cross-provider guards. Chat and
-// embed are resolved independently — e.g. OpenRouter chat + Ollama embed is valid.
+// and dispatches on its `provider` discriminant to that provider's factory. The
+// active providers' secrets are validated once up front by `modelsEnv(config)`
+// below (ADR 0026 value axis), so the factories only build model instances — they
+// read no env. The variant carries exactly the chosen provider's fields — no
+// region on Ollama, no base URL on Bedrock — so the factories need no
+// cross-provider guards. Chat and embed are resolved independently — e.g.
+// OpenRouter chat + Ollama embed is valid.
 //
 // The title model follows the chat provider (same family, optionally a cheaper
 // model id); each factory falls back to the chat model when no title id is set.
@@ -94,6 +95,10 @@ export function embedProviderOptionsFor(
 // request. This eager-at-import behaviour is deliberately retained (ADR 0014 /
 // ADR 0024): the build and test infra rely on it.
 const config = modelsConfig({ appEnv, isServer: true });
+
+// Fail fast at import on missing credentials for whichever providers the resolved
+// config selected (value axis), instead of failing deep inside the first request.
+modelsEnv(config);
 
 export const chatModel = resolveChatModel(config.chat);
 export const titleModel = resolveTitleModel(config.chat);
