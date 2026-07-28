@@ -2,8 +2,10 @@
   "name": "@acme/auth",
   "dependencies": {
     "@acme/config": "workspace:*",
+    "@acme/env": "workspace:*",
     "@clerk/backend": "catalog:",
     "@clerk/clerk-react": "catalog:",
+    "@t3-oss/env-nextjs": "catalog:",
     "react": "catalog:",
     "zod": "catalog:"
   },
@@ -27,6 +29,10 @@
     "./config": {
       "types": "./dist/config.d.ts",
       "default": "./src/config.ts"
+    },
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./src/env.ts"
     }
   },
   "sideEffects": false,
