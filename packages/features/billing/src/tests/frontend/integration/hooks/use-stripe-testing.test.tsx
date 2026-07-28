@@ -35,18 +35,22 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-// The success branch calls globalThis.location.assign. jsdom's location is
-// non-configurable, so we stub the whole object — but must preserve `origin`,
-// since the tRPC httpLink resolves its request URL against it. We capture the
-// assigned url so the redirect is observable.
-let assignedUrl: string | null = null;
+// The success branch redirects by assigning globalThis.location.href (via the
+// shared Billing redirect module). jsdom's location is non-configurable, so we
+// stub the whole object — but must preserve `origin`, since the tRPC httpLink
+// resolves its request URL against it. We capture the assigned href so the
+// redirect is observable.
+let assignedHref: string | null = null;
 beforeEach(() => {
-  assignedUrl = null;
+  assignedHref = null;
   const { origin } = globalThis.location;
   vi.stubGlobal('location', {
     origin,
-    assign: (url: string) => {
-      assignedUrl = url;
+    get href() {
+      return assignedHref ?? '';
+    },
+    set href(value: string) {
+      assignedHref = value;
     },
   });
 });
@@ -75,7 +79,7 @@ describe('useStripeTesting', () => {
       await screen.findByText(/redirecting to stripe checkout/i),
     ).toBeInTheDocument();
     await waitFor(() =>
-      expect(assignedUrl).toBe('https://stripe.test/checkout/session'),
+      expect(assignedHref).toBe('https://stripe.test/checkout/session'),
     );
   });
 
