@@ -17,21 +17,41 @@ an unfixable advisory lands.
   an `"audit": "pnpm audit --audit-level=high"` script, so the gate is caught
   before PR, not only in CI. The stage **graceful-degrades on network failure**
   (skips with a warning, like `gitleaks` when absent) — offline must never block
-  local PR prep. CI, which always has network, is the hard backstop.
+  local PR prep. A registry that _returns_ advisories still fails; only a
+  transport error (can't reach the registry) is a skip. CI, which always has
+  network, is the hard backstop.
 - **Fix-first remediation.** Drive high+critical to zero by (a) upgrading deps
-  we own directly via the pnpm **catalog** (`pnpm-workspace.yaml`), and (b)
-  `pnpm.overrides` in root `package.json` for transitive-only advisories whose
-  parent hasn't shipped a fix (alongside the existing `glob` override). Each
-  override carries an inline comment with its GHSA. Overrides are only accepted
-  if `pnpm build` + `pnpm test` stay green — forcing a version into a deep tree
-  (e.g. `protobufjs` into grpc under `mastra`) can break at runtime.
+  we own directly via the pnpm **catalog** (`pnpm-workspace.yaml` — `next`,
+  `vitest`, `drizzle-orm`, and the OpenTelemetry release train), and (b)
+  `overrides` in `pnpm-workspace.yaml` for transitive-only advisories whose
+  parent hasn't shipped a fix. (pnpm 10 reads `overrides` from
+  `pnpm-workspace.yaml`, not `package.json`.) Each override carries an inline
+  comment with its GHSA. Overrides are only accepted if `pnpm build` + `pnpm
+test` stay green — forcing a version into a deep tree (e.g. `protobufjs` under
+  `@grpc/proto-loader`, or a leaf across a major boundary) can break at runtime,
+  so:
+  - Prefer ranges (`>=x`) over hard pins so parents can still move.
+  - A leaf with **multiple in-tree majors** uses a version-range selector
+    (`pkg@>=x <y`) with a concrete target, so patching one line can't force an
+    incompatible major onto another (`minimatch`, `js-yaml`, `picomatch`).
+  - Bound an override to the major its parent peers on when the fix exists there
+    (`fast-uri` kept on `3.x` for `ajv@8`'s `^3.0.1`).
+  - When an advisory marks _every_ prior version vulnerable **and** the only
+    fixed line changed its module shape, forcing it breaks the parent — e.g.
+    `brace-expansion`'s only fix (`5.0.8`) ships a _named_ CJS export that
+    breaks `minimatch`'s `require()` default import (surfaces as "expand is not
+    a function" across every lint task). Keep the parent-compatible line (a
+    within-major bump still clears the _other_ brace-expansion advisory) and
+    allowlist the residual.
 - **Allowlist is last resort.** `pnpm.auditConfig.ignoreGhsas` suppresses an
   advisory **only** when (a) no patched version is reachable anywhere in the
   tree, or (b) it's provably not exploitable in our usage (e.g. the `vitest` UI
   server, which we never run in prod/CI). Every entry carries a justification
   comment with GHSA link + date. **No blanket dev-only exemption** — dev-only
   advisories are upgraded/overridden first; being dev-only is not itself grounds
-  to ignore.
+  to ignore. (The initial baseline needed exactly one entry —
+  `GHSA-mh99-v99m-4gvg` (brace-expansion), whose only fix is export-incompatible
+  with our CJS `minimatch` consumers; see the fix-first note above.)
 
 ## Considered and rejected
 

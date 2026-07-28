@@ -24,15 +24,19 @@ catalog:
   "@mastra/pg": ^1.13.0
   "@mastra/rag": ^2.2.1
   "@opentelemetry/api": ^1.9.0
-  "@opentelemetry/auto-instrumentations-node": ^0.60.0
-  "@opentelemetry/exporter-trace-otlp-http": ^0.210.0
-  "@opentelemetry/instrumentation": ^0.210.0
-  "@opentelemetry/instrumentation-http": ^0.57.0
-  "@opentelemetry/resources": ^2.4.0
-  "@opentelemetry/sdk-node": ^0.210.0
-  "@opentelemetry/sdk-trace-base": ^2.4.0
-  "@opentelemetry/sdk-trace-node": ^2.4.0
-  "@opentelemetry/semantic-conventions": ^1.28.0
+  # otel bumped as one release train: the 0.75+ auto-instrumentations-node and
+  # 0.217+ sdk-node clear GHSA-q7rr-3cgh-j5r3 (+ transitive exporter-prometheus)
+  # and GHSA-45rx-2jwx-cxfr (propagator-jaeger); the coupled experimental/stable
+  # packages move in lockstep to avoid peer skew.
+  "@opentelemetry/auto-instrumentations-node": ^0.79.0
+  "@opentelemetry/exporter-trace-otlp-http": ^0.221.0
+  "@opentelemetry/instrumentation": ^0.221.0
+  "@opentelemetry/instrumentation-http": ^0.221.0
+  "@opentelemetry/resources": ^2.10.0
+  "@opentelemetry/sdk-node": ^0.221.0
+  "@opentelemetry/sdk-trace-base": ^2.10.0
+  "@opentelemetry/sdk-trace-node": ^2.10.0
+  "@opentelemetry/semantic-conventions": ^1.43.0
   "@openrouter/ai-sdk-provider": ^2.9.1
   "@react-pdf/renderer": ^4.3.1
   "@t3-oss/env-nextjs": ^0.13.10
@@ -59,7 +63,7 @@ catalog:
   ai: ^6.0.204
   bullmq: ^5.80.0
   clsx: ^2.1.0
-  drizzle-orm: ^0.44.5
+  drizzle-orm: ^0.45.2 # GHSA-gpj5-g38j-94v9 (SQL injection) patched >=0.45.2
   drizzle-zod: ^0.8.3
   eslint: ^9.39.1
   fake-indexeddb: ^6.2.2
@@ -71,7 +75,7 @@ catalog:
   mastra: ^1.13.0
   msw: ^2.11.5
   msw-trpc: ^2.0.1
-  next: ^15.5.9
+  next: ^15.5.22 # GHSA-{m99w-x7hq-7vfj,89xv-2m56-2m9x,p9j2-gv94-2wf4,…} patched >=15.5.21
   next-themes: ^0.4.6
   officeparser: ^7.2.1
   p-limit: 7.2.0
@@ -93,7 +97,7 @@ catalog:
   typescript: ^5.9.3
   uuid: ^13.0.0
   vite: ^7.0.0
-  vitest: ^4.0.1
+  vitest: ^4.1.10 # GHSA-5xrq-8626-4rwp (critical) patched >=4.1.0
   xpath: 0.0.34
   yaml: ^2.8.2
   zod: ^4.1.12
@@ -137,4 +141,50 @@ overrides:
   vitest: "catalog:"
   qs: 6.14.1
   "@clerk/backend": "catalog:"
-  fast-xml-parser: ">=5.3.5"
+  # --- Security overrides (ADR 0027): force patched transitive versions whose
+  # parent hasn't shipped a fix. Ranges (not hard pins) so parents can still
+  # move; each carries its GHSA. Leaves with multiple in-tree majors use
+  # version-range selectors (`pkg@>=x <y`) with a concrete target, so a fix on
+  # one line can't force an incompatible major onto another. ---
+  fast-xml-parser: ">=5.10.1" # GHSA-8r6m-32jq-jx6q (@aws-sdk)
+  "@grpc/grpc-js": ">=1.14.4" # GHSA-5375-pq7m-f5r2, GHSA-99f4-grh7-6pcq (@a2a-js/sdk)
+  fast-uri: ">=3.1.4 <4" # GHSA-v2hh-gcrm-f6hx +chain; kept on 3.x (ajv peers ^3.0.1)
+  shell-quote: ">=1.9.0" # GHSA-395f-4hp3-45gv (mastra CLI)
+  lodash: ">=4.18.0" # GHSA-r5fr-rjxr-66jc (mastra CLI>archiver)
+  tmp: ">=0.2.6" # GHSA-ph9p-34f9-6g65 (testcontainers)
+  flatted: ">=3.4.2" # GHSA-rf6f-7fwh-wjgh (eslint>file-entry-cache)
+  sharp: ">=0.35.0" # GHSA-f88m-g3jw-g9cj (next optional dep)
+  undici: ">=6.27.0" # GHSA-vxpw-j846-p89q +chain (testcontainers, test-only)
+  # postcss forced tree-wide: next pins 8.4.31 and the apps declare 8.5.6.
+  postcss: ">=8.5.18" # GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849
+  # protobufjs: whole tree is on the 8.x line (grpc proto-loader + otel).
+  protobufjs: ">=8.4.1" # GHSA-wcpc-wj8m-hjx6 +chain, incl critical GHSA-xq3m-2v4x-88gg
+  # minimatch: 3.x (eslint-plugin-import), 5.x (readdir-glob), 9.x (glob) lines
+  "minimatch@>=3.0.0 <3.1.4": "3.1.4" # GHSA-3ppc-4f35-3m26, GHSA-7r86-cg39-jmmj, GHSA-23c5-xmqv-rm74
+  "minimatch@>=5.0.0 <5.1.8": "5.1.8" # same advisories, 5.x line
+  "minimatch@>=9.0.0 <9.0.7": "9.0.7" # same advisories, 9.x line
+  # brace-expansion: 1.x and 2.x lines (mastra CLI archiver/serve-handler, and
+  # minimatch under eslint). Kept within-major — v5 (the only GHSA-mh99 fix)
+  # switched to a named CJS export and breaks minimatch's `require(...)` default
+  # import (see auditConfig.ignoreGhsas below). These clear GHSA-3jxr.
+  "brace-expansion@>=1.0.0 <1.1.16": "1.1.16" # GHSA-3jxr-9vmj-r5cp (1.x line)
+  "brace-expansion@>=2.0.0 <2.1.2": "2.1.2" # GHSA-3jxr-9vmj-r5cp (2.x line)
+  # picomatch: 2.x (mastra deployer>fast-glob) and 4.x (vitest) lines
+  "picomatch@>=2.0.0 <2.3.2": "2.3.2" # GHSA-c2c7-rcm5-vvqj
+  "picomatch@>=4.0.0 <4.0.4": "4.0.4" # GHSA-c2c7-rcm5-vvqj
+  # js-yaml: 3.x (@mastra/core>gray-matter) and 4.x (eslint>@eslint/eslintrc) lines
+  "js-yaml@>=3.0.0 <3.15.0": "3.15.0" # GHSA-52cp-r559-cp3m
+  "js-yaml@>=4.0.0 <4.3.0": "4.3.0" # GHSA-52cp-r559-cp3m
+
+# Audit allowlist (ADR 0027) — last resort: no compatible reachable patch.
+auditConfig:
+  ignoreGhsas:
+    # brace-expansion ReDoS. npm marks every version <=5.0.7 vulnerable; the only
+    # fix (5.0.8) ships a named CJS export that breaks the `require()` default
+    # import in the minimatch versions our tree pins (eslint-plugin-import@2,
+    # readdir-glob, archiver's glob) — verified by "expand is not a function"
+    # across all lint tasks. No fix compatible with these parents exists. Reached
+    # only through build/dev tooling (eslint, mastra CLI archiver) on
+    # non-attacker-controlled glob patterns. Re-check when those parents move to
+    # a minimatch that consumes brace-expansion 5.x. Added 2026-07-28.
+    - GHSA-mh99-v99m-4gvg

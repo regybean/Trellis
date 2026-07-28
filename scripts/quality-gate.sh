@@ -31,7 +31,24 @@ mkdir -p "$STAGE_DIR"
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
-order=(turbo check:exports boundaries lint:ws deps:lint test:policy gitleaks)
+order=(turbo check:exports boundaries lint:ws deps:lint test:policy gitleaks audit)
+
+# Dependency audit (ADR 0027). CI is the hard backstop; locally this stage
+# graceful-degrades on network failure (skip + warn, like gitleaks) so offline
+# PR prep isn't blocked. A registry that returns advisories still FAILs — only a
+# transport error (can't reach the registry) is treated as a skip.
+run_audit() {
+  local out rc
+  out=$(pnpm audit --audit-level=high 2>&1)
+  rc=$?
+  printf '%s\n' "$out"
+  if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE \
+    'ENOTFOUND| EAI_AGAIN|ETIMEDOUT|ECONNREFUSED|ECONNRESET|socket hang up|getaddrinfo|request to .* failed|ERR_PNPM_META_FETCH_FAIL|ERR_PNPM_AUDIT|network'; then
+    echo "⚠️  pnpm audit could not reach the registry; skipping (CI enforces)."
+    return 0
+  fi
+  return "$rc"
+}
 
 # Launch a stage in the background: name + command. Output → per-stage log,
 # exit code → per-stage .rc file. No stage can abort another.
@@ -55,6 +72,7 @@ launch lint:ws       pnpm lint:ws
 launch deps:lint     pnpm deps:lint
 launch test:policy   pnpm test:policy
 launch gitleaks      pnpm gitleaks
+launch audit         run_audit
 
 wait
 

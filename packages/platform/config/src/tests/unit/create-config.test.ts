@@ -81,7 +81,7 @@ describe('createConfig — validation', () => {
         profiles: { default: { client: { PATH: 'no-leading-slash' } } },
         context: server(true, 'development'),
       }),
-    ).toThrowError(ConfigValidationError);
+    ).toThrow(ConfigValidationError);
   });
 
   it('throws when the base profile omits a required key', () => {
@@ -91,7 +91,7 @@ describe('createConfig — validation', () => {
         profiles: { default: { client: {} } },
         context: server(true, 'development'),
       }),
-    ).toThrowError(ConfigValidationError);
+    ).toThrow(ConfigValidationError);
   });
 });
 
@@ -103,7 +103,7 @@ describe('createConfig — client guard', () => {
 
   it('throws when a server-only key is read on the client', () => {
     const config = sampleConfig(server(false, 'development'));
-    expect(() => config.SUCCESS_PATH).toThrowError(/server-only/);
+    expect(() => config.SUCCESS_PATH).toThrow(/server-only/);
   });
 
   it('still exposes client keys on the client', () => {
@@ -116,7 +116,7 @@ describe('createConfig — client guard', () => {
     expect(() => {
       // @ts-expect-error — config is read-only by contract
       config.PLAN_ID = 'mutated';
-    }).toThrowError(/read-only/);
+    }).toThrow(/read-only/);
   });
 });
 
@@ -141,7 +141,7 @@ describe('configExtends', () => {
     const context = server(false, 'development');
     const config = configExtends([authConfig(context), sampleConfig(context)]);
     expect(config.SIGN_IN_URL).toBe('/sign-in');
-    expect(() => config.SUCCESS_PATH).toThrowError(/server-only/);
+    expect(() => config.SUCCESS_PATH).toThrow(/server-only/);
   });
 
   it('accepts an empty list (the slim-app edge)', () => {
@@ -149,8 +149,6 @@ describe('configExtends', () => {
   });
 
   it('rejects a value that is not a createConfig result', () => {
-    expect(() => configExtends([{ PLAN_ID: 'x' }])).toThrowError(
-      /createConfig/,
-    );
+    expect(() => configExtends([{ PLAN_ID: 'x' }])).toThrow(/createConfig/);
   });
 });

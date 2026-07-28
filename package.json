@@ -21,6 +21,7 @@
   "packageManager": "pnpm@10.15.1",
   "private": true,
   "scripts": {
+    "audit": "pnpm audit --audit-level=high",
     "boundaries": "turbo boundaries",
     "check:exports": "node scripts/check-exports.mjs",
     "build": "turbo run build",

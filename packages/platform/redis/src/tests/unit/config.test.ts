@@ -22,6 +22,6 @@ describe('redisConfig', () => {
 
   it('throws when the server-only REDIS_URL is read on the client', () => {
     const config = redisConfig(context(false, 'development'));
-    expect(() => config.REDIS_URL).toThrowError(/server-only/);
+    expect(() => config.REDIS_URL).toThrow(/server-only/);
   });
 });
