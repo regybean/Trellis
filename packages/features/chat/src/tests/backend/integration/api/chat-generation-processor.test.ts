@@ -26,6 +26,7 @@ import {
 } from '../../../../api/chat-keys';
 import { chatAgent } from '../../../../api/services/chat-agent';
 import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
+import { coalesceBatch } from '../../../../api/services/chat-stream-parser';
 import { chatConfig } from '../../../../config';
 import { appEnv } from '../../../../env';
 import { fakeAgentStream, throwingAgentStream } from '../../setup';
@@ -87,6 +88,14 @@ function streamField(fields: string[], name: string): string | undefined {
   return fields.at(idx + 1);
 }
 
+// Read the whole Stream back through the SAME pure parser the reader uses, so
+// the producer is asserted symmetrically to the consumer (the writer wrote it,
+// `coalesceBatch`/`parseEntry` decode it) — never by hand-indexing raw fields.
+async function readStreamEvents(conversationId: string) {
+  const entries = await redis.xRange(chatStreamKey(conversationId), '-', '+');
+  return [...coalesceBatch(entries)].map((e) => e.event);
+}
+
 describe('chatGenerationProcessor', () => {
   let refundCalls: RefundCall[];
   let processor: ReturnType<typeof createChatGenerationProcessor>;
@@ -121,6 +130,53 @@ describe('chatGenerationProcessor', () => {
 
       const lastFields = entries.at(-1)?.[1] ?? [];
       expect(streamField(lastFields, 'type')).toBe('done');
+    });
+
+    it('publishes the delta sequence the reader reassembles to the LLM output', async () => {
+      const job = makeJob();
+      const { conversationId } = job.data;
+
+      await createTestChat({
+        sessionId: conversationId,
+        userId: job.data.userId,
+      });
+      await processor(job);
+
+      // Read back through the reader's pure parser: the coalesced delta(s) must
+      // reassemble to exactly the mocked stream, closed by a done terminal.
+      const events = await readStreamEvents(conversationId);
+      const text = events
+        .filter((e) => e.type === 'delta')
+        .map((e) => e.chunk)
+        .join('');
+      expect(text).toBe('Test response from mocked LLM.');
+      expect(events.at(-1)?.type).toBe('done');
+    });
+
+    it('carries the persisted assistant Message id on done (no recall scan)', async () => {
+      const job = makeJob();
+      const { conversationId, userId } = job.data;
+
+      await createTestChat({ sessionId: conversationId, userId });
+      await processor(job);
+
+      // The id round-trip: the id persist minted (and the writer put on `done`)
+      // is exactly the id the chat-memory recall reports for the Message — so a
+      // terminal no longer depends on scanning the whole thread.
+      const events = await readStreamEvents(conversationId);
+      const terminal = events.at(-1);
+      if (terminal?.type !== 'done') {
+        throw new Error(`expected a done terminal, got ${terminal?.type}`);
+      }
+
+      const { messages } = await memory.recall({
+        threadId: conversationId,
+        resourceId: userId,
+        perPage: false,
+      });
+      const assistant = messages.filter((m) => m.role === 'assistant');
+      expect(assistant).toHaveLength(1);
+      expect(assistant[0]?.id).toBe(terminal.messageId);
     });
 
     it('persists the assistant Message so chat.get returns it', async () => {
