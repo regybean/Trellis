@@ -183,10 +183,26 @@ export function useChat(
   // Declared as functions (not arrow consts) so `applyIntent` and `dispatch` can
   // reference each other — the two history-read intents re-dispatch their result.
   function dispatch(event: TurnEvent) {
-    const { state: next, intents } = turnReducer(stateRef.current, event);
-    stateRef.current = next;
-    setTurnState(next);
+    const { nextState, intents } = turnReducer(stateRef.current, event);
+    stateRef.current = nextState;
+    setTurnState(nextState);
     for (const intent of intents) applyIntent(intent);
+  }
+
+  // Pull authoritative history via the vanilla client — no cache write, so the
+  // streaming bubble is never clobbered — and re-dispatch the result; a failed
+  // read becomes null, which the reducer treats as its own path. Shared by the
+  // resume-prefix and orphan-reconcile intents (they differ only in the event).
+  function readHistory(toEvent: (history: Message[] | null) => TurnEvent) {
+    void (async () => {
+      let history: Message[] | null = null;
+      try {
+        history = await trpcClient.chat.get.query({ sessionId });
+      } catch {
+        history = null;
+      }
+      dispatch(toEvent(history));
+    })();
   }
 
   function applyIntent(intent: CacheIntent) {
@@ -201,19 +217,6 @@ export function useChat(
           ...prev,
           { text: intent.text, role: 'user', loading: false, error: false },
           loadingAssistant(),
-        ]);
-        return;
-      }
-      case 'validationError': {
-        setMessages((prev) => [
-          ...prev,
-          { text: intent.text, role: 'user', loading: false, error: false },
-          {
-            text: intent.message,
-            role: 'assistant',
-            loading: false,
-            error: true,
-          },
         ]);
         return;
       }
@@ -284,33 +287,14 @@ export function useChat(
         return;
       }
       case 'readHistoryForPrefix': {
-        // Pull authoritative history WITHOUT clobbering the streaming bubble
-        // (vanilla client read → no cache write); a failed read keeps the
-        // optimistic bubble (null → reducer no-op).
-        void (async () => {
-          let history: Message[] | null = null;
-          try {
-            history = await trpcClient.chat.get.query({ sessionId });
-          } catch {
-            history = null;
-          }
-          dispatch({ type: 'historyPrefixLoaded', history });
-        })();
+        // A failed read keeps the optimistic bubble (null → reducer no-op).
+        readHistory((history) => ({ type: 'historyPrefixLoaded', history }));
         return;
       }
       case 'readHistoryForReconcile': {
-        // chat.get is authoritative: read it fresh via the vanilla client. The
-        // reducer decides adopt-vs-refund from the returned counts; a failed read
-        // (null) is treated as the orphan path.
-        void (async () => {
-          let history: Message[] | null = null;
-          try {
-            history = await trpcClient.chat.get.query({ sessionId });
-          } catch {
-            history = null;
-          }
-          dispatch({ type: 'historyReconciled', history });
-        })();
+        // The reducer decides adopt-vs-refund from the returned counts; a failed
+        // read (null) is treated as the orphan path.
+        readHistory((history) => ({ type: 'historyReconciled', history }));
         return;
       }
     }
@@ -394,15 +378,21 @@ export function useChat(
     if (stateRef.current.phase !== 'idle') return;
 
     // Validate length before sending — the URL carries the sessionId and an
-    // over-long message would overflow it. Show the error inline (into the
-    // cache, our single render source) without starting a Turn. Unsent, so a
-    // later chat.get refetch drops it.
+    // over-long message would overflow it. Write the error straight into the
+    // cache (our single render source) without starting a Turn — no Turn means
+    // no reducer transition, so this stays a plain cache write, not an intent.
+    // Unsent, so a later chat.get refetch drops it.
     if (text.length > MAX_MESSAGE_LENGTH) {
-      applyIntent({
-        kind: 'validationError',
-        text,
-        message: `Message is too long (${text.length} characters). Please keep messages under ${MAX_MESSAGE_LENGTH} characters.`,
-      });
+      setMessages((prev) => [
+        ...prev,
+        { text, role: 'user', loading: false, error: false },
+        {
+          text: `Message is too long (${text.length} characters). Please keep messages under ${MAX_MESSAGE_LENGTH} characters.`,
+          role: 'assistant',
+          loading: false,
+          error: true,
+        },
+      ]);
       return;
     }
 

@@ -72,7 +72,6 @@ export type TurnEvent =
 export type CacheIntent =
   // chat.get writers
   | { kind: 'optimisticUserTurn'; text: string }
-  | { kind: 'validationError'; text: string; message: string }
   | { kind: 'appendDelta'; chunk: string }
   | { kind: 'settleAssistant'; messageId: string | null }
   | { kind: 'errorAssistant' }
@@ -111,76 +110,66 @@ const isAnsweredHistory = (history: Message[]) => {
 };
 
 export interface TurnReducerResult {
-  state: TurnState;
+  nextState: TurnState;
   intents: CacheIntent[];
 }
+
+// Ties the next state to its intents. The typed params give the call sites their
+// contextual type, so the state and intent literals stay narrow without a return
+// annotation on every reducer helper (the codebase avoids those).
+const result = (nextState: TurnState, intents: CacheIntent[]) => ({
+  nextState,
+  intents,
+});
 
 // A guarded no-op: an event that doesn't apply to the current phase leaves the
 // state untouched and emits nothing. This is how the reducer subsumes the old
 // per-callback `phaseRef` re-checks — a late delta/close/adopt lands HERE.
-const noop = (state: TurnState): TurnReducerResult => ({ state, intents: [] });
+const noop = (state: TurnState) => result(state, []);
 
 type EventOf<T extends TurnEvent['type']> = Extract<TurnEvent, { type: T }>;
 
-const reduceSend = (
-  state: TurnState,
-  event: EventOf<'send'>,
-): TurnReducerResult =>
+const reduceSend = (state: TurnState, event: EventOf<'send'>) =>
   state.phase === 'idle'
-    ? {
-        state: { ...state, phase: 'sending' },
-        intents: [
-          { kind: 'optimisticUserTurn', text: event.text },
-          { kind: 'upsertConversation' },
-        ],
-      }
+    ? result({ ...state, phase: 'sending' }, [
+        { kind: 'optimisticUserTurn', text: event.text },
+        { kind: 'upsertConversation' },
+      ])
     : noop(state);
 
-const reduceSendResult = (
-  state: TurnState,
-  event: EventOf<'sendResult'>,
-): TurnReducerResult =>
+const reduceSendResult = (state: TurnState, event: EventOf<'sendResult'>) =>
   state.phase === 'sending'
-    ? {
-        state: {
+    ? result(
+        {
           phase: 'streaming',
           ownedTurnId: event.ownedTurnId,
           resumeConsumed: true,
         },
-        intents: [],
-      }
+        [],
+      )
     : noop(state);
 
-const reduceSendFailed = (state: TurnState): TurnReducerResult =>
+const reduceSendFailed = (state: TurnState) =>
   state.phase === 'sending'
-    ? {
-        state: { ...state, phase: 'idle' },
-        intents: [{ kind: 'errorAssistant' }],
-      }
+    ? result({ ...state, phase: 'idle' }, [{ kind: 'errorAssistant' }])
     : noop(state);
 
-const reduceStreamDelta = (
-  state: TurnState,
-  event: EventOf<'streamDelta'>,
-): TurnReducerResult =>
+const reduceStreamDelta = (state: TurnState, event: EventOf<'streamDelta'>) =>
   state.phase === 'streaming'
-    ? { state, intents: [{ kind: 'appendDelta', chunk: event.chunk }] }
+    ? result(state, [{ kind: 'appendDelta', chunk: event.chunk }])
     : noop(state);
 
 const reduceStreamTerminal = (
   state: TurnState,
   event: EventOf<'streamTerminal'>,
-): TurnReducerResult =>
+) =>
   state.phase === 'streaming'
-    ? {
-        state: { ...state, phase: 'idle', ownedTurnId: null },
-        intents: [
-          event.outcome === 'error'
-            ? { kind: 'errorAssistant' }
-            : { kind: 'settleAssistant', messageId: event.messageId },
-          ...FINISH_INTENTS,
-        ],
-      }
+    ? result({ ...state, phase: 'idle', ownedTurnId: null }, [
+        event.outcome === 'error'
+          ? { kind: 'errorAssistant' }
+          : { kind: 'settleAssistant', messageId: event.messageId },
+        ...FINISH_INTENTS,
+      ])
     : noop(state);
 
 // A reconnect during our own Turn (already streaming) keeps flowing; otherwise
@@ -190,58 +179,51 @@ const reduceStreamTerminal = (
 const reduceReaderStarted = (
   state: TurnState,
   event: EventOf<'readerStarted'>,
-): TurnReducerResult =>
+) =>
   state.phase === 'streaming'
     ? noop(state)
-    : {
-        state: {
+    : result(
+        {
           phase: 'streaming',
           ownedTurnId: event.inflightTurnId,
           resumeConsumed: true,
         },
-        intents: [
+        [
           { kind: 'cancelHistoryFetch' },
           { kind: 'ensureLoadingAssistant' },
           { kind: 'readHistoryForPrefix' },
         ],
-      };
+      );
 
 const reduceHistoryPrefixLoaded = (
   state: TurnState,
   event: EventOf<'historyPrefixLoaded'>,
-): TurnReducerResult =>
+) =>
   state.phase === 'streaming' && event.history !== null
-    ? {
-        state,
-        intents: [{ kind: 'spliceHistoryPrefix', history: event.history }],
-      }
+    ? result(state, [{ kind: 'spliceHistoryPrefix', history: event.history }])
     : noop(state);
 
 // A stale close from a torn-down reader — or the `idle` that trails a terminal —
 // does nothing; only a live streaming Turn triggers reconcile.
-const reduceReaderClosed = (state: TurnState): TurnReducerResult =>
+const reduceReaderClosed = (state: TurnState) =>
   state.phase === 'streaming'
-    ? {
-        state: { ...state, phase: 'settling' },
-        intents: [{ kind: 'readHistoryForReconcile' }],
-      }
+    ? result({ ...state, phase: 'settling' }, [
+        { kind: 'readHistoryForReconcile' },
+      ])
     : noop(state);
 
 const reduceHistoryReconciled = (
   state: TurnState,
   event: EventOf<'historyReconciled'>,
-): TurnReducerResult => {
+) => {
   if (state.phase !== 'settling') return noop(state);
   const next: TurnState = { ...state, phase: 'idle', ownedTurnId: null };
   // Missed terminal: the answer is persisted, so adopt server truth.
   if (event.history !== null && isAnsweredHistory(event.history)) {
-    return {
-      state: next,
-      intents: [
-        { kind: 'adoptHistory', history: event.history },
-        ...FINISH_INTENTS,
-      ],
-    };
+    return result(next, [
+      { kind: 'adoptHistory', history: event.history },
+      ...FINISH_INTENTS,
+    ]);
   }
   // True orphan: mark the bubble errored and reconcile+refund the Turn we own
   // (an attached-only client has no turnId and nothing to refund).
@@ -249,21 +231,19 @@ const reduceHistoryReconciled = (
     state.ownedTurnId === null
       ? []
       : [{ kind: 'reconcileTurn', turnId: state.ownedTurnId }];
-  return {
-    state: next,
-    intents: [{ kind: 'errorAssistant' }, ...reconcile, ...FINISH_INTENTS],
-  };
+  return result(next, [
+    { kind: 'errorAssistant' },
+    ...reconcile,
+    ...FINISH_INTENTS,
+  ]);
 };
 
-const reduceStopped = (state: TurnState): TurnReducerResult =>
+const reduceStopped = (state: TurnState) =>
   state.phase === 'streaming'
-    ? {
-        state: { ...state, phase: 'idle', ownedTurnId: null },
-        intents: [
-          { kind: 'settleAssistant', messageId: null },
-          ...FINISH_INTENTS,
-        ],
-      }
+    ? result({ ...state, phase: 'idle', ownedTurnId: null }, [
+        { kind: 'settleAssistant', messageId: null },
+        ...FINISH_INTENTS,
+      ])
     : noop(state);
 
 export function turnReducer(
@@ -337,10 +317,14 @@ export function isWedgedTurn({
   );
 }
 
-export function deriveMessages(input: DeriveMessagesInput): Message[] {
+const WEDGED_ERROR_BUBBLE: Message = {
+  text: ERROR_TEXT,
+  role: 'assistant',
+  loading: false,
+  error: true,
+};
+
+export function deriveMessages(input: DeriveMessagesInput) {
   if (!isWedgedTurn(input)) return input.base;
-  return [
-    ...input.base,
-    { text: ERROR_TEXT, role: 'assistant', loading: false, error: true },
-  ];
+  return [...input.base, WEDGED_ERROR_BUBBLE];
 }

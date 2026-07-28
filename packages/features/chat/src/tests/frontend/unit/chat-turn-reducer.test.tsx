@@ -44,7 +44,7 @@ const FINISH = [
 // ── Normal: send → accepted → streaming → terminal ─────────────────────────
 describe('turnReducer — normal', () => {
   it('send from idle → sending, optimistic user turn + sidebar upsert', () => {
-    const { state, intents } = turnReducer(initialTurnState, {
+    const { nextState: state, intents } = turnReducer(initialTurnState, {
       type: 'send',
       text: 'Hello',
     });
@@ -60,7 +60,7 @@ describe('turnReducer — normal', () => {
   });
 
   it('accepted send result from sending → streaming and owns the turnId', () => {
-    const { state, intents } = turnReducer(
+    const { nextState: state, intents } = turnReducer(
       { phase: 'sending', ownedTurnId: null, resumeConsumed: false },
       { type: 'sendResult', ownedTurnId: TURN },
     );
@@ -73,7 +73,7 @@ describe('turnReducer — normal', () => {
   });
 
   it('alreadyInflight send result from sending → streaming, owns nothing', () => {
-    const { state } = turnReducer(
+    const { nextState: state } = turnReducer(
       { phase: 'sending', ownedTurnId: null, resumeConsumed: false },
       { type: 'sendResult', ownedTurnId: null },
     );
@@ -82,7 +82,7 @@ describe('turnReducer — normal', () => {
   });
 
   it('failed send from sending → idle, errors the assistant bubble', () => {
-    const { state, intents } = turnReducer(
+    const { nextState: state, intents } = turnReducer(
       { phase: 'sending', ownedTurnId: null, resumeConsumed: false },
       { type: 'sendFailed' },
     );
@@ -91,7 +91,7 @@ describe('turnReducer — normal', () => {
   });
 
   it('delta while streaming appends to the last assistant', () => {
-    const { state, intents } = turnReducer(streaming(TURN), {
+    const { nextState: state, intents } = turnReducer(streaming(TURN), {
       type: 'streamDelta',
       chunk: 'tok',
     });
@@ -100,7 +100,7 @@ describe('turnReducer — normal', () => {
   });
 
   it('done terminal → idle, settles the assistant with its messageId + finish', () => {
-    const { state, intents } = turnReducer(streaming(TURN), {
+    const { nextState: state, intents } = turnReducer(streaming(TURN), {
       type: 'streamTerminal',
       outcome: 'done',
       messageId: 'msg-1',
@@ -126,7 +126,7 @@ describe('turnReducer — normal', () => {
   });
 
   it('stop → idle, settles (no messageId) + finish', () => {
-    const { state, intents } = turnReducer(streaming(TURN), {
+    const { nextState: state, intents } = turnReducer(streaming(TURN), {
       type: 'stopped',
     });
     expect(state.phase).toBe('idle');
@@ -142,7 +142,7 @@ describe('turnReducer — normal', () => {
       ownedTurnId: null,
       resumeConsumed: true,
     };
-    const { state, intents } = turnReducer(idle, {
+    const { nextState: state, intents } = turnReducer(idle, {
       type: 'streamDelta',
       chunk: 'late',
     });
@@ -218,7 +218,7 @@ describe('deriveMessages — wedged Turn', () => {
 // ── Resume-after-refresh: cold open adopts a cached in-flight Turn ─────────
 describe('turnReducer — resume', () => {
   it('reader start from idle adopts the lock turnId + splices the prefix', () => {
-    const { state, intents } = turnReducer(initialTurnState, {
+    const { nextState: state, intents } = turnReducer(initialTurnState, {
       type: 'readerStarted',
       inflightTurnId: TURN,
     });
@@ -236,7 +236,7 @@ describe('turnReducer — resume', () => {
 
   it('reader start during our own Turn (already streaming) is a no-op', () => {
     const s = streaming(TURN);
-    const { state, intents } = turnReducer(s, {
+    const { nextState: state, intents } = turnReducer(s, {
       type: 'readerStarted',
       inflightTurnId: TURN,
     });
@@ -273,7 +273,7 @@ describe('turnReducer — resume', () => {
 // ── Orphan / missed-terminal: reader closed with no terminal ───────────────
 describe('turnReducer — orphan / missed-terminal', () => {
   it('reader close while streaming → settling, re-reads history', () => {
-    const { state, intents } = turnReducer(streaming(TURN), {
+    const { nextState: state, intents } = turnReducer(streaming(TURN), {
       type: 'readerClosed',
     });
     expect(state).toEqual(settling(TURN));
@@ -286,14 +286,16 @@ describe('turnReducer — orphan / missed-terminal', () => {
       ownedTurnId: null,
       resumeConsumed: true,
     };
-    const { state, intents } = turnReducer(idle, { type: 'readerClosed' });
+    const { nextState: state, intents } = turnReducer(idle, {
+      type: 'readerClosed',
+    });
     expect(state).toBe(idle);
     expect(intents).toEqual([]);
   });
 
   it('missed terminal (assistant persisted) → adopt server truth, no refund', () => {
     const history = [userMsg('q'), assistantMsg('a')];
-    const { state, intents } = turnReducer(settling(TURN), {
+    const { nextState: state, intents } = turnReducer(settling(TURN), {
       type: 'historyReconciled',
       history,
     });
@@ -306,7 +308,7 @@ describe('turnReducer — orphan / missed-terminal', () => {
   });
 
   it('true orphan (no assistant) owned by us → error + reconcile refund', () => {
-    const { state, intents } = turnReducer(settling(TURN), {
+    const { nextState: state, intents } = turnReducer(settling(TURN), {
       type: 'historyReconciled',
       history: [userMsg('q')],
     });
