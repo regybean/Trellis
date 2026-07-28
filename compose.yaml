@@ -3,19 +3,23 @@ services:
     image: pgvector/pgvector:pg17
     container_name: trellis-postgres
     ports:
-      - "${DB_PORT:-5432}:5432"
+      # DB_PORT/USER/NAME + DB_VECTOR_NAME are single-sourced from config and
+      # exported by scripts/compose.sh (ADR 0026, #126) — bare refs, no `:-`
+      # fallback, so a missing export fails loud rather than masking config drift.
+      # DB_PASSWORD is the container secret and stays in .env (env_file below).
+      - "${DB_PORT}:5432"
     environment:
-      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
-      POSTGRES_DB: ${DB_NAME:-testdb}
-      DB_VECTOR_NAME: ${DB_VECTOR_NAME:-vectordb}
+      POSTGRES_DB: ${DB_NAME}
+      DB_VECTOR_NAME: ${DB_VECTOR_NAME}
     volumes:
       - pg_data:/var/lib/postgresql
       - ./ops/db-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         - CMD-SHELL
-        - pg_isready -U ${DB_USER:-postgres}
+        - pg_isready -U ${DB_USER}
       interval: 2s
       timeout: 3s
       retries: 40
@@ -29,7 +33,9 @@ services:
     image: redis:alpine
     container_name: trellis-redis
     ports:
-      - "${REDIS_PORT:-6379}:6379"
+      # REDIS_PORT is parsed from REDIS_URL in config + exported by compose.sh
+      # (ADR 0026, #126). REDIS_PASSWORD is the container secret, from .env.
+      - "${REDIS_PORT}:6379"
     command:
       - sh
       - -c
@@ -135,18 +141,18 @@ services:
       - jaeger
 
   # Local LLM / embedding runtime, for dev and test without cloud providers.
-  # Gated behind the `ollama` profile (see scripts/resolve-infra.mjs): declared by
-  # the model-using packages, then kept only when LLM_PROVIDER or EMBED_PROVIDER is
-  # `ollama`. A single container serves both
+  # Gated behind the `ollama` profile (see scripts/resolve-infra.ts): declared by
+  # the model-using packages, then kept only when the chat or embed role's
+  # provider is `ollama` (read from modelsConfig). A single container serves both
   # chat and embeddings over the OpenAI-compatible `/v1` endpoint. Models are
-  # pulled on first boot; the `${OLLAMA_*_MODEL}` names are single-sourced from
-  # @acme/models config and exported by scripts/compose.sh (ADR 0026, #120), so
-  # they are never duplicated in .env.
+  # pulled on first boot; OLLAMA_PORT + the `${OLLAMA_*_MODEL}` pull IDs are
+  # single-sourced from @acme/models config and exported by scripts/compose.sh
+  # (ADR 0026, #126), so they are never duplicated in .env.
   ollama:
     image: ollama/ollama:0.9.4
     container_name: trellis-ollama
     ports:
-      - "${OLLAMA_PORT:-11434}:11434"
+      - "${OLLAMA_PORT}:11434"
     entrypoint:
       - /bin/sh
       - -c
