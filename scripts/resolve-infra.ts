@@ -12,7 +12,7 @@
 // (ADR 0026), NOT process.env:
 //   - `billing` (localstripe) is dropped unless the Stripe connection resolves
 //     to `localstripe` (real Stripe needs no local container). Reads
-//     `stripeConnectionConfig`'s discriminated union.
+//     `billingConfig`'s `stripe` discriminated union.
 //   - `ollama` is dropped unless the chat or embed role's provider is `ollama`.
 //     Reads the role variants on `modelsConfig`.
 // Run via `pnpm exec tsx` (not `node`) so the TS config imports resolve,
@@ -26,7 +26,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { stripeConnectionConfig } from "../packages/features/billing/src/config";
+import { billingConfig } from "../packages/features/billing/src/config";
 import { modelsConfig } from "../packages/shared/models/src/config";
 
 // `import.meta.dirname` is undefined under tsx's CJS transform; derive it from
@@ -93,7 +93,7 @@ for (const proj of projects) {
 // Hardcode the development profile: infra is a local dev/test concern and
 // neither prune has a staging/production override (mirrors
 // scripts/resolve-compose-env.ts).
-const billing = stripeConnectionConfig({
+const billing = billingConfig({
   appEnv: "development",
   isServer: true,
 });
