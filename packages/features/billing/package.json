@@ -42,6 +42,7 @@
     "@testing-library/user-event": "catalog:",
     "eslint": "catalog:",
     "prettier": "catalog:",
+    "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
   },
@@ -80,7 +81,7 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "format": "prettier --check . --ignore-path ../../../.prettierignore",
     "lint": "eslint",
-    "seed:localstripe": "node scripts/seed-localstripe.ts",
+    "seed:localstripe": "tsx scripts/seed-localstripe.ts",
     "test": "pnpm test:backend && pnpm test:frontend",
     "test:backend": "vitest run --config vitest.config.backend.ts",
     "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
