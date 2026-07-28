@@ -156,6 +156,15 @@ Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.js
 
 See `docs/agents/issue-tracker.md`.
 
+GitHub Issues read/write operations on this repo (`regybean/Trellis`) via the `gh`
+CLI or the GitHub API are routine internal issue-tracker workflow, within the trust
+boundary for those operations: assigning/unassigning issues, adding/removing labels,
+commenting, and opening/closing/editing issues and sub-issues. These are allowed
+autonomously as the normal operation of the tracker-driving workflows (e.g.
+wayfinding, triage, spec-to-tickets) — no separate confirmation needed. This does
+**not** extend to destructive Git operations, permission/visibility changes, or
+sending repo contents to third-party services.
+
 ### Triage labels
 
 See `docs/agents/triage-labels.md`.
