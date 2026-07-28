@@ -35,13 +35,15 @@ for arg in "$@"; do
 done
 
 # Resolve canonical app names + the infra profile set. Both default to "all apps"
-# when none are named. Guard the array expansion so an empty list is safe under
-# `set -u` (macOS bash 3.2).
+# when none are named — `--names` with no tokens already returns every app, so
+# call it in both branches (the no-app branch used to leave app_names="", the
+# blind spot that hid every app's dev log from prepare_log — ADR 0028 §4). Guard
+# the array expansion so an empty list is safe under `set -u` (macOS bash 3.2).
 if [ ${#apps[@]} -gt 0 ]; then
   app_names="$(pnpm exec tsx scripts/resolve-infra.ts --names "${apps[@]}")"
   profiles="$(pnpm exec tsx scripts/resolve-infra.ts "${apps[@]}")"
 else
-  app_names=""
+  app_names="$(pnpm exec tsx scripts/resolve-infra.ts --names)"
   profiles="$(pnpm exec tsx scripts/resolve-infra.ts)"
 fi
 echo "dev: infra → ${profiles:-(none)}"
@@ -70,17 +72,28 @@ if [ -n "$profiles" ]; then
   fi
 fi
 
-# --- Log capture (ADR 0028, slice A: infra streams) --------------------------
-# While the human runs `pnpm dev`, mirror each running compose service's output
-# to a clean-text, single-generation, dated logs/infra-<svc>.log so the agent
-# reads it instead of `pnpm infra:logs`. Capture is coextensive with this session:
-# DEV_LOG_DIR is exported for the below-turbo dev-app wrappers (slice B), and the
-# infra followers below are reaped on exit while the containers themselves stay
-# up for `pnpm infra:down`. dev.sh keeps `exec` off so it stays alive to own the
+# --- Log capture (ADR 0028) --------------------------------------------------
+# While the human runs `pnpm dev`, mirror both dev-server output (below turbo,
+# per app) and each running compose service's output to clean-text, single-
+# generation, dated logs/{dev,infra}-*.log so the agent reads them instead of
+# starting `pnpm dev` / `pnpm infra:logs` itself. Capture is coextensive with
+# this session: DEV_LOG_DIR gates + is read by the below-turbo dev-app wrappers,
+# and the infra followers below are reaped on exit while the containers stay up
+# for `pnpm infra:down`. dev.sh keeps `exec` off so it stays alive to own the
 # reap trap and run turbo in the foreground.
 START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 mkdir -p logs
 export DEV_LOG_DIR="$PWD/logs"
+
+# Truncate + dated header for every launching app's dev log, once per session,
+# BEFORE turbo starts (ADR 0028 §4). dev-capture (below turbo) only appends, so
+# single-generation holds no matter how turbo-watch restarts a dev server. A
+# subset run only refreshes its apps; other dev-*.log survive as stale-but-dated.
+while IFS= read -r app; do
+  [ -n "$app" ] || continue
+  slug="${app#@acme/}"
+  prepare_log "dev-$slug" "$(dev-log-path "$slug")"
+done <<<"$app_names"
 
 # One `<engine> logs -f` follower per running trellis-* container, addressed by
 # container name (so profile≠name resolves naturally: trellis-localstripe →
