@@ -23,14 +23,9 @@ function queueEnv() {
           'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
         ),
     },
-    server: {
-      REDIS_URL: z.url(),
-    },
-    client: {},
     runtimeEnv: {
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
       NODE_ENV: process.env.NODE_ENV,
-      REDIS_URL: process.env.REDIS_URL,
     },
     skipValidation,
   });
