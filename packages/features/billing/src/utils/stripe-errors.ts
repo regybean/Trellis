@@ -22,6 +22,7 @@ export enum BillingErrorCode {
   StripeUnavailable = 'BILLING_STRIPE_UNAVAILABLE',
   DevOnly = 'BILLING_DEV_ONLY',
   MissingPlan = 'BILLING_MISSING_PLAN',
+  MissingOrigin = 'BILLING_MISSING_ORIGIN',
 }
 
 type BillingTRPCCode =

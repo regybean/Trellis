@@ -32,6 +32,10 @@ export async function resolveClerkContext(req: Request) {
   return {
     headers: req.headers,
     req,
+    // The app's own public origin (its PORT in dev, deploy origin in prod), read
+    // off the request so billing can build the absolute Stripe checkout redirect
+    // URLs from the config-owned paths (ADR 0026 follow-up).
+    origin: new URL(req.url).origin,
     auth: authObject,
     user,
     entitlements,

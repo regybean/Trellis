@@ -130,6 +130,9 @@ export function createTestContext(
   const { subscription, tier, credits } = resolveEntitlements(opts);
   return {
     headers: new Headers(),
+    // A realistic app origin so procedures that build absolute redirect URLs
+    // (billing checkout) resolve one, matching what an app edge would inject.
+    origin: 'http://localhost:3000',
     auth: createMockAuth(opts.userId, opts.role),
     user: createMockUser(opts.userId),
     entitlements: createMockEntitlements(opts),

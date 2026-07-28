@@ -39,6 +39,8 @@ const BILLING_ERROR_TOASTS: Record<BillingErrorCode, string> = {
   [BillingErrorCode.DevOnly]: '❌ This action is only available in local dev',
   [BillingErrorCode.MissingPlan]:
     '❌ Billing plan not configured: run the localstripe seed',
+  [BillingErrorCode.MissingOrigin]:
+    '❌ Billing is misconfigured: checkout origin unavailable',
 };
 
 // The billing-portal redirect copy. No call site overrides it, so it stays a

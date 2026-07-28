@@ -27,10 +27,14 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
 
 /**
  * App-owned auth seam: resolve Clerk here and shape the neutral context input.
+ * `origin` is the app's own public origin (its `PORT` in dev, deploy origin in
+ * prod), read off the incoming request and threaded in so billing can build the
+ * absolute Stripe checkout redirect URLs (ADR 0026 follow-up).
  */
 const resolveContext = async (req: Request) => ({
   headers: req.headers,
   req,
+  origin: new URL(req.url).origin,
   auth: await auth(),
   user: await currentUser(),
   entitlements,

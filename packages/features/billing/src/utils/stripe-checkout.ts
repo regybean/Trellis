@@ -5,7 +5,8 @@ import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 
 import type { StripeCustomer } from './stripe-client';
-import { env } from '../env';
+import { stripeConnectionConfig } from '../config';
+import { appEnv } from '../env';
 import { getStripe } from './stripe-client';
 import {
   billingError,
@@ -16,6 +17,15 @@ import {
 // Constants
 const DEFAULT_QUANTITY = 1;
 const SUBSCRIPTION_SEARCH_LIMIT = 1;
+
+// The checkout redirect paths are config-as-code (ADR 0026 follow-up); the
+// per-deploy origin is threaded in from the app edge (see `checkoutUrl`).
+const checkout = stripeConnectionConfig({ appEnv, isServer: true });
+
+// Build an absolute Stripe redirect URL from the app's own `origin` (threaded
+// from the app edge) and a config-owned, env-invariant path+query.
+const checkoutUrl = (origin: string, path: string) =>
+  new URL(path, origin).toString();
 
 export async function getProductWithPrice(
   productId: string,
@@ -206,6 +216,7 @@ export async function createCheckoutSession(
   customer: StripeCustomer,
   defaultPriceId: string,
   productId: string,
+  origin: string,
 ): Promise<Stripe.Checkout.Session> {
   return await withSpan(
     'stripe.createCheckoutSession',
@@ -220,8 +231,8 @@ export async function createCheckoutSession(
             quantity: DEFAULT_QUANTITY,
           },
         ],
-        success_url: env.STRIPE_SUCCESS_URL,
-        cancel_url: env.STRIPE_CANCEL_URL,
+        success_url: checkoutUrl(origin, checkout.checkoutSuccessPath),
+        cancel_url: checkoutUrl(origin, checkout.checkoutCancelPath),
         saved_payment_method_options: {
           payment_method_save: 'enabled',
         },
@@ -255,7 +266,10 @@ export async function createCheckoutSession(
  * Create a Stripe billing portal session for subscription management
  * This replaces the complex upgrade/downgrade logic and lets Stripe handle everything
  */
-export async function createDashboardSession(customerId: string): Promise<{
+export async function createDashboardSession(
+  customerId: string,
+  origin: string,
+): Promise<{
   billingPortalUrl: string;
 }> {
   return await withSpan(
@@ -266,7 +280,8 @@ export async function createDashboardSession(customerId: string): Promise<{
       // Create a billing portal session - Stripe handles all subscription management
       const session = await stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: env.STRIPE_SUCCESS_URL, // User returns here after making changes
+        // User returns here after making changes (origin from the app edge).
+        return_url: checkoutUrl(origin, checkout.checkoutSuccessPath),
       });
 
       logger.info(

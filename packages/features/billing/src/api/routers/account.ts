@@ -37,6 +37,24 @@ const CheckoutRequest = z.object({
   productId: z.string(),
 });
 
+/**
+ * The app's own public origin, threaded into the context at the app edge
+ * (`ctx.origin`) and combined with the config-owned checkout paths to build the
+ * absolute Stripe redirect URLs (ADR 0026 follow-up). Absent only in a build
+ * that mounts billing without threading it — surface that as a billing error
+ * rather than passing `undefined` into `new URL`.
+ */
+function requireOrigin(origin: string | undefined): string {
+  if (!origin) {
+    throw billingError(
+      BillingErrorCode.MissingOrigin,
+      'INTERNAL_SERVER_ERROR',
+      'Checkout requires the app origin to be threaded into the tRPC context',
+    );
+  }
+  return origin;
+}
+
 export const accountRouter = createTRPCRouter({
   createCheckoutSession: protectedProcedure
     .input(CheckoutRequest)
@@ -69,6 +87,7 @@ export const accountRouter = createTRPCRouter({
         customer,
         defaultPriceId,
         productId,
+        requireOrigin(ctx.origin),
       );
 
       // Note: Do not log email addresses - PII concern
@@ -106,7 +125,10 @@ export const accountRouter = createTRPCRouter({
     }
 
     // Create billing portal session - Stripe handles all the logic
-    const result = await createDashboardSession(stripeCustomerId);
+    const result = await createDashboardSession(
+      stripeCustomerId,
+      requireOrigin(ctx.origin),
+    );
 
     return {
       success: true,
