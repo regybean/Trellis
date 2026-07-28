@@ -21,7 +21,16 @@ const secretEnv = createEnv({
     DB_PASSWORD: z.string().nonempty(),
   },
   runtimeEnv: {
-    DB_PASSWORD: process.env.DB_PASSWORD,
+    // When validation is skipped (lint / the Next production build / a bare
+    // worktree — see `shouldSkipEnvValidation`) there is no real password and
+    // none is needed: no query runs. But Mastra's `PgVector`/`PostgresStore`
+    // validate a non-empty password in their *constructor*, which the Next build
+    // triggers by importing the chat route to collect page data. Stub it in that
+    // case so construction succeeds; runtime and vitest never skip validation, so
+    // the real secret is still enforced there.
+    DB_PASSWORD:
+      process.env.DB_PASSWORD ??
+      (skipValidation ? 'skip-validation-stub' : undefined),
   },
   skipValidation,
 });

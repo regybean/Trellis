@@ -42,6 +42,14 @@ interface ContextOpts {
   headers: Headers;
   req?: Request;
   res?: Response;
+  /**
+   * The app's own public origin (scheme + host + port), injected by the app
+   * adapter — its `PORT` in dev, its deploy origin in prod. Optional: a build
+   * that never constructs an absolute redirect URL (e.g. the slim apps, which
+   * strip billing) need not thread it. Billing combines it with the config-owned
+   * checkout paths to build the Stripe redirect URLs (ADR 0026 follow-up).
+   */
+  origin?: string;
   /** Resolved Clerk session auth, injected by the app adapter. */
   auth: InjectedAuth;
   /**

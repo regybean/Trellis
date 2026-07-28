@@ -9,8 +9,8 @@ import { getStripeCustomerId } from '@acme/subscriptions';
  * Server-derived localstripe mode (ADR 0003/0004), surfaced to the client
  * through the root route context → `BillingConfigProvider` seam so the client
  * reads one mode value instead of proxying it through `NODE_ENV`. A server
- * function guarantees the `STRIPE_API_BASE` read happens on the server; the
- * client can't reach that env directly.
+ * function guarantees the connection config (`stripeConnectionConfig`, ADR 0026
+ * follow-up) is read on the server; the client can't reach server config.
  */
 export const getLocalstripeMode = createServerFn({ method: 'GET' }).handler(
   () => localstripeMode,

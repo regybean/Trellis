@@ -274,6 +274,20 @@ migration follows. Resolved while building it:
   staging/production values** to author as profiles) stay in `process.env`. The
   dedup win — the values copy-pasted across every app's `.env.*` — is the
   `NEXT_PUBLIC_*` client set, and that is what migrated.
+  - **Follow-up (#146): these three also became config.** The Phase-1 carve-out
+    was reversed once `#124` (`REDIS_URL`) established that a value read by a
+    module-init singleton can still be config-as-code. `STRIPE_API_BASE` became a
+    **discriminated union** `stripe: { mode: 'localstripe', apiBase } | { mode:
+'real' }` (illegal states unrepresentable; the `real` overlay strips the
+    inherited `apiBase` on merge), and the checkout redirects **decomposed**:
+    their env-invariant path/query → config (`checkoutSuccessPath`/
+    `checkoutCancelPath`), their per-app origin → threaded at the app edge. All
+    three are **server-only**, so they do NOT sit on the client `billingConfig`
+    (which is Flight-serialized across the RSC boundary); they live in a second,
+    server-only `stripeConnectionConfig` factory in `@acme/billing`. This settles
+    that **a slice may own both a client and a server config** — each stays
+    single-sided, preserving the client-guard invariant. Only the Stripe secrets
+    remain in `env`.
 - **Clerk publishable key is config.** Public but per-deploy-target, so it joins
   `authConfig` (dev/staging/production profiles) and is fed to `<ClerkProvider>` +
   `clerkMiddleware`. Only `publishableKey` is passed to middleware — passing

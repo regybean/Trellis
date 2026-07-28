@@ -45,14 +45,13 @@ export const staticTestEnv = {
   // needs a valid url — Redis is never contacted). Backend suites with a
   // testcontainer have this overwritten per-run by hydrate-env.
   REDIS_URL: 'redis://localhost:6379',
-  // @acme/billing — Stripe plan IDs, publishable key and manage URL are now
-  // config-as-code (billingConfig, ADR 0026), not env: frontend suites read them
-  // through <BillingConfigProvider> and tier tests via injected plan IDs, so no
-  // NEXT_PUBLIC_STRIPE_* belongs here. Server secrets/URLs stay (still env).
+  // @acme/billing — every non-secret Stripe value is config-as-code now
+  // (billingConfig + stripeConnectionConfig, ADR 0026 + #146 follow-up), not env:
+  // the plan IDs / publishable key / manage URL (client) and the localstripe
+  // connection + checkout redirect paths (server) resolve from config, so none of
+  // them belong here. Only the Stripe secrets remain in env.
   STRIPE_SECRET_KEY: 'sk_test_123',
   STRIPE_WEBHOOK_SECRET: 'whsec_test_123',
-  STRIPE_SUCCESS_URL: 'https://app.example.test/success',
-  STRIPE_CANCEL_URL: 'https://app.example.test/cancel',
 } satisfies Record<string, string>;
 
 interface BackendProjectOptions {

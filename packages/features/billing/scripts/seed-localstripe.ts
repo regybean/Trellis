@@ -7,7 +7,7 @@
  * in-memory, so it must run after each localstripe (re)start.
  *
  * Run via `pnpm --filter @acme/billing seed:localstripe` (wired into infra:up).
- * No-ops when STRIPE_API_BASE is unset (i.e. when using real Stripe).
+ * No-ops when the Stripe connection config resolves to `real` Stripe.
  *
  * Note: localstripe predates Stripe's Prices API — it models the legacy Plans
  * API. We seed Products + Plans (not Prices); the app reads the deprecated
@@ -15,12 +15,22 @@
  */
 import Stripe from 'stripe';
 
-const apiBase = process.env.STRIPE_API_BASE;
-if (!apiBase) {
-  console.log('STRIPE_API_BASE not set — using real Stripe, skipping seed.');
+import { resolveAppEnv } from '@acme/config';
+
+import { stripeConnectionConfig } from '../src/config';
+
+// The Stripe connection is config-as-code now (ADR 0026 follow-up): localstripe
+// (dev) carries the `apiBase`; real Stripe carries none and needs no seeding.
+const connection = stripeConnectionConfig({
+  appEnv: resolveAppEnv(process.env.APP_ENV),
+  isServer: true,
+}).stripe;
+if (connection.mode === 'real') {
+  console.log('Stripe connection is real — using real Stripe, skipping seed.');
   process.exit(0);
 }
 
+const apiBase = connection.apiBase;
 const url = new URL(apiBase);
 const isHttps = url.protocol === 'https:';
 const stripe = new Stripe(
