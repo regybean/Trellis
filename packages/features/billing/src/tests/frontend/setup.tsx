@@ -40,24 +40,42 @@ vi.mock('@acme/auth', () => ({
 }));
 
 /**
- * Providers every billing frontend test renders under: the feature's tRPC +
- * React Query provider, plus a real `<ToastContainer />` so success/error
- * toasts are asserted as DOM text (ADR 0018), not via a mocked `toast`.
+ * Build the providers every billing frontend test renders under: the feature's
+ * tRPC + React Query provider, the `BillingConfigProvider` carrying the client
+ * config + server-derived localstripe mode, and a real `<ToastContainer />` so
+ * success/error toasts are asserted as DOM text (ADR 0018), not via a mocked
+ * `toast`. `localstripeMode` defaults to `false` (real Stripe) — the mode is
+ * threaded through the provider seam, so a test opts into localstripe by passing
+ * `{ localstripeMode: true }` rather than touching `NODE_ENV`.
  */
-export const Providers = ({ children }: { children: ReactNode }) => (
-  <TRPCReactProvider>
-    <BillingConfigProvider config={testBillingConfig}>
-      {children}
-      <ToastContainer />
-    </BillingConfigProvider>
-  </TRPCReactProvider>
-);
+export const makeProviders =
+  (opts?: { localstripeMode?: boolean }) =>
+  ({ children }: { children: ReactNode }) => (
+    <TRPCReactProvider>
+      <BillingConfigProvider
+        config={testBillingConfig}
+        localstripeMode={opts?.localstripeMode ?? false}
+      >
+        {children}
+        <ToastContainer />
+      </BillingConfigProvider>
+    </TRPCReactProvider>
+  );
+
+/** The default (real-Stripe) providers wrapper. */
+export const Providers = makeProviders();
 
 /** Render a component wrapped in the feature's providers + ToastContainer. */
 export const renderWithProviders = (
   ui: ReactElement,
-  options?: Omit<RenderOptions, 'wrapper'>,
-) => render(ui, { wrapper: Providers, ...options });
+  options?: Omit<RenderOptions, 'wrapper'> & { localstripeMode?: boolean },
+) => {
+  const { localstripeMode, ...renderOptions } = options ?? {};
+  return render(ui, {
+    wrapper: makeProviders({ localstripeMode }),
+    ...renderOptions,
+  });
+};
 
 /**
  * Type-safe MSW request handlers for this feature's router. Use in tests like:

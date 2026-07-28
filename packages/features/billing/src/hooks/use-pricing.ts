@@ -13,14 +13,8 @@ import type { ButtonState } from '../lib/plan-selection';
 import { toPlanIds } from '../config';
 import { useBillingConfig } from '../config-context';
 import { buildPricingPlans } from '../data/pricing-data';
-import { env } from '../env';
 import { getButtonState } from '../lib/plan-selection';
 import { useTRPC } from '../trpc/react';
-
-// In dev we run against localstripe, which has no Checkout Sessions API — the
-// pricing CTAs can't create a checkout. Tiers are granted from the admin page
-// (account.setUserTier) instead. See docs/adr/0003.
-const isDev = env.NODE_ENV === 'development';
 
 export interface PricingCard {
   plan: PricingPlan;
@@ -41,6 +35,11 @@ export function usePricing() {
   const { isSignedIn, isLoaded } = useAuth();
   const handleError = useGenericErrorHandler();
   const config = useBillingConfig();
+  // localstripe has no Checkout Sessions API — the pricing CTAs can't create a
+  // checkout. Tiers are granted from the admin page (account.setUserTier)
+  // instead. Read the server-derived mode from config, never NODE_ENV (a real-
+  // Stripe dev build must classify correctly). See docs/adr/0003.
+  const { localstripeMode } = config;
   const planIds = toPlanIds(config);
   const pricingPlans = buildPricingPlans(planIds);
 
@@ -117,7 +116,7 @@ export function usePricing() {
 
     // localstripe has no Checkout/billing-portal API, so the CTAs can't work in
     // dev — grant tiers from the admin page instead.
-    if (isDev) {
+    if (localstripeMode) {
       toast.info('Checkout is unavailable in dev — set tiers from /admin.');
       return;
     }
@@ -146,5 +145,5 @@ export function usePricing() {
     isProcessing: processingPlanId === plan.id,
   }));
 
-  return { cards, selectPlan, isDev, planIds };
+  return { cards, selectPlan, localstripeMode, planIds };
 }
