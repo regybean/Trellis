@@ -3,7 +3,7 @@ import { z } from 'zod/v4';
 import type { ConfigContext } from '@acme/config';
 import { createConfig } from '@acme/config';
 
-import type { BillingClientConfig } from './config-context';
+import type { BillingConfigValues } from './config-context';
 
 /**
  * Billing config-as-code (ADR 0026). The Stripe values that differ per deploy
@@ -77,7 +77,7 @@ export function billingConfig(context: ConfigContext) {
  * `@acme/subscriptions`' `PlanIds`, consumed by `createSubscriptionsEntitlements`
  * / `buildPricingPlans`.
  */
-export const toPlanIds = (config: BillingClientConfig) => ({
+export const toPlanIds = (config: BillingConfigValues) => ({
   standardPlanId: config.STRIPE_STANDARD_PLAN_ID,
   proPlanId: config.STRIPE_PRO_PLAN_ID,
 });

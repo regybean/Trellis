@@ -18,16 +18,21 @@ import { ConsoleShell } from '../components/console-shell';
 import { PersistedFeatureProviders } from '../components/persisted-feature-providers';
 import { config } from '../config';
 import { getAuthState } from '../lib/auth';
+import { getLocalstripeMode } from '../lib/stripe';
 import appCss from '../styles.css?url';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     // Server-resolved so the chat/feedback persisters have their scope on the
     // first render (see PersistedFeatureProviders). Signed out ⇒ userId null ⇒
-    // network-only.
+    // network-only. localstripeMode is server-derived from STRIPE_API_BASE and
+    // threaded to the client through the BillingConfigProvider seam below.
     beforeLoad: async () => {
-      const { userId } = await getAuthState();
-      return { userId };
+      const [{ userId }, localstripeMode] = await Promise.all([
+        getAuthState(),
+        getLocalstripeMode(),
+      ]);
+      return { userId, localstripeMode };
     },
     head: () => ({
       meta: [
@@ -56,7 +61,7 @@ function RootComponent() {
  * match the developer-console shell. The feature providers are reused as-is.
  */
 function RootDocument({ children }: { children: ReactNode }) {
-  const { userId } = Route.useRouteContext();
+  const { userId, localstripeMode } = Route.useRouteContext();
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
@@ -77,7 +82,10 @@ function RootDocument({ children }: { children: ReactNode }) {
             forcedTheme="dark"
             disableTransitionOnChange
           >
-            <BillingConfigProvider config={config}>
+            <BillingConfigProvider
+              config={config}
+              localstripeMode={localstripeMode}
+            >
               <BillingTRPCReactProvider>
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
                   <IngestTRPCReactProvider>
