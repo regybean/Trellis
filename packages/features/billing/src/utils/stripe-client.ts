@@ -2,8 +2,8 @@ import Stripe from 'stripe';
 
 import type { SubscriptionCache } from '@acme/subscriptions';
 
-import { env } from '../env';
-import { deriveLocalstripeMode } from '../lib/localstripe-mode';
+import { stripeConnectionConfig } from '../config';
+import { appEnv, env } from '../env';
 
 // Shared Stripe types
 export interface StripeCustomer {
@@ -13,16 +13,18 @@ export interface StripeCustomer {
 
 export type STRIPE_SUB_CACHE = SubscriptionCache;
 
+// The Stripe connection, resolved once from server config (ADR 0026 follow-up):
+// `localstripe` (dev, against the fake stateful server) or `real`. The SDK host
+// override reads `apiBase` off the narrowed `localstripe` variant.
+const stripe = stripeConnectionConfig({ appEnv, isServer: true }).stripe;
+
 /**
- * localstripe mode — derived once from the `STRIPE_API_BASE` env carve-out
- * (ADR 0003/0004). The single boolean the server branches that only need a
+ * localstripe mode — the single boolean the server branches that only need a
  * boolean (the skipped expands in `stripe-sync`, the `setUserTier` guard in
  * `stripe-dev`) read, and — threaded through `BillingConfigProvider` — the value
- * the client reads instead of proxying the condition through `NODE_ENV`. The SDK
- * host override below still reads the raw `STRIPE_API_BASE` because it needs the
- * URL to parse, not just the boolean.
+ * the client reads instead of proxying the condition through `NODE_ENV`.
  */
-export const localstripeMode = deriveLocalstripeMode(env.STRIPE_API_BASE);
+export const localstripeMode = stripe.mode === 'localstripe';
 
 // Lazy initialization to avoid module-time errors in CICD tests
 let _stripe: Stripe | null = null;
@@ -42,13 +44,13 @@ export function getStripe(): Stripe {
 }
 
 /**
- * When STRIPE_API_BASE is set (local dev with localstripe), parse it into the
+ * In localstripe mode, parse the connection's `apiBase` into the
  * host/port/protocol overrides the Stripe SDK uses to target an alternate
- * server. Returns an empty object in prod so SDK defaults are untouched.
+ * server. Returns an empty object for real Stripe so SDK defaults are untouched.
  */
 function localstripeConfig() {
-  if (!env.STRIPE_API_BASE) return {};
-  const url = new URL(env.STRIPE_API_BASE);
+  if (stripe.mode !== 'localstripe') return {};
+  const url = new URL(stripe.apiBase);
   const isHttps = url.protocol === 'https:';
   const protocol: 'http' | 'https' = isHttps ? 'https' : 'http';
   return {
