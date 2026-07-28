@@ -448,3 +448,23 @@ sweep) in #96.
   `development` profile.
 - Building `@acme/config` and executing the migration is a follow-on effort; this
   ADR is the spec it slices into tickets.
+
+## Follow-ups
+
+- **`@acme/models` provider config is a discriminated union per role (#125).** The
+  Phase-2 flat models config (`LLM_PROVIDER`/`EMBED_PROVIDER` enums beside every
+  provider's fields) let a selection carry — and required — fields it never uses
+  (a Bedrock `region` while on Ollama), and made no-embed a runtime `throw`. It
+  became `chat`/`embed` as `z.discriminatedUnion('provider', …)`: selecting a
+  provider validates only that provider's variant; OpenRouter is absent from the
+  `embed` union, so no-embed is structurally unrepresentable (the resolver throw is
+  deleted) and an OpenRouter embed selection fails at parse time. The shared
+  connection params (`baseUrl`, `region`) are single-authored via a TS const spread
+  into each variant, and the embed dimension moved onto the selected variant
+  (`embed.dimensions`, read by `@acme/rag`'s documents-schema). A profile overlay
+  flipping a role's provider per deploy target (dev `ollama` → prod `bedrock`)
+  merges cleanly: deep-merge carries the Ollama-only `baseUrl` into the merged
+  object and the union strips it (zod object-strip) when the Bedrock variant
+  validates. This is the first config to exercise `createConfig` with a
+  discriminated-union schema — confirming the object-strip merge semantics hold for
+  unions, not just flat shapes.
