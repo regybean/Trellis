@@ -31,6 +31,33 @@ the values a selector picks. See [ADR 0026](../../../docs/adr/0026-config-as-cod
   validated `AppEnv`.
 - `ConfigValidationError` — wraps the `ZodError`; message is `z.prettifyError`.
 
+## Config-conditional secret validation (config ↔ env)
+
+Secrets stay in `process.env` (never config — config bakes into the client
+bundle, is pure, and always-validates; secrets do none of those). But **a
+secret's _requiredness_ is a function of what the app actually assembles** — it
+is never a permissive `.optional()`. Two axes decide "is this secret's consumer
+active?":
+
+- **Config-value axis** — a config discriminant selects _which_ secret is needed
+  **within one app**. `@acme/models` is the exemplar: `config.chat.provider ===
+'openrouter'` requires `OPENROUTER_API_KEY`; a Bedrock role requires the AWS
+  creds; Ollama (default) requires none.
+- **Composition axis** — whether the app _mounts the slice at all_ decides
+  whether its secrets are required. `@acme/billing` / `@acme/auth`: a full app
+  composes them (Stripe/Clerk secrets required, fail-fast at boot); a slim app
+  never depends on them (ADR 0010), so their secrets are never demanded. There is
+  **no** `billing.enabled` / `auth.enabled` config toggle — activation is the
+  dependency graph, not a config flag (inventing one would duplicate ADR 0010's
+  subsetting and create a second source of truth).
+
+The invariant: **no secret is validated permissively; each is validated exactly
+when its consumer is active, per the resolved config (value axis) or per
+composition (composition axis).** A slice that owns secrets co-declares its
+secret-env next to its `config.ts` so config and its gated secret can't drift
+apart (the failure this guards against: `authConfig` once shipped with no secret
+validation at all).
+
 ## Context-less server edges (slice-internal consumption)
 
 A slice that consumes its **own** config server-side (not at the app edge —
