@@ -86,9 +86,11 @@ never a raw pgvector error.
 an OpenAI-compatible API on `/v1` covering both chat and embeddings, so a single
 `@ai-sdk/openai-compatible` provider handles both. Default models are tiny and
 CPU-only — for local dev/test, not production quality. The `config.ts` base
-profile is the **single source** for the two ollama model IDs: the local ollama
-container's pull list is derived from it by `scripts/resolve-ollama-models.ts`
-(run by `scripts/compose.sh`), not duplicated in `.env.example` (ADR 0026, #120).
+profile is the **single source** for the two ollama model IDs and the host port:
+the local ollama container's pull list and `OLLAMA_PORT` are derived from it by
+`scripts/resolve-compose-env.ts` (run by `scripts/compose.sh`, which parses the
+port out of the ollama variant's `baseUrl`), not duplicated in `.env.example`
+(ADR 0026, #120, #126).
 
 ## Known limitations
 
