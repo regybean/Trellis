@@ -504,3 +504,23 @@ sweep) in #96.
   validates. This is the first config to exercise `createConfig` with a
   discriminated-union schema — confirming the object-strip merge semantics hold for
   unions, not just flat shapes.
+- **Compose derives its provisioning inputs from config (#126).** The Phase-3
+  straggler ruling kept `REDIS_PORT`/`OLLAMA_PORT` and the `DB_*` provisioning
+  values as compose-only env — true for the compose _file_, but the refined
+  "a Node build/infra script can (and must) consume config" line applies: a Node
+  resolver run by `scripts/compose.sh` can import the configs, so those rows need
+  not sit in `.env` at all. `scripts/resolve-compose-env.ts` (superseding
+  `resolve-ollama-models.ts`) now exports every value compose interpolates —
+  `DB_PORT`/`DB_USER`/`DB_NAME` (`dbConfig`), `DB_VECTOR_NAME` (`ragConfig`),
+  `REDIS_PORT` (parsed from `redisConfig`'s `REDIS_URL`), `OLLAMA_PORT` (parsed
+  from the ollama role variant's `baseUrl`), and the ollama pull IDs
+  (`modelsConfig`). Ports are **parsed from the connection URLs**, never stored as
+  standalone fields — a second port field would be a drift source. `compose.yaml`
+  drops the `:-` fallbacks for these rows (config is the sole source; a missing
+  export fails loud), and the rows leave `.env.example` — collapsing the former
+  triple-sourcing (config default ↔ compose `:-` default ↔ `.env` literal) to one.
+  The container-password secrets (`DB_PASSWORD`, `REDIS_PASSWORD`) stay in `.env`.
+  Same change fixed `resolve-infra.ts`, which was still reading the pre-#125
+  `LLM_PROVIDER`/`EMBED_PROVIDER` off `modelsConfig` (gone under the union) and so
+  silently pruned the `ollama` profile on a fresh clone; it now reads
+  `config.chat.provider`/`config.embed.provider`.

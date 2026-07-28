@@ -16,14 +16,14 @@ if [ -z "$engine" ]; then
   fi
 fi
 
-# Ollama's pull IDs are single-sourced from @acme/models config (ADR 0026, #120),
-# not a duplicated .env row. Resolve + export them so compose interpolates the
-# `${OLLAMA_*_MODEL}` refs in compose.yaml's ollama service (always — compose
-# interpolates the whole file at parse time, regardless of the active profile).
-ollama_models="$(pnpm exec tsx "$(dirname "$0")/resolve-ollama-models.ts")"
+# Compose's provisioning inputs (DB_*/REDIS_PORT/OLLAMA_PORT + ollama pull IDs)
+# are single-sourced from the slice configs (ADR 0026, #126), not duplicated .env
+# rows. Resolve + export them so compose substitutes the `${...}` refs across the
+# whole compose.yaml at parse time (regardless of the active profile).
+compose_env="$(pnpm exec tsx "$(dirname "$0")/resolve-compose-env.ts")"
 while IFS= read -r line; do
   [ -n "$line" ] && export "$line"
-done <<<"$ollama_models"
+done <<<"$compose_env"
 
 # podman-compose ignores the COMPOSE_PROFILES env var (docker honors it), so
 # translate it into explicit --profile flags, which both engines accept.

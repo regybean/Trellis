@@ -12,10 +12,11 @@
 //   - `billing` (localstripe) is dropped unless STRIPE_API_BASE is set (real
 //     Stripe needs no local container). STRIPE_API_BASE is a deliberate env
 //     carve-out (ADR 0026), so this prune reads process.env.
-//   - `ollama` is dropped unless a model provider is `ollama`. Provider selection
-//     is config-as-code now (@acme/models, ADR 0026), NOT a process.env var — so
-//     this reads modelsConfig, not env. Run via `pnpm exec tsx` (not `node`) so
-//     the TS config import resolves, mirroring scripts/resolve-ollama-models.ts.
+//   - `ollama` is dropped unless the chat or embed role's provider is `ollama`.
+//     Provider selection is config-as-code now (@acme/models discriminated union,
+//     ADR 0026), NOT a process.env var — so this reads the role variants on
+//     modelsConfig, not env. Run via `pnpm exec tsx` (not `node`) so the TS config
+//     import resolves, mirroring scripts/resolve-compose-env.ts.
 //
 // Usage:  resolve-infra.ts [app ...]      (no args => every app under apps/*)
 //         app may be a full name (@acme/nextjs) or short (nextjs).
@@ -92,11 +93,11 @@ for (const proj of projects) {
 // Env/config prunes (see header). `billing` reads its env carve-out; `ollama`
 // reads provider selection from config. Hardcode the development profile: infra
 // is a local dev/test concern and ollama has no staging/production override
-// (mirrors scripts/resolve-ollama-models.ts).
+// (mirrors scripts/resolve-compose-env.ts).
 if (!process.env.STRIPE_API_BASE) profiles.delete("billing");
 const models = modelsConfig({ appEnv: "development", isServer: true });
 const ollama =
-  models.LLM_PROVIDER === "ollama" || models.EMBED_PROVIDER === "ollama";
+  models.chat.provider === "ollama" || models.embed.provider === "ollama";
 if (!ollama) profiles.delete("ollama");
 
 process.stdout.write([...profiles].sort().join(","));
