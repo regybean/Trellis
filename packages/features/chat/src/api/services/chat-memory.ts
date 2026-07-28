@@ -111,17 +111,19 @@ export async function recallMessages(sessionId: string, userId: string) {
 // `chat.send` before the first token) and the assistant Message (persisted by
 // the Generation worker on terminal) go through here, so the Mastra stored-
 // message shape has exactly one definition. `resourceId = userId` is what makes
-// the row the caller's own.
+// the row the caller's own. The id is minted here and returned, so the caller
+// holds the id it just wrote without a follow-up recall.
 async function saveMessage(
   role: 'user' | 'assistant',
   sessionId: string,
   userId: string,
   text: string,
 ) {
+  const id = crypto.randomUUID();
   await memory.saveMessages({
     messages: [
       {
-        id: crypto.randomUUID(),
+        id,
         role,
         createdAt: new Date(),
         threadId: sessionId,
@@ -130,6 +132,7 @@ async function saveMessage(
       },
     ],
   });
+  return id;
 }
 
 // Persist the user's Message explicitly, before any token is generated, so it
@@ -147,29 +150,15 @@ export async function persistUserMessage(
 // Persist the assistant's Message on a terminal, driven by the Generation
 // worker: `done` → full text, `cancelled` → non-empty partial. The worker owns
 // the terminal policy (empty ⇒ no persist, `error` ⇒ nothing); the adapter owns
-// the write so raw Mastra vocabulary never leaks into the worker.
+// the write so raw Mastra vocabulary never leaks into the worker. Returns the
+// minted id — the id `chat.get` will report for this Message — so the worker
+// puts it on the `done` / `cancelled` terminal without a full-thread recall.
 export async function persistAssistantMessage(
   sessionId: string,
   userId: string,
   text: string,
 ) {
-  await saveMessage('assistant', sessionId, userId, text);
-}
-
-// The id of the most-recently-persisted assistant Message, found by scanning
-// recall newest-first. The Generation worker puts this id on the `done` /
-// `cancelled` terminal so clients (e.g. feedback) can key off the settled
-// Message. Lives here — the only seam to Mastra recall — not in the worker.
-export async function latestAssistantMessageId(
-  sessionId: string,
-  userId: string,
-) {
-  const messages = await recallMessages(sessionId, userId);
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i];
-    if (m?.role === 'assistant') return m.id;
-  }
-  return null;
+  return saveMessage('assistant', sessionId, userId, text);
 }
 
 // Generate and persist a thread's title from its first user Message — a no-op
