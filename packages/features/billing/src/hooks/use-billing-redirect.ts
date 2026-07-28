@@ -41,11 +41,14 @@ const BILLING_ERROR_TOASTS: Record<BillingErrorCode, string> = {
     '❌ Billing plan not configured: run the localstripe seed',
 };
 
-// The redirect labels callers may override. Both flows default to the copy the
-// checkout / billing-portal call sites already showed.
+// The billing-portal redirect copy. No call site overrides it, so it stays a
+// module constant rather than a caller-tunable knob.
+const BILLING_PORTAL_MESSAGE = 'Redirecting to Stripe dashboard...';
+
+// The redirect labels callers may override. Only the checkout copy is tuned
+// (the admin panel shows "Redirecting to Stripe checkout...").
 export interface BillingRedirectMessages {
   checkout?: string;
-  billingPortal?: string;
 }
 
 /**
@@ -63,10 +66,7 @@ export interface BillingRedirectMessages {
  * can be overridden where a call site shows different copy.
  */
 export function useBillingRedirect(messages: BillingRedirectMessages = {}) {
-  const {
-    checkout: checkoutMessage = 'Redirecting to checkout...',
-    billingPortal: billingPortalMessage = 'Redirecting to Stripe dashboard...',
-  } = messages;
+  const { checkout: checkoutMessage = 'Redirecting to checkout...' } = messages;
 
   const trpc = useTRPC();
   const handleGenericError = useGenericErrorHandler();
@@ -112,7 +112,7 @@ export function useBillingRedirect(messages: BillingRedirectMessages = {}) {
   const createDashboardSession = useMutation(
     trpc.account.createDashboardSession.mutationOptions({
       onSuccess: (data) => {
-        toast.success(billingPortalMessage, REDIRECT_TOAST_OPTS);
+        toast.success(BILLING_PORTAL_MESSAGE, REDIRECT_TOAST_OPTS);
         setRedirectUrl(data.billingPortalUrl);
       },
       onError: handleBillingError,
