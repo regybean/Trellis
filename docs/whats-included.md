@@ -111,7 +111,8 @@ pnpm i                       # also runs `postinstall` (builds packages, registe
 ```
 
 ```bash
-cp .env.example .env         # local-dev defaults are non-secret and work as-is
+cp deploy/.env.example deploy/.env                       # infra env (container passwords)
+for a in apps/*/; do cp "$a.env.example" "$a.env"; done  # per-app env (no shared root .env — ADR 0029)
 ```
 
 Ollama is the default model provider, so **no cloud API keys are required** to run locally. The _full_ apps additionally need [Clerk](getting-started.md#auth-clerk-keys-required-for-the-full-apps) keys; the _slim_ apps need no auth/billing credentials at all.
@@ -194,7 +195,7 @@ Every script in [package.json](../package.json), grouped. ⚠️ = **manual-only
 | `pnpm infra:down` / `pnpm infra:clean` / `pnpm infra:logs` | ⚠️ Stop / stop+drop-volumes / tail infra                                                                                                                                                                                                                                |
 | `pnpm db:push` / `pnpm db:generate`                        | ⚠️ Push schema / generate migrations (Drizzle)                                                                                                                                                                                                                          |
 | `pnpm seed:localstripe`                                    | ⚠️ Seed dev billing products/plans                                                                                                                                                                                                                                      |
-| `pnpm with-env <cmd>`                                      | Run a command with `.env` loaded (dotenv)                                                                                                                                                                                                                               |
+| `pnpm with-env <cmd>`                                      | Run a command with the infra env (`deploy/.env`) loaded (dotenv). Per-app application env lives in `apps/<app>/.env`, loaded by each app's own `with-env` (no shared root `.env` — [ADR 0029](adr/0029-per-app-env-ownership.md))                                       |
 | `pnpm env:pull` / `pnpm env:push`                          | ⚠️ Sync local `.env` files with a pluggable secrets backend. `.env.example` is the contract (empty value = secret). Opt-in via `SECRETS_BACKEND` (no default): `localstack` (dev/demo vault) or `aws` (real cloud). See [ADR 0001](adr/0001-pluggable-secrets-sync.md). |
 
 > `db:check`, `db:migrate`, and `db:studio` exist as script names but are currently empty stubs — `db:push` is the wired path.

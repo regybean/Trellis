@@ -87,8 +87,8 @@ Requires **Node 22.19.0** ([.nvmrc](.nvmrc)), **pnpm ≥ 10.15.1**, and **Docker
 nvm use                      # 22.19.0
 npm install -g pnpm@latest-10
 pnpm i                       # installs + builds packages + sets up git hooks
-cp .env.example .env         # app env — non-secret local-dev defaults work as-is
-cp deploy/.env.example deploy/.env   # infra env (container passwords) — same
+cp deploy/.env.example deploy/.env                       # infra env (container passwords)
+for a in apps/*/; do cp "$a.env.example" "$a.env"; done  # per-app env — each app owns its own
 
 pnpm dev                     # starts only the infra each app needs, then the dev servers
 ```
@@ -103,7 +103,7 @@ A living template — a few things are mid-transition, flagged honestly:
 
 - **Clerk is a hard dependency for the _full_ apps.** The _framework_ is abstracted behind the auth seam ([ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md)), but the _provider_ isn't: `@acme/auth` re-exports `@clerk/clerk-react` hooks/components that features import directly (e.g. `UserButton`, billing's `useAuth`), and `ctx.user` is a backend Clerk `User`. So `nextjs`/`tanstack-start` need Clerk env. The **slim apps sidestep it entirely** (no `@acme/auth`, constant local principal) — fully decoupling the provider from the _full_ apps is the remaining work.
 - **No zero-Docker path.** Even the slim apps need `pnpm infra:up` — they keep chat + ingest, which need Postgres + pgvector (Mastra) and Ollama. The graph-derived `pnpm dev` starts _less_ for a slim app (no Stripe, no Redis), but not _nothing_.
-- **`SECRET_MAP` only maps `nextjs`.** Secrets sync against a pluggable backend ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); opt-in via `SECRETS_BACKEND`, `localstack` for dev or `aws` for a real vault), but the other apps still need adding to `secrets.config.sh`.
+- **Each app owns its env; there is no shared root `.env`.** The application env surface used to live in a shared root `.env` layered under every app; it was deprecated so each app declares its full env (`apps/<app>/.env`), duplicating shared model-provider secrets by design ([ADR 0029](docs/adr/0029-per-app-env-ownership.md)). Only `deploy/.env` (infra container passwords) remains at the root. `SECRET_MAP` in `secrets.config.sh` maps all four apps + infra for the pluggable secrets sync ([ADR 0001](docs/adr/0001-pluggable-secrets-sync.md); opt-in via `SECRETS_BACKEND`, `localstack` for dev or `aws` for a real vault).
 - **Model providers are settling.** Selection lives in [`@acme/models`](packages/shared/models/CONTEXT.md) — `bedrock` / `openrouter` / `ollama` by env ([ADR 0003](docs/adr/0003-multi-provider-models.md)). Ollama is the default so the repo runs with no credentials; dev models are tiny/CPU-only, not production quality.
 - **The compositions layer was removed.** Shell/chrome is app-owned ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)); shared UI assemblies belong in `@acme/ui`, not a new composition.
 

@@ -15,7 +15,7 @@
     "start": "PORT=3003 pnpm with-env node .output/server/index.mjs",
     "start:worker": "pnpm with-env tsx --conditions=react-server worker.ts",
     "typecheck": "tsc --noEmit",
-    "with-env": "dotenv -e ../../.env -- dotenv -e ./.env --"
+    "with-env": "dotenv -e ./.env --"
   },
   "dependencies": {
     "@acme/chat": "workspace:*",

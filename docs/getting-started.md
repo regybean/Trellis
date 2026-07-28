@@ -19,14 +19,14 @@ pnpm i
 
 ## 2. Configure env
 
-Env is split into two disjoint files (ADR 0026, #127): the root [`.env`](../.env.example) holds the **application** surface (app secrets only — every non-secret Stripe value is now config-as-code); [`deploy/.env`](../deploy/.env.example) holds the **infra** surface (the container-password secrets compose provisions with). Both hold non-secret local-dev defaults that work as-is:
+Env is split by owner. Each **app** owns its full application surface in `apps/<app>/.env` — there is no shared root `.env` (it was deprecated so every app is self-contained; shared model-provider secrets are duplicated per app by design, ADR 0029). The one repo-root file is [`deploy/.env`](../deploy/.env.example), the **infra** surface (the container-password secrets compose provisions with, ADR 0026 #127). All hold non-secret local-dev defaults that work as-is:
 
 ```bash
-cp .env.example .env                 # application env
-cp deploy/.env.example deploy/.env   # infra (dev-deployment) env
+cp deploy/.env.example deploy/.env                       # infra (dev-deployment) env
+for a in apps/*/; do cp "$a.env.example" "$a.env"; done  # per-app application env
 ```
 
-`pnpm with-env` loads both, so the passwords are single-sourced in `deploy/.env` yet read by both compose and the app. For secrets (anything declared with an empty value in either `.example`), you can fill them by hand, or use the pluggable sync. Sync is opt-in: pick a backend with one env var:
+Each app's `with-env` loads its own `apps/<app>/.env`; the root `pnpm with-env` (and `pnpm dev`) loads `deploy/.env` and launches the app servers with the container passwords already in the environment, so they are single-sourced in `deploy/.env` yet read by both compose and the app. For secrets (anything declared with an empty value in a `.example`), you can fill them by hand, or use the pluggable sync. Sync is opt-in: pick a backend with one env var:
 
 ```bash
 SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vault
@@ -63,7 +63,7 @@ LLM and embeddings providers are selected independently via `LLM_PROVIDER` / `EM
 | Provider             | `LLM_PROVIDER` | `EMBED_PROVIDER` | Notes                                                              |
 | -------------------- | -------------- | ---------------- | ------------------------------------------------------------------ |
 | **Ollama** (default) | `ollama`       | `ollama`         | Local, CPU-only, no API keys. Started by `infra:up`.               |
-| AWS Bedrock          | `bedrock`      | `bedrock`        | Requires AWS credentials in `.env`.                                |
+| AWS Bedrock          | `bedrock`      | `bedrock`        | Requires AWS credentials in each app's `.env`.                     |
 | OpenRouter           | `openrouter`   | —                | No embeddings API; pair with `EMBED_PROVIDER=ollama` or `bedrock`. |
 
 The defaults (`LLM_PROVIDER=ollama`, `EMBED_PROVIDER=ollama`) work out of the box with no secrets. To switch, change the provider vars and set the corresponding credentials.

@@ -538,7 +538,12 @@ sweep) in #96.
   `LLM_PROVIDER`/`EMBED_PROVIDER` off `modelsConfig` (gone under the union) and so
   silently pruned the `ollama` profile on a fresh clone; it now reads
   `config.chat.provider`/`config.embed.provider`.
-- **Dev-deployment moves into `deploy/`; env splits infra vs app (#127).** With the
+- **Dev-deployment moves into `deploy/`; env splits infra vs app (#127).**
+  _Partly superseded by [ADR 0029](0029-per-app-env-ownership.md): the shared root
+  `.env` described below was later deprecated — each app now owns its full
+  application env in `apps/<app>/.env`. The `deploy/.env` infra split stands; only
+  the root application `.env` and the `dotenv -e ./.env -e ./deploy/.env` layering
+  changed (root `with-env` now loads `deploy/.env` alone)._ With the
   provisioning inputs derived (#126), the only non-derived infra values left in
   `.env` were the container-password secrets — still tangled with the app's own
   secrets in one root file. #127 makes the "how the dev stack is stood up" vs "how

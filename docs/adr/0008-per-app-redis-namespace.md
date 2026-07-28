@@ -108,7 +108,11 @@ would need quoting and breaks `pgSchema()` / `schemaFilter`). The slim apps
 (`*_slim`) carry no Redis or billing, but they _do_ take a per-app
 Postgres/pgvector schema, so they need a distinct identity too.
 
-**The footgun: `NEXT_PUBLIC_WEBAPP` must NEVER be set in the root `.env`.** Each
+**The footgun: `NEXT_PUBLIC_WEBAPP` must NEVER be set in the root `.env`.**
+_Superseded by [ADR 0029](0029-per-app-env-ownership.md): the shared root `.env`
+was deprecated, so this footgun no longer exists — each app's `with-env` loads
+only its own `apps/<app>/.env` (`dotenv -e ./.env --`) and there is no root file
+whose value could win. The fail-loud enforcement below still stands._ Each
 app loads env via `with-env` = `dotenv -e ../../.env -- dotenv -e ./.env --`.
 Root loads first and `dotenv` does **not** override an already-set variable, so a
 value in root `.env` wins over every app's own `.env` and silently collapses all

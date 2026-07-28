@@ -11,7 +11,7 @@
 # Mechanism: reuse the canonical app's own `db:push` (the nextjs schema
 # aggregates every feature's push-managed tables) with NEXT_PUBLIC_WEBAPP
 # overridden to each test schema. dotenv-cli does not clobber an already-set var,
-# so the inline override survives the app's layered `with-env`. One push per
+# so the inline override survives the app's own `with-env`. One push per
 # schema creates every push-managed table there (harmless redundancy, ADR 0021).
 #
 # Wired into the root `db:push` script, AFTER `turbo db:push`. `pnpm dev` pushes
