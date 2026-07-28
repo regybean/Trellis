@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 
+import { chatConfig } from '../../config';
+import { appEnv } from '../../env';
 import {
   DeleteChatRequest,
   InflightTurnRequest,
@@ -25,24 +27,18 @@ import {
   getConversationUnchecked,
   listConversations,
   listConversationsForUser,
-  persistUserMessage,
   recallMessages,
   setThreadFolder,
   toConversation,
   toConversationSummary,
   toMessages,
 } from '../services/chat-memory';
-import { enqueueGenerationTurn } from '../services/chat-queue';
 import { tailChatStream } from '../services/chat-stream-reader';
 import {
-  acquireInflightLock,
-  cleanupTurn,
-  CREDITS_PER_TURN,
-  discardStaleStream,
-  publishAbort,
+  abortTurn,
+  beginTurn,
   readInflightTurn,
-  refundTurnCredits,
-  releaseInflightLock,
+  reconcileTurn,
 } from '../services/chat-turn-lifecycle';
 import {
   adminProcedure,
@@ -53,6 +49,10 @@ import {
   protectedProcedure,
 } from '../trpc';
 import { assertFolderOwned, foldersRouter } from './folders';
+
+// CREDITS_PER_TURN has one origin in config (ADR 0026) — the credit gate + consume
+// read it here; the Turn lifecycle's refund reads the same config value.
+const config = chatConfig({ appEnv, isServer: true });
 
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no
@@ -91,70 +91,57 @@ export const chatRouter = createTRPCRouter({
   // ==========================================================================
 
   // Initiate a Turn. Ownership is asserted by the builder before any mutating
-  // step. The step order is load-bearing: the In-flight lock is taken FIRST so a
-  // duplicate tab returns `alreadyInflight` without persisting a message,
-  // enqueuing a job, or spending a credit; credits are consumed only after the
-  // lock is won, so the race can never double-charge.
+  // step; the begin-step ordering and the failure-path lock unwind live in the
+  // Turn lifecycle's `beginTurn` (the lock is taken FIRST, so a duplicate tab
+  // returns `alreadyInflight` without persisting a Message, enqueuing a job, or
+  // spending a credit). The credit gate + consume stays inline here (ADR 0006
+  // amendment + chat CONTEXT): a rejected send consumes nothing, and `beginTurn`
+  // runs this closure after the lock is won and the user Message is persisted,
+  // before enqueue — so the race can never double-charge.
   send: ownedConversationByIdProcedure
     .input(SendChatRequest)
     .mutation(async ({ ctx, input }) => {
       const { userId } = ctx.auth;
       const { conversationId, turnId, query } = input;
 
-      // 2. Acquire the In-flight lock (SET NX EX, value = turnId).
-      const acquired = await acquireInflightLock(conversationId, turnId);
-      if (!acquired) {
-        logger.info(
-          { userId, conversationId },
-          'chat.send: Turn already in-flight, caller re-attaches',
-        );
-        return { status: 'alreadyInflight' as const };
-      }
-
       try {
-        // 3. Discard any prior Turn's residual Stream before generating. The
-        //    Stream is Conversation-keyed and lingers post-terminal on a brief
-        //    TTL, so without this the new reader tails from the head and
-        //    re-reads the previous Turn's deltas + terminal (replaying the last
-        //    response and colliding on its messageId). Winner path only — the
-        //    lock is held, so no live worker is writing this key. See #43.
-        await discardStaleStream(conversationId);
-
-        // 4. Ensure the Conversation (idempotent create-or-retrieve).
-        if (!ctx.conversation) await createConversation(conversationId, userId);
-
-        // 5. Persist the user Message — durable in chat.get before the first
-        //    token, since the worker's memory config is read-only.
-        await persistUserMessage(conversationId, userId, query);
-
-        // 6. Consume credits. The lock is already held, so a duplicate tab
-        //    never reaches here; on insufficient credits we release the lock so
-        //    the Conversation is not stuck for the lock's TTL.
-        if (ctx.credits.remaining < CREDITS_PER_TURN) {
-          await releaseInflightLock(conversationId, turnId);
-          throw new TRPCError({
-            code: 'TOO_MANY_REQUESTS',
-            message: 'Insufficient credits',
-          });
-        }
-        await ctx.entitlements.consume(userId, ctx.tier, CREDITS_PER_TURN);
-
-        // 7. Enqueue the generation job (sole authorised enqueuer).
-        await enqueueGenerationTurn({
+        const outcome = await beginTurn({
           conversationId,
           turnId,
           userId,
           tier: ctx.tier,
           query,
+          conversationExists: ctx.conversation != null,
+          consume: async () => {
+            if (ctx.credits.remaining < config.CREDITS_PER_TURN) {
+              throw new TRPCError({
+                code: 'TOO_MANY_REQUESTS',
+                message: 'Insufficient credits',
+              });
+            }
+            await ctx.entitlements.consume(
+              userId,
+              ctx.tier,
+              config.CREDITS_PER_TURN,
+            );
+          },
         });
+
+        if (outcome.status === 'alreadyInflight') {
+          logger.info(
+            { userId, conversationId },
+            'chat.send: Turn already in-flight, caller re-attaches',
+          );
+          return { status: 'alreadyInflight' as const };
+        }
 
         logger.info({ userId, conversationId, turnId }, 'chat.send: accepted');
         return { status: 'accepted' as const, turnId };
       } catch (error) {
+        // `beginTurn` has already released the lock on any failure branch; here
+        // we only map the error. A credit-exhaustion `TOO_MANY_REQUESTS` (or any
+        // other TRPCError) surfaces as-is; anything else is a start failure.
         if (error instanceof TRPCError) throw error;
-        // Any failure after the lock was taken must release it, or the
-        // Conversation is wedged until the lock TTL lapses.
-        await releaseInflightLock(conversationId, turnId);
         logger.error(
           { error, userId, conversationId, turnId },
           'chat.send failed',
@@ -179,7 +166,7 @@ export const chatRouter = createTRPCRouter({
       if (!turnId) {
         return { status: 'notInflight' as const };
       }
-      await publishAbort(conversationId, turnId);
+      await abortTurn({ conversationId, turnId });
       logger.info(
         { userId: ctx.auth.userId, conversationId, turnId },
         'chat.stop: abort published',
@@ -196,14 +183,13 @@ export const chatRouter = createTRPCRouter({
     .input(ReconcileTurnRequest)
     .mutation(async ({ ctx, input }) => {
       const { conversationId, turnId } = input;
-      const refunded = await refundTurnCredits(
+      const { refunded } = await reconcileTurn(
         (uid: string, creditTier: SubscriptionTier, amount: number) =>
           ctx.entitlements.refund(uid, creditTier, amount),
         ctx.auth.userId,
         ctx.tier,
-        turnId,
+        { conversationId, turnId },
       );
-      await cleanupTurn(conversationId, turnId);
       logger.info(
         { userId: ctx.auth.userId, conversationId, turnId, refunded },
         'chat.reconcileTurn: cleaned up',
