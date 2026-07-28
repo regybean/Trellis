@@ -54,3 +54,14 @@ surface is the small set of commands actually in use plus infra pass-throughs.
 
 **One sanctioned cast**: branding is nominal typing and needs a single
 `as NamespacedKey` inside `nsKey`, isolated to that one constructor.
+
+**`REDIS_URL` is config-as-code, and this is its home** (`config.ts` →
+`redisConfig`, ADR 0026 / #124): the whole DSN is authored here with the base
+default `redis://localhost:6379`, so dev needs no `.env` row. `env.ts` layers a
+runtime `process.env.REDIS_URL` override for the _dynamic_ case only — a
+testcontainer's mapped port, an infra-injected prod endpoint — mirroring
+`dbConfig`'s host/port override. `REDIS_URL` is a server-only config key (the
+client guard throws if read on the client). Other Redis-touching packages don't
+re-declare it: `@acme/queue` imports the resolved value from `@acme/redis/env`
+(as `@acme/rag` imports `@acme/db/env`); the app's remaining slices carry no
+`REDIS_URL` env row at all.

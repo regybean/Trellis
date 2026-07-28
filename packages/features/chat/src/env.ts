@@ -29,9 +29,6 @@ export function chatEnv() {
           'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
         ),
     },
-    server: {
-      REDIS_URL: z.url(),
-    },
     client: {
       // Composed into the query persister's `buster` (with the app-supplied
       // `scopeKey`) so a deploy that changes the persisted data shape discards
@@ -42,7 +39,6 @@ export function chatEnv() {
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
-      REDIS_URL: process.env.REDIS_URL,
       NEXT_PUBLIC_APP_VERSION: process.env.NEXT_PUBLIC_APP_VERSION,
     },
     skipValidation,

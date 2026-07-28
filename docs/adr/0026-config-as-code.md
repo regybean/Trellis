@@ -305,6 +305,21 @@ mechanism — just classification and cleanup.
   (`@acme/redis,queue,chat,feedback,billing`) plus the test harness for marginal
   config coverage — not cheap, per the ticket's "only if cheap" bar. `REDIS_URL`
   therefore remains a single `process.env` secret; no Redis client changed.
+  - **Follow-up (#124): `REDIS_URL` gains a config home as the whole DSN.** The
+    Phase-3 call above kept the _split_ rejected but left `REDIS_URL` with no
+    config default, so it still had to sit in every dev `.env`. #124 revisits the
+    _non-split_ half: the committed value is `redis://localhost:6379` — no
+    embedded password, non-secret — so the whole DSN moves to `@acme/redis`'s new
+    `redisConfig` (base default `redis://localhost:6379`), mirroring `dbConfig`
+    exactly. `env.ts` layers a runtime `process.env.REDIS_URL` override for the
+    _dynamic_ case only (testcontainer mapped port, infra-injected prod endpoint,
+    which may embed a password) — the same host/port-override shape `dbConfig`
+    uses. `@acme/redis` is the single config home; the dead, unused `REDIS_URL`
+    rows in `@acme/chat,feedback,billing` env schemas were dropped, and
+    `@acme/queue` now sources the DSN from `@acme/redis/env` (as `@acme/rag`
+    sources DB from `@acme/db/env`). `REDIS_URL` leaves `.env.example`; it stays
+    in `turbo.json` `globalEnv` as a dynamic override read (like `DB_HOST`/
+    `DB_PORT`). Dev runs with no `REDIS_URL` row.
 - **Stragglers classified** (named in #78 but outside the ADR tables). None become
   config-as-code — config is a browser-safe TypeScript runtime, so a value that is
   only ever read by a shell script or a compose file cannot consume it:

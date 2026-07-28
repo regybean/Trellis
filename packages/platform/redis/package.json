@@ -1,6 +1,7 @@
 {
   "name": "@acme/redis",
   "dependencies": {
+    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
@@ -21,6 +22,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "default": "./src/config.ts"
     },
     "./env": {
       "types": "./dist/env.d.ts",
