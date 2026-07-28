@@ -55,7 +55,14 @@ export default function RootLayout(props: { children: React.ReactNode }) {
               <TooltipProvider>
                 <SidebarProvider>
                   <Sidebar />
-                  <SidebarInset>
+                  {/* `SidebarInset` alone is `min-w-0 flex-1` (a flex-row item —
+                      no height, not a column), so a `flex-1`/`h-full` page had no
+                      concrete height to resolve against and chat collapsed to
+                      content (#156). Make the inset a real full-height flex
+                      column — matching the `nextjs` `EditorialShell` root
+                      (`flex h-screen flex-col`); `svh` matches the provider's
+                      `min-h-svh`. Confined to the app-owned shell (ADR 0011). */}
+                  <SidebarInset className="flex h-svh flex-col overflow-hidden">
                     {/* App-owned brutalist top bar: heavy ink underline, mono
                         kicker, riso-pink issue stamp. Shell/chrome is
                         app-owned (ADR 0011). */}
@@ -70,7 +77,10 @@ export default function RootLayout(props: { children: React.ReactNode }) {
                         Slim Edition
                       </span>
                     </header>
-                    <main className="min-h-0 flex-1">
+                    {/* Height-bounded scroll region: chat's `h-full` fills it and
+                        scrolls internally; the documents page (`min-h-screen`)
+                        scrolls here instead of the (clipped) body. */}
+                    <main className="min-h-0 flex-1 overflow-y-auto">
                       <ToastThemeClient />
                       {props.children}
                     </main>
