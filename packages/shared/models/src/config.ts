@@ -8,7 +8,7 @@ import { createConfig } from '@acme/config';
  * and every provider's model ids / region / base URL are non-sensitive tunables
  * that differ per deploy target — they live here, not in `process.env`. The raw
  * credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `OPENROUTER_API_KEY`)
- * stay in `env-providers.ts`, validated lazily by the selected provider's factory.
+ * stay in `env.ts` (`modelsEnv`), validated from this config's selected providers.
  *
  * `chat` and `embed` are **per-role discriminated unions** keyed by `provider`:
  * selecting a provider requires (and validates) only that provider's fields — on
@@ -39,7 +39,7 @@ const titleModel = z.string().optional();
 const dimensions = z.number().int().positive();
 
 // Chat (LLM) provider. Bedrock resolves credentials via the AWS chain; OpenRouter
-// carries no connection param (only its API-key secret, read in env-providers).
+// carries no connection param (only its API-key secret, validated in env.ts).
 export const chatConfigSchema = z.discriminatedUnion('provider', [
   z.object({
     provider: z.literal('ollama'),

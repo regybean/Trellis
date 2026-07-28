@@ -1872,12 +1872,18 @@ importers:
       '@acme/config':
         specifier: workspace:*
         version: link:../../platform/config
+      '@acme/env':
+        specifier: workspace:*
+        version: link:../../platform/env
       '@clerk/backend':
         specifier: ^2.33.5
         version: 2.33.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@clerk/clerk-react':
         specifier: 'catalog:'
         version: 5.61.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
+      '@t3-oss/env-nextjs':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       react:
         specifier: 'catalog:'
         version: 19.2.3
