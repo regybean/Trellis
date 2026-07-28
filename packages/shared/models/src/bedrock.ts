@@ -1,36 +1,31 @@
 import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 
-import { modelsConfig } from './config';
-import { appEnv } from './env';
+import type { BedrockChatConfig, BedrockEmbedConfig } from './config';
 import { bedrockEnv } from './env-providers';
 
-// Region + model ids are config-as-code (ADR 0026); credentials resolve via the
-// standard AWS provider chain. `bedrockEnv()` is still called per model so a
-// Bedrock-active app fails fast on missing credentials, not on the first request.
-const config = modelsConfig({ appEnv, isServer: true });
+// Region + model ids arrive as the narrowed Bedrock variant (`config.chat` /
+// `config.embed`, ADR 0026); credentials resolve via the standard AWS provider
+// chain. `bedrockEnv()` is still called per model so a Bedrock-active app fails
+// fast on missing credentials, not on the first request.
 
 // Mastra's model router has no native Bedrock entry, so we pass an
 // `@ai-sdk/amazon-bedrock` provider instance directly.
-export function bedrockChatModel(): LanguageModelV3 {
+export function bedrockChatModel(chat: BedrockChatConfig): LanguageModelV3 {
   bedrockEnv();
-  return createAmazonBedrock({ region: config.AWS_REGION })(
-    config.BEDROCK_CHAT_MODEL,
-  );
+  return createAmazonBedrock({ region: chat.region })(chat.model);
 }
 
 // Cheaper model for thread-title generation. Falls back to the chat model when
-// BEDROCK_TITLE_MODEL is unset, so titles work out of the box.
-export function bedrockTitleModel(): LanguageModelV3 {
+// no title model is set, so titles work out of the box.
+export function bedrockTitleModel(chat: BedrockChatConfig): LanguageModelV3 {
   bedrockEnv();
-  return createAmazonBedrock({ region: config.AWS_REGION })(
-    config.BEDROCK_TITLE_MODEL ?? config.BEDROCK_CHAT_MODEL,
+  return createAmazonBedrock({ region: chat.region })(
+    chat.titleModel ?? chat.model,
   );
 }
 
-export function bedrockEmbedModel(): EmbeddingModelV3 {
+export function bedrockEmbedModel(embed: BedrockEmbedConfig): EmbeddingModelV3 {
   bedrockEnv();
-  return createAmazonBedrock({ region: config.AWS_REGION }).embedding(
-    config.BEDROCK_EMBED_MODEL,
-  );
+  return createAmazonBedrock({ region: embed.region }).embedding(embed.model);
 }
