@@ -1614,6 +1614,9 @@ importers:
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
+      '@acme/redis':
+        specifier: workspace:*
+        version: link:../redis
       '@t3-oss/env-nextjs':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
@@ -1645,6 +1648,9 @@ importers:
 
   packages/platform/redis:
     dependencies:
+      '@acme/config':
+        specifier: workspace:*
+        version: link:../config
       '@acme/env':
         specifier: workspace:*
         version: link:../env

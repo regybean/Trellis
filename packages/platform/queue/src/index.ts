@@ -2,6 +2,7 @@ import type { Processor, QueueOptions, WorkerOptions } from 'bullmq';
 import { Queue, Worker } from 'bullmq';
 
 import { logger } from '@acme/logger';
+import { env as redisEnv } from '@acme/redis/env';
 
 import { env } from './env';
 
@@ -10,9 +11,11 @@ import { env } from './env';
 // only package that may depend on BullMQ (enforced by the boundary check).
 export type { Job } from 'bullmq';
 
-// BullMQ manages its own ioredis connections internally when given plain options —
-// separate from @acme/redis. maxRetriesPerRequest: null is required for Worker
-// blocking commands to avoid ioredis timing them out.
+// BullMQ manages its own ioredis connections internally when given plain options,
+// separate from @acme/redis's clients — but the connection string is sourced from
+// @acme/redis's config home (`REDIS_URL` is config-as-code, ADR 0026), not a queue
+// env row. maxRetriesPerRequest: null is required for Worker blocking commands to
+// avoid ioredis timing them out.
 const parseRedisUrl = (url: string) => {
   const { hostname, port, password, pathname, protocol } = new URL(url);
   return {
@@ -25,7 +28,7 @@ const parseRedisUrl = (url: string) => {
   };
 };
 
-const connection = parseRedisUrl(env.REDIS_URL);
+const connection = parseRedisUrl(redisEnv.REDIS_URL);
 
 // Per-app BullMQ key prefix. Every app shares one Redis instance, so without a
 // per-app prefix all four apps' workers would drain the same `bull:generation`

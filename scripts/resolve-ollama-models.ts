@@ -19,10 +19,13 @@ import { modelsConfig } from "../packages/shared/models/src/config";
 
 const config = modelsConfig({ appEnv: "development", isServer: true });
 
+// The development profile selects Ollama for both roles (ADR 0026), so the chat
+// and embed model ids are the ollama variants' `model` fields. `model` is common
+// to every variant of each union, so this reads without narrowing.
 process.stdout.write(
   [
-    `OLLAMA_CHAT_MODEL=${config.OLLAMA_CHAT_MODEL}`,
-    `OLLAMA_EMBED_MODEL=${config.OLLAMA_EMBED_MODEL}`,
+    `OLLAMA_CHAT_MODEL=${config.chat.model}`,
+    `OLLAMA_EMBED_MODEL=${config.embed.model}`,
     "",
   ].join("\n"),
 );

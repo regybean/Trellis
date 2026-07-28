@@ -1,5 +1,6 @@
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
 
+import type { ChatConfig, EmbedConfig } from './config';
 import {
   bedrockChatModel,
   bedrockEmbedModel,
@@ -10,69 +11,61 @@ import { appEnv } from './env';
 import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
 import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
-// Provider identifiers, derived from the config schema so the resolver's switch
-// and the config parser can never drift. `EmbedProvider` is the narrower set
-// (OpenRouter has no embeddings API); the embed resolver still accepts the full
-// `LlmProvider` set so an invalid selection is rejected here with a clear message
-// rather than being unrepresentable.
-type ModelsConfig = ReturnType<typeof modelsConfig>;
-type LlmProvider = ModelsConfig['LLM_PROVIDER'];
-type EmbedProvider = ModelsConfig['EMBED_PROVIDER'];
+// The embed provider set, derived from the embed union's discriminant so the
+// options matrix can never drift from the schema. OpenRouter is absent — it
+// exposes no embeddings API — so no-embed is unrepresentable here.
+type EmbedProvider = EmbedConfig['provider'];
 
-// --- Pure core: provider-parameterised resolvers reading NO module-scope env ---
+// --- Pure core: variant-parameterised resolvers reading NO module-scope env ---
 //
-// Each resolver takes the provider explicitly and dispatches to that provider's
-// factory. Only the chosen factory runs, so only its env is validated (the
-// per-provider `createEnv` calls live inside the factories — see
-// `env-providers.ts`). Chat and embed providers are resolved independently — e.g.
-// OpenRouter chat + Ollama embed is a valid combination.
+// Each resolver takes the narrowed config variant (`config.chat` / `config.embed`)
+// and dispatches on its `provider` discriminant to that provider's factory. Only
+// the chosen factory runs, so only its env is validated (the per-provider
+// `createEnv` calls live inside the factories — see `env-providers.ts`). The
+// variant carries exactly the chosen provider's fields — no region on Ollama, no
+// base URL on Bedrock — so the factories need no cross-provider guards. Chat and
+// embed are resolved independently — e.g. OpenRouter chat + Ollama embed is valid.
 //
 // The title model follows the chat provider (same family, optionally a cheaper
-// model id); each factory falls back to the chat model when no title env is set.
-export function resolveChatModel(provider: LlmProvider) {
-  switch (provider) {
+// model id); each factory falls back to the chat model when no title id is set.
+export function resolveChatModel(chat: ChatConfig) {
+  switch (chat.provider) {
     case 'bedrock': {
-      return bedrockChatModel();
+      return bedrockChatModel(chat);
     }
     case 'openrouter': {
-      return openrouterChatModel();
+      return openrouterChatModel(chat);
     }
     case 'ollama': {
-      return ollamaChatModel();
+      return ollamaChatModel(chat);
     }
   }
 }
 
-export function resolveTitleModel(provider: LlmProvider) {
-  switch (provider) {
+export function resolveTitleModel(chat: ChatConfig) {
+  switch (chat.provider) {
     case 'bedrock': {
-      return bedrockTitleModel();
+      return bedrockTitleModel(chat);
     }
     case 'openrouter': {
-      return openrouterTitleModel();
+      return openrouterTitleModel(chat);
     }
     case 'ollama': {
-      return ollamaTitleModel();
+      return ollamaTitleModel(chat);
     }
   }
 }
 
-// Accepts the full provider set so an invalid embed selection surfaces as a
-// clear domain error here, not an unrepresentable state. OpenRouter exposes no
-// embeddings API, so it is rejected; `EMBED_PROVIDER` already excludes it at
-// parse time, so the eager cap below never reaches this branch.
-export function resolveEmbedModel(provider: LlmProvider) {
-  switch (provider) {
+// Total over the embed union: OpenRouter is absent from it (no embeddings API),
+// so there is no invalid case to reject at runtime — the schema rejects an
+// OpenRouter embed selection at parse time.
+export function resolveEmbedModel(embed: EmbedConfig) {
+  switch (embed.provider) {
     case 'bedrock': {
-      return bedrockEmbedModel();
+      return bedrockEmbedModel(embed);
     }
     case 'ollama': {
-      return ollamaEmbedModel();
-    }
-    case 'openrouter': {
-      throw new Error(
-        'OpenRouter exposes no embeddings API; EMBED_PROVIDER must be "bedrock" or "ollama".',
-      );
+      return ollamaEmbedModel(embed);
     }
   }
 }
@@ -94,7 +87,7 @@ export function embedProviderOptionsFor(
   return options;
 }
 
-// --- Eager singletons: thin caps binding the env-selected provider ---
+// --- Eager singletons: thin caps binding the config-selected provider ---
 //
 // The active providers are constructed once at import and a missing/invalid
 // config for an active provider blocks here rather than failing deep inside a
@@ -102,13 +95,13 @@ export function embedProviderOptionsFor(
 // ADR 0024): the build and test infra rely on it.
 const config = modelsConfig({ appEnv, isServer: true });
 
-export const chatModel = resolveChatModel(config.LLM_PROVIDER);
-export const titleModel = resolveTitleModel(config.LLM_PROVIDER);
-export const embedModel = resolveEmbedModel(config.EMBED_PROVIDER);
+export const chatModel = resolveChatModel(config.chat);
+export const titleModel = resolveTitleModel(config.chat);
+export const embedModel = resolveEmbedModel(config.embed);
 
 // Thin cap over `embedProviderOptionsFor`, binding the config-selected embed
 // provider. Callers pass the result straight to `embedMany` / the vector query
 // tool without knowing which provider is active.
 export function embedProviderOptions(purpose: 'document' | 'query') {
-  return embedProviderOptionsFor(config.EMBED_PROVIDER, purpose);
+  return embedProviderOptionsFor(config.embed.provider, purpose);
 }

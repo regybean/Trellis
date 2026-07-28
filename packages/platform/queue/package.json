@@ -3,6 +3,7 @@
   "dependencies": {
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
+    "@acme/redis": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
     "bullmq": "catalog:",
     "zod": "catalog:"

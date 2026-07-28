@@ -25,7 +25,6 @@ export function billingEnv() {
       // per-env-duplicated client values live in `./config` (`billingConfig`).
       STRIPE_SUCCESS_URL: z.url(),
       STRIPE_CANCEL_URL: z.url(),
-      REDIS_URL: z.url(),
     },
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
@@ -34,7 +33,6 @@ export function billingEnv() {
       STRIPE_API_BASE: process.env.STRIPE_API_BASE,
       STRIPE_SECRET_KEY: process.env.STRIPE_SECRET_KEY,
       STRIPE_WEBHOOK_SECRET: process.env.STRIPE_WEBHOOK_SECRET,
-      REDIS_URL: process.env.REDIS_URL,
     },
     skipValidation,
   });

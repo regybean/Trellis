@@ -1,15 +1,24 @@
 # Models (`@acme/models`)
 
-The model layer: resolves the chat (LLM) and embedding models from env-selected
+The model layer: resolves the chat (LLM) and embedding models from config-selected
 providers and hands AI-SDK model instances to the rest of the system. `@acme/rag`
 and `@acme/chat` depend on this; it owns no RAG, persistence, or agent logic.
 
 ## Language
 
 **Provider**:
-A model backend selected by env. `LLM_PROVIDER` ∈ {`bedrock`, `openrouter`,
-`ollama`}; `EMBED_PROVIDER` ∈ {`bedrock`, `ollama`}. _Avoid_: "vendor", "backend"
-(ambiguous with infra).
+A model backend selected by config (`config.ts`, ADR 0026). `chat` and `embed` are
+**per-role discriminated unions** keyed by `provider`: chat ∈ {`ollama`,
+`bedrock`, `openrouter`}; embed ∈ {`ollama`, `bedrock`}. Selecting a provider
+carries (and validates) only that provider's fields — Ollama has a `baseUrl`,
+Bedrock a `region`, OpenRouter neither. _Avoid_: "vendor", "backend" (ambiguous
+with infra).
+
+**Chat / embed variant**:
+The narrowed member of a role's union once `provider` is fixed — what a resolver
+and provider factory receive (`config.chat` / `config.embed`), never a bare
+provider string. Narrowing on `.provider` gives each factory exactly its fields,
+so no cross-provider guards are needed.
 
 **Chat model / Embed model**:
 The two resolved AI-SDK instances (`chatModel`, `embedModel`). Resolved
@@ -32,35 +41,46 @@ import graph in `resolve.ts` couples the selector to every provider regardless,
 so separate packages buy no decoupling. Deleting a provider is: delete its file,
 drop its `case`, `pnpm remove` its SDK.
 
-**Lazy, per-provider env validation**: each provider's envs live in their own
-`createEnv` function in `env.ts` (`bedrockEnv`, `openrouterEnv`, `ollamaEnv`),
+**Lazy, per-provider secret validation**: each secret provider's env lives in its
+own `createEnv` function in `env-providers.ts` (`bedrockEnv`, `openrouterEnv`),
 called **inside** the provider factory. Only the active provider's factory runs
-(see `resolve.ts`), so only its envs are required — selecting `ollama` never
-demands `OPENROUTER_API_KEY`. A missing/invalid env for an _active_ provider still
-blocks eagerly at import, matching the other `env.ts` files. `modelsEnv`
-(provider selection + `EMBED_DIMENSIONS`) is always validated.
+(see `resolve.ts`), so only its secrets are required — selecting `ollama` never
+demands `OPENROUTER_API_KEY` (Ollama has no secret, so no env factory at all). A
+missing/invalid secret for an _active_ provider still blocks eagerly at import,
+matching the other `env.ts` files. Provider selection, model ids, region, base
+URL and the embed dimension are config-as-code (`config.ts`), always validated.
 
-**Pure provider-parameterised core, capped by eager singletons**: resolution is
-split in `resolve.ts` into a pure core that reads no module-scope env —
-`resolveChatModel/resolveTitleModel/resolveEmbedModel(provider)` and
-`embedProviderOptionsFor(provider, purpose)`, each keyed by an explicit provider
-argument — and thin caps (`chatModel`, `titleModel`, `embedModel`,
-`embedProviderOptions`) that bind the `modelsEnv()`-selected provider and delegate
-to it. The split makes the provider matrix table-testable (see
-`src/tests/unit/resolve.test.ts`) without a per-provider env for every branch. The
-caps stay eager at import (a missing/invalid env for an active provider still
-fails there, per ADR 0014 / 0024) — the build and test infra rely on it. The
-embed resolver accepts the full `LlmProvider` set and rejects `openrouter` (no
-embeddings API) with a clear error, rather than leaving the invalid case
-unrepresentable.
+**Discriminated unions make no-embed unrepresentable, single-authored connection
+params**: `chat`/`embed` are `z.discriminatedUnion('provider', …)`, so the shared
+`baseUrl` (Ollama) and `region` (Bedrock) leaf schemas are declared once and
+**spread** into both roles' variants — no per-role duplication. OpenRouter is
+absent from the `embed` union (it exposes no embeddings API), so an OpenRouter
+embed selection fails at parse time and no-embed is structurally unrepresentable —
+there is no runtime `throw` in `resolveEmbedModel`. A profile overlay may flip a
+role's provider per deploy target (dev `ollama` → prod `bedrock`); the deep-merge
+carries the Ollama-only `baseUrl` into the merged object and the union strips it
+(zod object-strip) when the Bedrock variant validates.
 
-**`EMBED_DIMENSIONS` lives here, consumed by `@acme/rag`**: the embed model fixes
-the vector dimension, so it is configured (not baked in) and is the single source
-of truth for both the PgVector index and the Drizzle mirror over in `@acme/rag`.
-Imported from `@acme/models/env` (not the package root) so the Drizzle schema
-doesn't pull in provider resolution. Switching embed model means changing the
-dimension and re-pushing the schema; a mismatch against an existing index fails
-with an actionable error in `@acme/rag`, never a raw pgvector error.
+**Variant-parameterised core, capped by eager singletons**: resolution is split in
+`resolve.ts` into a pure core that reads no module-scope env — `resolveChatModel`/
+`resolveTitleModel(config.chat)`, `resolveEmbedModel(config.embed)` and
+`embedProviderOptionsFor(provider, purpose)`, each taking the **narrowed variant**
+(dispatched via the `.provider` discriminant) rather than a bare provider string —
+and thin caps (`chatModel`, `titleModel`, `embedModel`, `embedProviderOptions`)
+that bind the config-selected variant and delegate. The split makes the provider
+matrix table-testable (see `src/tests/unit/resolve.test.ts`) without a per-provider
+secret for every branch. The caps stay eager at import (a missing/invalid secret
+for an active provider still fails there, per ADR 0014 / 0024) — the build and
+test infra rely on it.
+
+**The embed dimension lives here, consumed by `@acme/rag`**: the embed model fixes
+the vector dimension, so it rides with the selected embed variant
+(`embed.dimensions`) and is the single source of truth for both the PgVector index
+and the Drizzle mirror over in `@acme/rag`. Read from `@acme/models/config` (not
+the package root) so the Drizzle schema doesn't pull in provider resolution.
+Switching embed model means changing the dimension and re-pushing the schema; a
+mismatch against an existing index fails with an actionable error in `@acme/rag`,
+never a raw pgvector error.
 
 **Ollama is the dev default, over the OpenAI-compatible endpoint**: Ollama serves
 an OpenAI-compatible API on `/v1` covering both chat and embeddings, so a single

@@ -20,14 +20,10 @@ export function feedbackEnv() {
           'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
         ),
     },
-    server: {
-      REDIS_URL: z.url(),
-    },
     client: {},
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,
-      REDIS_URL: process.env.REDIS_URL,
     },
     skipValidation,
   });
