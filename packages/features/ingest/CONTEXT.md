@@ -16,6 +16,26 @@ _Avoid_: "piece", "segment", "embedding"
 The collection of all indexed Documents available to the chat assistant at query time. Operators build and maintain it via this feature.
 _Avoid_: "vector store", "index", "database"
 
+**Job**:
+A grouping identity for the 1..N Uploads created by one presign call (the batch an operator submits together). Identified by a server-minted `jobId` (returned in the presign response) that flows presign → S3 PUT → enqueue and serves as the BullMQ dedup key (idempotent enqueue). A Job is **derived, never persisted** — there is no stored Job row or status; "the Job succeeded/failed" is computed from its Uploads. It exists only as `jobId` + its Uploads' progress rows in the stream + one completion notification.
+_Avoid_: "batch", "task", "run"
+
+**Upload**:
+The transient act of processing one file through a Job. Identified by a server-minted per-file `uploadId` (S3 key `uploads/${jobId}/${uploadId}/${filename}` — the per-file id disambiguates same-filename files in one Job). Carries a live **stage** and can `fail` independently of its siblings. Ephemeral: it exists for the lifetime of processing and disappears once the Job completes. Distinct from a Document — an Upload is the _processing unit_; the Document is its _durable result_.
+_Avoid_: "file", "upload job", "document" (a Document is the result, not the act)
+_Gotcha_: two Uploads in one Job with the same filename both reach `done` but collapse to a single Document (Documents are filename-keyed via `deriveChunkId`, last write wins). Accepted — uploading two same-named files is degenerate.
+
+**Stage**:
+The lifecycle position of a single Upload, shown live to the operator:
+`uploading → queued → parsing → embedding → done | failed`.
+
+- `uploading` — client-owned (browser→S3 PUT); the only stage the server never observes.
+- `queued` — enqueued, awaiting a worker concurrency slot (`p-limit`). The first server-emitted stage.
+- `parsing` — `extractText` + `chunk` (folded; the operator doesn't distinguish them).
+- `embedding` — per-file `embedMany` + `pgVector.upsert` (folded; upsert is a fast tail). The domain commits to **per-file** embedding granularity.
+- `done` / `failed` — terminal per Upload; `failed` carries an error message.
+  _Avoid_: "status" (reserved for the old binary `idle | uploading`), "step", "phase"
+
 **Presigned upload URL**:
 A time-limited S3 PUT URL generated server-side and returned to the browser, allowing the client to upload directly to S3 without routing large file payloads through the Next.js server.
 _Avoid_: "signed URL", "upload link"
@@ -23,10 +43,13 @@ _Gotcha_: the `S3Client` sets `requestChecksumCalculation: 'WHEN_REQUIRED'`. AWS
 
 ## Relationships
 
-- An operator requests **Presigned upload URLs** for one or more files → uploads directly to S3
-- The operator then calls `uploadFromS3` with the resulting S3 keys → the server downloads each file, indexes it into the vector store as **Chunks**, then deletes the S3 object
+- An operator submits a set of files → one **Job** (`jobId`) grouping one **Upload** (`uploadId`) per file, both server-minted in the presign response
+- Each **Upload** is uploaded browser-direct to S3, then processed server-side (parse → chunk → embed → upsert) into **Chunks**, producing/refreshing one filename-keyed **Document**
+- A **Job** completes when all its Uploads reach a terminal **Stage** (`done` / `failed`); completion emits a single notification `{ jobId, total, succeeded, failed: { uploadId, filename, error }[] }` → one operator-facing toast
 - Deleting a **Document** removes all its **Chunks** from the vector store by filename
 - The `list` procedure returns Documents grouped by filename (one row per Document, not per Chunk)
+
+> **Async streaming migration (in design — map #171):** the synchronous `uploadFromS3` (server downloads + `await uploadDocs` inline) is being replaced by an async enqueue + BullMQ worker with live per-Upload stage progress. The **Language** entries for Job / Upload / Stage above are the target model; the **Design decisions** below still describe today's synchronous flow until the migration lands.
 
 ## Design decisions
 
