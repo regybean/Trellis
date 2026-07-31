@@ -8,3 +8,6 @@ export { appRouter } from './api/root';
 export type { AppRouter } from './api/root';
 export { createTRPCContext } from './api/trpc';
 export { publish } from './api/services/publish';
+// The per-user stream key builder — exported so a publishing feature can assert,
+// in tests, the completion it wrote (read the stream back via `xRange`).
+export { notificationKey } from './api/notification-keys';

@@ -2,7 +2,7 @@
  * Document uploader — domain (pure) tests.
  *
  * The named seams the uploader composes (`deriveChunkId`, `dedupeChunks`): fast,
- * no DB, no embeddings. The real `uploadDocs` behaviour against the vector
+ * no DB, no embeddings. The real `uploadDoc` behaviour against the vector
  * database lives in `tests/service/document-uploader.test.ts`.
  */
 

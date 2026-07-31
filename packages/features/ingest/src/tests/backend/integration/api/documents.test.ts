@@ -3,34 +3,25 @@
  *
  * Testing philosophy:
  * - Test auth/middleware ONCE (every procedure uses adminProcedure).
- * - Focus on the orchestration logic: presigned-URL fan-out, S3 download →
- *   index → cleanup, and the failure path that still cleans up.
- * - Mock only the external edges: the document store and the S3 client.
+ * - Presign: assert the server-minted Job identity and reshaped response.
+ * - startIngestJob: validation (jobId-prefix guard), the real-queue enqueue
+ *   read-back through `_ingestQueue`, and the TRPCError-on-enqueue-failure path.
+ *
+ * `@acme/rag/server` is driven FOR REAL (never `vi.mock`'d — the processor + worker
+ * e2e in this same non-isolated suite import it real, and a local mock would
+ * corrupt the shared module registry). Only S3 is mocked (setup.ts). The queue is
+ * REAL (BullMQ on the testcontainer Redis).
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { deleteByFilename, uploadDocs } from '@acme/rag/server';
+import { ensureVectorIndex } from '@acme/rag/server';
 
 import type { TestContextOptions } from '../../utils/test-context';
 import { appRouter } from '../../../../api/root';
-import {
-  deleteFilesFromS3,
-  downloadFileFromS3,
-  generatePresignedUploadUrl,
-} from '../../../../utils/s3-client';
+import { _ingestQueue } from '../../../../api/services/ingest-queue';
+import { generatePresignedUploadUrl } from '../../../../utils/s3-client';
 import { createTestContext } from '../../utils/test-context';
-
-// This is a pure orchestration test of the (soon-to-be-removed, #188) synchronous
-// router: it exercises presign fan-out and the S3-download → index → cleanup path,
-// so the document store is stubbed here rather than driven for real. The suite no
-// longer mocks @acme/rag/server globally (the progress reader tails real Redis), so
-// this file owns the stub locally.
-vi.mock('@acme/rag/server', () => ({
-  listDocuments: vi.fn(),
-  uploadDocs: vi.fn(),
-  deleteByFilename: vi.fn(),
-}));
 
 const adminOpts: TestContextOptions = {
   userId: 'user_admin',
@@ -43,9 +34,33 @@ function createCaller(opts: TestContextOptions) {
   return appRouter.createCaller(createTestContext(opts));
 }
 
+// Presign a one-file batch and reshape the response into the `startIngestJob`
+// input (echoed server-minted ids + s3Key).
+async function presignedBatch() {
+  vi.mocked(generatePresignedUploadUrl).mockImplementation((key) =>
+    Promise.resolve(`https://s3.test/${key}`),
+  );
+  const { jobId, uploads } = await createCaller(
+    adminOpts,
+  ).documents.getPresignedUploadUrls({
+    files: [{ filename: 'a.pdf', contentType: 'application/pdf' }],
+  });
+  return {
+    jobId,
+    uploads: uploads.map((u) => ({
+      uploadId: u.uploadId,
+      filename: u.filename,
+      s3Key: u.s3Key,
+    })),
+  };
+}
+
 describe('documentsRouter', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    // No worker runs here, so jobs pile up; clear between tests to avoid jobId
+    // dedup collisions on the enqueue read-back.
+    await _ingestQueue.obliterate({ force: true });
   });
 
   describe('middleware (tested once)', () => {
@@ -59,7 +74,7 @@ describe('documentsRouter', () => {
   });
 
   describe('getPresignedUploadUrls', () => {
-    it('returns one presigned URL per file, keyed under a shared uploadId', async () => {
+    it('server-mints one Job id + per-file upload id, keys nested under both', async () => {
       vi.mocked(generatePresignedUploadUrl).mockImplementation((key) =>
         Promise.resolve(`https://s3.test/${key}`),
       );
@@ -73,70 +88,87 @@ describe('documentsRouter', () => {
         ],
       });
 
-      expect(result.presignedUrls).toHaveLength(2);
+      expect(result.jobId).toMatch(/\S/);
+      expect(result.uploads).toHaveLength(2);
       expect(generatePresignedUploadUrl).toHaveBeenCalledTimes(2);
-      // All keys share the single uploadId prefix.
-      for (const { key } of result.presignedUrls) {
-        expect(key).toBe(`uploads/${result.uploadId}/${key.split('/').pop()}`);
+
+      // Every key nests jobId AND the per-file uploadId, so same-named files in
+      // one Job never collide: uploads/${jobId}/${uploadId}/${filename}.
+      for (const upload of result.uploads) {
+        expect(upload.s3Key).toBe(
+          `uploads/${result.jobId}/${upload.uploadId}/${upload.filename}`,
+        );
+        expect(upload.uploadUrl).toContain(upload.s3Key);
       }
-      expect(result.presignedUrls.map((p) => p.filename)).toEqual([
-        'a.pdf',
-        'b.txt',
-      ]);
+      // Per-file uploadIds are distinct.
+      const ids = result.uploads.map((u) => u.uploadId);
+      expect(new Set(ids).size).toBe(2);
+      expect(result.uploads.map((u) => u.filename)).toEqual(['a.pdf', 'b.txt']);
     });
   });
 
-  describe('uploadFromS3', () => {
-    it('downloads, indexes, then cleans up the S3 objects', async () => {
-      vi.mocked(downloadFileFromS3).mockResolvedValue({
-        buffer: Buffer.from('hello'),
-        contentType: 'application/pdf',
+  describe('startIngestJob', () => {
+    it('enqueues one job per batch (real queue read-back) and returns { jobId }', async () => {
+      const { jobId, uploads } = await presignedBatch();
+
+      const result = await createCaller(adminOpts).documents.startIngestJob({
+        jobId,
+        uploads,
       });
-      vi.mocked(uploadDocs).mockImplementation(() => Promise.resolve());
-      vi.mocked(deleteFilesFromS3).mockImplementation(() => Promise.resolve());
+      expect(result).toEqual({ jobId });
 
-      const s3Keys = ['uploads/u1/a.pdf', 'uploads/u1/b.pdf'];
-      await createCaller(adminOpts).documents.uploadFromS3({ s3Keys });
-
-      expect(downloadFileFromS3).toHaveBeenCalledTimes(2);
-      expect(uploadDocs).toHaveBeenCalledOnce();
-      const uploaded = vi.mocked(uploadDocs).mock.calls[0]?.[0];
-      expect(uploaded).toHaveLength(2);
-      expect(uploaded?.[0]).toBeInstanceOf(File);
-      expect(uploaded?.[0]?.name).toBe('a.pdf');
-      expect(deleteFilesFromS3).toHaveBeenCalledWith(s3Keys);
+      // Read the job back off the real queue: one job under the jobId dedup key,
+      // carrying the userId + the echoed uploads.
+      const job = await _ingestQueue.getJob(jobId);
+      if (!job) throw new Error('expected the job to be enqueued');
+      expect(job.data.userId).toBe(adminOpts.userId);
+      expect(job.data.jobId).toBe(jobId);
+      expect(job.data.uploads).toEqual(uploads);
     });
 
-    it('still cleans up S3 and throws INTERNAL_SERVER_ERROR when indexing fails', async () => {
-      vi.mocked(downloadFileFromS3).mockResolvedValue({
-        buffer: Buffer.from('hello'),
-        contentType: 'application/pdf',
-      });
-      vi.mocked(uploadDocs).mockRejectedValue(new Error('index boom'));
-      vi.mocked(deleteFilesFromS3).mockImplementation(() => Promise.resolve());
+    it('rejects an s3Key that does not belong to the job (prefix guard)', async () => {
+      const { jobId, uploads } = await presignedBatch();
+      const [first] = uploads;
+      if (!first) throw new Error('expected a presigned upload');
 
-      const s3Keys = ['uploads/u1/a.pdf'];
       await expect(
-        createCaller(adminOpts).documents.uploadFromS3({ s3Keys }),
+        createCaller(adminOpts).documents.startIngestJob({
+          jobId,
+          uploads: [{ ...first, s3Key: 'uploads/other-job/x/a.pdf' }],
+        }),
+      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
+
+      // Nothing enqueued on a rejected batch.
+      expect(await _ingestQueue.getJob(jobId)).toBeUndefined();
+    });
+
+    it('translates an enqueue failure into a TRPCError', async () => {
+      const { jobId, uploads } = await presignedBatch();
+
+      // Force the BullMQ edge to fail — the router must surface a TRPCError.
+      const spy = vi
+        .spyOn(_ingestQueue, 'add')
+        .mockRejectedValueOnce(new Error('redis down'));
+
+      await expect(
+        createCaller(adminOpts).documents.startIngestJob({ jobId, uploads }),
       ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
 
-      expect(deleteFilesFromS3).toHaveBeenCalledWith(s3Keys);
+      spy.mockRestore();
     });
   });
 
   describe('delete', () => {
-    it('deletes every chunk for a filename', async () => {
-      vi.mocked(deleteByFilename).mockResolvedValue({
-        deletedCount: 3,
-        filename: 'a.pdf',
-      });
-
+    it('reports zero deletions for a filename that was never indexed', async () => {
+      // The vector table is created lazily on first index; ensure it exists so a
+      // delete-by-filename against an empty knowledge base returns 0, not errors.
+      await ensureVectorIndex();
+      const filename = `never-${crypto.randomUUID()}.pdf`;
       const result = await createCaller(adminOpts).documents.delete({
-        filename: 'a.pdf',
+        filename,
       });
 
-      expect(deleteByFilename).toHaveBeenCalledWith('a.pdf');
-      expect(result).toEqual({ deletedCount: 3, filename: 'a.pdf' });
+      expect(result).toEqual({ deletedCount: 0, filename });
     });
   });
 });

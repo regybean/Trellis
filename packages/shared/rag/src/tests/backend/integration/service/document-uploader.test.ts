@@ -2,7 +2,7 @@
  * Document uploader — service (integration) test.
  *
  * Cross-upload deduplication is a `vector_id` overwrite that only happens inside
- * Postgres, so this runs the real `uploadDocs` against the test vector database;
+ * Postgres, so this runs the real `uploadDoc` against the test vector database;
  * only the embed model is faked (see setup). The pure seams it composes
  * (`deriveChunkId`, `dedupeChunks`) are covered in `tests/domain`.
  */
@@ -14,14 +14,13 @@ import {
   DocumentParseError,
   listDocuments,
   uploadDoc,
-  uploadDocs,
 } from '../../../../document-uploader';
 
 function txtFile(name: string, content: string) {
   return new File([content], name, { type: 'text/plain' });
 }
 
-describe('uploadDocs deduplication (integration)', () => {
+describe('uploadDoc deduplication (integration)', () => {
   const created: string[] = [];
 
   function uniqueFilename() {
@@ -38,7 +37,7 @@ describe('uploadDocs deduplication (integration)', () => {
 
   it('throws when the file produces no parseable text', async () => {
     const name = uniqueFilename();
-    await expect(uploadDocs([txtFile(name, '')])).rejects.toThrow(
+    await expect(uploadDoc(txtFile(name, ''))).rejects.toThrow(
       `No document could be parsed from file: ${name}`,
     );
   });
@@ -97,10 +96,12 @@ describe('uploadDocs deduplication (integration)', () => {
     const nameA = uniqueFilename();
     const nameB = uniqueFilename();
 
-    await uploadDocs([
+    await uploadDoc(
       txtFile(nameA, 'First file has some content worth chunking.'),
+    );
+    await uploadDoc(
       txtFile(nameB, 'Second file has different content worth chunking.'),
-    ]);
+    );
 
     const docs = await listDocuments();
     const docA = docs.find((d) => d.filename === nameA);
@@ -115,11 +116,11 @@ describe('uploadDocs deduplication (integration)', () => {
     const content =
       'The knowledge base stores chunks. Each chunk is embedded once.';
 
-    await uploadDocs([txtFile(name, content)]);
+    await uploadDoc(txtFile(name, content));
     const firstList = await listDocuments();
     const afterFirst = firstList.find((d) => d.filename === name);
 
-    await uploadDocs([txtFile(name, content)]);
+    await uploadDoc(txtFile(name, content));
     const secondList = await listDocuments();
     const afterSecond = secondList.find((d) => d.filename === name);
 

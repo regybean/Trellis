@@ -18,15 +18,21 @@
 import { MockEmbeddingModelV3 } from 'ai/test';
 import { beforeEach, vi } from 'vitest';
 
+import {
+  deleteFilesFromS3,
+  downloadFileFromS3,
+  generatePresignedUploadUrl,
+} from '../../utils/s3-client';
+
 // Allow importing server-only modules under vitest.
 vi.mock('server-only', () => ({}));
 
-// S3 — no network in tests.
-vi.mock('../../utils/s3-client', () => ({
-  generatePresignedUploadUrl: vi.fn(),
-  downloadFileFromS3: vi.fn(),
-  deleteFilesFromS3: vi.fn(),
-}));
+// S3 — no network in tests. Resolved to the manual mock in
+// `src/utils/__mocks__/s3-client.ts`: a single module the registry evaluates once,
+// so the REAL processor/router and the test files share ONE set of mock fns. An
+// inline factory here (a per-file setupFile) would hand divergent instances to
+// files in the non-isolated suite. Defaults are applied per-test below.
+vi.mock('../../utils/s3-client');
 
 // Fixed vector dimension for tests — matches EMBED_DIMENSIONS (staticTestEnv), the
 // dimension the knowledge-base vector column / PgVector index is sized with. Real
@@ -50,4 +56,16 @@ vi.mock('@acme/models', () => ({
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // Always-on S3 defaults (mirrors chat's always-stubbed `chatAgent.stream`).
+  // The suite is non-isolated with a persistent BullMQ worker (worker-e2e), so a
+  // job can be drained between tests when no per-test impl is set — an unset mock
+  // would crash the processor on `undefined`. Tests override these per case.
+  vi.mocked(generatePresignedUploadUrl).mockResolvedValue(
+    'https://s3.test/upload',
+  );
+  vi.mocked(downloadFileFromS3).mockResolvedValue({
+    buffer: Buffer.from('Default test content worth chunking and embedding.'),
+    contentType: 'text/plain',
+  });
+  vi.mocked(deleteFilesFromS3).mockImplementation(() => Promise.resolve());
 });

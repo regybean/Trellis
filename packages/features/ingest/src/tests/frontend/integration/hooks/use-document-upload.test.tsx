@@ -1,7 +1,7 @@
 /**
  * useDocumentUpload — integration/hooks (ADR 0018).
  *
- * The three-step upload protocol (presign → direct S3 PUT → server index) is
+ * The async upload protocol (presign → direct S3 PUT → enqueue ingest Job) is
  * faked at the HTTP boundary: tRPC via trpcMsw, S3 PUT via plain MSW http.put.
  * Assert returned status transitions and toast output — never mock-call counts.
  */
@@ -21,14 +21,15 @@ afterAll(() => server.close());
 const pdfFile = () =>
   new File(['content'], 'doc.pdf', { type: 'application/pdf' });
 
-const presignHandler = (uploadId = crypto.randomUUID()) =>
+const presignHandler = (jobId = crypto.randomUUID()) =>
   trpcMsw.documents.getPresignedUploadUrls.mutation(() => ({
-    uploadId,
-    presignedUrls: [
+    jobId,
+    uploads: [
       {
+        uploadId: 'u1',
         filename: 'doc.pdf',
-        key: `uploads/${uploadId}/doc.pdf`,
-        uploadUrl: `https://s3.test/uploads/${uploadId}/doc.pdf`,
+        s3Key: `uploads/${jobId}/u1/doc.pdf`,
+        uploadUrl: `https://s3.test/uploads/${jobId}/u1/doc.pdf`,
       },
     ],
   }));
@@ -36,10 +37,8 @@ const presignHandler = (uploadId = crypto.randomUUID()) =>
 const s3PutHandler = () =>
   http.put('https://s3.test/*', () => new HttpResponse(null, { status: 200 }));
 
-const indexHandler = () =>
-  trpcMsw.documents.uploadFromS3.mutation(() => {
-    // void return
-  });
+const startHandler = (jobId = crypto.randomUUID()) =>
+  trpcMsw.documents.startIngestJob.mutation(() => ({ jobId }));
 
 const renderUseDocumentUpload = () =>
   renderHook(() => useDocumentUpload(), { wrapper: Providers });
@@ -86,12 +85,13 @@ describe('useDocumentUpload', () => {
 
   it('transitions to uploading then back to idle on success', async () => {
     const presignResponse = {
-      uploadId: crypto.randomUUID(),
-      presignedUrls: [
+      jobId: 'job-1',
+      uploads: [
         {
+          uploadId: 'u1',
           filename: 'doc.pdf',
-          key: 'uploads/u1/doc.pdf',
-          uploadUrl: 'https://s3.test/uploads/u1/doc.pdf',
+          s3Key: 'uploads/job-1/u1/doc.pdf',
+          uploadUrl: 'https://s3.test/uploads/job-1/u1/doc.pdf',
         },
       ],
     };
@@ -105,7 +105,7 @@ describe('useDocumentUpload', () => {
           }),
       ),
       s3PutHandler(),
-      indexHandler(),
+      startHandler(),
     );
 
     const { result } = renderUseDocumentUpload();
@@ -119,7 +119,7 @@ describe('useDocumentUpload', () => {
   });
 
   it('completes full protocol and returns idle with no error', async () => {
-    server.use(presignHandler(), s3PutHandler(), indexHandler());
+    server.use(presignHandler(), s3PutHandler(), startHandler());
 
     const { result } = renderUseDocumentUpload();
 
@@ -158,12 +158,12 @@ describe('useDocumentUpload', () => {
     expect(result.current.status).toBe('idle');
   });
 
-  it('returns idle (no throw) when indexing fails', async () => {
+  it('returns idle (no throw) when enqueue fails', async () => {
     server.use(
       presignHandler(),
       s3PutHandler(),
-      trpcMsw.documents.uploadFromS3.mutation(() => {
-        throw new Error('index failed');
+      trpcMsw.documents.startIngestJob.mutation(() => {
+        throw new Error('enqueue failed');
       }),
     );
 
