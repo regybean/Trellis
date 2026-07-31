@@ -52,10 +52,20 @@ export function TRPCReactProvider(
       links:
         env.NODE_ENV === 'test'
           ? [
-              // In tests, prefer simple HTTP to work with MSW easily
-              httpLink({
-                transformer: SuperJSON,
-                url: getBaseUrl() + '/api/trpc/ingest',
+              // In tests, prefer simple HTTP so MSW can intercept queries +
+              // mutations; the subscription half gets `httpSubscriptionLink` so
+              // the always-on progress tail has a link and never throws while
+              // its SSE can't connect in jsdom (ADR 0018, mirroring notifications).
+              splitLink({
+                condition: (op) => op.type === 'subscription',
+                true: httpSubscriptionLink({
+                  transformer: SuperJSON,
+                  url: getBaseUrl() + '/api/trpc/ingest',
+                }),
+                false: httpLink({
+                  transformer: SuperJSON,
+                  url: getBaseUrl() + '/api/trpc/ingest',
+                }),
               }),
             ]
           : [

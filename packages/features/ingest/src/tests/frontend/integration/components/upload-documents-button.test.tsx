@@ -1,34 +1,43 @@
 /**
  * UploadDocumentsButton — integration/components (ADR 0018).
  *
- * The async upload protocol (presign → direct S3 PUT → enqueue ingest Job) is
- * faked entirely at the HTTP boundary: tRPC via `trpcMsw`, the S3 PUT via a
- * plain MSW `http.put` handler (one frontier, MSW — no global `fetch` stub,
- * which would clobber MSW's tRPC interception). We assert the toast the user
- * sees, not the mutation calls.
+ * The button is UI-only: it drives the shared `useDocumentUpload` (via
+ * `IngestUploadProvider`) that `IngestProgress` also reads, so a batch triggered
+ * here streams into the panel. We assert what the user sees — the button, and the
+ * client-side validation toast — never mutation calls. The happy-path protocol is
+ * covered by the hook + progress-UI integration tests.
+ *
+ * `onUnhandledRequest: 'bypass'` because the provider opens the always-on progress
+ * subscription (SSE) that can't connect in jsdom (mirrors chat/notifications).
  */
 import type { UserEvent } from '@testing-library/user-event';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import '@testing-library/jest-dom';
 
 import { UploadDocumentsButton } from '../../../../components/upload-documents-button';
-import { renderWithProviders, trpcMsw } from '../../setup';
+import { IngestUploadProvider } from '../../../../hooks/ingest-upload-context';
+import { renderWithProviders } from '../../setup';
 
 const server = setupServer();
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
+beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+const renderButton = () =>
+  renderWithProviders(
+    <IngestUploadProvider>
+      <UploadDocumentsButton />
+    </IngestUploadProvider>,
+  );
+
 /**
- * Drive the hidden file input. Callers that upload a disallowed extension must
- * build `user` with `userEvent.setup({ applyAccept: false })` so the browser's
- * `accept` filter doesn't drop the file before our own `validateFiles` sees it —
- * `applyAccept` is read from the session config, not a per-call argument.
+ * Drive the hidden file input. Callers uploading a disallowed extension must build
+ * `user` with `userEvent.setup({ applyAccept: false })` so the browser's `accept`
+ * filter doesn't drop the file before our own `validateFiles` sees it.
  */
 async function selectFiles(user: UserEvent, files: File[]) {
   const input = document.querySelector<HTMLInputElement>(
@@ -40,19 +49,15 @@ async function selectFiles(user: UserEvent, files: File[]) {
 
 describe('UploadDocumentsButton', () => {
   it('renders the upload button', () => {
-    renderWithProviders(<UploadDocumentsButton />);
-
+    renderButton();
     expect(
       screen.getByRole('button', { name: /upload documents/i }),
     ).toBeInTheDocument();
   });
 
   it('shows an error toast for an unsupported file type (no upload)', async () => {
-    // Rejected client-side by validateFiles — no request is made, so no
-    // handlers are registered and onUnhandledRequest:'error' would catch a leak.
-    // applyAccept:false so the .exe reaches the component's own validateFiles.
     const user = userEvent.setup({ applyAccept: false });
-    renderWithProviders(<UploadDocumentsButton />);
+    renderButton();
 
     await selectFiles(user, [
       new File(['x'], 'malware.exe', { type: 'application/x-msdownload' }),
@@ -60,43 +65,6 @@ describe('UploadDocumentsButton', () => {
 
     expect(
       await screen.findByText(/unsupported file format: malware\.exe/i),
-    ).toBeInTheDocument();
-  });
-
-  it('presigns, uploads to S3, enqueues the Job, and toasts success for a valid file', async () => {
-    server.use(
-      trpcMsw.documents.getPresignedUploadUrls.mutation(() => {
-        const jobId = crypto.randomUUID();
-        return {
-          jobId,
-          uploads: [
-            {
-              uploadId: crypto.randomUUID(),
-              filename: 'doc.pdf',
-              s3Key: `uploads/${jobId}/u1/doc.pdf`,
-              uploadUrl: `https://s3.test/uploads/${jobId}/u1/doc.pdf`,
-            },
-          ],
-        };
-      }),
-      http.put(
-        'https://s3.test/*',
-        () => new HttpResponse(null, { status: 200 }),
-      ),
-      trpcMsw.documents.startIngestJob.mutation(() => ({
-        jobId: crypto.randomUUID(),
-      })),
-    );
-
-    const user = userEvent.setup();
-    renderWithProviders(<UploadDocumentsButton />);
-
-    await selectFiles(user, [
-      new File(['x'], 'doc.pdf', { type: 'application/pdf' }),
-    ]);
-
-    expect(
-      await screen.findByText('Upload started — indexing in the background'),
     ).toBeInTheDocument();
   });
 });
