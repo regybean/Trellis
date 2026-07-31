@@ -1,7 +1,7 @@
 /**
  * UploadDocumentsButton — integration/components (ADR 0018).
  *
- * The three-step upload protocol (presign → direct S3 PUT → server index) is
+ * The async upload protocol (presign → direct S3 PUT → enqueue ingest Job) is
  * faked entirely at the HTTP boundary: tRPC via `trpcMsw`, the S3 PUT via a
  * plain MSW `http.put` handler (one frontier, MSW — no global `fetch` stub,
  * which would clobber MSW's tRPC interception). We assert the toast the user
@@ -63,17 +63,18 @@ describe('UploadDocumentsButton', () => {
     ).toBeInTheDocument();
   });
 
-  it('presigns, uploads to S3, indexes, and toasts success for a valid file', async () => {
+  it('presigns, uploads to S3, enqueues the Job, and toasts success for a valid file', async () => {
     server.use(
       trpcMsw.documents.getPresignedUploadUrls.mutation(() => {
-        const uploadId = crypto.randomUUID();
+        const jobId = crypto.randomUUID();
         return {
-          uploadId,
-          presignedUrls: [
+          jobId,
+          uploads: [
             {
+              uploadId: crypto.randomUUID(),
               filename: 'doc.pdf',
-              key: `uploads/${uploadId}/doc.pdf`,
-              uploadUrl: `https://s3.test/uploads/${uploadId}/doc.pdf`,
+              s3Key: `uploads/${jobId}/u1/doc.pdf`,
+              uploadUrl: `https://s3.test/uploads/${jobId}/u1/doc.pdf`,
             },
           ],
         };
@@ -82,9 +83,9 @@ describe('UploadDocumentsButton', () => {
         'https://s3.test/*',
         () => new HttpResponse(null, { status: 200 }),
       ),
-      trpcMsw.documents.uploadFromS3.mutation(() => {
-        // indexing succeeded; the procedure returns void
-      }),
+      trpcMsw.documents.startIngestJob.mutation(() => ({
+        jobId: crypto.randomUUID(),
+      })),
     );
 
     const user = userEvent.setup();
@@ -95,7 +96,7 @@ describe('UploadDocumentsButton', () => {
     ]);
 
     expect(
-      await screen.findByText('Documents uploaded successfully'),
+      await screen.findByText('Upload started — indexing in the background'),
     ).toBeInTheDocument();
   });
 });
