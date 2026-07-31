@@ -21,6 +21,17 @@ import {
 } from '../../../../utils/s3-client';
 import { createTestContext } from '../../utils/test-context';
 
+// This is a pure orchestration test of the (soon-to-be-removed, #188) synchronous
+// router: it exercises presign fan-out and the S3-download → index → cleanup path,
+// so the document store is stubbed here rather than driven for real. The suite no
+// longer mocks @acme/rag/server globally (the progress reader tails real Redis), so
+// this file owns the stub locally.
+vi.mock('@acme/rag/server', () => ({
+  listDocuments: vi.fn(),
+  uploadDocs: vi.fn(),
+  deleteByFilename: vi.fn(),
+}));
+
 const adminOpts: TestContextOptions = {
   userId: 'user_admin',
   role: 'admin',

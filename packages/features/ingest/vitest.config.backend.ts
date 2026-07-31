@@ -1,12 +1,14 @@
 import { backendProject } from '@acme/test-utils/vitest';
 
-// Ingest's router touches neither the feature DB nor Redis — its only external
-// dependencies are the document store (@acme/rag/server) and S3, both mocked in
-// setup.ts. So this suite declares no `globalSetup`: no testcontainer, no env
-// hydration. Env is still real (validated by env.ts): staticTestEnv satisfies
-// ingest's AWS/S3 vars and the @acme/redis/env (a valid REDIS_URL) that
-// @acme/trpc constructs at import.
+// The async ingest pipeline tails a real per-user progress Redis Stream and (from
+// ticket 3) indexes through @acme/rag into real Postgres/pgvector, so this suite
+// runs against real testcontainers — mirroring chat. NEXT_PUBLIC_WEBAPP names the
+// Postgres schema; a dedicated Redis logical DB keeps a parallel suite's flushDb
+// from wiping ours. S3 and embeddings stay mocked in setup.ts. Infra descriptors
+// are declared in ./src/tests/backend/global-setup.ts.
 export default backendProject({
   webapp: 'ingest_test',
+  redisDb: '4',
+  globalSetup: './src/tests/backend/global-setup.ts',
   setupFiles: ['./src/tests/backend/setup.ts'],
 });

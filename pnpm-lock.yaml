@@ -1420,6 +1420,9 @@ importers:
       '@acme/auth':
         specifier: workspace:*
         version: link:../../shared/auth
+      '@acme/db':
+        specifier: workspace:*
+        version: link:../../platform/db
       '@acme/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint
