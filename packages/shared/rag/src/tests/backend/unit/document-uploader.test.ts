@@ -41,50 +41,46 @@ describe('deriveChunkId', () => {
 });
 
 describe('dedupeChunks', () => {
-  it('collapses repeated chunk text within a batch to one row', () => {
-    const parsed = [
-      {
-        file: txtFile('a.txt', ''),
-        uploadTimestamp: 1,
-        chunks: [{ text: 'same' }, { text: 'same' }, { text: 'different' }],
-      },
-    ];
-
-    const { ids, metadata } = dedupeChunks(parsed);
+  it('collapses repeated chunk text within a file to one row', () => {
+    const { ids, metadata } = dedupeChunks({
+      file: txtFile('a.txt', ''),
+      uploadTimestamp: 1,
+      chunks: [{ text: 'same' }, { text: 'same' }, { text: 'different' }],
+    });
 
     expect(ids).toHaveLength(2);
     expect(metadata).toHaveLength(2);
     expect(new Set(ids).size).toBe(2);
   });
 
-  it('returns empty ids and metadata for an empty parsed array', () => {
-    const { ids, metadata } = dedupeChunks([]);
+  it('returns empty ids and metadata for a file with no chunks', () => {
+    const { ids, metadata } = dedupeChunks({
+      file: txtFile('a.txt', ''),
+      uploadTimestamp: 1,
+      chunks: [],
+    });
 
     expect(ids).toEqual([]);
     expect(metadata).toEqual([]);
   });
 
   it('does not deduplicate the same text across different filenames', () => {
-    const parsed = [
-      {
-        file: txtFile('a.txt', ''),
-        uploadTimestamp: 1,
-        chunks: [{ text: 'shared content' }],
-      },
-      {
-        file: txtFile('b.txt', ''),
-        uploadTimestamp: 2,
-        chunks: [{ text: 'shared content' }],
-      },
-    ];
+    const a = dedupeChunks({
+      file: txtFile('a.txt', ''),
+      uploadTimestamp: 1,
+      chunks: [{ text: 'shared content' }],
+    });
+    const b = dedupeChunks({
+      file: txtFile('b.txt', ''),
+      uploadTimestamp: 2,
+      chunks: [{ text: 'shared content' }],
+    });
 
-    const { ids, metadata } = dedupeChunks(parsed);
-
-    // Same text, different file → different chunk id → two entries, not one.
-    expect(ids).toHaveLength(2);
-    expect(new Set(ids).size).toBe(2);
-    expect(metadata.map((m) => m.file_name)).toEqual(
-      expect.arrayContaining(['a.txt', 'b.txt']),
-    );
+    // Same text, different file → different chunk id → no collision across files.
+    expect(a.ids).toHaveLength(1);
+    expect(b.ids).toHaveLength(1);
+    expect(a.ids[0]).not.toBe(b.ids[0]);
+    expect(a.metadata[0]?.file_name).toBe('a.txt');
+    expect(b.metadata[0]?.file_name).toBe('b.txt');
   });
 });

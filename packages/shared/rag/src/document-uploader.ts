@@ -25,6 +25,33 @@ export function deriveChunkId(text: string, fileName: string) {
   return uuidv5(`${text.trim()}-${fileName}`, TEXT_NODE_NAMESPACE);
 }
 
+// The empty/unparseable case, tagged so a caller can classify it as a *content*
+// failure (isolate this file, keep the batch green) rather than an infra failure
+// that should sink the whole job. Everything else `uploadDoc` throws propagates
+// raw.
+export class DocumentParseError extends Error {
+  constructor(readonly fileName: string) {
+    super(`No document could be parsed from file: ${fileName}`);
+    this.name = 'DocumentParseError';
+  }
+}
+
+// A single stage transition emitted by `uploadDoc`. Generic in its stage vocabulary
+// so the same reporter shape works for a future `uploadStructuredDoc` with a
+// different stage set; `@acme/rag` stays ignorant of the stream / tRPC / uploadId /
+// wire shape the caller maps it onto. A plain generic — no conditional-typed attrs.
+export type StageReporter<TStage extends string> = (
+  stage: TStage,
+) => void | Promise<void>;
+
+// The stages `uploadDoc` reports. It emits ONLY these two — `queued` / `done` /
+// `failed` are the caller's (the ingest processor owns them).
+export type RagUploadStage = 'parsing' | 'embedding';
+
+export interface UploadDocOptions {
+  onStage?: StageReporter<RagUploadStage>;
+}
+
 // A parsed file ready for indexing: its chunks plus the metadata shared by every
 // chunk it produced. The shape `dedupeChunks` consumes.
 interface ParsedDocument {
@@ -33,22 +60,25 @@ interface ParsedDocument {
   chunks: { text: string }[];
 }
 
-// Collapse chunks to one row per deterministic id: repeated content — within a
-// single batch or across re-uploads — derives the same vector_id, so duplicates
-// overwrite instead of accumulating. Pure: no DB, no embeddings.
-export function dedupeChunks(parsed: ParsedDocument[]) {
+// Collapse one file's chunks to one row per deterministic id: repeated content —
+// within this file or across re-uploads — derives the same vector_id, so duplicates
+// overwrite instead of accumulating. Pure: no DB, no embeddings. Single-file (the
+// batch fan-out moved up to the ingest processor).
+export function dedupeChunks({
+  file,
+  uploadTimestamp,
+  chunks,
+}: ParsedDocument) {
   const byId = new Map<string, DocumentMetadata>();
-  for (const { file, uploadTimestamp, chunks } of parsed) {
-    for (const chunk of chunks) {
-      const id = deriveChunkId(chunk.text, file.name);
-      byId.set(id, {
-        text: chunk.text,
-        file_name: file.name,
-        upload_timestamp: uploadTimestamp,
-        chunk_size: config.CHUNK_SIZE,
-        parser: 'officeparser',
-      });
-    }
+  for (const chunk of chunks) {
+    const id = deriveChunkId(chunk.text, file.name);
+    byId.set(id, {
+      text: chunk.text,
+      file_name: file.name,
+      upload_timestamp: uploadTimestamp,
+      chunk_size: config.CHUNK_SIZE,
+      parser: 'officeparser',
+    });
   }
   return { ids: [...byId.keys()], metadata: [...byId.values()] };
 }
@@ -64,48 +94,67 @@ export interface DocumentFilenameSummary {
   uploadTimestamp: number;
 }
 
-/** Parse, chunk, embed and index a batch of files into the knowledge base. */
-export async function uploadDocs(files: File[]) {
+/**
+ * Parse, chunk, embed and index ONE file into the knowledge base, reporting its
+ * `parsing` / `embedding` transitions through the injected reporter. Idempotent by
+ * construction: `dedupeChunks` derives each chunk's id from its content + filename,
+ * so a re-upload upserts in place rather than duplicating (no skip-checkpoint).
+ * Throws `DocumentParseError` when the file yields no parseable text; any other
+ * failure (parse, embed, upsert) propagates raw.
+ */
+export async function uploadDoc(
+  file: File,
+  { onStage }: UploadDocOptions = {},
+) {
   await ensureVectorIndex();
 
-  const parsed = await Promise.all(
-    files.map(async (file) => {
-      const text = await extractText(file);
-      if (!text.trim()) {
-        throw new Error(`No document could be parsed from file: ${file.name}`);
-      }
-      const uploadTimestamp = Date.now();
-      const doc = MDocument.fromText(text, {
-        file_name: file.name,
-        upload_timestamp: uploadTimestamp,
-        chunk_size: config.CHUNK_SIZE,
-        parser: 'officeparser',
-      });
-      const chunks = await doc.chunk({
-        strategy: 'sentence',
-        maxSize: config.CHUNK_SIZE,
-        overlap: config.CHUNK_OVERLAP,
-      });
-      return { file, uploadTimestamp, chunks };
-    }),
-  );
+  await onStage?.('parsing');
+  const text = await extractText(file);
+  if (!text.trim()) throw new DocumentParseError(file.name);
 
-  const { ids, metadata } = dedupeChunks(parsed);
+  const uploadTimestamp = Date.now();
+  const doc = MDocument.fromText(text, {
+    file_name: file.name,
+    upload_timestamp: uploadTimestamp,
+    chunk_size: config.CHUNK_SIZE,
+    parser: 'officeparser',
+  });
+  const chunks = await doc.chunk({
+    strategy: 'sentence',
+    maxSize: config.CHUNK_SIZE,
+    overlap: config.CHUNK_OVERLAP,
+  });
+
+  const { ids, metadata } = dedupeChunks({ file, uploadTimestamp, chunks });
 
   if (ids.length === 0) {
-    logger.warn('[Chunked]: No chunks produced; nothing to index.');
+    logger.warn(
+      { fileName: file.name },
+      '[Chunked]: No chunks produced; nothing to index.',
+    );
     return;
   }
 
+  await onStage?.('embedding');
   const { embeddings } = await embedMany({
     model: embedModel,
     values: metadata.map((m) => m.text),
     providerOptions: embedProviderOptions('document'),
   });
 
-  logger.info(`[Chunked]: Indexing ${ids.length} chunk(s).`);
+  logger.info(`[Chunked]: Indexing ${ids.length} chunk(s) for ${file.name}.`);
 
   await pgVector.upsert({ indexName, ids, vectors: embeddings, metadata });
+}
+
+/**
+ * Parse, chunk, embed and index a batch of files, sequentially. A thin loop over
+ * `uploadDoc` kept alive only so the synchronous `uploadFromS3` caller still
+ * compiles until it is removed; the bounded parallel fan-out is the ingest
+ * processor's job.
+ */
+export async function uploadDocs(files: File[]) {
+  for (const file of files) await uploadDoc(file);
 }
 
 /** List uploaded documents grouped by filename. */

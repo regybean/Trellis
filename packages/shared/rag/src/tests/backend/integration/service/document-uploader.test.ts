@@ -11,7 +11,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   deleteByFilename,
+  DocumentParseError,
   listDocuments,
+  uploadDoc,
   uploadDocs,
 } from '../../../../document-uploader';
 
@@ -39,6 +41,48 @@ describe('uploadDocs deduplication (integration)', () => {
     await expect(uploadDocs([txtFile(name, '')])).rejects.toThrow(
       `No document could be parsed from file: ${name}`,
     );
+  });
+
+  it('uploadDoc throws a tagged DocumentParseError carrying the filename', async () => {
+    const name = uniqueFilename();
+    let caught: unknown;
+    await uploadDoc(txtFile(name, '')).catch((error: unknown) => {
+      caught = error;
+    });
+    expect(caught).toBeInstanceOf(DocumentParseError);
+    if (caught instanceof DocumentParseError) {
+      expect(caught.fileName).toBe(name);
+    }
+  });
+
+  it('uploadDoc reports parsing then embedding for a real file', async () => {
+    const name = uniqueFilename();
+    const stages: string[] = [];
+
+    await uploadDoc(txtFile(name, 'Content worth chunking and embedding.'), {
+      onStage: (stage) => {
+        stages.push(stage);
+      },
+    });
+
+    // parsing precedes embedding, and uploadDoc emits only those two stages.
+    expect(stages).toEqual(['parsing', 'embedding']);
+  });
+
+  it('uploadDoc emits no embedding stage when a file yields no parseable text', async () => {
+    const name = uniqueFilename();
+    const stages: string[] = [];
+
+    await expect(
+      uploadDoc(txtFile(name, ''), {
+        onStage: (stage) => {
+          stages.push(stage);
+        },
+      }),
+    ).rejects.toBeInstanceOf(DocumentParseError);
+
+    // It reached parsing but threw before embedding.
+    expect(stages).toEqual(['parsing']);
   });
 
   it('returns deletedCount 0 when filename does not exist', async () => {
