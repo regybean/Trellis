@@ -14,6 +14,7 @@ import { Route as ChatAssistantRouteImport } from './routes/chat-assistant'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ChatAssistantSessionIdRouteImport } from './routes/chat-assistant.$sessionId'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiTrpcNotificationsSplatRouteImport } from './routes/api/trpc/notifications.$'
 import { Route as ApiTrpcIngestSplatRouteImport } from './routes/api/trpc/ingest.$'
 import { Route as ApiTrpcChatSplatRouteImport } from './routes/api/trpc/chat.$'
 
@@ -42,6 +43,12 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTrpcNotificationsSplatRoute =
+  ApiTrpcNotificationsSplatRouteImport.update({
+    id: '/api/trpc/notifications/$',
+    path: '/api/trpc/notifications/$',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiTrpcIngestSplatRoute = ApiTrpcIngestSplatRouteImport.update({
   id: '/api/trpc/ingest/$',
   path: '/api/trpc/ingest/$',
@@ -61,6 +68,7 @@ export interface FileRoutesByFullPath {
   '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
+  '/api/trpc/notifications/$': typeof ApiTrpcNotificationsSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -70,6 +78,7 @@ export interface FileRoutesByTo {
   '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
+  '/api/trpc/notifications/$': typeof ApiTrpcNotificationsSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -80,6 +89,7 @@ export interface FileRoutesById {
   '/chat-assistant/$sessionId': typeof ChatAssistantSessionIdRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
+  '/api/trpc/notifications/$': typeof ApiTrpcNotificationsSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -91,6 +101,7 @@ export interface FileRouteTypes {
     | '/chat-assistant/$sessionId'
     | '/api/trpc/chat/$'
     | '/api/trpc/ingest/$'
+    | '/api/trpc/notifications/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -100,6 +111,7 @@ export interface FileRouteTypes {
     | '/chat-assistant/$sessionId'
     | '/api/trpc/chat/$'
     | '/api/trpc/ingest/$'
+    | '/api/trpc/notifications/$'
   id:
     | '__root__'
     | '/'
@@ -109,6 +121,7 @@ export interface FileRouteTypes {
     | '/chat-assistant/$sessionId'
     | '/api/trpc/chat/$'
     | '/api/trpc/ingest/$'
+    | '/api/trpc/notifications/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -118,6 +131,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   ApiTrpcChatSplatRoute: typeof ApiTrpcChatSplatRoute
   ApiTrpcIngestSplatRoute: typeof ApiTrpcIngestSplatRoute
+  ApiTrpcNotificationsSplatRoute: typeof ApiTrpcNotificationsSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -157,6 +171,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/trpc/notifications/$': {
+      id: '/api/trpc/notifications/$'
+      path: '/api/trpc/notifications/$'
+      fullPath: '/api/trpc/notifications/$'
+      preLoaderRoute: typeof ApiTrpcNotificationsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trpc/ingest/$': {
       id: '/api/trpc/ingest/$'
       path: '/api/trpc/ingest/$'
@@ -193,6 +214,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   ApiTrpcChatSplatRoute: ApiTrpcChatSplatRoute,
   ApiTrpcIngestSplatRoute: ApiTrpcIngestSplatRoute,
+  ApiTrpcNotificationsSplatRoute: ApiTrpcNotificationsSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

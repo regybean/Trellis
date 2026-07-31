@@ -335,6 +335,9 @@ importers:
       '@acme/models':
         specifier: workspace:*
         version: link:../../packages/shared/models
+      '@acme/notifications':
+        specifier: workspace:*
+        version: link:../../packages/shared/notifications
       '@acme/queue':
         specifier: workspace:*
         version: link:../../packages/platform/queue
@@ -489,6 +492,9 @@ importers:
       '@acme/models':
         specifier: workspace:*
         version: link:../../packages/shared/models
+      '@acme/notifications':
+        specifier: workspace:*
+        version: link:../../packages/shared/notifications
       '@acme/queue':
         specifier: workspace:*
         version: link:../../packages/platform/queue
@@ -634,6 +640,9 @@ importers:
       '@acme/models':
         specifier: workspace:*
         version: link:../../packages/shared/models
+      '@acme/notifications':
+        specifier: workspace:*
+        version: link:../../packages/shared/notifications
       '@acme/queue':
         specifier: workspace:*
         version: link:../../packages/platform/queue
@@ -788,6 +797,9 @@ importers:
       '@acme/models':
         specifier: workspace:*
         version: link:../../packages/shared/models
+      '@acme/notifications':
+        specifier: workspace:*
+        version: link:../../packages/shared/notifications
       '@acme/queue':
         specifier: workspace:*
         version: link:../../packages/platform/queue

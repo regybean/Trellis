@@ -10,6 +10,7 @@ import {
 
 import { ChatTRPCReactProvider } from '@acme/chat';
 import { IngestTRPCReactProvider } from '@acme/ingest';
+import { NotificationsProvider } from '@acme/notifications';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { ConsoleShell } from '../components/console-shell';
@@ -62,10 +63,12 @@ function RootDocument({ children }: { children: ReactNode }) {
         >
           <ChatTRPCReactProvider scopeKey="anon">
             <IngestTRPCReactProvider>
-              <TooltipProvider>
-                <ConsoleShell>{children}</ConsoleShell>
-                <ToastThemeClient />
-              </TooltipProvider>
+              <NotificationsProvider>
+                <TooltipProvider>
+                  <ConsoleShell>{children}</ConsoleShell>
+                  <ToastThemeClient />
+                </TooltipProvider>
+              </NotificationsProvider>
             </IngestTRPCReactProvider>
           </ChatTRPCReactProvider>
         </NextThemeProvider>

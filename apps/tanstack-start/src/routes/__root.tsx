@@ -13,6 +13,7 @@ import {
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
 import { toBillingClientConfig } from '@acme/billing/config';
 import { IngestTRPCReactProvider } from '@acme/ingest';
+import { NotificationsProvider } from '@acme/notifications';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { ConsoleShell } from '../components/console-shell';
@@ -91,10 +92,12 @@ function RootDocument({ children }: { children: ReactNode }) {
               <BillingTRPCReactProvider>
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
                   <IngestTRPCReactProvider>
-                    <TooltipProvider>
-                      <ConsoleShell>{children}</ConsoleShell>
-                      <ToastThemeClient />
-                    </TooltipProvider>
+                    <NotificationsProvider>
+                      <TooltipProvider>
+                        <ConsoleShell>{children}</ConsoleShell>
+                        <ToastThemeClient />
+                      </TooltipProvider>
+                    </NotificationsProvider>
                   </IngestTRPCReactProvider>
                 </PersistedFeatureProviders>
               </BillingTRPCReactProvider>
