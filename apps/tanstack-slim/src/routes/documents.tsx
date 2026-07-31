@@ -1,6 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
+import {
+  DocumentsList,
+  IngestProgress,
+  IngestUploadProvider,
+  UploadDocumentsButton,
+} from '@acme/ingest';
 
 export const Route = createFileRoute('/documents')({
   component: DocumentsRoute,
@@ -13,11 +18,14 @@ export const Route = createFileRoute('/documents')({
 function DocumentsRoute() {
   return (
     <div className="min-h-full flex-grow space-y-6 p-5">
-      <div className="flex items-center justify-between">
-        <h1 className="font-mono text-2xl font-semibold">documents</h1>
-        <UploadDocumentsButton />
-      </div>
-      <DocumentsList />
+      <IngestUploadProvider>
+        <div className="flex items-center justify-between">
+          <h1 className="font-mono text-2xl font-semibold">documents</h1>
+          <UploadDocumentsButton />
+        </div>
+        <IngestProgress />
+        <DocumentsList />
+      </IngestUploadProvider>
     </div>
   );
 }

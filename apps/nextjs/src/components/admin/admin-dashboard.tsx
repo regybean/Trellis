@@ -10,7 +10,12 @@ import {
   StripeTesting,
   TierManagement,
 } from '@acme/billing';
-import { DocumentsList, UploadDocumentsButton } from '@acme/ingest';
+import {
+  DocumentsList,
+  IngestProgress,
+  IngestUploadProvider,
+  UploadDocumentsButton,
+} from '@acme/ingest';
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { removeRole, setRole } from '~/lib/admin';
@@ -55,15 +60,18 @@ export async function AdminDashboard({ searchParams }: Props) {
 
       <div className="space-y-12">
         {/* Document Knowledge Base */}
-        <Card className="border-border shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <h2 className="text-2xl font-bold">Documents</h2>
-            <UploadDocumentsButton />
-          </CardHeader>
-          <CardContent>
-            <DocumentsList />
-          </CardContent>
-        </Card>
+        <IngestUploadProvider>
+          <Card className="border-border shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <h2 className="text-2xl font-bold">Documents</h2>
+              <UploadDocumentsButton />
+            </CardHeader>
+            <CardContent>
+              <IngestProgress />
+              <DocumentsList />
+            </CardContent>
+          </Card>
+        </IngestUploadProvider>
 
         {/* User Management */}
         <div className="space-y-6">
