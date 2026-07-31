@@ -40,6 +40,7 @@ const prefix = env.NEXT_PUBLIC_WEBAPP;
 
 export const QUEUE_NAMES = {
   GENERATION: 'generation',
+  INGEST: 'ingest',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];
