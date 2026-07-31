@@ -11,6 +11,7 @@ import { toBillingClientConfig } from '@acme/billing/config';
 // so the client never proxies billing mode through NODE_ENV.
 import { localstripeMode } from '@acme/billing/server';
 import { IngestTRPCReactProvider } from '@acme/ingest';
+import { NotificationsProvider } from '@acme/notifications';
 // Toast container is rendered client-side to safely access localStorage
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
@@ -65,12 +66,14 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
               <BillingTRPCReactProvider>
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
                   <IngestTRPCReactProvider>
-                    <TooltipProvider>
-                      <EditorialShell>
-                        <ToastThemeClient />
-                        {props.children}
-                      </EditorialShell>
-                    </TooltipProvider>
+                    <NotificationsProvider>
+                      <TooltipProvider>
+                        <EditorialShell>
+                          <ToastThemeClient />
+                          {props.children}
+                        </EditorialShell>
+                      </TooltipProvider>
+                    </NotificationsProvider>
                   </IngestTRPCReactProvider>
                 </PersistedFeatureProviders>
               </BillingTRPCReactProvider>

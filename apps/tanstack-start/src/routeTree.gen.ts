@@ -20,6 +20,7 @@ import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as ChatAssistantChar123SessionIdChar125RouteImport } from './routes/chat-assistant.{-$sessionId}'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiTrpcNotificationsSplatRouteImport } from './routes/api/trpc/notifications.$'
 import { Route as ApiTrpcIngestSplatRouteImport } from './routes/api/trpc/ingest.$'
 import { Route as ApiTrpcFeedbackSplatRouteImport } from './routes/api/trpc/feedback.$'
 import { Route as ApiTrpcChatSplatRouteImport } from './routes/api/trpc/chat.$'
@@ -81,6 +82,12 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiTrpcNotificationsSplatRoute =
+  ApiTrpcNotificationsSplatRouteImport.update({
+    id: '/api/trpc/notifications/$',
+    path: '/api/trpc/notifications/$',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiTrpcIngestSplatRoute = ApiTrpcIngestSplatRouteImport.update({
   id: '/api/trpc/ingest/$',
   path: '/api/trpc/ingest/$',
@@ -118,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
+  '/api/trpc/notifications/$': typeof ApiTrpcNotificationsSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -135,6 +143,7 @@ export interface FileRoutesByTo {
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
+  '/api/trpc/notifications/$': typeof ApiTrpcNotificationsSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,6 +162,7 @@ export interface FileRoutesById {
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
   '/api/trpc/ingest/$': typeof ApiTrpcIngestSplatRoute
+  '/api/trpc/notifications/$': typeof ApiTrpcNotificationsSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/api/trpc/chat/$'
     | '/api/trpc/feedback/$'
     | '/api/trpc/ingest/$'
+    | '/api/trpc/notifications/$'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | '/api/trpc/chat/$'
     | '/api/trpc/feedback/$'
     | '/api/trpc/ingest/$'
+    | '/api/trpc/notifications/$'
   id:
     | '__root__'
     | '/'
@@ -206,6 +218,7 @@ export interface FileRouteTypes {
     | '/api/trpc/chat/$'
     | '/api/trpc/feedback/$'
     | '/api/trpc/ingest/$'
+    | '/api/trpc/notifications/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -224,6 +237,7 @@ export interface RootRouteChildren {
   ApiTrpcChatSplatRoute: typeof ApiTrpcChatSplatRoute
   ApiTrpcFeedbackSplatRoute: typeof ApiTrpcFeedbackSplatRoute
   ApiTrpcIngestSplatRoute: typeof ApiTrpcIngestSplatRoute
+  ApiTrpcNotificationsSplatRoute: typeof ApiTrpcNotificationsSplatRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -305,6 +319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/trpc/notifications/$': {
+      id: '/api/trpc/notifications/$'
+      path: '/api/trpc/notifications/$'
+      fullPath: '/api/trpc/notifications/$'
+      preLoaderRoute: typeof ApiTrpcNotificationsSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/trpc/ingest/$': {
       id: '/api/trpc/ingest/$'
       path: '/api/trpc/ingest/$'
@@ -353,6 +374,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTrpcChatSplatRoute: ApiTrpcChatSplatRoute,
   ApiTrpcFeedbackSplatRoute: ApiTrpcFeedbackSplatRoute,
   ApiTrpcIngestSplatRoute: ApiTrpcIngestSplatRoute,
+  ApiTrpcNotificationsSplatRoute: ApiTrpcNotificationsSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

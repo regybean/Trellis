@@ -12,6 +12,7 @@
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
+    "@acme/notifications": "workspace:*",
     "@acme/queue": "workspace:*",
     "@acme/rag": "workspace:*",
     "@acme/subscriptions": "workspace:*",
