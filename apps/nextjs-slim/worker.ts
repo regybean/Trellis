@@ -22,6 +22,7 @@
 
 import { createChatGenerationProcessor } from '@acme/chat/server';
 import { unlimitedEntitlements } from '@acme/entitlements';
+import { createIngestProcessor } from '@acme/ingest/server';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
 
@@ -34,15 +35,24 @@ const worker = createWorker(
   createChatGenerationProcessor(unlimitedEntitlements),
 );
 
+// The ingest processor takes no args — it direct-imports its own progress writer
+// + the shared `publish`, and neither refunds nor reads entitlements. Second
+// worker in the same process = zero new processes (rides this app's env/prefix).
+const ingestWorker = createWorker(QUEUE_NAMES.INGEST, createIngestProcessor());
+
 logger.info(
   { queue: QUEUE_NAMES.GENERATION, app: 'nextjs-slim' },
   'generation worker: online',
 );
+logger.info(
+  { queue: QUEUE_NAMES.INGEST, app: 'nextjs-slim' },
+  'ingest worker: online',
+);
 
 // Drain in flight before exiting so a redeploy/Ctrl-C does not orphan a Turn.
 async function shutdown(signal: NodeJS.Signals) {
-  logger.info({ signal }, 'generation worker: shutting down');
-  await worker.close();
+  logger.info({ signal }, 'workers: shutting down');
+  await Promise.all([worker.close(), ingestWorker.close()]);
   // Daemon entrypoint, not a library: the db/redis pools @acme/chat opens keep
   // the event loop alive, so exit explicitly once BullMQ has drained.
   // eslint-disable-next-line unicorn/no-process-exit
