@@ -1,6 +1,6 @@
 'use client';
 
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { toast } from 'react-toastify';
 
@@ -28,21 +28,24 @@ async function putFileToS3(file: File, presignedUrl: string) {
 export type UploadStatus = 'idle' | 'uploading';
 
 /**
- * Deep module for the three-step Document upload protocol
- * (presign → direct S3 PUT → server-side index), behind a small interface:
+ * Deep module for the async Document upload protocol
+ * (presign → direct S3 PUT → enqueue ingest Job), behind a small interface:
  *   `{ upload, status, accept }`.
  *
  * Components stay UI-only (see CLAUDE.md — business logic lives in hooks).
  *
- * Failure handling: if any S3 PUT rejects we abort before indexing, so no
- * partial Document set is indexed. We surface which files failed. Objects that
- * did upload before the failure are orphaned in S3 and reaped by the bucket's
- * lifecycle rule — there is no client-callable S3 cleanup procedure, and
- * indexing a partial set would be worse than a short-lived orphan.
+ * `status` is the CLIENT-side phase only — `uploading` covers presign + the S3
+ * PUTs + the `startIngestJob` enqueue, then returns to `idle`. Indexing now runs
+ * async in a worker; live per-file progress + completion arrive via the progress
+ * subscription + a notification, wired in #189 (not this hook).
+ *
+ * Failure handling: if any S3 PUT rejects we abort before enqueuing, so no
+ * partial batch is indexed. We surface which files failed. Objects that did
+ * upload before the failure are orphaned in S3 and reaped by the bucket's
+ * lifecycle rule — there is no client-callable S3 cleanup procedure.
  */
 export function useDocumentUpload() {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
   const handleGenericError = useGenericErrorHandler();
 
   const reportError = (error: unknown) => {
@@ -59,11 +62,10 @@ export function useDocumentUpload() {
     }),
   );
 
-  const index = useMutation(
-    trpc.documents.uploadFromS3.mutationOptions({
+  const start = useMutation(
+    trpc.documents.startIngestJob.mutationOptions({
       onSuccess: () => {
-        void queryClient.invalidateQueries(trpc.documents.list.pathFilter());
-        toast.success('Documents uploaded successfully');
+        toast.success('Upload started — indexing in the background');
       },
       onError: reportError,
     }),
@@ -79,7 +81,7 @@ export function useDocumentUpload() {
     }
 
     try {
-      const { presignedUrls } = await presign.mutateAsync({
+      const { jobId, uploads } = await presign.mutateAsync({
         files: files.map((file) => ({
           filename: file.name,
           contentType: file.type || 'application/octet-stream',
@@ -88,11 +90,11 @@ export function useDocumentUpload() {
 
       const results = await Promise.allSettled(
         files.map((file, i) => {
-          const presigned = presignedUrls.at(i);
-          if (!presigned) {
+          const target = uploads.at(i);
+          if (!target) {
             throw new Error(`No presigned URL for file: ${file.name}`);
           }
-          return putFileToS3(file, presigned.uploadUrl);
+          return putFileToS3(file, target.uploadUrl);
         }),
       );
 
@@ -110,14 +112,21 @@ export function useDocumentUpload() {
         );
       }
 
-      await index.mutateAsync({ s3Keys: presignedUrls.map((p) => p.key) });
+      await start.mutateAsync({
+        jobId,
+        uploads: uploads.map((u) => ({
+          uploadId: u.uploadId,
+          filename: u.filename,
+          s3Key: u.s3Key,
+        })),
+      });
     } catch (error) {
       reportError(error);
     }
   };
 
   const status: UploadStatus =
-    presign.isPending || index.isPending ? 'uploading' : 'idle';
+    presign.isPending || start.isPending ? 'uploading' : 'idle';
 
   return {
     upload,
