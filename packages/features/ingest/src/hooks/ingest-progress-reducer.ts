@@ -113,34 +113,64 @@ function applyToMany(
   return changed ? { ...state, byId } : state;
 }
 
+// Replace one record by id, returning the same state reference when unchanged.
+function replaceOne(
+  state: ProgressState,
+  uploadId: string,
+  next: PerFileProgress,
+): ProgressState {
+  if (state.byId[uploadId] === next) return state;
+  return { ...state, byId: { ...state.byId, [uploadId]: next } };
+}
+
+// Seed one `uploading` record per file (idempotent — a re-dispatched presign
+// never duplicates a row), appended to `order` in submission order.
+function reducePresigned(
+  state: ProgressState,
+  event: Extract<ProgressEvent, { type: 'presigned' }>,
+): ProgressState {
+  const byId = { ...state.byId };
+  const added: string[] = [];
+  for (const u of event.uploads) {
+    if (byId[u.uploadId]) continue;
+    byId[u.uploadId] = {
+      jobId: event.jobId,
+      uploadId: u.uploadId,
+      filename: u.filename,
+      stage: 'uploading',
+    };
+    added.push(u.uploadId);
+  }
+  if (added.length === 0) return state;
+  return { byId, order: [...state.order, ...added] };
+}
+
+// Apply a server progress entry to a known record; an unknown uploadId is a no-op.
+function reduceServerStage(
+  state: ProgressState,
+  event: Extract<ProgressEvent, { type: 'serverStage' }>,
+): ProgressState {
+  const record = state.byId[event.uploadId];
+  if (!record) return state;
+  const next =
+    event.stage === 'failed'
+      ? fail(record, event.error ?? 'Ingest failed')
+      : advance(record, event.stage);
+  return replaceOne(state, event.uploadId, next);
+}
+
 export function ingestProgressReducer(
   state: ProgressState,
   event: ProgressEvent,
 ): ProgressState {
   switch (event.type) {
     case 'presigned': {
-      const byId = { ...state.byId };
-      const added: string[] = [];
-      for (const u of event.uploads) {
-        // Idempotent seed: a re-dispatched presign never duplicates a row.
-        if (byId[u.uploadId]) continue;
-        byId[u.uploadId] = {
-          jobId: event.jobId,
-          uploadId: u.uploadId,
-          filename: u.filename,
-          stage: 'uploading',
-        };
-        added.push(u.uploadId);
-      }
-      if (added.length === 0) return state;
-      return { byId, order: [...state.order, ...added] };
+      return reducePresigned(state, event);
     }
     case 'putFailed': {
       const record = state.byId[event.uploadId];
       if (!record) return state;
-      const next = fail(record, event.error);
-      if (next === record) return state;
-      return { ...state, byId: { ...state.byId, [event.uploadId]: next } };
+      return replaceOne(state, event.uploadId, fail(record, event.error));
     }
     case 'enqueued': {
       return applyToMany(state, event.uploadIds, (r) => advance(r, 'queued'));
@@ -149,14 +179,7 @@ export function ingestProgressReducer(
       return applyToMany(state, event.uploadIds, (r) => fail(r, event.error));
     }
     case 'serverStage': {
-      const record = state.byId[event.uploadId];
-      if (!record) return state; // unknown uploadId — no-op
-      const next =
-        event.stage === 'failed'
-          ? fail(record, event.error ?? 'Ingest failed')
-          : advance(record, event.stage);
-      if (next === record) return state;
-      return { ...state, byId: { ...state.byId, [event.uploadId]: next } };
+      return reduceServerStage(state, event);
     }
   }
 }
@@ -167,7 +190,7 @@ export function ingestProgressReducer(
 export function deriveFiles(state: ProgressState): PerFileProgress[] {
   return state.order
     .map((id) => state.byId[id])
-    .filter((r): r is PerFileProgress => Boolean(r));
+    .filter((r): r is PerFileProgress => r !== undefined);
 }
 
 export interface ProgressSummary {

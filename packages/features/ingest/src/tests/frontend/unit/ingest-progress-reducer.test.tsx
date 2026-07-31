@@ -20,9 +20,17 @@ import {
   initialProgressState,
 } from '../../../hooks/ingest-progress-reducer';
 
-// Fold a sequence of events over the initial state.
-const run = (events: ProgressEvent[]): ProgressState =>
-  events.reduce(ingestProgressReducer, initialProgressState);
+// Fold a sequence of events over a starting state (default: initial).
+const runFrom = (
+  events: ProgressEvent[],
+  start: ProgressState = initialProgressState,
+): ProgressState => {
+  let state = start;
+  for (const event of events) state = ingestProgressReducer(state, event);
+  return state;
+};
+
+const run = (events: ProgressEvent[]) => runFrom(events);
 
 const presigned = (
   jobId: string,
@@ -109,7 +117,7 @@ describe('ingestProgressReducer', () => {
       { type: 'enqueued', uploadIds: ['ghost'] },
       { type: 'enqueueFailed', uploadIds: ['ghost'], error: 'x' },
     ];
-    const state = events.reduce(ingestProgressReducer, base);
+    const state = runFrom(events, base);
     expect(state).toBe(base); // same reference — nothing changed
     expect(deriveFiles(state).map((f) => f.uploadId)).toEqual(['a']);
   });
