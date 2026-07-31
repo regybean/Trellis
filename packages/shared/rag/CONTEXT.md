@@ -91,10 +91,24 @@ each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
 `mastra_documents` lazily (on the first upsert), so a freshly-pushed vector DB has
 no table and reads (`listDocuments`) throw `relation … does not exist`. The app
 calls `ensureVectorIndex()` at boot (Next.js `instrumentation.ts`) so the table
-exists before any read; `uploadDocs` keeps its own call as a backstop. Reads stay
+exists before any read; `uploadDoc` keeps its own (memoized) call as a backstop. Reads stay
 pure (no DDL on a read), and an unreachable vector DB fails at startup rather than
 on the first request — the same contract as provider resolution. Still Mastra-owned
 DDL, consistent with [ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
+
+**Single-file `uploadDoc`, stage reporting injected**: indexing is exposed as
+`uploadDoc(file, { onStage })` — one file's `parse → chunk → embed → upsert`,
+idempotent by construction (`deriveChunkId` = `uuidv5(text+filename)` + upsert, so a
+re-upload overwrites in place). It emits ONLY `parsing` / `embedding` through a
+generic injected `StageReporter<TStage>`, and stays ignorant of the stream / tRPC /
+`uploadId` / wire shape the caller maps onto — the `queued` / `done` / `failed`
+stages and the bounded parallel fan-out belong to the ingest processor
+(`@acme/ingest`), the accepted price of per-file progress (1 batched `embedMany` → N
+per-file). The empty/unparseable case throws a tagged `DocumentParseError` so a
+caller can classify it as a _content_ failure (isolate the file, keep the batch
+green) rather than an infra failure; everything else propagates raw. `uploadDocs`
+survives only as a thin sequential loop keeping the synchronous `uploadFromS3`
+caller compiling until it is removed.
 
 **Boundary**: the Mastra `Agent`/`Mastra` instance is _not_ here — the shared layer
 cannot import features. This package exports primitives; `@acme/chat` assembles the

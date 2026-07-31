@@ -22,6 +22,14 @@ export function ingestConfig(context: ConfigContext) {
       // Set to a LocalStack URL in development; empty in staging/production.
       S3_ENDPOINT: z.string(),
       S3_UPLOAD_BUCKET: z.string().nonempty(),
+      // Per-user progress-stream tunables (ADR 0026). The rolling TTL the writer
+      // refreshes on every stage transition, so an abandoned job's stream self-
+      // expires; nothing ever deletes the key. The reader's idle poll backoff
+      // (min → max, snap back to min when a batch arrives) — it tails XRANGE on
+      // the shared connection, so it must never block.
+      INGEST_PROGRESS_TTL_SECONDS: z.number().int().positive(),
+      INGEST_PROGRESS_POLL_MIN_MS: z.number().int().positive(),
+      INGEST_PROGRESS_POLL_MAX_MS: z.number().int().positive(),
     },
     profiles: {
       default: {
@@ -29,6 +37,9 @@ export function ingestConfig(context: ConfigContext) {
           AWS_REGION: 'eu-west-2',
           S3_ENDPOINT: 'http://localhost:4566',
           S3_UPLOAD_BUCKET: 'upload-temp-bucket',
+          INGEST_PROGRESS_TTL_SECONDS: 3600,
+          INGEST_PROGRESS_POLL_MIN_MS: 100,
+          INGEST_PROGRESS_POLL_MAX_MS: 1000,
         },
       },
       staging: { server: { S3_ENDPOINT: '' } },
