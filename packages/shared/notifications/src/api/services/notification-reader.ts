@@ -50,7 +50,7 @@ export async function* tailNotifications(
   userId: string,
   lastEventId: string | null,
   signal?: AbortSignal,
-): AsyncGenerator<NotificationEntry> {
+): AsyncGenerator<NotificationEntry, void> {
   const key = notificationKey(userId);
   let cursor = lastEventId ?? `${Date.now()}-0`;
   let idleMs = config.POLL_MIN_MS;
