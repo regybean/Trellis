@@ -5,7 +5,6 @@ export {
   DocumentParseError,
   listDocuments,
   uploadDoc,
-  uploadDocs,
 } from './document-uploader';
 export type {
   DocumentFilenameSummary,

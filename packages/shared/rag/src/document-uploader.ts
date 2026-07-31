@@ -147,16 +147,6 @@ export async function uploadDoc(
   await pgVector.upsert({ indexName, ids, vectors: embeddings, metadata });
 }
 
-/**
- * Parse, chunk, embed and index a batch of files, sequentially. A thin loop over
- * `uploadDoc` kept alive only so the synchronous `uploadFromS3` caller still
- * compiles until it is removed; the bounded parallel fan-out is the ingest
- * processor's job.
- */
-export async function uploadDocs(files: File[]) {
-  for (const file of files) await uploadDoc(file);
-}
-
 /** List uploaded documents grouped by filename. */
 export async function listDocuments() {
   const summaries: DocumentFilenameSummary[] = await vdb

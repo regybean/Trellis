@@ -106,9 +106,9 @@ stages and the bounded parallel fan-out belong to the ingest processor
 (`@acme/ingest`), the accepted price of per-file progress (1 batched `embedMany` → N
 per-file). The empty/unparseable case throws a tagged `DocumentParseError` so a
 caller can classify it as a _content_ failure (isolate the file, keep the batch
-green) rather than an infra failure; everything else propagates raw. `uploadDocs`
-survives only as a thin sequential loop keeping the synchronous `uploadFromS3`
-caller compiling until it is removed.
+green) rather than an infra failure; everything else propagates raw. There is no
+batch helper: the bounded parallel fan-out over files is the ingest processor's
+job (`@acme/ingest`), which calls `uploadDoc` per file.
 
 **Boundary**: the Mastra `Agent`/`Mastra` instance is _not_ here — the shared layer
 cannot import features. This package exports primitives; `@acme/chat` assembles the
