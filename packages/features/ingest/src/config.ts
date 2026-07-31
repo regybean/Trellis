@@ -30,6 +30,14 @@ export function ingestConfig(context: ConfigContext) {
       INGEST_PROGRESS_TTL_SECONDS: z.number().int().positive(),
       INGEST_PROGRESS_POLL_MIN_MS: z.number().int().positive(),
       INGEST_PROGRESS_POLL_MAX_MS: z.number().int().positive(),
+      // Worker fan-out width. The processor runs `uploadDoc` under a `p-limit` of
+      // this many slots and downloads each file INSIDE its slot, so peak memory is
+      // bounded to this many files in flight (never the whole batch at once).
+      INGEST_CONCURRENCY: z.number().int().positive(),
+      // BullMQ job-retention counts (mirrors chat). No `attempts`/`backoff` —
+      // ingest never auto-retries; `jobId` dedup only guards a manual re-upload.
+      QUEUE_REMOVE_ON_COMPLETE: z.number().int().nonnegative(),
+      QUEUE_REMOVE_ON_FAIL: z.number().int().nonnegative(),
     },
     profiles: {
       default: {
@@ -40,6 +48,9 @@ export function ingestConfig(context: ConfigContext) {
           INGEST_PROGRESS_TTL_SECONDS: 3600,
           INGEST_PROGRESS_POLL_MIN_MS: 100,
           INGEST_PROGRESS_POLL_MAX_MS: 1000,
+          INGEST_CONCURRENCY: 4,
+          QUEUE_REMOVE_ON_COMPLETE: 1000,
+          QUEUE_REMOVE_ON_FAIL: 1000,
         },
       },
       staging: { server: { S3_ENDPOINT: '' } },
