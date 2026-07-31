@@ -17,9 +17,7 @@ const config = ingestConfig({ appEnv, isServer: true });
 // A validated event → the flat [k, v, …] field record `xAdd` writes. `stage` is
 // always emitted; `error` rides only on `failed`. Pure — the inverse of the
 // parser, so the round-trip is unit-testable without Redis.
-export function encodeProgress(
-  event: IngestProgressEvent,
-): Record<string, string> {
+export function encodeProgress(event: IngestProgressEvent) {
   const fields: Record<string, string> = {
     jobId: event.jobId,
     uploadId: event.uploadId,
@@ -40,8 +38,14 @@ export function createIngestProgressWriter(userId: string, jobId: string) {
   const key = ingestProgressKey(userId);
 
   async function write(event: IngestProgressEvent) {
-    await redis.xAdd(key, '*', encodeProgress(event));
-    await redis.expire(key, config.INGEST_PROGRESS_TTL_SECONDS);
+    // Append + rolling-TTL refresh in one MULTI (see @acme/redis `xAddWithTtl`):
+    // the two must be atomic, or a crash between them leaves the stream immortal.
+    await redis.xAddWithTtl(
+      key,
+      '*',
+      encodeProgress(event),
+      config.INGEST_PROGRESS_TTL_SECONDS,
+    );
   }
 
   return {

@@ -93,6 +93,21 @@ describe('tailIngestProgress (integration)', () => {
     expect(ttl).toBeLessThanOrEqual(3600);
   });
 
+  it('rolls a decayed TTL back up on the next append', async () => {
+    const key = ingestProgressKey(userId);
+    const writer = createIngestProgressWriter(userId, 'job-roll');
+    await writer.queued('u1', 'a.pdf');
+
+    // Force the TTL to decay near expiry, then append again: a rolling TTL must
+    // refresh the countdown, not leave the stream to die on the old clock. (A
+    // non-rolling writer, or a lost `expire`, would leave the TTL at ~5s.)
+    await redis.expire(key, 5);
+    expect(await redis.ttl(key)).toBeLessThanOrEqual(5);
+
+    await writer.stage('u1', 'a.pdf', 'parsing');
+    expect(await redis.ttl(key)).toBeGreaterThan(5);
+  });
+
   it('resumes strictly after lastEventId on a transient reconnect', async () => {
     const writer = createIngestProgressWriter(userId, 'job-r');
     await writer.queued('u1', 'a.pdf');

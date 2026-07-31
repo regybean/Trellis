@@ -170,6 +170,26 @@ const namespaced = (raw: Redis) => {
       }
       return raw.xadd(key, id, ...pairs);
     },
+    // Append an entry AND (re)stamp a rolling TTL on the stream in one MULTI, so
+    // the two never split across a crash/disconnect — a bare `xAdd` followed by a
+    // separate `expire` can leave the stream immortal if the process dies between
+    // them. EXEC runs both server-side atomically: all-or-nothing.
+    xAddWithTtl: (
+      key: NamespacedKey,
+      id: string,
+      entry: Record<string, string>,
+      ttlSeconds: number,
+      options?: { MAXLEN?: number },
+    ) => {
+      const pairs = Object.entries(entry).flat();
+      const tx = raw.multi();
+      if (options?.MAXLEN === undefined) {
+        tx.xadd(key, id, ...pairs);
+      } else {
+        tx.xadd(key, 'MAXLEN', '~', options.MAXLEN, id, ...pairs);
+      }
+      return tx.expire(key, ttlSeconds).exec();
+    },
     xLen: (key: NamespacedKey) => raw.xlen(key),
     // xRange reads entries between two ids (inclusive). Use '-' / '+' for full range.
     xRange: (key: NamespacedKey, start: string, end: string) =>
