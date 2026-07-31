@@ -24,7 +24,7 @@ export interface IngestProgressEntry {
 // back to a record and validate through the shared schema: `stage` is required and
 // must be a known member, so a producer typo throws here rather than degrading to
 // a dropped event.
-export function parseProgressEntry(fields: string[]): IngestProgressEvent {
+export function parseProgressEntry(fields: string[]) {
   const rec: Record<string, string> = {};
   for (let i = 0; i + 1 < fields.length; i += 2) {
     const key = fields[i];

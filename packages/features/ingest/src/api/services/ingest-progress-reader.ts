@@ -1,6 +1,5 @@
 import { redis } from '@acme/redis';
 
-import type { IngestProgressEntry } from './ingest-progress-parser';
 import { ingestConfig } from '../../config';
 import { appEnv } from '../../env';
 import { ingestProgressKey } from '../ingest-keys';
@@ -41,7 +40,7 @@ export async function* tailIngestProgress(
   userId: string,
   lastEventId: string | null,
   signal?: AbortSignal,
-): AsyncGenerator<IngestProgressEntry> {
+) {
   const key = ingestProgressKey(userId);
   // Fresh mount ⇒ tail-from-now: any later append has a strictly greater id than
   // `${Date.now()}-0`. A transient reconnect passes the last-seen id instead.
