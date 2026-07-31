@@ -6,6 +6,13 @@ import { publish } from '@acme/notifications/server';
 // for this exact string; an unregistered app falls back to the default toast.
 export const INGEST_JOB_COMPLETE_KIND = 'ingest.job-complete';
 
+// One content-failed Upload in a settled Job's tally: the file plus why it failed.
+export interface JobFailure {
+  uploadId: string;
+  filename: string;
+  error: string;
+}
+
 // The structured completion summary a Job settles to — computed from its Uploads
 // (a Job is derived, never persisted). Rides in the notification `data` for a
 // custom renderer to parse.
@@ -13,7 +20,7 @@ export interface JobCompleteSummary {
   jobId: string;
   total: number;
   succeeded: number;
-  failed: { uploadId: string; filename: string; error: string }[];
+  failed: JobFailure[];
 }
 
 // Ingest's typed one-line wrapper around the generic `publish` (ADR 0030 — the
@@ -33,11 +40,6 @@ export function notifyJobComplete(userId: string, summary: JobCompleteSummary) {
     // severity reflects whether every file made it.
     level: failedCount === 0 ? 'success' : 'error',
     message,
-    data: {
-      jobId: summary.jobId,
-      total: summary.total,
-      succeeded: summary.succeeded,
-      failed: summary.failed,
-    },
+    data: { ...summary },
   });
 }

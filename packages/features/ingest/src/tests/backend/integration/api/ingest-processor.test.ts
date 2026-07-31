@@ -111,16 +111,20 @@ describe('createIngestProcessor', () => {
     const s3Key = `uploads/j/u1/${filename}`;
     stubDownloads(new Map([[s3Key, 'Content worth chunking and embedding.']]));
 
-    await createIngestProcessor()(
-      makeJob([{ uploadId: 'u1', filename, s3Key }]),
-    );
+    const job = makeJob([{ uploadId: 'u1', filename, s3Key }]);
+    await createIngestProcessor()(job);
 
     const notifications = await readNotifications();
     expect(notifications).toHaveLength(1);
     const [note] = notifications;
     expect(note?.kind).toBe('ingest.job-complete');
     expect(note?.level).toBe('success');
-    expect(note?.data).toMatchObject({ total: 1, succeeded: 1, failed: [] });
+    expect(note?.data).toMatchObject({
+      jobId: job.data.jobId,
+      total: 1,
+      succeeded: 1,
+      failed: [],
+    });
   });
 
   it('isolates a content failure: siblings finish, job stays green + counted', async () => {

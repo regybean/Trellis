@@ -4,6 +4,7 @@ import type { Job } from '@acme/queue';
 import { logger } from '@acme/logger';
 import { DocumentParseError, uploadDoc } from '@acme/rag/server';
 
+import type { JobFailure } from './ingest-notify';
 import type { IngestJob } from './ingest-queue';
 import { ingestConfig } from '../../config';
 import { appEnv } from '../../env';
@@ -23,12 +24,6 @@ type UploadOutcome =
   | { ok: true; uploadId: string; filename: string }
   | { ok: false; uploadId: string; filename: string; error: string };
 
-interface JobFailure {
-  uploadId: string;
-  filename: string;
-  error: string;
-}
-
 type ProgressWriter = ReturnType<typeof createIngestProgressWriter>;
 
 // Process ONE Upload in a `p-limit` slot: download inside the slot (peak memory
@@ -39,7 +34,7 @@ type ProgressWriter = ReturnType<typeof createIngestProgressWriter>;
 async function processUpload(
   writer: ProgressWriter,
   upload: IngestJob['uploads'][number],
-): Promise<UploadOutcome> {
+) {
   const { uploadId, filename, s3Key } = upload;
   try {
     const { buffer, contentType } = await downloadFileFromS3(s3Key);
@@ -50,13 +45,18 @@ async function processUpload(
     });
 
     await writer.done(uploadId, filename);
-    return { ok: true, uploadId, filename };
+    return { ok: true, uploadId, filename } satisfies UploadOutcome;
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await writer.failed(uploadId, filename, message);
 
     if (error instanceof DocumentParseError) {
-      return { ok: false, uploadId, filename, error: message };
+      return {
+        ok: false,
+        uploadId,
+        filename,
+        error: message,
+      } satisfies UploadOutcome;
     }
     throw error;
   }

@@ -16,6 +16,14 @@ import { tailIngestProgress } from '../services/ingest-progress-reader';
 import { enqueueIngestJob } from '../services/ingest-queue';
 import { adminProcedure, createTRPCRouter } from '../trpc';
 
+// `adminProcedure` checks the role but doesn't narrow `userId` off the auth
+// union. An admin is always authenticated, so narrow it here (a client can only
+// act on / tail its own stream) before it's used as a Redis-key segment.
+function requireUserId(userId: string | null | undefined) {
+  if (!userId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+  return userId;
+}
+
 export const documentsRouter = createTRPCRouter({
   /** List indexed documents grouped by filename. */
   list: adminProcedure.input(z.void()).query(async () => {
@@ -68,14 +76,8 @@ export const documentsRouter = createTRPCRouter({
   startIngestJob: adminProcedure
     .input(startIngestJobSchema)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const userId = requireUserId(ctx.auth.userId);
       const { jobId, uploads } = input;
-
-      // An admin is always authenticated, but `adminProcedure` only checks the
-      // role — it doesn't narrow `userId` off the auth union. Narrow it here.
-      if (!userId) {
-        throw new TRPCError({ code: 'UNAUTHORIZED' });
-      }
 
       // Cheap integrity guard: every echoed key must live under this Job's prefix.
       // Admin-only, so this is a typo/tamper guard, not an ownership check.
@@ -89,15 +91,7 @@ export const documentsRouter = createTRPCRouter({
       }
 
       try {
-        await enqueueIngestJob({
-          jobId,
-          userId,
-          uploads: uploads.map((u) => ({
-            uploadId: u.uploadId,
-            filename: u.filename,
-            s3Key: u.s3Key,
-          })),
-        });
+        await enqueueIngestJob({ jobId, userId, uploads });
       } catch (error) {
         logger.error(
           { err: error, userId, jobId },
@@ -127,12 +121,7 @@ export const documentsRouter = createTRPCRouter({
   progress: adminProcedure
     .input(progressReaderSchema)
     .subscription(async function* ({ ctx, input, signal }) {
-      const { userId } = ctx.auth;
-      // adminProcedure checks role but doesn't narrow `userId`; an admin is
-      // always authed, so narrow here (a client can only tail its own stream).
-      if (!userId) {
-        throw new TRPCError({ code: 'UNAUTHORIZED' });
-      }
+      const userId = requireUserId(ctx.auth.userId);
 
       logger.info(
         { userId, lastEventId: input.lastEventId },
