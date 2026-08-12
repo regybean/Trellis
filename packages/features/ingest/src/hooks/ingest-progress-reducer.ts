@@ -11,7 +11,10 @@
 // this state synchronously inside an async callback, so a plain
 // `(state, event) => state` reducer over a flat `Record<uploadId, …>` suffices;
 // `files`/`summary`/`completedJobIds` are pure per-render derivations.
-import type { IngestStage } from '../api/schemas/ingest-progress-schema';
+import type {
+  IngestProgressEvent,
+  IngestStage,
+} from '../api/schemas/ingest-progress-schema';
 
 // Client-side Stage = the server wire stages ∪ the client-only `uploading`.
 // Derived from the imported wire enum so the two can never drift.
@@ -53,8 +56,13 @@ export const initialProgressState: ProgressState = { byId: {}, order: [] };
 
 // Events fed to the reducer. Local events are authored by this mount's upload
 // flow (presign → PUT → enqueue); `serverStage` carries a progress-stream entry
-// from the subscription.
+// from the subscription; `hydrate`/`retire` reconcile with the server snapshot.
 export type ProgressEvent =
+  // Cold-mount seed from `documents.progressSnapshot` (#194): fold the retained
+  // per-Upload stages into rows so progress survives a refresh. Each upload is a
+  // wire event (in-flight or `failed`; `done` is dropped server-side). Forward-only
+  // and idempotent — never clobbers a row this mount already authored further along.
+  | { type: 'hydrate'; uploads: IngestProgressEvent[] }
   // Presign resolved: seed one `uploading` record per file, in submission order.
   | {
       type: 'presigned';
@@ -68,10 +76,20 @@ export type ProgressEvent =
   // startIngestJob rejected: fail the whole batch so PUT-succeeded files aren't
   // stranded at `uploading`.
   | { type: 'enqueueFailed'; uploadIds: string[]; error: string }
-  // A server progress entry: advance-if-greater; an unknown `uploadId` (another
-  // tab/mount, or already-torn-down) is a no-op. Discriminated like the wire so
-  // `error` is required on `failed` and absent otherwise.
-  | ({ type: 'serverStage'; uploadId: string } & (
+  // A Job's Uploads have all settled and its Documents are now in `documents.list`:
+  // drop that Job's `done` rows so a completed file shows only in the list, not as a
+  // lingering "Done" row (#194). `failed` rows stay (they aren't Documents).
+  | { type: 'retire'; jobIds: string[] }
+  // A server progress entry, carrying the full wire identity so an entry for an
+  // Upload this mount never saw (post-refresh, another tab) can seed its own row
+  // rather than being dropped (seed-on-unknown, #194). Advance-if-greater for a
+  // known row. Discriminated like the wire so `error` is required on `failed`.
+  | ({
+      type: 'serverStage';
+      jobId: string;
+      uploadId: string;
+      filename: string;
+    } & (
       | { stage: Exclude<IngestStage, 'failed'> }
       | { stage: 'failed'; error: string }
     ));
@@ -147,18 +165,84 @@ function reducePresigned(
   return { byId, order: [...state.order, ...added] };
 }
 
-// Apply a server progress entry to a known record; an unknown uploadId is a no-op.
+// Materialize a per-file record from a wire-shaped stage (server snapshot or live
+// entry) — the one place `error`-on-`failed` is narrowed into a `PerFileProgress`.
+type WireStage = { jobId: string; uploadId: string; filename: string } & (
+  | { stage: Exclude<IngestStage, 'failed'> }
+  | { stage: 'failed'; error: string }
+);
+function recordFromWire(wire: WireStage): PerFileProgress {
+  const { jobId, uploadId, filename } = wire;
+  return wire.stage === 'failed'
+    ? { jobId, uploadId, filename, stage: 'failed', error: wire.error }
+    : { jobId, uploadId, filename, stage: wire.stage };
+}
+
+// Insert a brand-new record, appended to `order` (submission / first-seen order).
+function seed(state: ProgressState, record: PerFileProgress): ProgressState {
+  return {
+    byId: { ...state.byId, [record.uploadId]: record },
+    order: [...state.order, record.uploadId],
+  };
+}
+
+// Merge a wire stage onto an existing record, forward-only (`failed` absorbing).
+function mergeWire(state: ProgressState, wire: WireStage): ProgressState {
+  const record = state.byId[wire.uploadId];
+  if (!record) return state;
+  const next =
+    wire.stage === 'failed'
+      ? fail(record, wire.error)
+      : advance(record, wire.stage);
+  return replaceOne(state, wire.uploadId, next);
+}
+
+// Apply a live server progress entry. A known row advances forward-only; an unknown
+// `uploadId` — an Upload this mount never saw (post-refresh, another tab) — SEEDS a
+// fresh row from the entry's identity instead of being dropped (#194), so live
+// stages after a cold mount still render.
 function reduceServerStage(
   state: ProgressState,
   event: Extract<ProgressEvent, { type: 'serverStage' }>,
 ): ProgressState {
-  const record = state.byId[event.uploadId];
-  if (!record) return state;
-  const next =
-    event.stage === 'failed'
-      ? fail(record, event.error)
-      : advance(record, event.stage);
-  return replaceOne(state, event.uploadId, next);
+  if (!state.byId[event.uploadId]) return seed(state, recordFromWire(event));
+  return mergeWire(state, event);
+}
+
+// Seed rows from the cold-mount snapshot. Forward-only + idempotent: an Upload this
+// mount already authored (an optimistic `queued`) is merged forward, never reset.
+function reduceHydrate(
+  state: ProgressState,
+  event: Extract<ProgressEvent, { type: 'hydrate' }>,
+): ProgressState {
+  let next = state;
+  for (const upload of event.uploads) {
+    next = next.byId[upload.uploadId]
+      ? mergeWire(next, upload)
+      : seed(next, recordFromWire(upload));
+  }
+  return next;
+}
+
+// Retire the `done` rows of settled Jobs once their Documents are in `documents.list`
+// (#194) — a completed file shows only in the list, never as a lingering "Done" row.
+// `failed` rows are kept (they never became Documents). Same reference when nothing
+// matched (cheap render bailout).
+function reduceRetire(
+  state: ProgressState,
+  event: Extract<ProgressEvent, { type: 'retire' }>,
+): ProgressState {
+  const jobIds = new Set(event.jobIds);
+  const removed = new Set(
+    state.order.filter((id) => {
+      const record = state.byId[id];
+      return record?.stage === 'done' && jobIds.has(record.jobId);
+    }),
+  );
+  if (removed.size === 0) return state;
+  const byId = { ...state.byId };
+  for (const id of removed) delete byId[id];
+  return { byId, order: state.order.filter((id) => !removed.has(id)) };
 }
 
 export function ingestProgressReducer(
@@ -166,8 +250,14 @@ export function ingestProgressReducer(
   event: ProgressEvent,
 ): ProgressState {
   switch (event.type) {
+    case 'hydrate': {
+      return reduceHydrate(state, event);
+    }
     case 'presigned': {
       return reducePresigned(state, event);
+    }
+    case 'retire': {
+      return reduceRetire(state, event);
     }
     case 'putFailed': {
       const record = state.byId[event.uploadId];

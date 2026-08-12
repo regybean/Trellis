@@ -1,13 +1,15 @@
 /**
  * ingest-progress-reducer — frontend/unit (ADR 0018).
  *
- * The pure per-file progress state machine (#180): no React, no tRPC. Asserts the
- * merge contract directly — forward-only ranks (advance-if-greater / ignore
- * lower), `failed` absorbing, unknown-`uploadId` no-op, every local + server
- * event, and the per-`jobId` completion set.
+ * The pure per-file progress state machine (#180, #194): no React, no tRPC.
+ * Asserts the merge contract directly — forward-only ranks (advance-if-greater /
+ * ignore lower), `failed` absorbing, seed-on-unknown for live server stages, the
+ * per-`jobId` completion set, and the snapshot `hydrate` / `retire` reconcilers
+ * that make progress survive a refresh and de-duplicate completed files.
  */
 import { describe, expect, it } from 'vitest';
 
+import type { IngestProgressEvent } from '../../../api/schemas/ingest-progress-schema';
 import type {
   ProgressEvent,
   ProgressState,
@@ -37,6 +39,41 @@ const presigned = (
   uploads: { uploadId: string; filename: string }[],
 ): ProgressEvent => ({ type: 'presigned', jobId, uploads });
 
+// A live server progress entry now carries the full wire identity (jobId +
+// filename) so an unknown uploadId can seed its own row. Defaults keep the
+// forward-only tests terse where identity is incidental.
+const server = (
+  uploadId: string,
+  stage: IngestProgressEvent['stage'],
+  opts: { jobId?: string; filename?: string; error?: string } = {},
+): ProgressEvent => {
+  const jobId = opts.jobId ?? 'job-1';
+  const filename = opts.filename ?? `${uploadId}.pdf`;
+  return stage === 'failed'
+    ? {
+        type: 'serverStage',
+        jobId,
+        uploadId,
+        filename,
+        stage: 'failed',
+        error: opts.error ?? 'err',
+      }
+    : { type: 'serverStage', jobId, uploadId, filename, stage };
+};
+
+// A wire snapshot upload (what `documents.progressSnapshot` returns) for `hydrate`.
+const wire = (
+  uploadId: string,
+  stage: IngestProgressEvent['stage'],
+  opts: { jobId?: string; filename?: string; error?: string } = {},
+): IngestProgressEvent => {
+  const jobId = opts.jobId ?? 'job-old';
+  const filename = opts.filename ?? `${uploadId}.pdf`;
+  return stage === 'failed'
+    ? { jobId, uploadId, filename, stage: 'failed', error: opts.error ?? 'e' }
+    : { jobId, uploadId, filename, stage };
+};
+
 describe('ingestProgressReducer', () => {
   it('seeds one uploading record per file in submission order', () => {
     const state = run([
@@ -62,7 +99,7 @@ describe('ingestProgressReducer', () => {
     const state = run([
       presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
       { type: 'enqueued', uploadIds: ['a'] }, // uploading → queued
-      { type: 'serverStage', uploadId: 'a', stage: 'parsing' }, // queued → parsing
+      server('a', 'parsing'), // queued → parsing
     ]);
     expect(deriveFiles(state)[0]?.stage).toBe('parsing');
   });
@@ -70,9 +107,9 @@ describe('ingestProgressReducer', () => {
   it('ignores a lower/equal-rank server stage (no regression)', () => {
     const state = run([
       presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
-      { type: 'serverStage', uploadId: 'a', stage: 'embedding' },
-      { type: 'serverStage', uploadId: 'a', stage: 'parsing' }, // lower — ignored
-      { type: 'serverStage', uploadId: 'a', stage: 'embedding' }, // equal — ignored
+      server('a', 'embedding'),
+      server('a', 'parsing'), // lower — ignored
+      server('a', 'embedding'), // equal — ignored
     ]);
     expect(deriveFiles(state)[0]?.stage).toBe('embedding');
   });
@@ -81,7 +118,7 @@ describe('ingestProgressReducer', () => {
     const state = run([
       presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
       { type: 'enqueued', uploadIds: ['a'] }, // optimistic queued
-      { type: 'serverStage', uploadId: 'a', stage: 'queued' }, // real queued (equal)
+      server('a', 'queued'), // real queued (equal)
     ]);
     expect(deriveFiles(state)[0]?.stage).toBe('queued');
   });
@@ -89,9 +126,9 @@ describe('ingestProgressReducer', () => {
   it('makes failed absorbing — no later stage revives it', () => {
     const state = run([
       presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
-      { type: 'serverStage', uploadId: 'a', stage: 'failed', error: 'boom' },
-      { type: 'serverStage', uploadId: 'a', stage: 'embedding' }, // ignored
-      { type: 'serverStage', uploadId: 'a', stage: 'done' }, // ignored
+      server('a', 'failed', { error: 'boom' }),
+      server('a', 'embedding'), // ignored
+      server('a', 'done'), // ignored
     ]);
     const file = deriveFiles(state)[0];
     expect(file?.stage).toBe('failed');
@@ -101,18 +138,30 @@ describe('ingestProgressReducer', () => {
   it('does not let a stray failure override a done record', () => {
     const state = run([
       presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
-      { type: 'serverStage', uploadId: 'a', stage: 'done' },
-      { type: 'serverStage', uploadId: 'a', stage: 'failed', error: 'late' },
+      server('a', 'done'),
+      server('a', 'failed', { error: 'late' }),
     ]);
     expect(deriveFiles(state)[0]?.stage).toBe('done');
   });
 
-  it('ignores every event for an unknown uploadId', () => {
+  it('seeds a row from a live server stage for an unknown uploadId (#194)', () => {
+    // Post-refresh / another-tab Job: the mount never presigned this Upload, but a
+    // live stage must still render — the entry carries jobId + filename to seed.
+    const state = run([server('x', 'parsing', { filename: 'x.pdf' })]);
+    const file = deriveFiles(state)[0];
+    expect(file).toMatchObject({
+      uploadId: 'x',
+      filename: 'x.pdf',
+      jobId: 'job-1',
+      stage: 'parsing',
+    });
+  });
+
+  it('ignores unknown-uploadId for local events (only server stages seed)', () => {
     const base = run([
       presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
     ]);
     const events: ProgressEvent[] = [
-      { type: 'serverStage', uploadId: 'ghost', stage: 'parsing' },
       { type: 'putFailed', uploadId: 'ghost', error: 'x' },
       { type: 'enqueued', uploadIds: ['ghost'] },
       { type: 'enqueueFailed', uploadIds: ['ghost'], error: 'x' },
@@ -143,6 +192,76 @@ describe('ingestProgressReducer', () => {
     expect(deriveFiles(state).every((f) => f.stage === 'failed')).toBe(true);
   });
 
+  describe('hydrate (cold-mount snapshot seed, #194)', () => {
+    it('seeds in-flight + failed rows from the snapshot in order', () => {
+      const state = run([
+        {
+          type: 'hydrate',
+          uploads: [
+            wire('u1', 'parsing'),
+            wire('u2', 'failed', { error: 'x' }),
+          ],
+        },
+      ]);
+      const files = deriveFiles(state);
+      expect(files.map((f) => f.uploadId)).toEqual(['u1', 'u2']);
+      expect(files[0]?.stage).toBe('parsing');
+      expect(files[1]).toMatchObject({ stage: 'failed', error: 'x' });
+    });
+
+    it('merges forward-only onto a row this mount already authored', () => {
+      // The mount optimistically queued u1; the snapshot says it is already
+      // parsing — hydrate advances it, never resets it back.
+      const state = run([
+        presigned('job-old', [{ uploadId: 'u1', filename: 'u1.pdf' }]),
+        { type: 'enqueued', uploadIds: ['u1'] }, // optimistic queued
+        { type: 'hydrate', uploads: [wire('u1', 'parsing')] },
+      ]);
+      expect(deriveFiles(state)).toHaveLength(1);
+      expect(deriveFiles(state)[0]?.stage).toBe('parsing');
+    });
+
+    it('never regresses a row that is already further along', () => {
+      const state = run([
+        server('u1', 'embedding', { jobId: 'job-old', filename: 'u1.pdf' }),
+        { type: 'hydrate', uploads: [wire('u1', 'queued')] }, // stale — ignored
+      ]);
+      expect(deriveFiles(state)[0]?.stage).toBe('embedding');
+    });
+  });
+
+  describe('retire (de-duplicate completed files, #194)', () => {
+    it('drops done rows of the named jobs, keeps failed + other jobs', () => {
+      const state = run([
+        presigned('job-1', [
+          { uploadId: 'a', filename: 'a.pdf' },
+          { uploadId: 'b', filename: 'b.pdf' },
+        ]),
+        presigned('job-2', [{ uploadId: 'c', filename: 'c.pdf' }]),
+        server('a', 'done'),
+        server('b', 'failed', { error: 'x' }),
+        server('c', 'done', { jobId: 'job-2' }),
+        { type: 'retire', jobIds: ['job-1'] },
+      ]);
+      const files = deriveFiles(state);
+      // a (done, job-1) retired; b (failed) stays; c (done, job-2) untouched.
+      expect(files.map((f) => f.uploadId)).toEqual(['b', 'c']);
+      expect(files.find((f) => f.uploadId === 'b')?.stage).toBe('failed');
+    });
+
+    it('is a same-reference no-op when nothing matches', () => {
+      const base = run([
+        presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
+        server('a', 'parsing'), // in-flight, not done
+      ]);
+      const state = ingestProgressReducer(base, {
+        type: 'retire',
+        jobIds: ['job-1'],
+      });
+      expect(state).toBe(base);
+    });
+  });
+
   describe('deriveSummary', () => {
     it('counts succeeded/failed/inProgress and flags completion', () => {
       const state = run([
@@ -151,8 +270,8 @@ describe('ingestProgressReducer', () => {
           { uploadId: 'b', filename: 'b.pdf' },
           { uploadId: 'c', filename: 'c.pdf' },
         ]),
-        { type: 'serverStage', uploadId: 'a', stage: 'done' },
-        { type: 'serverStage', uploadId: 'b', stage: 'failed', error: 'x' },
+        server('a', 'done'),
+        server('b', 'failed', { error: 'x' }),
         // c still uploading
       ]);
       const summary = deriveSummary(deriveFiles(state));
@@ -168,7 +287,7 @@ describe('ingestProgressReducer', () => {
     it('isComplete only once every file is terminal', () => {
       const state = run([
         presigned('job-1', [{ uploadId: 'a', filename: 'a.pdf' }]),
-        { type: 'serverStage', uploadId: 'a', stage: 'done' },
+        server('a', 'done'),
       ]);
       expect(deriveSummary(deriveFiles(state)).isComplete).toBe(true);
     });
@@ -186,9 +305,9 @@ describe('ingestProgressReducer', () => {
           { uploadId: 'b', filename: 'b.pdf' },
         ]),
         presigned('job-2', [{ uploadId: 'c', filename: 'c.pdf' }]),
-        { type: 'serverStage', uploadId: 'a', stage: 'done' },
+        server('a', 'done'),
         // b still in-flight → job-1 not complete
-        { type: 'serverStage', uploadId: 'c', stage: 'failed', error: 'x' },
+        server('c', 'failed', { jobId: 'job-2', error: 'x' }),
       ]);
       const completed = deriveCompletedJobIds(deriveFiles(state));
       expect([...completed]).toEqual(['job-2']);
@@ -200,8 +319,8 @@ describe('ingestProgressReducer', () => {
           { uploadId: 'a', filename: 'a.pdf' },
           { uploadId: 'b', filename: 'b.pdf' },
         ]),
-        { type: 'serverStage', uploadId: 'a', stage: 'done' },
-        { type: 'serverStage', uploadId: 'b', stage: 'failed', error: 'x' },
+        server('a', 'done'),
+        server('b', 'failed', { error: 'x' }),
       ]);
       expect([...deriveCompletedJobIds(deriveFiles(state))]).toEqual(['job-1']);
     });

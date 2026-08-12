@@ -30,9 +30,11 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000) {
 
 // Drive the reader from a given cursor until it has re-emitted `until` entries,
 // then abort so the (never-self-closing) generator returns. A safety timeout keeps
-// a missed expectation from hanging the suite.
+// a missed expectation from hanging the suite. The cursor is the reader's options
+// object: `sinceId` is the fresh-mount snapshot cursor, `lastEventId` the reconnect
+// cursor (which takes precedence) — see tailIngestProgress.
 async function drainFromCursor(
-  lastEventId: string | null,
+  cursor: { lastEventId?: string | null; sinceId?: string | null },
   until: number,
 ): Promise<IngestProgressEntry[]> {
   const controller = new AbortController();
@@ -40,7 +42,7 @@ async function drainFromCursor(
   const out: IngestProgressEntry[] = [];
   for await (const entry of tailIngestProgress(
     userId,
-    lastEventId,
+    cursor,
     controller.signal,
   )) {
     out.push(entry);
@@ -67,7 +69,7 @@ describe('tailIngestProgress (integration)', () => {
     await writer.failed('u2', 'b.pdf', 'bad file');
 
     // A cursor of '0-0' resumes from the head, so a seed-then-drain sees everything.
-    const out = await drainFromCursor('0-0', 5);
+    const out = await drainFromCursor({ sinceId: '0-0' }, 5);
 
     expect(out.map((entry) => entry.event.stage)).toEqual([
       'queued',
@@ -113,68 +115,75 @@ describe('tailIngestProgress (integration)', () => {
     await writer.queued('u1', 'a.pdf');
     await writer.stage('u1', 'a.pdf', 'parsing');
 
-    const first = await drainFromCursor('0-0', 2);
+    const first = await drainFromCursor({ sinceId: '0-0' }, 2);
     expect(first).toHaveLength(2);
     const lastId = first[1]?.id ?? null;
 
     await writer.stage('u1', 'a.pdf', 'embedding');
     await writer.done('u1', 'a.pdf');
 
-    // Resuming from the last-seen id re-reads neither queued nor parsing.
-    const resumed = await drainFromCursor(lastId, 2);
+    // Resuming from the last-seen id (via `lastEventId`) re-reads neither queued
+    // nor parsing — and `lastEventId` takes precedence over any `sinceId`.
+    const resumed = await drainFromCursor(
+      { lastEventId: lastId, sinceId: '0-0' },
+      2,
+    );
     expect(resumed.map((entry) => entry.event.stage)).toEqual([
       'embedding',
       'done',
     ]);
   });
 
-  it('tails from now — appends before the mount are not delivered', async () => {
-    // Seed a stage BEFORE the reader mounts.
-    const before = createIngestProgressWriter(userId, 'job-before');
-    await before.queued('u-before', 'before.pdf');
+  it('a fresh mount resumes strictly after the snapshot lastId (#194)', async () => {
+    // Mirrors the client's cold-mount: fold the retained stream, take its lastId,
+    // then tail from it — prior stages are seeded from the snapshot, not replayed.
+    const writer = createIngestProgressWriter(userId, 'job-s');
+    await writer.queued('u1', 'a.pdf');
+    await writer.stage('u1', 'a.pdf', 'parsing');
 
-    // The reader seeds a fresh mount's cursor from `Date.now()`, but Redis assigns
-    // stream ids from ITS OWN clock — in a container those clocks skew, so a
-    // wall-clock gap is not a reliable boundary. Pin the reader's mount clock to
-    // just past the before-entry's real Redis id, so both the cursor and the entry
-    // ids live on the one Redis timeline; restore before anything else reads time.
-    const [firstEntry] = await redis.xRange(
-      ingestProgressKey(userId),
-      '-',
-      '+',
-    );
-    const beforeMs = Number(firstEntry?.[0]?.split('-')[0]);
-    const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(beforeMs + 1);
+    const entries = await redis.xRange(ingestProgressKey(userId), '-', '+');
+    const lastId = entries.at(-1)?.[0] ?? '0-0';
+
+    await writer.stage('u1', 'a.pdf', 'embedding');
+    await writer.done('u1', 'a.pdf');
+
+    const resumed = await drainFromCursor({ sinceId: lastId }, 2);
+    expect(resumed.map((entry) => entry.event.stage)).toEqual([
+      'embedding',
+      'done',
+    ]);
+  });
+
+  it('is immune to app-clock skew — a future Date.now() no longer drops events (#194)', async () => {
+    // The old fresh-mount cursor was `${Date.now()}-0`; under podman-VM clock skew
+    // that landed in Redis' future and dropped every real stage event. The cursor
+    // is now a real stream id, so even a wildly skewed app clock changes nothing.
+    const skew = vi
+      .spyOn(Date, 'now')
+      .mockReturnValue(Date.now() + 60 * 60 * 1000);
 
     const controller = new AbortController();
     const out: IngestProgressEntry[] = [];
     const drained = (async () => {
       for await (const entry of tailIngestProgress(
         userId,
-        null,
+        { sinceId: '0-0' },
         controller.signal,
       )) {
         out.push(entry);
       }
     })();
 
-    // The generator reads Date.now() synchronously when the first pull starts;
-    // yield one tick so that has happened, then restore the real clock.
-    await delay(0);
-    nowSpy.mockRestore();
-
-    // Real time advances past the pinned cursor, so these appends are delivered.
-    await delay(5);
-    const after = createIngestProgressWriter(userId, 'job-after');
-    await after.queued('u-after', 'after.pdf');
-    await after.done('u-after', 'after.pdf');
+    const writer = createIngestProgressWriter(userId, 'job-skew');
+    await writer.queued('u1', 'a.pdf');
+    await writer.done('u1', 'a.pdf');
 
     await waitFor(() => out.length >= 2);
     controller.abort();
     await drained;
+    skew.mockRestore();
 
-    const filenames = out.map((entry) => entry.event.filename);
-    expect(filenames).not.toContain('before.pdf');
+    // Under the old Date.now() cursor `out` would be empty here.
     expect(out.map((entry) => entry.event.stage)).toEqual(['queued', 'done']);
   });
 });
