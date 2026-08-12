@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useReducer } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useReducer, useRef } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { useSubscription } from '@trpc/tanstack-react-query';
 import { toast } from 'react-toastify';
@@ -84,25 +84,53 @@ export function useDocumentUpload() {
     trpc.documents.startIngestJob.mutationOptions({ onError: reportError }),
   );
 
-  // Always-on progress tail — page-scoped, not gated on in-flight uploads (#176).
-  // Server entries advance existing records; an unknown `uploadId` (another
-  // tab/mount) is a reducer no-op. SSE, so not drivable in jsdom; reconnect is
-  // silent (tRPC retries recoverable drops and replays `lastEventId`).
+  // Cold-mount seed (#194): fold the retained progress Stream to the latest stage
+  // per in-flight/`failed` Upload + a resume cursor. This is what lets progress
+  // survive a refresh — without it a fresh mount tailed-from-now into a blank
+  // panel. `retry: false` keeps a transient failure from thrashing (the tail still
+  // delivers live stages; a missed seed self-heals via seed-on-unknown below).
+  const snapshot = useQuery(
+    trpc.documents.progressSnapshot.queryOptions(undefined, { retry: false }),
+  );
+
+  // Seed the reducer once, when the snapshot lands. An effect is the honest seam
+  // for folding an async query into the subscription-fed reducer; `hydrate` is
+  // forward-only + idempotent, so a later refetch (or a live event that already
+  // advanced a row) can't regress it. The ref makes it fire exactly once.
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current || !snapshot.isSuccess) return;
+    hydratedRef.current = true;
+    dispatch({ type: 'hydrate', uploads: snapshot.data.uploads });
+  }, [snapshot.isSuccess, snapshot.data]);
+
+  // Progress tail — page-scoped, enabled once the snapshot resolves so it resumes
+  // strictly AFTER the snapshot's `lastId` (`sinceId`): snapshot → resume-from-
+  // lastId (#194), no replay, no gap, and no `Date.now()` cursor to skew. A live
+  // entry for an Upload this mount never saw seeds its own row (seed-on-unknown).
+  // SSE, so not drivable in jsdom; reconnect is silent (tRPC retries recoverable
+  // drops and replays `lastEventId`).
   useSubscription({
-    ...trpc.documents.progress.subscriptionOptions({}),
-    enabled: true,
+    ...trpc.documents.progress.subscriptionOptions({
+      sinceId: snapshot.data?.lastId,
+    }),
+    enabled: snapshot.isSuccess,
     onData: ({ data: event }) =>
       dispatch(
         event.stage === 'failed'
           ? {
               type: 'serverStage',
+              jobId: event.jobId,
               uploadId: event.uploadId,
+              filename: event.filename,
               stage: 'failed',
               error: event.error,
             }
           : {
               type: 'serverStage',
+              jobId: event.jobId,
               uploadId: event.uploadId,
+              filename: event.filename,
               stage: event.stage,
             },
       ),
@@ -198,12 +226,15 @@ export function useDocumentUpload() {
     .join(',');
 
   // The one side-effect: fold server truth back into the documents list once a
-  // Job's Uploads have all settled. Keyed on the completed-jobId set, so it fires
+  // Job's Uploads have all settled, then RETIRE that Job's `done` rows (#194) so a
+  // completed file shows only in the refreshed list, not as a lingering duplicate
+  // "Done" row. `failed` rows stay. Keyed on the completed-jobId set, so it fires
   // once per newly-completed Job and is StrictMode-safe (the completion toast is
   // the app-level notification's job, not this hook's).
   useEffect(() => {
     if (completedKey.length === 0) return;
     void queryClient.invalidateQueries(trpc.documents.list.pathFilter());
+    dispatch({ type: 'retire', jobIds: completedKey.split(',') });
   }, [completedKey, queryClient, trpc.documents.list]);
 
   return {

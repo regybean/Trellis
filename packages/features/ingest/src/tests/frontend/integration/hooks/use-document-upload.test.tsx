@@ -6,22 +6,33 @@
  * We drive `upload()` and assert the derived `files`/`summary` and the toast
  * output — never mock-call counts.
  *
- * `onUnhandledRequest: 'bypass'` because the hook opens the ALWAYS-ON progress
- * subscription (SSE) on mount; it can't connect in jsdom and is left to fail
- * silently (mirrors chat/notifications). The server-authored `serverStage`
- * advances + the completion `invalidate` are SSE-driven and therefore NOT
- * drivable here — they are covered by the reducer unit tests; this file drives
- * only the client-authored half (uploading / optimistic queued / failures).
+ * `onUnhandledRequest: 'bypass'` because the hook opens the progress subscription
+ * (SSE) on mount; it can't connect in jsdom and is left to fail silently (mirrors
+ * chat/notifications). The server-authored `serverStage` advances + the completion
+ * `invalidate` are SSE-driven and therefore NOT drivable here — they are covered by
+ * the reducer unit tests; this file drives the client-authored half (uploading /
+ * optimistic queued / failures) and the cold-mount snapshot seed (#194), which IS a
+ * plain query. A default empty-snapshot handler is registered so every test's mount
+ * resolves; the seeding test overrides it.
  */
 import { act, renderHook, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
+import type { IngestProgressEvent } from '../../../../api/schemas/ingest-progress-schema';
 import { useDocumentUpload } from '../../../../hooks/use-document-upload';
 import { Providers, trpcMsw } from '../../setup';
 
-const server = setupServer();
+// The snapshot output drops `done` server-side, so its `uploads` element type is
+// the in-flight + failed subset (TS infers the `!== 'done'` filter as a guard).
+type SnapshotUpload = Exclude<IngestProgressEvent, { stage: 'done' }>;
+const snapshotHandler = (uploads: SnapshotUpload[], lastId = '0-0') =>
+  trpcMsw.documents.progressSnapshot.query(() => ({ uploads, lastId }));
+
+// Default: an empty cold-mount snapshot, so the mount's `progressSnapshot` query
+// always resolves (resetHandlers restores it between tests).
+const server = setupServer(snapshotHandler([]));
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
@@ -65,6 +76,43 @@ describe('useDocumentUpload', () => {
     const { result } = renderUpload();
     expect(result.current.accept).toContain('.pdf');
     expect(result.current.maxFileSizeBytes).toBeGreaterThan(0);
+  });
+
+  it('seeds in-flight rows from the cold-mount snapshot (survives refresh, #194)', async () => {
+    // A prior mount's Job is mid-ingestion; the server snapshot re-seeds its rows
+    // so a refresh rehydrates progress instead of showing a blank panel.
+    server.use(
+      snapshotHandler(
+        [
+          {
+            jobId: 'job-old',
+            uploadId: 'u1',
+            filename: 'resume.pdf',
+            stage: 'parsing',
+          },
+          {
+            jobId: 'job-old',
+            uploadId: 'u2',
+            filename: 'broken.pdf',
+            stage: 'failed',
+            error: 'bad file',
+          },
+        ],
+        '7-0',
+      ),
+    );
+
+    const { result } = renderUpload();
+
+    await waitFor(() => expect(result.current.files).toHaveLength(2));
+    const [inflight, failed] = result.current.files;
+    expect(inflight).toMatchObject({
+      filename: 'resume.pdf',
+      stage: 'parsing',
+    });
+    expect(failed).toMatchObject({ filename: 'broken.pdf', stage: 'failed' });
+    expect(result.current.summary.inProgress).toBe(1);
+    expect(result.current.summary.failed).toBe(1);
   });
 
   it('does nothing for an empty file list', async () => {
