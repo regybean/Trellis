@@ -13,6 +13,7 @@ import {
   startIngestJobSchema,
 } from '../schemas/ingest-schema';
 import { tailIngestProgress } from '../services/ingest-progress-reader';
+import { readProgressSnapshot } from '../services/ingest-progress-snapshot';
 import { enqueueIngestJob } from '../services/ingest-queue';
 import { adminProcedure, createTRPCRouter } from '../trpc';
 
@@ -112,11 +113,24 @@ export const documentsRouter = createTRPCRouter({
     }),
 
   /**
+   * Cold-mount seed: fold the caller's retained progress Stream to the latest
+   * stage per in-flight/`failed` Upload plus a resume cursor (#194). This is how
+   * progress survives a refresh — the client seeds its rows from here, then opens
+   * `progress` with `sinceId = lastId`. `done` Uploads are dropped (they live in
+   * `documents.list`), so a completed file never re-seeds as a duplicate row.
+   */
+  progressSnapshot: adminProcedure.input(z.void()).query(async ({ ctx }) => {
+    const userId = requireUserId(ctx.auth.userId);
+    return readProgressSnapshot(userId);
+  }),
+
+  /**
    * Pure, stateless tail of the caller's per-user progress Stream — no writes, no
    * lock, no terminal. `userId` comes from ctx (never the client). Re-emits each
    * Redis entry via tRPC `tracked(id, event)` so a transiently-reconnecting client
-   * (passing `lastEventId`) resumes strictly after it; a fresh mount tails from
-   * now. Closes only on abort (the stream carries no per-Job terminal).
+   * (passing `lastEventId`) resumes strictly after it; a fresh mount resumes from
+   * the snapshot's `lastId` (`sinceId`). Closes only on abort (the stream carries
+   * no per-Job terminal).
    */
   progress: adminProcedure
     .input(progressReaderSchema)
@@ -124,13 +138,13 @@ export const documentsRouter = createTRPCRouter({
       const userId = requireUserId(ctx.auth.userId);
 
       logger.info(
-        { userId, lastEventId: input.lastEventId },
+        { userId, lastEventId: input.lastEventId, sinceId: input.sinceId },
         'documents.progress: reader attached',
       );
 
       for await (const { id, event } of tailIngestProgress(
         userId,
-        input.lastEventId ?? null,
+        { lastEventId: input.lastEventId, sinceId: input.sinceId },
         signal,
       )) {
         yield tracked(id, event);

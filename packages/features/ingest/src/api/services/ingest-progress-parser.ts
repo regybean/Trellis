@@ -35,9 +35,9 @@ export function parseProgressEntry(fields: string[]) {
 }
 
 // The reader always resumes strictly AFTER its cursor. On a fresh mount the cursor
-// is seeded to `${Date.now()}-0` (tail-from-now — any later append has a strictly
-// greater id); on a transient reconnect it is the last-seen entry id from tRPC's
-// `lastEventId`. Either way `(id` is Redis' exclusive-start syntax, so a resuming
-// reader never re-reads an entry it already emitted. There is no head-replay ('-')
-// case: this stream is a tail, not a backlog.
+// is the snapshot's `lastId` (resume-from-lastId, #194); on a transient reconnect
+// it is the last-seen entry id from tRPC's `lastEventId`; on an empty stream it is
+// the head (`0-0`). Every branch is a real Redis id — no app-clock `Date.now()`.
+// `(id` is Redis' exclusive-start syntax, so a resuming reader never re-reads an
+// entry it already emitted.
 export const rangeStart = (cursor: string) => `(${cursor}`;

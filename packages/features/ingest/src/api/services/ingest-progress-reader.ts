@@ -31,27 +31,32 @@ function delay(ms: number, signal?: AbortSignal) {
 // Page-scoped, always-on tail of a user's progress Stream — no writes, no per-Job
 // terminal, no lock/drain. Yields each Redis entry as `{ id, event }`; the router
 // hands `id` to tRPC `tracked()` so a transiently-reconnecting client (passing
-// `lastEventId`) resumes strictly after it. On a FRESH mount (`lastEventId` null)
-// the cursor is seeded to now, so the reader tails from the present — an in-app
-// navigate-away-and-back shows blank until the next stage fires (no cross-mount
-// resume). The generator closes ONLY on abort; the parse / cursor logic is the
-// pure seam in ingest-progress-parser.ts.
+// `lastEventId`) resumes strictly after it. On a FRESH mount the cursor is the
+// snapshot's `lastId` (`sinceId`) — the client seeds its rows from
+// `documents.progressSnapshot` then resumes the tail strictly after that id, so
+// prior in-flight progress survives a refresh (snapshot → resume-from-lastId,
+// #194). There is NO `Date.now()` cursor: it read the app server's clock while
+// Redis assigns ids from its own, so under clock skew a "tail from now" silently
+// dropped every real stage event — a real Stream id can't skew. Absent both ids
+// the cursor is the head (`0-0`), whose exclusive start reads any later append.
+// The generator closes ONLY on abort; the parse / cursor logic is the pure seam in
+// ingest-progress-parser.ts.
 export async function* tailIngestProgress(
   userId: string,
-  lastEventId: string | null,
+  cursor: { lastEventId?: string | null; sinceId?: string | null },
   signal?: AbortSignal,
 ) {
   const key = ingestProgressKey(userId);
-  // Fresh mount ⇒ tail-from-now: any later append has a strictly greater id than
-  // `${Date.now()}-0`. A transient reconnect passes the last-seen id instead.
-  let cursor = lastEventId ?? `${Date.now()}-0`;
+  // Reconnect resumes from tRPC's `lastEventId`; a fresh mount from the snapshot's
+  // `lastId`; absent both, the stream head — every branch is a real Redis id.
+  let cursorId = cursor.lastEventId ?? cursor.sinceId ?? '0-0';
   let idleMs = config.INGEST_PROGRESS_POLL_MIN_MS;
 
   while (!signal?.aborted) {
-    const entries = await redis.xRange(key, rangeStart(cursor), '+');
+    const entries = await redis.xRange(key, rangeStart(cursorId), '+');
 
     for (const [id, fields] of entries) {
-      cursor = id;
+      cursorId = id;
       yield { id, event: parseProgressEntry(fields) };
     }
 
