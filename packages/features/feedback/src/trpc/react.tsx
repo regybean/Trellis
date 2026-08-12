@@ -25,7 +25,8 @@ const client = createFeatureClient<AppRouter>({
   },
 });
 
-export const { TRPCReactProvider, useTRPC } = client;
+export const TRPCReactProvider = client.TRPCReactProvider;
+export const useTRPC = client.useTRPC;
 
 /**
  * Feedback's `forMessage` query must run on *feedback's* QueryClient (the

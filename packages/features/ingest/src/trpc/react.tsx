@@ -18,4 +18,5 @@ const client = createFeatureClient<AppRouter>({
   subscriptions: true,
 });
 
-export const { TRPCReactProvider, useTRPC } = client;
+export const TRPCReactProvider = client.TRPCReactProvider;
+export const useTRPC = client.useTRPC;
