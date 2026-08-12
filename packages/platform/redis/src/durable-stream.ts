@@ -54,15 +54,17 @@ export interface TailOptions<T> {
 }
 
 // Fold a raw ioredis `[k, v, k, v, …]` field array to a record. Shared by every
-// caller's `decode` — the fold that used to be re-copied in each parser.
+// caller's `decode` — the fold that used to be re-copied in each parser. Built
+// from entry pairs (not bracket assignment) so a field name can't reach a
+// prototype key.
 const foldFields = (fields: string[]) => {
-  const rec: Record<string, string> = {};
+  const pairs: [string, string][] = [];
   for (let i = 0; i + 1 < fields.length; i += 2) {
-    const key = fields[i];
-    const value = fields[i + 1];
-    if (key !== undefined && value !== undefined) rec[key] = value;
+    const key = fields.at(i);
+    const value = fields.at(i + 1);
+    if (key !== undefined && value !== undefined) pairs.push([key, value]);
   }
-  return rec;
+  return Object.fromEntries<string>(pairs);
 };
 
 // A delay that also settles early on abort, so a disconnecting client tears the

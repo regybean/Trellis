@@ -183,7 +183,8 @@ describe('tail transform', () => {
     );
 
     await waitFor(() => seen.length === 1);
-    const lastId = (await stream.read()).at(-1)?.id;
+    const entries = await stream.read();
+    const lastId = entries.at(-1)?.id;
     expect(seen[0]?.event.note).toBe('abc');
     // Cursor advanced past the whole batch even though 2 of 3 were coalesced away.
     expect(seen[0]?.id).toBe(lastId);
