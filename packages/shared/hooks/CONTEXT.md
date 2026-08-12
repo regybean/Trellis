@@ -6,6 +6,25 @@ these; they never reach back up.
 
 ## Language
 
+**`createFeatureClient`**:
+The client half of a feature's tRPC wiring, authored once — the mirror of
+`createFeatureTRPC` in `@acme/trpc`. Returns a feature's `'use client'`
+`TRPCReactProvider` plus `useTRPC` / `useTRPCClient`, a `useFeatureQueryClient`
+(pins the feature's own `QueryClient` so nested providers never leak a query onto
+a foreign, persister-less client — #82), and `clearPersistedCache`. It owns
+everything identical across features — the SSR `getQueryClient` singleton, the
+`NODE_ENV==='test'` `httpLink` switch the MSW seam relies on ([ADR 0018](../../../docs/adr/0018-frontend-test-doctrine.md)),
+and the provider tree — and parameterises only what varies: `keyPrefix` (drives
+the endpoint, the query-key prefix, and the `rq-<keyPrefix>` persister store),
+`nodeEnv`, the feature's `createQueryClient`, the `transport` (`http` /
+`batch-stream` / `blob-batch-stream` for file uploads), whether it has
+`subscriptions`, and an optional `persister`. It lives here, not in `@acme/trpc`,
+because it ships React + a `'use client'` connector, which ADR 0030's
+platform-purity invariant forbids a platform package from carrying. chat,
+feedback, ingest, and notifications all mount through it. _Avoid_: re-authoring
+the `getQueryClient`/test-seam/provider scaffold per feature (the divergence this
+retired).
+
 **Query persister**:
 A per-query cache-to-browser mechanism built on TanStack Query's
 `experimental_createQueryPersister`, backed by IndexedDB (`idb-keyval`). Restores
