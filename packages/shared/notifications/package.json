@@ -42,6 +42,7 @@
   "dependencies": {
     "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
+    "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/redis": "workspace:*",
     "@acme/trpc": "workspace:*",

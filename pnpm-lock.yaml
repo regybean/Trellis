@@ -2064,6 +2064,9 @@ importers:
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../hooks
       '@acme/logger':
         specifier: workspace:*
         version: link:../../platform/logger
