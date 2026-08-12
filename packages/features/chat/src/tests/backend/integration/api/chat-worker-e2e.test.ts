@@ -26,7 +26,7 @@ import type { TestContextOptions } from '../../utils/test-context';
 import { appRouter } from '../../../../api/root';
 import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
 import { _generationQueue } from '../../../../api/services/chat-queue';
-import { tailChatStream } from '../../../../api/services/chat-stream-reader';
+import { drainChatStream } from '../../utils/drain-chat-stream';
 import { createTestSessionId, createTestUserId } from '../../utils/fixtures';
 import { createTestContext } from '../../utils/test-context';
 
@@ -42,17 +42,6 @@ const baseCredits = {
 
 function createCaller(opts: TestContextOptions) {
   return appRouter.createCaller(createTestContext(opts));
-}
-
-// Drain the pure reader to completion. Once the worker has finalised the Turn
-// the In-flight lock is released, so the reader emits what the Stream holds and
-// closes (the terminal shortens the Stream to a 60s TTL rather than deleting it).
-async function drainReader(conversationId: string) {
-  const out = [];
-  for await (const entry of tailChatStream(conversationId, null)) {
-    out.push(entry);
-  }
-  return out;
 }
 
 // One shared worker for the suite, mirroring apps/*/worker.ts: same queue name,
@@ -113,7 +102,7 @@ describe('generation worker (end-to-end via BullMQ)', () => {
     await drained;
 
     // The reader re-emits every delta in order, then the done terminal.
-    const emitted = await drainReader(conversationId);
+    const emitted = await drainChatStream(conversationId);
     const events = emitted.map((e) => e.event);
 
     const chunks = events.filter((e) => e.type === 'delta').map((e) => e.chunk);
