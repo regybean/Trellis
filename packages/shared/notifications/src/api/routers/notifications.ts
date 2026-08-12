@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { logger } from '@acme/logger';
 
-import { tailNotifications } from '../services/notification-reader';
+import { tailNotifications } from '../services/notification-stream';
 import { createTRPCRouter, protectedProcedure } from '../trpc';
 
 // Input to the pure `stream` reader. `lastEventId` is populated by tRPC from the
@@ -29,12 +29,15 @@ export const notificationsRouter = createTRPCRouter({
       'notifications.stream: reader attached',
     );
 
-    for await (const { id, notification } of tailNotifications(
+    // The seed (tail-from-now vs resume) is captured eagerly at attach; the tail
+    // is the shared durable-stream primitive. `event` is the decoded envelope.
+    const notifications = await tailNotifications(
       userId,
       input.lastEventId ?? null,
       signal,
-    )) {
-      yield tracked(id, notification);
+    );
+    for await (const { id, event } of notifications) {
+      yield tracked(id, event);
     }
   }),
 });
