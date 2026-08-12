@@ -1,131 +1,21 @@
 'use client';
 
-import type { QueryClient } from '@tanstack/react-query';
-import type React from 'react';
-import { useState } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
-import {
-  createTRPCClient,
-  httpBatchStreamLink,
-  httpLink,
-  httpSubscriptionLink,
-  isNonJsonSerializable,
-  loggerLink,
-  splitLink,
-} from '@trpc/client';
-import { createTRPCContext } from '@trpc/tanstack-react-query';
-import SuperJSON from 'superjson';
+import { createFeatureClient } from '@acme/hooks';
 
 import type { AppRouter } from '../api/root';
 import { env } from '../env';
 import { createQueryClient } from './query-client';
 
-let clientQueryClientSingleton: QueryClient | undefined;
-const getQueryClient = () => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (globalThis.window == undefined) {
-    return createQueryClient(); // Server: always make a new query client
-  }
-  // In tests, avoid singleton to prevent cross-test cache pollution
-  if (env.NODE_ENV === 'test') {
-    return createQueryClient();
-  }
-  // Browser: use singleton pattern to keep the same query client
-  clientQueryClientSingleton ??= createQueryClient();
-  return clientQueryClientSingleton;
-};
+// Ingest's client half, assembled from the shared factory (`@acme/hooks`). The
+// scaffold lives once in the factory; ingest's variation is its router type,
+// endpoint (`/api/trpc/ingest`), the file-upload-aware transport, and its
+// progress `stream` subscription. No persister — ingest is network-only.
+const client = createFeatureClient<AppRouter>({
+  keyPrefix: 'ingest',
+  nodeEnv: env.NODE_ENV,
+  createQueryClient,
+  transport: 'blob-batch-stream',
+  subscriptions: true,
+});
 
-export const { useTRPC, TRPCProvider } = createTRPCContext<
-  AppRouter,
-  { keyPrefix: true }
->();
-
-// https://discord-questions.trpc.io/m/1343947836143960066
-export function TRPCReactProvider(
-  props: Readonly<{ children: React.ReactNode }>,
-) {
-  const queryClient = getQueryClient();
-
-  // We only console.error in development not production
-  const [trpcClient] = useState(() =>
-    createTRPCClient<AppRouter>({
-      links:
-        env.NODE_ENV === 'test'
-          ? [
-              // In tests, prefer simple HTTP so MSW can intercept queries +
-              // mutations; the subscription half gets `httpSubscriptionLink` so
-              // the always-on progress tail has a link and never throws while
-              // its SSE can't connect in jsdom (ADR 0018, mirroring notifications).
-              splitLink({
-                condition: (op) => op.type === 'subscription',
-                true: httpSubscriptionLink({
-                  transformer: SuperJSON,
-                  url: getBaseUrl() + '/api/trpc/ingest',
-                }),
-                false: httpLink({
-                  transformer: SuperJSON,
-                  url: getBaseUrl() + '/api/trpc/ingest',
-                }),
-              }),
-            ]
-          : [
-              loggerLink({
-                enabled: (op) =>
-                  env.NODE_ENV === 'development' &&
-                  op.direction === 'down' &&
-                  op.result instanceof Error,
-              }),
-              splitLink({
-                condition: (op) => op.type === 'subscription',
-                true: httpSubscriptionLink({
-                  url: getBaseUrl() + `/api/trpc/ingest`,
-                  transformer: SuperJSON, // may be wrong
-                }),
-                false: splitLink({
-                  condition: (op) => isNonJsonSerializable(op.input),
-                  true: httpLink({
-                    transformer: {
-                      // request - convert data before sending to the tRPC server
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                      serialize: (data) => data,
-                      // response - convert the tRPC response before using it in client
-                      deserialize: SuperJSON.deserialize, // or your other transformer
-                    },
-                    url: getBaseUrl() + '/api/trpc/ingest',
-                  }),
-                  false: httpBatchStreamLink({
-                    transformer: SuperJSON,
-                    url: getBaseUrl() + '/api/trpc/ingest',
-                    headers: () => {
-                      const headers = new Headers();
-                      headers.set('x-trpc-source', 'nextjs-react');
-                      return headers;
-                    },
-                  }),
-                }),
-              }),
-            ],
-    }),
-  );
-
-  return (
-    <QueryClientProvider client={queryClient}>
-      <TRPCProvider
-        trpcClient={trpcClient}
-        queryClient={queryClient}
-        keyPrefix="ingest"
-      >
-        {props.children}
-      </TRPCProvider>
-    </QueryClientProvider>
-  );
-}
-
-function getBaseUrl() {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (globalThis.window != undefined) return globalThis.location.origin;
-  // eslint-disable-next-line no-restricted-properties
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  // eslint-disable-next-line no-restricted-properties
-  return `http://localhost:${process.env.PORT ?? 3000}`;
-}
+export const { TRPCReactProvider, useTRPC } = client;

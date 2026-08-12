@@ -1,33 +1,39 @@
 'use client';
 
-import type { QueryClient } from '@tanstack/react-query';
-import type React from 'react';
-import { createContext, useContext, useState } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
-import {
-  createTRPCClient,
-  httpBatchStreamLink,
-  httpLink,
-  httpSubscriptionLink,
-  isNonJsonSerializable,
-  loggerLink,
-  splitLink,
-} from '@trpc/client';
-import { createTRPCContext } from '@trpc/tanstack-react-query';
-import SuperJSON from 'superjson';
-
-import {
-  clearPersistedCache as clearHookPersistedCache,
-  createQueryPersister,
-} from '@acme/hooks';
+import { createFeatureClient } from '@acme/hooks';
 
 import type { AppRouter } from '../api/root';
 import { env } from '../env';
 import { CHAT_MAX_AGE, createQueryClient } from './query-client';
 
-// Chat's per-feature identifier: names its own IndexedDB store `rq-chat`, so
-// mounting alongside other opted-in features never collides on a shared key.
-const CHAT_KEY_PREFIX = 'chat';
+// Chat's client half, assembled from the shared factory (`@acme/hooks`). All the
+// scaffold — the SSR `getQueryClient` singleton, the `NODE_ENV==='test'`
+// `httpLink` MSW seam (ADR 0018), the provider tree — lives once in the factory;
+// only chat's genuine variation is spelled out here: its router type, endpoint
+// (`rq-chat` / `/api/trpc/chat`), the file-upload-aware transport, its `stream`
+// subscription, and the 7-day per-query persister (ADR 0025).
+const client = createFeatureClient<AppRouter>({
+  keyPrefix: 'chat',
+  nodeEnv: env.NODE_ENV,
+  createQueryClient,
+  transport: 'blob-batch-stream',
+  subscriptions: true,
+  persister: {
+    appVersion: env.NEXT_PUBLIC_APP_VERSION,
+    maxAge: CHAT_MAX_AGE,
+  },
+});
+
+export const { TRPCReactProvider, useTRPC, useTRPCClient } = client;
+
+/**
+ * Chat's queries must run on *chat's* QueryClient (the persister-bearing one),
+ * not the nearest `QueryClientProvider` in context — apps nest several feature
+ * providers, so `useQueryClient()` would resolve whichever is innermost and
+ * chat's queries would silently never persist (#82). Hooks read this and pass it
+ * explicitly to `useQuery`.
+ */
+export const useChatQueryClient = client.useFeatureQueryClient;
 
 /**
  * Empty chat's persisted cache (`rq-chat`). App-driven: the full apps call this
@@ -35,150 +41,4 @@ const CHAT_KEY_PREFIX = 'chat';
  * machine never leaks one user's Conversations to the next; slim apps have no
  * logout and never call it. Safe no-op degradation on storage failure.
  */
-export const clearChatPersistedCache = () =>
-  clearHookPersistedCache(CHAT_KEY_PREFIX);
-
-let clientQueryClientSingleton: QueryClient | undefined;
-const getQueryClient = (scopeKey?: string) => {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (globalThis.window == undefined) {
-    return createQueryClient(); // Server: always make a new query client, no persister
-  }
-  // The persister exists only when the app supplies a per-user `scopeKey`.
-  // Absent ⇒ chat behaves exactly as before (network-only) — graceful
-  // degradation, not a hard dependency.
-  const persister =
-    scopeKey === undefined
-      ? undefined
-      : createQueryPersister({
-          keyPrefix: CHAT_KEY_PREFIX,
-          scopeKey,
-          appVersion: env.NEXT_PUBLIC_APP_VERSION,
-          maxAge: CHAT_MAX_AGE,
-        });
-  // In tests, avoid singleton to prevent cross-test cache pollution
-  if (env.NODE_ENV === 'test') {
-    return createQueryClient(persister);
-  }
-  // Browser: use singleton pattern to keep the same query client
-  clientQueryClientSingleton ??= createQueryClient(persister);
-  return clientQueryClientSingleton;
-};
-
-export const { useTRPC, useTRPCClient, TRPCProvider } = createTRPCContext<
-  AppRouter,
-  { keyPrefix: true }
->();
-
-// Chat's queries must run on *chat's* QueryClient (the one carrying the
-// persister), not the nearest QueryClientProvider in React context. Apps nest
-// several feature providers (chat, ingest, feedback…), each with its own
-// QueryClientProvider; `useQueryClient()` would resolve whichever is innermost,
-// so chat's queries would silently run on a foreign, persister-less client and
-// never persist (#82). This context pins chat's own client; hooks read it and
-// pass it explicitly to `useQuery`, keeping every chat query on the client whose
-// defaults include the persister.
-const ChatQueryClientContext = createContext<QueryClient | undefined>(
-  undefined,
-);
-
-export function useChatQueryClient() {
-  const client = useContext(ChatQueryClientContext);
-  if (client === undefined) {
-    throw new Error('useChatQueryClient must be used within TRPCReactProvider');
-  }
-  return client;
-}
-
-// https://discord-questions.trpc.io/m/1343947836143960066
-export function TRPCReactProvider(
-  props: Readonly<{ children: React.ReactNode; scopeKey?: string }>,
-) {
-  const queryClient = getQueryClient(props.scopeKey);
-
-  // We only console.error in development not production
-  const [trpcClient] = useState(() =>
-    createTRPCClient<AppRouter>({
-      links:
-        env.NODE_ENV === 'test'
-          ? [
-              // In tests, split subscriptions from query/mutation so that:
-              // - query/mutation go through httpLink (MSW-interceptable, ADR 0018)
-              // - subscriptions go through httpSubscriptionLink (won't throw;
-              //   MSW can't intercept SSE but the link stays silent while
-              //   connecting — tests assert the synchronous optimistic state).
-              splitLink({
-                condition: (op) => op.type === 'subscription',
-                true: httpSubscriptionLink({
-                  transformer: SuperJSON,
-                  url: getBaseUrl() + '/api/trpc/chat',
-                }),
-                false: httpLink({
-                  transformer: SuperJSON,
-                  url: getBaseUrl() + '/api/trpc/chat',
-                }),
-              }),
-            ]
-          : [
-              loggerLink({
-                enabled: (op) =>
-                  env.NODE_ENV === 'development' &&
-                  op.direction === 'down' &&
-                  op.result instanceof Error,
-              }),
-              splitLink({
-                condition: (op) => op.type === 'subscription',
-                true: httpSubscriptionLink({
-                  url: getBaseUrl() + `/api/trpc/chat`,
-                  transformer: SuperJSON, // may be wrong
-                }),
-                false: splitLink({
-                  condition: (op) => isNonJsonSerializable(op.input),
-                  true: httpLink({
-                    transformer: {
-                      // request - convert data before sending to the tRPC server
-                      // eslint-disable-next-line @typescript-eslint/no-unsafe-return
-                      serialize: (data) => data,
-                      // response - convert the tRPC response before using it in client
-                      deserialize: SuperJSON.deserialize, // or your other transformer
-                    },
-                    url: getBaseUrl() + '/api/trpc/chat',
-                  }),
-                  false: httpBatchStreamLink({
-                    transformer: SuperJSON,
-                    url: getBaseUrl() + '/api/trpc/chat',
-                    headers: () => {
-                      const headers = new Headers();
-                      headers.set('x-trpc-source', 'nextjs-react');
-                      return headers;
-                    },
-                  }),
-                }),
-              }),
-            ],
-    }),
-  );
-
-  return (
-    <ChatQueryClientContext.Provider value={queryClient}>
-      <QueryClientProvider client={queryClient}>
-        <TRPCProvider
-          trpcClient={trpcClient}
-          queryClient={queryClient}
-          keyPrefix="chat"
-        >
-          {props.children}
-        </TRPCProvider>
-      </QueryClientProvider>
-    </ChatQueryClientContext.Provider>
-  );
-}
-
-function getBaseUrl() {
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-  if (globalThis.window != undefined) return globalThis.location.origin;
-  // eslint-disable-next-line no-restricted-properties
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
-  // eslint-disable-next-line no-restricted-properties
-  return `http://localhost:${process.env.PORT ?? 3000}`;
-}
+export const clearChatPersistedCache = client.clearPersistedCache;
