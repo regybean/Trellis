@@ -29,6 +29,23 @@ A domain-specific function that composes a **Namespaced key** via `nsKey` —
 `getStripeCustomerId` / `setStripeCustomerId` / `setSubscriptionCache`, so call
 sites never build these keys themselves.
 
+**Durable stream** (`createDurableStream`, `durable-stream.ts`):
+The one per-user (or per-conversation) Redis-Stream primitive behind chat's
+token stream, ingest's progress stream, and the notifications stream (#196). It
+owns the transport those three used to hand-copy: `write` (the atomic
+append-with-rolling-TTL `xAddWithTtl`), `lastId` (the "actual last stream id"
+read via `xRevRange` — a real Redis-assigned id, so a fresh tail-from-now seed
+never uses the app clock), `read` (a decoded full-range fold, e.g. ingest's cold
+snapshot), and `tail(startCursor, { keepGoing?, transform?, pollMin/MaxMs })` —
+the XRANGE poll loop with idle backoff, an abort-aware `delay`, and the exclusive
+`(cursor` resume. Each caller supplies only what is genuinely its own: a
+`StreamCodec<T>` (`encode`/`decode` off its own zod schema — the primitive folds
+the raw `[k,v,…]` field array to a record first), the fresh-connect cursor-seed
+policy (passed as `startCursor` — `HEAD_CURSOR` = the head), and optionally a
+`keepGoing(cursor)` predicate (chat's in-flight-Turn lock probe — return `false`
+takes one more drain then closes) and a `transform` (chat's delta-coalesce).
+_Avoid_: "the stream helper", "the reader" (which half?).
+
 ## Relationships
 
 - `redis` / `redisPub` / `redisSub` are thin facades over the raw node-redis

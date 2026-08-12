@@ -52,21 +52,28 @@ A `(n: Notification) => void` that turns one notification into a side effect
 kind falls through to `defaultToastRenderer`. _Avoid_: "handler", "component".
 
 **`publish(userId, input)`**:
-The **sole writer** — the one place `xAdd` is called for notifications. Mints
-`id`/`createdAt`, validates, writes the envelope as a single `payload` JSON field
-to `notificationKey(userId)`, and refreshes a rolling 1h TTL. _Avoid_: "emit",
-"send".
+The **sole writer**. Mints `id`/`createdAt`, validates, then hands the envelope to
+the **Notification stream** — which encodes it as a single `payload` JSON field and
+appends it with an atomically-restamped rolling 1h TTL. _Avoid_: "emit", "send".
 
-**Notification stream**:
-The per-user Redis stream at `notificationKey(userId) = nsKey('notifications',
-userId)`. Rolling 1h TTL, no `MAXLEN`; nothing ever deletes it. _Avoid_: "queue",
-"channel", "inbox".
+**Notification stream** (`notification-stream.ts`):
+The per-user stream at `notificationKey(userId) = nsKey('notifications', userId)`,
+on the shared `@acme/redis` **Durable stream** primitive (#196) — the transport
+(poll loop, abort-aware `delay`, atomic append-with-TTL, the `lastId` read) lives
+there, not here. What stays local is the wire codec (`payload` JSON ⇄ envelope) and
+the **Tail-from-now** seed policy. Rolling 1h TTL, no `MAXLEN`; nothing ever deletes
+it. _Avoid_: "queue", "channel", "inbox".
 
 **Tail-from-now**:
-The reader's fresh-connect policy: seed the cursor to `${Date.now()}-0` so the
+The fresh-connect seed policy (`tailNotifications`): seed the cursor to the stream's
+**actual last id** (`lastId()` via `xRevRange`), captured eagerly at attach, so the
 whole backlog is skipped and only entries published _after_ the reader attaches are
 delivered. A leave-and-return therefore shows nothing (no durability — accepted,
-ADR 0030). _Avoid_: "replay", "catch-up".
+ADR 0030). _Fixed (#196)_: the seed was `${Date.now()}-0` — the app clock, while
+Redis assigns ids from its own; under podman-VM drift that landed in Redis' future
+and silently dropped live entries (the same skew class ingest's #194 killed). A real
+Redis id can't skew; a regression test injects skew and asserts delivery. _Avoid_:
+"replay", "catch-up".
 
 **`toastId` dedup**:
 The default renderer passes `toastId: n.id` so react-toastify collapses a
