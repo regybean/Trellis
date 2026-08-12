@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useReducer } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { useSubscription } from '@trpc/tanstack-react-query';
@@ -93,14 +93,13 @@ export function useDocumentUpload() {
     trpc.documents.progressSnapshot.queryOptions(undefined, { retry: false }),
   );
 
-  // Seed the reducer once, when the snapshot lands. An effect is the honest seam
-  // for folding an async query into the subscription-fed reducer; `hydrate` is
-  // forward-only + idempotent, so a later refetch (or a live event that already
-  // advanced a row) can't regress it. The ref makes it fire exactly once.
-  const hydratedRef = useRef(false);
+  // Seed the reducer when the snapshot lands. Folding an async query into the
+  // subscription-fed reducer is the honest seam for an effect. `hydrate` is
+  // forward-only + idempotent (unknown id → seed; known id → forward-only merge;
+  // a retired `done` row is dropped server-side so it can't re-seed), so it needs
+  // no one-shot guard — a re-dispatch on refetch is a no-op the reducer bails on.
   useEffect(() => {
-    if (hydratedRef.current || !snapshot.isSuccess) return;
-    hydratedRef.current = true;
+    if (!snapshot.isSuccess) return;
     dispatch({ type: 'hydrate', uploads: snapshot.data.uploads });
   }, [snapshot.isSuccess, snapshot.data]);
 
