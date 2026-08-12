@@ -14,7 +14,7 @@ import { redis } from '@acme/redis';
 
 import { ingestProgressKey } from '../../../../api/ingest-keys';
 import { readProgressSnapshot } from '../../../../api/services/ingest-progress-snapshot';
-import { createIngestProgressWriter } from '../../../../api/services/ingest-progress-writer';
+import { createIngestProgressWriter } from '../../../../api/services/ingest-progress-stream';
 import { cleanupTestData } from '../../utils/test-context';
 
 const userId = 'user-1';

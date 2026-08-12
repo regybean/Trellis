@@ -16,14 +16,12 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
 import { deleteByFilename, listDocuments } from '@acme/rag/server';
-import { redis } from '@acme/redis';
 
 import type { IngestJob } from '../../../../api/services/ingest-queue';
 import type { TestContextOptions } from '../../utils/test-context';
-import { ingestProgressKey } from '../../../../api/ingest-keys';
 import { appRouter } from '../../../../api/root';
 import { createIngestProcessor } from '../../../../api/services/ingest-processor';
-import { parseProgressEntry } from '../../../../api/services/ingest-progress-parser';
+import { ingestProgressStream } from '../../../../api/services/ingest-progress-stream';
 import { _ingestQueue } from '../../../../api/services/ingest-queue';
 import { createTestContext } from '../../utils/test-context';
 
@@ -94,14 +92,8 @@ describe('ingest worker (end-to-end via BullMQ)', () => {
     await drained;
 
     // Progress stream ends at done for the Upload.
-    const entries = await redis.xRange(
-      ingestProgressKey(adminOpts.userId),
-      '-',
-      '+',
-    );
-    const stages = entries.map(
-      ([, fields]) => parseProgressEntry(fields).stage,
-    );
+    const entries = await ingestProgressStream(adminOpts.userId).read();
+    const stages = entries.map((entry) => entry.event.stage);
     expect(stages.at(-1)).toBe('done');
 
     // The document was indexed for real.
