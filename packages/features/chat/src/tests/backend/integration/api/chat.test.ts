@@ -17,7 +17,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
 
-import type { StreamReaderEvent } from '../../../../api/schemas/chat-schema';
 import type { TestContextOptions } from '../../utils/test-context';
 import {
   chatAbortKey,
@@ -30,7 +29,7 @@ import {
   _generationQueue,
   generationJobId,
 } from '../../../../api/services/chat-queue';
-import { tailChatStream } from '../../../../api/services/chat-stream-reader';
+import { drainChatStream } from '../../utils/drain-chat-stream';
 import {
   createTestChat,
   createTestChatWithMessages,
@@ -51,20 +50,6 @@ function findBySession<T extends { sessionId: string }>(
   sessionId: string,
 ) {
   return items.find((c) => c.sessionId === sessionId);
-}
-
-// Drive the pure reader to completion, returning the ordered { id, event }
-// entries it re-emitted. With no In-flight lock present the reader drains what
-// exists in the Stream and closes, so this resolves deterministically.
-async function drainReader(conversationId: string, lastEventId?: string) {
-  const out: { id: string; event: StreamReaderEvent }[] = [];
-  for await (const entry of tailChatStream(
-    conversationId,
-    lastEventId ?? null,
-  )) {
-    out.push(entry);
-  }
-  return out;
 }
 
 const baseCredits = {
@@ -668,7 +653,7 @@ describe('chatRouter', () => {
       // A post-terminal entry must never be re-emitted — the reader closes first.
       await redis.xAdd(streamKey, '*', { chunk: ' orphaned' });
 
-      const entries = await drainReader(conversationId);
+      const entries = await drainChatStream(conversationId);
 
       // Consecutive deltas that arrive in a single xRange collapse into one
       // delta carrying the full text (the resume-jitter fix: one client render
@@ -687,7 +672,7 @@ describe('chatRouter', () => {
 
       // First attach coalesces the backlog into one delta carrying the id of
       // the LAST entry it consumed — that id is the client's Last-Event-ID.
-      const first = await drainReader(conversationId);
+      const first = await drainChatStream(conversationId);
       expect(first.map((e) => e.event)).toEqual([
         { type: 'delta', chunk: 'ab' },
       ]);
@@ -700,7 +685,7 @@ describe('chatRouter', () => {
 
       // Resuming after the coalesced id sees only what came after — no re-read
       // of a/b, no gap before c.
-      const resumed = await drainReader(conversationId, lastSeenId);
+      const resumed = await drainChatStream(conversationId, lastSeenId);
       expect(resumed.map((e) => e.event)).toEqual([
         { type: 'delta', chunk: 'c' },
         { type: 'done', messageId: 'm' },
@@ -716,7 +701,7 @@ describe('chatRouter', () => {
         messageId: 'msg-partial',
       });
 
-      const entries = await drainReader(conversationId);
+      const entries = await drainChatStream(conversationId);
 
       expect(entries.map((e) => e.event)).toEqual([
         { type: 'delta', chunk: 'partial' },
@@ -730,7 +715,7 @@ describe('chatRouter', () => {
         type: 'cancelled',
       });
 
-      const entries = await drainReader(conversationId);
+      const entries = await drainChatStream(conversationId);
 
       expect(entries.map((e) => e.event)).toEqual([
         { type: 'cancelled', messageId: null },
@@ -741,7 +726,7 @@ describe('chatRouter', () => {
       const conversationId = createTestSessionId();
       await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'error' });
 
-      const entries = await drainReader(conversationId);
+      const entries = await drainChatStream(conversationId);
 
       expect(entries.map((e) => e.event)).toEqual([{ type: 'error' }]);
     });
@@ -752,13 +737,13 @@ describe('chatRouter', () => {
       const conversationId = createTestSessionId();
       await redis.xAdd(chatStreamKey(conversationId), '*', { type: 'don' });
 
-      await expect(drainReader(conversationId)).rejects.toThrow();
+      await expect(drainChatStream(conversationId)).rejects.toThrow();
     });
 
     it('closes with an empty stream when no Turn is in-flight and no Stream exists', async () => {
       const conversationId = createTestSessionId();
 
-      const entries = await drainReader(conversationId);
+      const entries = await drainChatStream(conversationId);
 
       expect(entries).toEqual([]);
     });

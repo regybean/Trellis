@@ -6,7 +6,7 @@ import type { GenerationJob } from './chat-queue';
 import type { TurnTerminalKind } from './chat-turn-lifecycle';
 import { chatAgent } from './chat-agent';
 import { generateThreadTitle, persistAssistantMessage } from './chat-memory';
-import { createStreamWriter } from './chat-stream-writer';
+import { createStreamWriter } from './chat-stream';
 import {
   isTurnAborted,
   refundTurnCredits,

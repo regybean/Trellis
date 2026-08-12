@@ -1,6 +1,17 @@
 # `@acme/notifications`: a `shared` package that owns a tRPC router
 
 **Status:** accepted (authored on package creation, per spec #185 / ticket #186).
+**Amended #196** — Decision 2's reader is now the shared `@acme/redis`
+durable-stream primitive ([ADR 0032](0032-durable-redis-stream-primitive.md)),
+not a hand-copied `xRange` poll loop. Two specifics are **superseded**: the
+fresh-connect seed is no longer `${Date.now()}-0` but the stream's **actual last
+id** (read via `xRevRange` — the "no `xRevRange`, no new `@acme/redis` surface"
+line no longer holds; the surface was added precisely to kill the clock-skew
+failure the app-clock seed could hit under podman-VM drift, the same class ingest
+fixed in #194); and `publish` writes through the atomic `xAddWithTtl` rather than
+a non-atomic `xAdd` + `expire`. The **tail-from-now intent** — a leave-and-return
+shows nothing (Decision 4's no-durability contract) — is unchanged, now preserved
+via the last-id seed instead of the wall clock.
 
 ## Context
 

@@ -24,7 +24,9 @@ const client = createFeatureClient<AppRouter>({
   },
 });
 
-export const { TRPCReactProvider, useTRPC, useTRPCClient } = client;
+export const TRPCReactProvider = client.TRPCReactProvider;
+export const useTRPC = client.useTRPC;
+export const useTRPCClient = client.useTRPCClient;
 
 /**
  * Chat's queries must run on *chat's* QueryClient (the persister-bearing one),
