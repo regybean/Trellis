@@ -17,21 +17,24 @@ import type { IngestStage } from '../api/schemas/ingest-progress-schema';
 // Derived from the imported wire enum so the two can never drift.
 export type Stage = IngestStage | 'uploading';
 
-export interface PerFileProgress {
+// A discriminated union on `stage`, mirroring the wire schema: `error` is REQUIRED
+// on `failed` and unrepresentable otherwise, so the invariant is a type, not a
+// comment. `fail()`/`reduceServerStage` narrow instead of leaning on a fallback.
+interface PerFileBase {
   jobId: string;
   uploadId: string;
   filename: string;
-  stage: Stage;
-  // Present only when `stage === 'failed'`.
-  error?: string;
 }
+export type PerFileProgress = PerFileBase &
+  ({ stage: Exclude<Stage, 'failed'> } | { stage: 'failed'; error: string });
 
 // Forward-only ranks (#180): a stage advances only to a STRICTLY greater rank, so
 // a redelivered event on transient reconnect — or the optimistic-`queued` (client)
 // vs real-`queued` (server) overlap — can never regress a row. `failed` is NOT
 // ranked; it is an absorbing terminal handled explicitly (a failed Upload never
-// re-enters the pipeline — a re-upload is a fresh `uploadId`).
-const RANK: Record<Exclude<Stage, 'failed'>, number> = {
+// re-enters the pipeline — a re-upload is a fresh `uploadId`). Exported so the
+// view derives its progress-bar fill from this SAME ordering — no parallel table.
+export const STAGE_RANK: Record<Exclude<Stage, 'failed'>, number> = {
   uploading: 0,
   queued: 1,
   parsing: 2,
@@ -66,13 +69,12 @@ export type ProgressEvent =
   // stranded at `uploading`.
   | { type: 'enqueueFailed'; uploadIds: string[]; error: string }
   // A server progress entry: advance-if-greater; an unknown `uploadId` (another
-  // tab/mount, or already-torn-down) is a no-op.
-  | {
-      type: 'serverStage';
-      uploadId: string;
-      stage: IngestStage;
-      error?: string;
-    };
+  // tab/mount, or already-torn-down) is a no-op. Discriminated like the wire so
+  // `error` is required on `failed` and absent otherwise.
+  | ({ type: 'serverStage'; uploadId: string } & (
+      | { stage: Exclude<IngestStage, 'failed'> }
+      | { stage: 'failed'; error: string }
+    ));
 
 // Advance a record to a forward stage: only if strictly greater. A record already
 // at a terminal stage (`done`/`failed`) is absorbing and never changes.
@@ -81,7 +83,7 @@ function advance(
   stage: Exclude<Stage, 'failed'>,
 ): PerFileProgress {
   if (record.stage === 'done' || record.stage === 'failed') return record;
-  if (RANK[stage] > RANK[record.stage]) return { ...record, stage };
+  if (STAGE_RANK[stage] > STAGE_RANK[record.stage]) return { ...record, stage };
   return record;
 }
 
@@ -154,7 +156,7 @@ function reduceServerStage(
   if (!record) return state;
   const next =
     event.stage === 'failed'
-      ? fail(record, event.error ?? 'Ingest failed')
+      ? fail(record, event.error)
       : advance(record, event.stage);
   return replaceOne(state, event.uploadId, next);
 }

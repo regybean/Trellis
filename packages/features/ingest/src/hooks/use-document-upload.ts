@@ -92,12 +92,20 @@ export function useDocumentUpload() {
     ...trpc.documents.progress.subscriptionOptions({}),
     enabled: true,
     onData: ({ data: event }) =>
-      dispatch({
-        type: 'serverStage',
-        uploadId: event.uploadId,
-        stage: event.stage,
-        error: event.stage === 'failed' ? event.error : undefined,
-      }),
+      dispatch(
+        event.stage === 'failed'
+          ? {
+              type: 'serverStage',
+              uploadId: event.uploadId,
+              stage: 'failed',
+              error: event.error,
+            }
+          : {
+              type: 'serverStage',
+              uploadId: event.uploadId,
+              stage: event.stage,
+            },
+      ),
   });
 
   const upload = async (files: File[]) => {

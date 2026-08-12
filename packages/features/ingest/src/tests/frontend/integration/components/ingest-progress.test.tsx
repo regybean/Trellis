@@ -15,6 +15,7 @@ import '@testing-library/jest-dom';
 import type {
   PerFileProgress,
   ProgressSummary,
+  Stage,
 } from '../../../../hooks/ingest-progress-reducer';
 import { IngestProgressView } from '../../../../components/ingest-progress';
 import {
@@ -22,13 +23,27 @@ import {
   deriveSummary,
 } from '../../../../hooks/ingest-progress-reducer';
 
-const file = (over: Partial<PerFileProgress> = {}): PerFileProgress => ({
-  jobId: 'job-1',
-  uploadId: 'u1',
-  filename: 'doc.pdf',
-  stage: 'parsing',
-  ...over,
-});
+// `PerFileProgress` is a discriminated union (`error` only on `failed`), so the
+// factory branches rather than spreading a flat partial over it.
+const file = (
+  over: {
+    jobId?: string;
+    uploadId?: string;
+    filename?: string;
+    stage?: Stage;
+    error?: string;
+  } = {},
+): PerFileProgress => {
+  const base = {
+    jobId: over.jobId ?? 'job-1',
+    uploadId: over.uploadId ?? 'u1',
+    filename: over.filename ?? 'doc.pdf',
+  };
+  const stage = over.stage ?? 'parsing';
+  return stage === 'failed'
+    ? { ...base, stage, error: over.error ?? 'failed' }
+    : { ...base, stage };
+};
 
 const renderView = (files: PerFileProgress[], summary?: ProgressSummary) =>
   render(

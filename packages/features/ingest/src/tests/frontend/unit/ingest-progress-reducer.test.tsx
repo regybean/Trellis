@@ -95,7 +95,7 @@ describe('ingestProgressReducer', () => {
     ]);
     const file = deriveFiles(state)[0];
     expect(file?.stage).toBe('failed');
-    expect(file?.error).toBe('boom');
+    if (file?.stage === 'failed') expect(file.error).toBe('boom');
   });
 
   it('does not let a stray failure override a done record', () => {
@@ -129,7 +129,7 @@ describe('ingestProgressReducer', () => {
     ]);
     const file = deriveFiles(state)[0];
     expect(file?.stage).toBe('failed');
-    expect(file?.error).toBe('network');
+    if (file?.stage === 'failed') expect(file.error).toBe('network');
   });
 
   it('fails the whole batch on enqueueFailed (no stranded uploading rows)', () => {

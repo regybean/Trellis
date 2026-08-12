@@ -9,46 +9,41 @@ import type {
   ProgressSummary,
   Stage,
 } from '../hooks/ingest-progress-reducer';
+import { STAGE_RANK } from '../hooks/ingest-progress-reducer';
 import { useIngestUpload } from '../hooks/ingest-upload-context';
 
 // Variant A — dense rows (#181). One line per Upload under a job summary strip:
 // admin ingest is a batch operation (6+ files common), so density + a primary
 // "is the whole batch done" signal beat per-file steppers/kanban.
 
-// Per-file progress-bar fill: `RANK[stage] / 4`. `uploading`→`done` climb 0→4;
-// `failed` renders a FULL bar in destructive (see the row), so it maps to 4 too.
-const STAGE_RANK: Record<Stage, number> = {
-  uploading: 0,
-  queued: 1,
-  parsing: 2,
-  embedding: 3,
-  done: 4,
-  failed: 4,
+type PillVariant = 'default' | 'secondary' | 'destructive';
+
+// One table of per-stage presentation (label + pill variant), collapsing the
+// former STAGE_LABEL + stagePillVariant. The bar fill is NOT here — it derives
+// from the domain `STAGE_RANK`, so stage ordering lives in exactly one place.
+const STAGE_META: Record<Stage, { label: string; pillVariant: PillVariant }> = {
+  uploading: { label: 'Uploading', pillVariant: 'secondary' },
+  queued: { label: 'Queued', pillVariant: 'secondary' },
+  parsing: { label: 'Parsing', pillVariant: 'secondary' },
+  embedding: { label: 'Embedding', pillVariant: 'secondary' },
+  done: { label: 'Done', pillVariant: 'default' },
+  failed: { label: 'Failed', pillVariant: 'destructive' },
 };
 
-const STAGE_LABEL: Record<Stage, string> = {
-  uploading: 'Uploading',
-  queued: 'Queued',
-  parsing: 'Parsing',
-  embedding: 'Embedding',
-  done: 'Done',
-  failed: 'Failed',
-};
-
-function stagePillVariant(stage: Stage) {
-  if (stage === 'failed') return 'destructive' as const;
-  if (stage === 'done') return 'default' as const;
-  return 'secondary' as const;
-}
+// Per-file bar fill 0–1: the domain rank normalised to `done`. `failed` is
+// unranked in the domain (absorbing terminal) → a FULL bar, rendered destructive.
+const stageFill = (stage: Stage) =>
+  stage === 'failed' ? 1 : STAGE_RANK[stage] / STAGE_RANK.done;
 
 function StagePill({ stage, className }: { stage: Stage; className?: string }) {
   const isActive = stage !== 'done' && stage !== 'failed';
+  const { label, pillVariant } = STAGE_META[stage];
   return (
-    <Badge variant={stagePillVariant(stage)} className={cn('gap-1', className)}>
+    <Badge variant={pillVariant} className={cn('gap-1', className)}>
       {isActive && <Loader2 className="h-3 w-3 animate-spin" />}
       {stage === 'done' && <Check className="h-3 w-3" />}
       {stage === 'failed' && <X className="h-3 w-3" />}
-      {STAGE_LABEL[stage]}
+      {label}
     </Badge>
   );
 }
@@ -107,7 +102,7 @@ export function IngestProgressView({
               )}
             </div>
             <Progress
-              value={(STAGE_RANK[file.stage] / 4) * 100}
+              value={stageFill(file.stage) * 100}
               className={cn(
                 'h-1.5 w-24',
                 file.stage === 'failed' && '[&>*]:bg-destructive',
