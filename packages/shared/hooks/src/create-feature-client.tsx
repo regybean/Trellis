@@ -44,6 +44,14 @@ import {
  */
 type Transport = 'http' | 'batch-stream' | 'blob-batch-stream';
 
+/**
+ * The three `NODE_ENV` values every feature's env validates to (a zod
+ * `z.enum(['development','production','test'])`). Kept as a literal union rather
+ * than bare `string` so the MSW test seam (`'test'`) and dev `loggerLink`
+ * (`'development'`) switch on a closed set the compiler checks.
+ */
+type NodeEnv = 'development' | 'production' | 'test';
+
 interface PersisterConfig {
   /**
    * Composed into the persister `buster` (`appVersion:scopeKey`) so a deploy
@@ -68,7 +76,7 @@ interface FeatureClientOptions {
    * `@acme/hooks` stays env-agnostic (the feature owns its validated env). Drives
    * the MSW test seam (`'test'`) and the dev-only `loggerLink`.
    */
-  nodeEnv: string;
+  nodeEnv: NodeEnv;
   /**
    * The feature's own `QueryClient` factory — `staleTime`, `dehydrate`, and
    * `gcTime` differ per feature, so the factory can't own it. Receives the
