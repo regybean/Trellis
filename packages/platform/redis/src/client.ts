@@ -101,6 +101,21 @@ const setXx = (
   return raw.set(key, value, 'XX');
 };
 
+// Compare-and-delete, server-side. Deletes the key ONLY while it still holds
+// `expected` — the atomic release for a value-owned lock (`SET key owner NX EX`).
+// A client-side `GET` then `DEL` is not the same operation: if the lock's TTL
+// lapses between the two round trips and a NEW owner acquires it, the `DEL`
+// deletes the new owner's lock. Redis has no native compare-and-delete, so Lua is
+// the canonical tool (`WATCH`/`MULTI` is more code for the same guarantee); EVAL
+// runs the script as one command, so nothing can interleave inside it. Returns
+// the DEL reply (1 deleted, 0 not ours / already gone).
+const COMPARE_AND_DELETE = `
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+  return redis.call('DEL', KEYS[1])
+end
+return 0
+`;
+
 const setWithTtl = (
   raw: Redis,
   key: NamespacedKey,
@@ -150,6 +165,12 @@ const namespaced = (raw: Redis) => {
     incrBy: (key: NamespacedKey, increment: number) =>
       raw.incrby(key, increment),
     del: (key: NamespacedKey) => raw.del(key),
+    // The owner-checked release: delete only while the key still holds
+    // `expected`. Reports whether THIS caller's value was the one deleted, so a
+    // lock whose TTL lapsed and was re-acquired by a newer owner survives a late
+    // release from the old one. See COMPARE_AND_DELETE above.
+    compareAndDelete: async (key: NamespacedKey, expected: string) =>
+      (await raw.eval(COMPARE_AND_DELETE, 1, key, expected)) === 1,
     ttl: (key: NamespacedKey) => raw.ttl(key),
     expire: (key: NamespacedKey, seconds: number) => raw.expire(key, seconds),
     expireAt: (key: NamespacedKey, timestamp: number) =>
