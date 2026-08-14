@@ -26,7 +26,7 @@ import {
 } from '../../../../api/chat-keys';
 import { chatAgent } from '../../../../api/services/chat-agent';
 import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
-import { coalesceBatch } from '../../../../api/services/chat-stream-parser';
+import { chatStream, coalesce } from '../../../../api/services/chat-stream';
 import { chatConfig } from '../../../../config';
 import { appEnv } from '../../../../env';
 import { fakeAgentStream, throwingAgentStream } from '../../setup';
@@ -88,12 +88,13 @@ function streamField(fields: string[], name: string): string | undefined {
   return fields.at(idx + 1);
 }
 
-// Read the whole Stream back through the SAME pure parser the reader uses, so
-// the producer is asserted symmetrically to the consumer (the writer wrote it,
-// `coalesceBatch`/`parseEntry` decode it) — never by hand-indexing raw fields.
+// Read the whole Stream back through the SAME codec + coalesce the reader uses,
+// so the producer is asserted symmetrically to the consumer (the writer wrote it,
+// the durable stream's `decode` + chat's `coalesce` decode it) — never by
+// hand-indexing raw fields.
 async function readStreamEvents(conversationId: string) {
-  const entries = await redis.xRange(chatStreamKey(conversationId), '-', '+');
-  return [...coalesceBatch(entries)].map((e) => e.event);
+  const entries = await chatStream(conversationId).read();
+  return coalesce(entries).map((e) => e.event);
 }
 
 describe('chatGenerationProcessor', () => {

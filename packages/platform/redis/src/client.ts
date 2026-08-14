@@ -194,6 +194,21 @@ const namespaced = (raw: Redis) => {
     // xRange reads entries between two ids (inclusive). Use '-' / '+' for full range.
     xRange: (key: NamespacedKey, start: string, end: string) =>
       raw.xrange(key, start, end),
+    // xRevRange reads entries in DESCENDING id order — note the reversed
+    // `end`/`start` argument order (Redis: `XREVRANGE key + - COUNT n`). With
+    // `COUNT 1` it is the cheap "what is the last stream id" read the durable
+    // stream seeds a fresh tail-from-now cursor with — a REAL Redis-assigned id,
+    // never the app clock (which skews against Redis' own; see the durable-stream
+    // primitive and docs/adr/0030).
+    xRevRange: (
+      key: NamespacedKey,
+      end: string,
+      start: string,
+      options?: { COUNT?: number },
+    ) =>
+      options?.COUNT === undefined
+        ? raw.xrevrange(key, end, start)
+        : raw.xrevrange(key, end, start, 'COUNT', options.COUNT),
     // Channel commands — first argument is a channel.
     publish: (channel: NamespacedKey, message: string) =>
       raw.publish(channel, message),

@@ -11,10 +11,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { redis } from '@acme/redis';
 
-import type { IngestProgressEntry } from '../../../../api/services/ingest-progress-parser';
+import type { IngestProgressEntry } from '../../../../api/services/ingest-progress-stream';
 import { ingestProgressKey } from '../../../../api/ingest-keys';
-import { tailIngestProgress } from '../../../../api/services/ingest-progress-reader';
-import { createIngestProgressWriter } from '../../../../api/services/ingest-progress-writer';
+import {
+  createIngestProgressWriter,
+  tailIngestProgress,
+} from '../../../../api/services/ingest-progress-stream';
 import { cleanupTestData } from '../../utils/test-context';
 
 const userId = 'user-1';

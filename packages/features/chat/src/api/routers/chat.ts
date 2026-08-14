@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
+import { HEAD_CURSOR } from '@acme/redis';
 
 import { chatConfig } from '../../config';
 import { appEnv } from '../../env';
@@ -33,7 +34,7 @@ import {
   toConversationSummary,
   toMessages,
 } from '../services/chat-memory';
-import { tailChatStream } from '../services/chat-stream-reader';
+import { chatStream, coalesce, isTerminalEvent } from '../services/chat-stream';
 import {
   abortTurn,
   beginTurn,
@@ -72,12 +73,25 @@ export const chatRouter = createTRPCRouter({
         'chat.stream: reader attached',
       );
 
-      for await (const { id, event } of tailChatStream(
-        conversationId,
-        lastEventId ?? null,
-        signal,
+      // The transport is the shared durable-stream primitive; chat supplies only
+      // its own policy. `keepGoing` is the in-flight-Turn lock probe — the reader
+      // no longer reaches into the Turn control plane itself; the router (which
+      // owns that plane) injects it. `transform` is the delta-coalesce. A fixed
+      // poll cadence (min == max) holds while a Turn streams. The loop breaks on a
+      // terminal, closing the tail (its `.return()` tears the poll loop down).
+      for await (const { id, event } of chatStream(conversationId).tail(
+        lastEventId ?? HEAD_CURSOR,
+        {
+          pollMinMs: config.POLL_INTERVAL_MS,
+          pollMaxMs: config.POLL_INTERVAL_MS,
+          signal,
+          keepGoing: async () =>
+            (await readInflightTurn(conversationId)) !== null,
+          transform: coalesce,
+        },
       )) {
         yield tracked(id, event);
+        if (isTerminalEvent(event)) break;
       }
     }),
 

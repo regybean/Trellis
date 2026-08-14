@@ -12,8 +12,8 @@ import {
   progressReaderSchema,
   startIngestJobSchema,
 } from '../schemas/ingest-schema';
-import { tailIngestProgress } from '../services/ingest-progress-reader';
 import { readProgressSnapshot } from '../services/ingest-progress-snapshot';
+import { tailIngestProgress } from '../services/ingest-progress-stream';
 import { enqueueIngestJob } from '../services/ingest-queue';
 import { adminProcedure, createTRPCRouter } from '../trpc';
 

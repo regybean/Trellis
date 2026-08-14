@@ -10,7 +10,7 @@ import { ingestConfig } from '../../config';
 import { appEnv } from '../../env';
 import { deleteFilesFromS3, downloadFileFromS3 } from '../../utils/s3-client';
 import { notifyJobComplete } from './ingest-notify';
-import { createIngestProgressWriter } from './ingest-progress-writer';
+import { createIngestProgressWriter } from './ingest-progress-stream';
 
 // INGEST_CONCURRENCY (fan-out width) + BullMQ retention are config-as-code (ADR 0026).
 const config = ingestConfig({ appEnv, isServer: true });

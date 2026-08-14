@@ -4,11 +4,12 @@ import {
   notificationSchema,
   publishInputSchema,
 } from '../../../api/schemas/notification-schema';
-import { parseEntry } from '../../../api/services/notification-parser';
+import { decodeNotification } from '../../../api/services/notification-stream';
 
-// Pure, no I/O, no mocks — the envelope round-trip and the parser's decode of a
-// flat Redis field array. `publish` writes the envelope as a single `payload`
-// JSON field; `parseEntry` is its inverse.
+// Pure, no I/O, no mocks — the envelope round-trip and the codec's decode of a
+// folded Redis field record. `publish` writes the envelope as a single `payload`
+// JSON field; `decodeNotification` is its inverse (the primitive folds the raw
+// field array to the record this consumes).
 describe('notification envelope schema', () => {
   const envelope = {
     id: 'abc-123',
@@ -55,12 +56,12 @@ describe('notification envelope schema', () => {
     expect(keys).toEqual(['data', 'kind', 'level', 'message']);
   });
 
-  it('parseEntry decodes the single payload field back to the envelope', () => {
-    const entry = parseEntry(['payload', JSON.stringify(envelope)]);
+  it('decodeNotification decodes the single payload field back to the envelope', () => {
+    const entry = decodeNotification({ payload: JSON.stringify(envelope) });
     expect(entry).toEqual(envelope);
   });
 
-  it('parseEntry throws when the payload field is absent (producer bug)', () => {
-    expect(() => parseEntry(['nope', 'x'])).toThrow(/payload/);
+  it('decodeNotification throws when the payload field is absent (producer bug)', () => {
+    expect(() => decodeNotification({ nope: 'x' })).toThrow(/payload/);
   });
 });

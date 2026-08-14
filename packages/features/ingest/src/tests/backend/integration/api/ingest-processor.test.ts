@@ -25,9 +25,8 @@ import { deleteByFilename, listDocuments } from '@acme/rag/server';
 import { redis } from '@acme/redis';
 
 import type { IngestJob } from '../../../../api/services/ingest-queue';
-import { ingestProgressKey } from '../../../../api/ingest-keys';
 import { createIngestProcessor } from '../../../../api/services/ingest-processor';
-import { parseProgressEntry } from '../../../../api/services/ingest-progress-parser';
+import { ingestProgressStream } from '../../../../api/services/ingest-progress-stream';
 import {
   deleteFilesFromS3,
   downloadFileFromS3,
@@ -65,10 +64,10 @@ function stubDownloads(byKey: Map<string, string>) {
   });
 }
 
-// Read the progress stream back through the pure parser the reader uses.
+// Read the progress stream back through the same codec the reader uses.
 async function readProgress() {
-  const entries = await redis.xRange(ingestProgressKey(userId), '-', '+');
-  return entries.map(([, fields]) => parseProgressEntry(fields));
+  const entries = await ingestProgressStream(userId).read();
+  return entries.map((entry) => entry.event);
 }
 
 async function readNotifications() {
