@@ -32,7 +32,9 @@ const config = chatConfig({ appEnv, isServer: true });
 // behind this interface is what makes "the lock is only released by its own Turn",
 // "a rejected send never leaks a held lock", and "the refund can never
 // double-charge" true by construction rather than by every call site remembering
-// the protocol.
+// the protocol. "By construction" is meant literally for the lock: the release is
+// a single server-side compare-and-delete, so no read-then-act window exists for a
+// re-acquiring Turn to slip into.
 
 // The TTLs are config-as-code (ADR 0026). The In-flight lock's TTL
 // (`config.INFLIGHT_LOCK_TTL`) doubles as the crash-recovery bound: the worker
@@ -82,11 +84,15 @@ async function acquireInflightLock({ conversationId, turnId }: TurnRef) {
   return acquired !== null;
 }
 
-// Release the lock only if it still points to this Turn — a crashed worker may
-// have let the TTL lapse and a newer Turn may already own it.
+// Release the lock only if it still points to this Turn, as ONE server-side
+// command (`compareAndDelete`). The check and the delete cannot be two round
+// trips: a crashed worker's lock self-expires (there is no heartbeat) and a newer
+// Turn may acquire it in between, so a `GET`-then-`DEL` pair would delete the NEW
+// Turn's lock — silently admitting two in-flight Turns for one Conversation, the
+// invariant this module exists to hold. Returns whether this Turn's lock was the
+// one released (false ⇒ it had already lapsed and moved on).
 async function releaseInflightLock({ conversationId, turnId }: TurnRef) {
-  const lockValue = await redis.get(chatInflightKey(conversationId));
-  if (lockValue === turnId) await redis.del(chatInflightKey(conversationId));
+  return redis.compareAndDelete(chatInflightKey(conversationId), turnId);
 }
 
 // Next-Turn cleanup. The Stream is Conversation-keyed and survives a terminal for
@@ -124,6 +130,16 @@ export async function isTurnAborted({ conversationId, turnId }: TurnRef) {
 // `ctx.entitlements.refund`), so this module never imports a billing
 // implementation. `CREDITS_PER_TURN` has one origin in config (not re-exported
 // here). Returns whether this call performed the refund (false ⇒ already refunded).
+//
+// The guard and the credit-back are two writes, not one commit, and CANNOT be
+// fused from here: the credit-back lands on the provider's own storage, which this
+// module deliberately cannot name (that seam is what keeps `@acme/chat` free of
+// `@acme/subscriptions`). So a crash in between leaves the Turn marked refunded
+// with the credit not returned. The order is the deliberate bias: guard-first
+// loses at most one credit, refund-first would hand out a free one on every
+// crash, and the guard is permanent (no TTL) so a replayed `reconcileTurn` can
+// never mint credits. Closing the window entirely needs the credit-back to carry
+// chat's idempotency key across the seam — see #198.
 export async function refundTurnCredits(
   refund: EntitlementsProvider['refund'],
   userId: string,

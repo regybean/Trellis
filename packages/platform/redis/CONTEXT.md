@@ -29,6 +29,18 @@ A domain-specific function that composes a **Namespaced key** via `nsKey` —
 `getStripeCustomerId` / `setStripeCustomerId` / `setSubscriptionCache`, so call
 sites never build these keys themselves.
 
+**Compare-and-delete** (`redis.compareAndDelete(key, expected)`):
+The owner-checked release for a **value-owned lock** — a key whose _value_ names
+its owner (`SET key owner NX EX`, chat's In-flight lock). Deletes the key only
+while it still holds `expected`, and reports whether this caller's value was the
+one deleted. Server-side (a two-line Lua `EVAL`), because the client-side `GET`
+then `DEL` it replaces is a different operation: a TTL that lapses between the two
+round trips lets a NEW owner acquire the key, and the old owner's `DEL` then
+deletes _their_ lock. Redis has no native compare-and-delete, so Lua is the
+canonical tool (`WATCH`/`MULTI` is more code for the same guarantee).
+_Avoid_: "safe delete", "release" (whose?); reading a lock then deleting it in two
+calls.
+
 **Durable stream** (`createDurableStream`, `durable-stream.ts`):
 The one per-user (or per-conversation) Redis-Stream primitive behind chat's
 token stream, ingest's progress stream, and the notifications stream (#196). It
@@ -65,9 +77,14 @@ replaced an earlier `Proxy` that rewrote known commands from a hand-maintained
 allow-list — which silently leaked unprefixed keys for any unlisted command (the
 `expireAt` bug). See the amendment to ADR 0008.
 
-**The facade does no runtime work**: `nsKey` already applied the prefix, so the
-client wrapper only narrows the key parameter's type and delegates. The exposed
-surface is the small set of commands actually in use plus infra pass-throughs.
+**The facade does no runtime work — except where atomicity demands it**: `nsKey`
+already applied the prefix, so the client wrapper only narrows the key parameter's
+type and delegates. The exposed surface is the small set of commands actually in
+use plus infra pass-throughs. The exceptions are the ops that exist _because_ a
+multi-step sequence must not be interleaved — `xAddWithTtl` (append + restamp TTL
+in one `MULTI`) and **compare-and-delete** (one `EVAL`). Those belong here rather
+than in the caller: a read-then-act pair assembled at a call site is only correct
+by luck, and every caller would have to re-derive the same guarantee.
 
 **One sanctioned cast**: branding is nominal typing and needs a single
 `as NamespacedKey` inside `nsKey`, isolated to that one constructor.
