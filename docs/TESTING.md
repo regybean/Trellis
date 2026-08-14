@@ -15,7 +15,9 @@ pnpm test                                # everything (turbo)
 ```
 
 Backend suites need Postgres + Redis. **On the primary checkout** they must
-already be running (`pnpm infra:up`) on the standard ports (5432 / 6379); the
+already be running (`pnpm infra:up`) on the configured ports (5444 / 6379 —
+Postgres is deliberately off the default 5432 so a second project's database on
+this host can't shadow it); the
 global-setup checks the ports and fails loudly if they're down. **In CI**
 (`CI=true`) — **and in a git worktree**, which `scripts/test.sh` treats as CI —
 the same global-setup starts throwaway testcontainers and runs migrations, then

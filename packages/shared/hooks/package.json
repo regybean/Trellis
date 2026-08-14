@@ -5,9 +5,11 @@
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
+    "@trpc/tanstack-react-query": "catalog:",
     "idb-keyval": "catalog:",
     "react": "catalog:",
-    "react-toastify": "catalog:"
+    "react-toastify": "catalog:",
+    "superjson": "catalog:"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",

@@ -4,6 +4,21 @@ import type { ConfigContext } from '@acme/config';
 import { createConfig } from '@acme/config';
 
 /**
+ * Host port the local compose stack publishes Postgres on, and the port a local
+ * (non-testcontainers) backend suite probes — `testing.ts` reads this same
+ * constant so the two can never drift apart.
+ *
+ * Deliberately *not* 5432: the container publishes to a fixed host port, so the
+ * default collides with any other project running Postgres on this machine —
+ * dev then authenticates against a stranger's database and fails with a bare
+ * `password authentication failed for user "postgres"`. 5444 stays in the
+ * Postgres family, is below the ephemeral range (49152+) so an outbound socket
+ * can't claim it first, and isn't a default anything else reaches for.
+ * Container-internal it's still 5432 (see `deploy/compose.yaml`).
+ */
+export const LOCAL_DB_PORT = 5444;
+
+/**
  * DB connection config-as-code (ADR 0026). The non-secret connection fields are
  * authored here per deploy target; `env.ts` layers a runtime `process.env`
  * override on top for the host/port *only*, because a testcontainer hands back a
@@ -13,8 +28,8 @@ import { createConfig } from '@acme/config';
  * connection factory runs on the backend.
  *
  * The base (development) values double as the test-container values
- * (`localhost:5432`, `postgres` / `testdb`), so a suite validates against the
- * same profile it connects to.
+ * (`localhost:${LOCAL_DB_PORT}`, `postgres` / `testdb`), so a suite validates
+ * against the same profile it connects to.
  */
 export function dbConfig(context: ConfigContext) {
   return createConfig({
@@ -28,7 +43,7 @@ export function dbConfig(context: ConfigContext) {
       default: {
         server: {
           DB_HOST: 'localhost',
-          DB_PORT: 5432,
+          DB_PORT: LOCAL_DB_PORT,
           DB_USER: 'postgres',
           DB_NAME: 'testdb',
         },

@@ -24,7 +24,14 @@ const client = createFeatureClient<AppRouter>({
   },
 });
 
-export const { TRPCReactProvider, useTRPC, useTRPCClient } = client;
+// Re-exported one binding at a time, NOT as `export const { … } = client`.
+// These modules are `'use client'` boundaries: Next's client-reference manifest
+// is built from statically-named export declarations, and a destructuring
+// pattern isn't one — the provider silently resolves to `undefined` in an app
+// build ("Element type is invalid" when prerendering). Keep the explicit form.
+export const TRPCReactProvider = client.TRPCReactProvider;
+export const useTRPC = client.useTRPC;
+export const useTRPCClient = client.useTRPCClient;
 
 /**
  * Chat's queries must run on *chat's* QueryClient (the persister-bearing one),

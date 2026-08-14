@@ -9,6 +9,8 @@
  */
 import type { InfraDescriptor } from '@acme/test-utils/infra';
 
+import { LOCAL_DB_PORT } from './config';
+
 // Throwaway credentials for the ephemeral test container — not a secret. Hoisted
 // to plain constants so they read as identifiers, not inline password literals.
 const TEST_USER = 'postgres';
@@ -21,7 +23,11 @@ export const postgresContainer: InfraDescriptor = {
   // Pinned to match the docker-compose `postgres` service (pgvector).
   image: 'pgvector/pgvector:pg17',
   containerPort: 5432,
-  localPort: 5432,
+  // Container-internal is always 5432; the *host* port compose publishes to is
+  // the config value, which is not 5432 (see `config.ts`). Read from there
+  // rather than repeated as a literal — a local backend suite probes this port,
+  // so a drift between the two silently points tests at the wrong database.
+  localPort: LOCAL_DB_PORT,
   containerEnv: {
     POSTGRES_USER: TEST_USER,
     POSTGRES_PASSWORD: TEST_SECRET,
