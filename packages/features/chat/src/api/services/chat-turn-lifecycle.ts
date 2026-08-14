@@ -82,11 +82,15 @@ async function acquireInflightLock({ conversationId, turnId }: TurnRef) {
   return acquired !== null;
 }
 
-// Release the lock only if it still points to this Turn — a crashed worker may
-// have let the TTL lapse and a newer Turn may already own it.
+// Release the lock only if it still points to this Turn, as ONE server-side
+// command (`compareAndDelete`). The check and the delete cannot be two round
+// trips: a crashed worker's lock self-expires (there is no heartbeat) and a newer
+// Turn may acquire it in between, so a `GET`-then-`DEL` pair would delete the NEW
+// Turn's lock — silently admitting two in-flight Turns for one Conversation, the
+// invariant this module exists to hold. Returns whether this Turn's lock was the
+// one released (false ⇒ it had already lapsed and moved on).
 async function releaseInflightLock({ conversationId, turnId }: TurnRef) {
-  const lockValue = await redis.get(chatInflightKey(conversationId));
-  if (lockValue === turnId) await redis.del(chatInflightKey(conversationId));
+  return redis.compareAndDelete(chatInflightKey(conversationId), turnId);
 }
 
 // Next-Turn cleanup. The Stream is Conversation-keyed and survives a terminal for
