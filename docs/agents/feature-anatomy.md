@@ -57,6 +57,35 @@ Components are the thin presentational layer over the hook. ESLint forbids a
 component from importing `../trpc/*` or `@trpc/*` — all tRPC calls belong in
 `hooks/`.
 
+### One procedure per user intent — the server orchestrates
+
+**The browser calls once per thing the user did; the server does the sequence.**
+A user intent that needs three upstream calls is _one_ procedure, not three the
+hook chains together. The frontend is deliberately dumb: it knows intents
+(`start`, `send`, `import`), never the order upstream calls go in.
+
+Why, concretely:
+
+- **A chained sequence has no atomic step.** If the hook fires call 2 after call
+  1 lands, a failure at 2 leaves state only the client knows about — and the
+  client is the one thing you can't trust to finish (tab close, navigation,
+  flaky network). Server-side, the whole sequence either produces a result or
+  raises one error.
+- **The client can't be trusted with an invariant.** "Always seed the
+  conversation before the first message" is unenforceable if seeding is its own
+  procedure — any caller can skip it.
+- **Latency compounds per round-trip**, and each hop re-pays auth.
+- **The contract stays the intent, not the mechanism.** Re-ordering, merging or
+  replacing upstream calls is then a server change with no client change — the
+  seam the slice contract exists to protect.
+
+So: a procedure named for the intent, taking what the _user_ supplied, returning
+what the UI renders. Where an upstream sequence is involved, it lives behind that
+procedure in `api/routers/*` (or a `lib/` function it calls), tested as one
+backend contract.
+
+A hook firing a second mutation in the `onSuccess` of the first is the smell.
+
 ## Exports & containment
 
 - **Exports map** follows the bounded convention in

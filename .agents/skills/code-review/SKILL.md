@@ -1,12 +1,12 @@
 ---
 name: code-review
-description: Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/PRD asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to "review since X".
+description: Review the changes since a fixed point (commit, branch, tag, or merge-base) along two axes — Standards (does the code follow this repo's documented coding standards?) and Spec (does the code match what the originating issue/spec asked for?). Runs both reviews in parallel sub-agents and reports them side by side. Use when the user wants to review a branch, a PR, work-in-progress changes, or asks to "review since X".
 ---
 
 Two-axis review of the diff between `HEAD` and a fixed point the user supplies:
 
 - **Standards** — does the code conform to this repo's documented coding standards?
-- **Spec** — does the code faithfully implement the originating issue / PRD / spec?
+- **Spec** — does the code faithfully implement the originating issue / spec?
 
 Both axes run as **parallel sub-agents** so they don't pollute each other's context, then this skill aggregates their findings.
 
@@ -28,7 +28,7 @@ Look for the originating spec, in this order:
 
 1. Issue references in the commit messages (`#123`, `Closes #45`, GitLab `!67`, etc.) — fetch via the workflow in `docs/agents/issue-tracker.md`.
 2. A path the user passed as an argument.
-3. A PRD/spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
+3. A spec file under `docs/`, `specs/`, or `.scratch/` matching the branch name or feature.
 4. If nothing is found, ask the user where the spec is. If they say there isn't one, the **Spec** sub-agent will skip and report "no spec available".
 
 ### 3. Identify the standards sources
@@ -57,8 +57,6 @@ Each smell reads _what it is_ → _how to fix_; match it against the diff:
 
 ### 4. Spawn both sub-agents in parallel
 
-Send a single message with two `Agent` tool calls. Use the `general-purpose` subagent for both.
-
 **Standards sub-agent prompt** — include:
 
 - The full diff command and commit list.
@@ -81,25 +79,35 @@ End with a one-line summary: total findings per axis, and the worst issue _withi
 
 ### 6. Post to PR (if one exists)
 
-After presenting the aggregated report, look for an associated open PR and post the report as a comment. Try each step in order, stopping at the first hit:
+After presenting the aggregated report, look for an associated open PR and post
+the report as a comment. **This step is forge-agnostic** — do not assume a
+particular host. Discover the mechanics from what the repo documents, then fall
+back to a generic forge CLI:
 
-1. If an issue number was found in step 2, search by closing references:
-   ```bash
-   gh pr list --json number,closingIssuesReferences --jq '.[] | select(.closingIssuesReferences[].number == <N>) | .number'
-   ```
-2. Try `gh pr view --json number` (works when the current branch tracks a PR).
-3. Find which remote branch contains the earliest commit in the diff, then search by head ref:
-   ```bash
-   git branch -r --contains <earliest-commit-sha> --format '%(refname:short)' | sed 's|origin/||'
-   # then for each candidate branch:
-   gh pr list --head <branch> --json number --jq '.[0].number'
-   ```
-4. If a PR number is found, post with:
-   ```bash
-   gh pr comment <PR> --body "..."
-   ```
-   Format the body as the same `## Standards` / `## Spec` markdown you presented in the conversation, prefixed with a one-line header: `**Code review (automated — /code-review)**`.
-5. If no PR is found after all three lookups, skip silently — do not error.
+1. **Prefer the repo's own PR workflow doc.** If the repo documents how PRs are
+   opened and commented on (e.g. `docs/agents/pull-requests.md`, a
+   `docs/agents/issue-tracker.md`, or `CONTRIBUTING.md`), follow _that_ doc for
+   both locating the PR and posting the comment — it names the correct host
+   (GitHub `gh`, GitLab `glab`, Azure DevOps `az repos` / `az rest`, etc.), the
+   repo/project identifiers, and any auth prerequisite. The repo doc wins over
+   the generic fallback below.
+2. **Locate the PR** (host-neutral intent — map to the doc's commands, or the
+   host CLI if undocumented). Try in order, stopping at the first hit:
+   - If an issue number was found in step 2, find the PR that links/closes it.
+   - The PR the current branch tracks.
+   - Find which remote branch contains the earliest commit in the diff, then the
+     open PR whose head is that branch:
+     ```bash
+     git branch -r --contains <earliest-commit-sha> --format '%(refname:short)' | sed 's|origin/||'
+     ```
+     Look up each candidate branch's open PR via the doc's / host's CLI.
+3. **Post the comment** to the located PR via the documented mechanism (or the
+   host CLI — `gh pr comment`, `glab mr note`, `az rest` PR-thread POST, …).
+   Format the body as the same `## Standards` / `## Spec` markdown you presented
+   in the conversation, prefixed with a one-line header:
+   `**Code review (automated — /code-review)**`.
+4. If no PR is found, or the repo documents no posting mechanism, skip silently —
+   do not error.
 
 If findings exist, end with: "Run `/address-review` to implement these."
 

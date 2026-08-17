@@ -150,7 +150,9 @@ enforced by `scripts/check-exports.mjs` (hard-fails `pnpm lint`).
 
 ## Agent Skills
 
-Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.json`). Claude only discovers a skill once it's symlinked into `.claude/skills/`, which is gitignored — so symlinks don't survive a clone. `scripts/register-skills.sh` recreates them idempotently from `.agents/skills/` and runs automatically on `postinstall`. Run `pnpm skills:register` manually after adding/removing a skill.
+Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.json`) — one agent-agnostic source of truth for every harness. Claude only discovers a skill once it's symlinked into `.claude/skills/`; those symlinks are committed too (only `.claude/worktrees/` is gitignored). `scripts/register-skills.sh` recreates them idempotently from `.agents/skills/` and runs automatically on `postinstall` — run `pnpm skills:register` after adding or removing a skill, then commit the resulting link.
+
+Each skill also carries `agents/openai.yaml` — its Codex-facing metadata (`interface.display_name`, `interface.short_description`, and `policy.allow_implicit_invocation` where the skill must not fire on its own). Keep it alongside the `SKILL.md` frontmatter when adding a skill; both describe the same skill to different harnesses.
 
 ### Issue tracker
 

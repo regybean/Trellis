@@ -22,8 +22,21 @@ EOF
 ```
 
 - Base is always `main`.
+- **Link the ticket** with a `Closes #<issue-number>` line — GitHub's native
+  PR↔issue link, and the thing that closes the ticket on merge.
 - Never open a **draft**; never **auto-merge** — merge is the human's call in the
   VSCode GitHub Pull Requests extension.
+
+## Issue close contract (PR → ticket)
+
+`Closes #N` closes the linked issue automatically when the PR merges into `main`
+— no manual state step. Two caveats:
+
+- **One `Closes` per ticket the PR actually finishes.** A PR that partially
+  advances a ticket references it (`Refs #N`) instead, or it closes work that
+  isn't done.
+- **Never `Closes` a spec or map parent.** Those close when their last child
+  does, by a human's call — a child PR must not take the parent with it.
 
 ## Read review feedback
 
