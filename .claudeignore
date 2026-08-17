@@ -45,7 +45,17 @@ yarn-error.log*
 .vercel
 
 # typescript
-dist/
+# Anchored on the workspace roots, NOT a bare `dist/`: that expands to
+# **/dist/** and also blocks every dependency's `dist/*.d.ts`, which is the
+# primary source for third-party API questions. `**/` prefix so worktrees
+# under .claude/worktrees/ are covered too. Our own build output stays
+# unreadable via these + the `node_modules/@acme` rule above.
+packages/*/*/dist/
+tooling/*/dist/
+apps/*/dist/
+**/worktrees/*/packages/*/*/dist/
+**/worktrees/*/tooling/*/dist/
+**/worktrees/*/apps/*/dist/
 .cache
 
 # turbo

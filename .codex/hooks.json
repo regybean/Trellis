@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash scripts/bootstrap-worktree.sh",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}
