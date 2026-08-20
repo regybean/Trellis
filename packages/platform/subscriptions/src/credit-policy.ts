@@ -1,6 +1,6 @@
 import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
 import { subscriptionsConfig } from './config';
-import { appEnv } from './env';
+import { configContext } from './env';
 
 /**
  * The pure Credit policy: per-tier limits and the billing-window that bounds a
@@ -12,7 +12,7 @@ import { appEnv } from './env';
  * The tier limits are config-as-code (ADR 0026): built once here, server-side,
  * from the deploy-target profile in `config.ts`.
  */
-const config = subscriptionsConfig({ appEnv, isServer: true });
+const config = subscriptionsConfig(configContext);
 
 /** The full monthly Credit limit for a tier, falling back for unknown tiers. */
 export function creditLimitFor(tier: SubscriptionTier) {

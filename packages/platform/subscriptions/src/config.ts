@@ -15,8 +15,8 @@ export function subscriptionsConfig(context: ConfigContext) {
     server: {
       // Keyed by `SubscriptionTier` ('Basic' | 'Standard' | 'Pro'); a loose
       // record keeps `creditLimitFor`'s fallback for an unmapped tier honest.
-      CREDIT_LIMITS: z.record(z.string(), z.number().int().positive()),
-      DEFAULT_LIMIT: z.number().int().positive(),
+      CREDIT_LIMITS: z.record(z.string(), z.coerce.number().int().positive()),
+      DEFAULT_LIMIT: z.coerce.number().int().positive(),
     },
     profiles: {
       default: {

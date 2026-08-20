@@ -12,19 +12,17 @@
  * server boundary instead (e.g. a Nitro startup plugin) call `initTelemetry`
  * directly and do not need this. See docs/adr/0005-telemetry-init-seam.md.
  */
-import { resolveAppEnv } from '@acme/config';
+import { serverConfigContext } from '@acme/config';
 
 import { telemetryConfig } from './config';
 import { initTelemetry } from './index';
 
 // Context-less server edge (ADR 0026): this preload runs before any app
-// composition, so it resolves the `APP_ENV` selector itself and builds the
-// telemetry config. `serviceVersion`/`debug` stay `process.env`/`NODE_ENV` reads
-// — a build signal and a runtime mode, not config.
-const config = telemetryConfig({
-  appEnv: resolveAppEnv(process.env.APP_ENV),
-  isServer: true,
-});
+// composition, so it resolves its own context from the environment — the
+// `APP_ENV` selector plus the override lane, so a collector endpoint can be
+// retuned per deploy (ADR 0033). `serviceVersion`/`debug` stay
+// `process.env`/`NODE_ENV` reads — a build signal and a runtime mode, not config.
+const config = telemetryConfig(serverConfigContext(process.env));
 
 initTelemetry({
   serviceName: config.OTEL_SERVICE_NAME,

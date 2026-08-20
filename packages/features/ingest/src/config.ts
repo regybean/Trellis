@@ -27,17 +27,17 @@ export function ingestConfig(context: ConfigContext) {
       // expires; nothing ever deletes the key. The reader's idle poll backoff
       // (min → max, snap back to min when a batch arrives) — it tails XRANGE on
       // the shared connection, so it must never block.
-      INGEST_PROGRESS_TTL_SECONDS: z.number().int().positive(),
-      INGEST_PROGRESS_POLL_MIN_MS: z.number().int().positive(),
-      INGEST_PROGRESS_POLL_MAX_MS: z.number().int().positive(),
+      INGEST_PROGRESS_TTL_SECONDS: z.coerce.number().int().positive(),
+      INGEST_PROGRESS_POLL_MIN_MS: z.coerce.number().int().positive(),
+      INGEST_PROGRESS_POLL_MAX_MS: z.coerce.number().int().positive(),
       // Worker fan-out width. The processor runs `uploadDoc` under a `p-limit` of
       // this many slots and downloads each file INSIDE its slot, so peak memory is
       // bounded to this many files in flight (never the whole batch at once).
-      INGEST_CONCURRENCY: z.number().int().positive(),
+      INGEST_CONCURRENCY: z.coerce.number().int().positive(),
       // BullMQ job-retention counts (mirrors chat). No `attempts`/`backoff` —
       // ingest never auto-retries; `jobId` dedup only guards a manual re-upload.
-      QUEUE_REMOVE_ON_COMPLETE: z.number().int().nonnegative(),
-      QUEUE_REMOVE_ON_FAIL: z.number().int().nonnegative(),
+      QUEUE_REMOVE_ON_COMPLETE: z.coerce.number().int().nonnegative(),
+      QUEUE_REMOVE_ON_FAIL: z.coerce.number().int().nonnegative(),
     },
     profiles: {
       default: {

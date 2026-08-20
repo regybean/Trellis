@@ -2,10 +2,10 @@ import type { SubscriptionTier } from '@acme/entitlements';
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
 import { chatConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 
 // BullMQ job-retention counts are config-as-code (ADR 0026).
-const config = chatConfig({ appEnv, isServer: true });
+const config = chatConfig(configContext);
 
 export interface GenerationJob {
   conversationId: string;

@@ -3,7 +3,7 @@ import Stripe from 'stripe';
 import type { SubscriptionCache } from '@acme/subscriptions';
 
 import { billingConfig } from '../config';
-import { appEnv, env } from '../env';
+import { configContext, env } from '../env';
 
 // Shared Stripe types
 export interface StripeCustomer {
@@ -16,7 +16,7 @@ export type STRIPE_SUB_CACHE = SubscriptionCache;
 // The Stripe connection, resolved once from server config (ADR 0026 follow-up):
 // `localstripe` (dev, against the fake stateful server) or `real`. The SDK host
 // override reads `apiBase` off the narrowed `localstripe` variant.
-const stripe = billingConfig({ appEnv, isServer: true }).stripe;
+const stripe = billingConfig(configContext).stripe;
 
 /**
  * localstripe mode — the single boolean the server branches that only need a

@@ -3,7 +3,7 @@ import { createDurableStream, HEAD_CURSOR } from '@acme/redis';
 
 import type { Notification } from '../schemas/notification-schema';
 import { notificationsConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 import { notificationKey } from '../notification-keys';
 import { notificationSchema } from '../schemas/notification-schema';
 
@@ -15,7 +15,7 @@ import { notificationSchema } from '../schemas/notification-schema';
 // shipped, atomic TTL + a real-id fresh-connect seed, had never propagated). What
 // stays here is only notifications' own: the wire codec and the tail-from-now
 // cursor-seed policy. Config-as-code (ADR 0026).
-const config = notificationsConfig({ appEnv, isServer: true });
+const config = notificationsConfig(configContext);
 
 // `publish` writes the whole envelope as a single `payload` JSON field — the
 // nested `data` object can't be a flat field map. Decode is the inverse: the

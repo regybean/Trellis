@@ -164,7 +164,7 @@ describe('createConfig — nested override paths', () => {
 
   it('ignores a path with an empty segment', () => {
     const config = sampleConfig(
-      context({ server: { store____apiBase: 'http://nope' } }),
+      context({ server: { store____apiBase: 'https://nope.example' } }),
     );
     expect(config.store).toEqual({
       mode: 'local',
@@ -291,7 +291,9 @@ describe('the client build-time lane', () => {
   });
 
   it('treats an absent or malformed literal as no overrides', () => {
-    expect(readClientOverrides(undefined)).toEqual({});
+    // What an un-inlined `process.env.ACME_CONFIG_CLIENT_OVERRIDES` reads as.
+    const absent: string | undefined = undefined;
+    expect(readClientOverrides(absent)).toEqual({});
     expect(readClientOverrides('')).toEqual({});
     expect(readClientOverrides('not json')).toEqual({});
     expect(readClientOverrides('{"A":1}')).toEqual({});

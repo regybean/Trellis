@@ -13,6 +13,7 @@
  * edge and threaded in through the same context, so purity is unchanged.
  */
 export {
+  appConfigContext,
   createConfig,
   configExtends,
   describeConfig,

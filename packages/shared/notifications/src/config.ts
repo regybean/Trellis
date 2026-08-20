@@ -15,11 +15,11 @@ export function notificationsConfig(context: ConfigContext) {
       // Rolling TTL (seconds) refreshed on every `publish`. No MAXLEN — a stream
       // with no reader simply expires. Delivery is best-effort (ADR 0030): a
       // publish with no page open is never delivered.
-      NOTIFICATION_TTL: z.number().int().positive(),
+      NOTIFICATION_TTL: z.coerce.number().int().positive(),
       // Reader idle backoff (ms): starts at MIN, doubles up to MAX while the
       // stream is empty, snaps back to MIN on the first new entry.
-      POLL_MIN_MS: z.number().int().positive(),
-      POLL_MAX_MS: z.number().int().positive(),
+      POLL_MIN_MS: z.coerce.number().int().positive(),
+      POLL_MAX_MS: z.coerce.number().int().positive(),
     },
     profiles: {
       default: {

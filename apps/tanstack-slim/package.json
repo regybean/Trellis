@@ -62,6 +62,7 @@
     "@types/react-dom": "catalog:react19",
     "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
+    "jiti": "^2.6.1",
     "prettier": "catalog:",
     "tailwindcss": "catalog:",
     "tsx": "catalog:",

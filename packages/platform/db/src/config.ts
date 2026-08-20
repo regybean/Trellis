@@ -35,7 +35,7 @@ export function dbConfig(context: ConfigContext) {
   return createConfig({
     server: {
       DB_HOST: z.string().nonempty(),
-      DB_PORT: z.number().int().positive(),
+      DB_PORT: z.coerce.number().int().positive(),
       DB_USER: z.string().nonempty(),
       DB_NAME: z.string().nonempty(),
     },

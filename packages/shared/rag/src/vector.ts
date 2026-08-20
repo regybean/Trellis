@@ -3,14 +3,14 @@ import { PgVector } from '@mastra/pg';
 import { env as dbEnv } from '@acme/db/env';
 
 import { ragConfig } from './config';
-import { appEnv, env } from './env';
+import { configContext, env } from './env';
 import {
   EMBED_DIMENSIONS,
   KNOWLEDGE_BASE_TABLE,
 } from './schemas/documents-schema';
 
 // The dedicated vector database name is config-as-code (ADR 0026).
-const config = ragConfig({ appEnv, isServer: true });
+const config = ragConfig(configContext);
 
 // Knowledge-base table name within the per-app schema (see RAG_SCHEMA). Matches
 // the Drizzle mirror so both Mastra and Drizzle address the same table.

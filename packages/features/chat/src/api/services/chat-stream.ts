@@ -3,7 +3,7 @@ import { createDurableStream } from '@acme/redis';
 
 import type { StreamReaderEvent } from '../schemas/chat-schema';
 import { chatConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 import { chatStreamKey } from '../chat-keys';
 import { streamReaderEventSchema } from '../schemas/chat-schema';
 
@@ -15,7 +15,7 @@ import { streamReaderEventSchema } from '../schemas/chat-schema';
 // `streamReaderEventSchema`), the delta-coalesce it passes as the tail
 // `transform`, and the terminal predicate the router closes on. Config-as-code
 // (ADR 0026).
-const config = chatConfig({ appEnv, isServer: true });
+const config = chatConfig(configContext);
 
 // The pure inverse of `decodeEvent`: a validated event → the flat field record
 // `xAdd` writes. A `delta` carries only `chunk` (no `type`, so an absent `type`

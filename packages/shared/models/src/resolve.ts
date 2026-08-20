@@ -7,7 +7,7 @@ import {
   bedrockTitleModel,
 } from './bedrock';
 import { modelsConfig } from './config';
-import { appEnv, modelsEnv } from './env';
+import { configContext, modelsEnv } from './env';
 import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
 import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
@@ -94,7 +94,7 @@ export function embedProviderOptionsFor(
 // config for an active provider blocks here rather than failing deep inside a
 // request. This eager-at-import behaviour is deliberately retained (ADR 0014 /
 // ADR 0024): the build and test infra rely on it.
-const config = modelsConfig({ appEnv, isServer: true });
+const config = modelsConfig(configContext);
 
 // Fail fast at import on missing credentials for whichever providers the resolved
 // config selected (value axis), instead of failing deep inside the first request.

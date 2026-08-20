@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-nextjs';
 import { z } from 'zod';
 
-import { resolveAppEnv } from '@acme/config';
+import { serverConfigContext } from '@acme/config';
 import { shouldSkipEnvValidation } from '@acme/env';
 
 const skipValidation = shouldSkipEnvValidation();
@@ -12,8 +12,12 @@ const skipValidation = shouldSkipEnvValidation();
  * where the server (`publish` / reader) builds its config. Mirrors chat's
  * `env.ts`; keeps `config.ts` pure. On the client `process.env.APP_ENV` is
  * undefined and resolves to the base profile — the client never reads config.
+ *
+ * The same edge samples the **override** bag (ADR 0033): every one of this
+ * slice's config values can be retuned by a same-name environment variable at
+ * runtime, so nothing here has to be re-authored per deploy.
  */
-export const appEnv = resolveAppEnv(process.env.APP_ENV);
+export const configContext = serverConfigContext(process.env);
 
 export function notificationsEnv() {
   return createEnv({

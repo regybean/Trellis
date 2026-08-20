@@ -3,7 +3,7 @@ import { definePlugin } from 'nitro';
 import { initTelemetry } from '@acme/telemetry';
 import { telemetryConfig } from '@acme/telemetry/config';
 
-import { appEnv } from '../env';
+import { configContext } from '../env';
 
 /**
  * Telemetry bootstrap — the app-owned half of the telemetry seam.
@@ -28,7 +28,7 @@ import { appEnv } from '../env';
  */
 // OTLP endpoint is config-as-code (ADR 0026); the per-app service name stays an
 // app-owned literal (app identity, not shared config).
-const config = telemetryConfig({ appEnv, isServer: true });
+const config = telemetryConfig(configContext);
 
 initTelemetry({
   serviceName: 'trellis-tanstack-slim',

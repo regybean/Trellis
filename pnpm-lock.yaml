@@ -750,6 +750,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      jiti:
+        specifier: ^2.6.1
+        version: 2.7.0
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
@@ -919,6 +922,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      jiti:
+        specifier: ^2.6.1
+        version: 2.7.0
       prettier:
         specifier: 'catalog:'
         version: 3.7.4

@@ -36,7 +36,7 @@ const model = z.string().nonempty();
 const titleModel = z.string().optional();
 // Vector dimension of the embed model — single source of truth for the PgVector
 // index and the Drizzle mirror (`@acme/rag`).
-const dimensions = z.number().int().positive();
+const dimensions = z.coerce.number().int().positive();
 
 // Chat (LLM) provider. Bedrock resolves credentials via the AWS chain; OpenRouter
 // carries no connection param (only its API-key secret, validated in env.ts).

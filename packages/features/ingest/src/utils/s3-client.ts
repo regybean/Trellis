@@ -22,11 +22,11 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { logger } from '@acme/logger';
 
 import { ingestConfig } from '../config';
-import { appEnv, env } from '../env';
+import { configContext, env } from '../env';
 
 // Region, endpoint and bucket are config-as-code (ADR 0026); the credentials are
 // secrets read from env.
-const config = ingestConfig({ appEnv, isServer: true });
+const config = ingestConfig(configContext);
 
 export const s3Client = new S3Client({
   region: config.AWS_REGION,

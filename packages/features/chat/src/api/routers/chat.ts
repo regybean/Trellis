@@ -6,7 +6,7 @@ import { logger } from '@acme/logger';
 import { HEAD_CURSOR } from '@acme/redis';
 
 import { chatConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 import {
   DeleteChatRequest,
   InflightTurnRequest,
@@ -53,7 +53,7 @@ import { assertFolderOwned, foldersRouter } from './folders';
 
 // CREDITS_PER_TURN has one origin in config (ADR 0026) — the credit gate + consume
 // read it here; the Turn lifecycle's refund reads the same config value.
-const config = chatConfig({ appEnv, isServer: true });
+const config = chatConfig(configContext);
 
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no

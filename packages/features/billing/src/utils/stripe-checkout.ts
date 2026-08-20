@@ -6,7 +6,7 @@ import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 
 import type { StripeCustomer } from './stripe-client';
 import { billingConfig } from '../config';
-import { appEnv } from '../env';
+import { configContext } from '../env';
 import { getStripe } from './stripe-client';
 import {
   billingError,
@@ -20,7 +20,7 @@ const SUBSCRIPTION_SEARCH_LIMIT = 1;
 
 // The checkout redirect paths are config-as-code (ADR 0026 follow-up); the
 // per-deploy origin is threaded in from the app edge (see `checkoutUrl`).
-const checkout = billingConfig({ appEnv, isServer: true });
+const checkout = billingConfig(configContext);
 
 // Build an absolute Stripe redirect URL from the app's own `origin` (threaded
 // from the app edge) and a config-owned, env-invariant path+query.

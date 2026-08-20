@@ -6,7 +6,7 @@ import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 
 import { chatConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 import {
   chatAbortKey,
   chatInflightKey,
@@ -17,7 +17,7 @@ import { createConversation, persistUserMessage } from './chat-memory';
 import { enqueueGenerationTurn } from './chat-queue';
 
 // Turn-lifecycle tunables are config-as-code (ADR 0026).
-const config = chatConfig({ appEnv, isServer: true });
+const config = chatConfig(configContext);
 
 // The Turn lifecycle — the one home for a durable Turn's control plane, expressed
 // as terminal-typed *transitions* rather than a bag of Redis verbs. A Turn moves

@@ -1,10 +1,10 @@
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
 import { ingestConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 
 // BullMQ job-retention counts are config-as-code (ADR 0026).
-const config = ingestConfig({ appEnv, isServer: true });
+const config = ingestConfig(configContext);
 
 // One BullMQ job per batch (one presign call). `s3Key` is passed explicitly so
 // the worker stays dumb — it never re-derives a key from `jobId`/`uploadId`.

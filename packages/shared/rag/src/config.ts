@@ -1,7 +1,7 @@
 import { z } from 'zod/v4';
 
 import type { ConfigContext } from '@acme/config';
-import { createConfig } from '@acme/config';
+import { coercedBoolean, createConfig } from '@acme/config';
 
 /**
  * RAG config-as-code (ADR 0026). The dedicated vector database name, the chunker
@@ -15,14 +15,14 @@ export function ragConfig(context: ConfigContext) {
   return createConfig({
     server: {
       DB_VECTOR_NAME: z.string().nonempty(),
-      CHUNK_SIZE: z.number().int().positive(),
-      CHUNK_OVERLAP: z.number().int().nonnegative(),
+      CHUNK_SIZE: z.coerce.number().int().positive(),
+      CHUNK_OVERLAP: z.coerce.number().int().nonnegative(),
       // Conversation memory: how many trailing turns are loaded into context,
       // whether semantic recall (vector search over history) is on, and the
       // word cap for the auto-generated thread title.
-      MEMORY_LAST_MESSAGES: z.number().int().positive(),
-      MEMORY_SEMANTIC_RECALL: z.boolean(),
-      MEMORY_TITLE_WORD_CAP: z.number().int().positive(),
+      MEMORY_LAST_MESSAGES: z.coerce.number().int().positive(),
+      MEMORY_SEMANTIC_RECALL: coercedBoolean(),
+      MEMORY_TITLE_WORD_CAP: z.coerce.number().int().positive(),
     },
     profiles: {
       default: {

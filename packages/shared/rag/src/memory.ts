@@ -3,12 +3,12 @@ import { Memory } from '@mastra/memory';
 import { titleModel } from '@acme/models';
 
 import { ragConfig } from './config';
-import { appEnv } from './env';
+import { configContext } from './env';
 import { postgresStore } from './storage';
 
 // Conversation-memory tunables are config-as-code (ADR 0026): how many trailing
 // turns load into context, whether semantic recall is on, and the title word cap.
-const config = ragConfig({ appEnv, isServer: true });
+const config = ragConfig(configContext);
 
 // Semantic recall is off by default, so no vector store or embedder is needed
 // here.

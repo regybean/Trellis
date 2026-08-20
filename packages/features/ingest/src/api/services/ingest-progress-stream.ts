@@ -3,7 +3,7 @@ import { createDurableStream, HEAD_CURSOR } from '@acme/redis';
 
 import type { IngestProgressEvent } from '../schemas/ingest-progress-schema';
 import { ingestConfig } from '../../config';
-import { appEnv } from '../../env';
+import { configContext } from '../../env';
 import { ingestProgressKey } from '../ingest-keys';
 import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 
@@ -14,7 +14,7 @@ import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 // notifications. What stays here is ingest's own: the wire codec (encode/decode
 // off the one `ingestProgressEventSchema`) and the fresh-connect cursor-seed
 // policy. Config-as-code (ADR 0026).
-const config = ingestConfig({ appEnv, isServer: true });
+const config = ingestConfig(configContext);
 
 // A validated event → the flat field record `xAdd` writes. `stage` is always
 // emitted; `error` rides only on `failed`. Pure — the inverse of `decodeProgress`,

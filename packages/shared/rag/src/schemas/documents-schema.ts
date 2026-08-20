@@ -4,17 +4,14 @@ import { z } from 'zod';
 
 import { modelsConfig } from '@acme/models/config';
 
-import { appEnv, env } from '../env';
+import { configContext, env } from '../env';
 
 // Vector dimension of the active embed model — single source of truth lives in
 // `@acme/models` (read from `/config`, which imports only zod, not the package
 // root, so this schema never triggers provider resolution). The dimension rides
 // with the selected embed variant now (`embed.dimensions`, ADR 0026 / #125).
 // Switching embed model means changing it and re-pushing the schema.
-export const EMBED_DIMENSIONS = modelsConfig({
-  appEnv,
-  isServer: true,
-}).embed.dimensions;
+export const EMBED_DIMENSIONS = modelsConfig(configContext).embed.dimensions;
 
 // Knowledge-base table name. Mastra-owned (PgVector creates it), but the name is
 // ours — so it carries the `mastra_` prefix to mark it Mastra-owned, matching the

@@ -5,7 +5,13 @@ import type { AppEnv } from './app-env';
 import type { ConfigOverrides, OverrideBag } from './overrides';
 import { resolveAppEnv } from './app-env';
 import { ConfigValidationError } from './errors';
-import { applyOverrides, isCoercionTolerant, shapeLeaves } from './overrides';
+import {
+  applyOverrides,
+  isCoercionTolerant,
+  readClientOverrides,
+  shapeLeaves,
+} from './overrides';
+import { isServer } from './runtime';
 
 /**
  * The injected purity seam (ADR 0026 §4). Config never reads `process.env` or
@@ -39,6 +45,34 @@ export function serverConfigContext(env: OverrideBag): ConfigContext {
     appEnv: resolveAppEnv(env.APP_ENV),
     isServer: true,
     overrides: { server: env },
+  };
+}
+
+/**
+ * The context for an **app** edge — its `env.ts`, which is reachable from both
+ * the server graph and the browser bundle, so it must carry both lanes:
+ *
+ * - `serverEnv` — the runtime `process.env`, applied to `server` keys.
+ * - `clientOverrides` — the literal each app's bundler inlined at build time
+ *   (see `clientOverrideBuildEnv`), applied to `client` keys. Read back by
+ *   member expression because that is the only form Next and Vite rewrite.
+ *
+ * `serverEnv` is a **thunk** rather than a value: a bare `process.env` evaluated
+ * at module scope would also run in the browser bundle, where Vite leaves it
+ * unreplaced and `process` is not defined. Only the server side calls it.
+ */
+export function appConfigContext(args: {
+  appEnv: string | undefined;
+  clientOverrides: string | undefined;
+  serverEnv: () => OverrideBag;
+}): ConfigContext {
+  return {
+    appEnv: resolveAppEnv(args.appEnv),
+    isServer,
+    overrides: {
+      server: isServer ? args.serverEnv() : undefined,
+      client: readClientOverrides(args.clientOverrides),
+    },
   };
 }
 

@@ -9,13 +9,13 @@ import { embedModel, embedProviderOptions } from '@acme/models';
 
 import type { DocumentMetadata } from './schemas/documents-schema';
 import { ragConfig } from './config';
-import { appEnv } from './env';
+import { configContext } from './env';
 import { extractText } from './parsing';
 import { documents } from './schemas/documents-schema';
 import { ensureVectorIndex, indexName, pgVector } from './vector';
 
 // Chunker knobs + the vector database name are config-as-code (ADR 0026).
-const config = ragConfig({ appEnv, isServer: true });
+const config = ragConfig(configContext);
 
 const TEXT_NODE_NAMESPACE = '3b241101-e2bb-4255-8caf-4136c566a962';
 

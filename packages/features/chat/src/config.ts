@@ -18,20 +18,20 @@ export function chatConfig(context: ConfigContext) {
   return createConfig({
     server: {
       // Credits charged per Turn — the consume and every refund path read this.
-      CREDITS_PER_TURN: z.number().int().nonnegative(),
+      CREDITS_PER_TURN: z.coerce.number().int().nonnegative(),
       // Turn-lifecycle Redis TTLs (seconds). The in-flight lock doubles as the
       // crash-recovery bound; the abort signal shares it; the post-terminal TTL
       // is a brief net before proactive stream deletion.
-      INFLIGHT_LOCK_TTL: z.number().int().positive(),
-      ABORT_SIGNAL_TTL: z.number().int().positive(),
-      STREAM_POST_TERMINAL_TTL: z.number().int().positive(),
+      INFLIGHT_LOCK_TTL: z.coerce.number().int().positive(),
+      ABORT_SIGNAL_TTL: z.coerce.number().int().positive(),
+      STREAM_POST_TERMINAL_TTL: z.coerce.number().int().positive(),
       // Safety TTL the generation worker stamps on the stream key.
-      STREAM_SAFETY_TTL: z.number().int().positive(),
+      STREAM_SAFETY_TTL: z.coerce.number().int().positive(),
       // Reader poll interval (ms) while draining the durable stream.
-      POLL_INTERVAL_MS: z.number().int().positive(),
+      POLL_INTERVAL_MS: z.coerce.number().int().positive(),
       // BullMQ retention: keep the last N completed / failed generation jobs.
-      QUEUE_REMOVE_ON_COMPLETE: z.number().int().nonnegative(),
-      QUEUE_REMOVE_ON_FAIL: z.number().int().nonnegative(),
+      QUEUE_REMOVE_ON_COMPLETE: z.coerce.number().int().nonnegative(),
+      QUEUE_REMOVE_ON_FAIL: z.coerce.number().int().nonnegative(),
     },
     profiles: {
       default: {

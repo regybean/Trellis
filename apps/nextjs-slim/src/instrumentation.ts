@@ -12,11 +12,11 @@ export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { initTelemetry } = await import('@acme/telemetry');
     const { telemetryConfig } = await import('@acme/telemetry/config');
-    const { appEnv } = await import('./env');
+    const { configContext } = await import('./env');
 
     // OTLP endpoint is config-as-code (ADR 0026); the per-app service name stays
     // an app-owned literal (app identity, not shared config).
-    const config = telemetryConfig({ appEnv, isServer: true });
+    const config = telemetryConfig(configContext);
 
     initTelemetry({
       serviceName: 'trellis-nextjs-slim',
