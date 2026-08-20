@@ -2,17 +2,44 @@ import { merge } from 'ts-deepmerge';
 import { z } from 'zod/v4';
 
 import type { AppEnv } from './app-env';
+import type { ConfigOverrides, OverrideBag } from './overrides';
+import { resolveAppEnv } from './app-env';
 import { ConfigValidationError } from './errors';
+import { applyOverrides, isCoercionTolerant, shapeLeaves } from './overrides';
 
 /**
  * The injected purity seam (ADR 0026 §4). Config never reads `process.env` or
- * `NODE_ENV`; the deploy target (`appEnv`) and the runtime side (`isServer`)
- * arrive here, resolved once at the app's composition edge. Tests construct a
- * context directly — `{ appEnv: 'staging', isServer: true }` — with no env.
+ * `NODE_ENV`; the deploy target (`appEnv`), the runtime side (`isServer`) and
+ * the env `overrides` bag (ADR 0033) arrive here, resolved once at the app's
+ * composition edge. Tests construct a context directly —
+ * `{ appEnv: 'staging', isServer: true }` — with no env.
+ *
+ * `overrides` is optional: omit it and config resolves from profiles alone,
+ * which is what every test and every context-less read wants.
  */
 export interface ConfigContext {
   appEnv: AppEnv;
   isServer: boolean;
+  overrides?: ConfigOverrides;
+}
+
+/**
+ * The standard context for a **server** edge — an app's `env.ts`, or a slice
+ * that consumes its own config server-side (`createDb()`, `resolve.ts`, a
+ * worker). Hands the whole env bag over as the server override lane, so a
+ * same-name variable retunes any server value at runtime (ADR 0033); nothing
+ * outside the declared shape is ever read from it.
+ *
+ * A single helper rather than a literal at ~25 call sites: forgetting
+ * `overrides` would silently make a slice's config un-overridable, and that is
+ * not a failure any test would catch.
+ */
+export function serverConfigContext(env: OverrideBag): ConfigContext {
+  return {
+    appEnv: resolveAppEnv(env.APP_ENV),
+    isServer: true,
+    overrides: { server: env },
+  };
 }
 
 type ZodShape = Record<string, z.ZodType>;
@@ -76,6 +103,9 @@ interface ConfigInternal {
   values: Record<string, unknown>;
   serverKeys: ReadonlySet<string>;
   isServer: boolean;
+  /** The declared shapes, kept so overrides can be introspected — see {@link describeConfig}. */
+  serverShape: ZodShape;
+  clientShape: ZodShape;
 }
 
 function isConfigInternal(value: unknown): value is ConfigInternal {
@@ -83,7 +113,8 @@ function isConfigInternal(value: unknown): value is ConfigInternal {
     typeof value === 'object' &&
     value !== null &&
     'values' in value &&
-    'serverKeys' in value
+    'serverKeys' in value &&
+    'serverShape' in value
   );
 }
 
@@ -103,8 +134,16 @@ function guard<T>(
   values: Record<string, unknown>,
   serverKeys: ReadonlySet<string>,
   isServer: boolean,
+  serverShape: ZodShape,
+  clientShape: ZodShape,
 ) {
-  const internal: ConfigInternal = { values, serverKeys, isServer };
+  const internal: ConfigInternal = {
+    values,
+    serverKeys,
+    isServer,
+    serverShape,
+    clientShape,
+  };
   const proxy = new Proxy(values, {
     get(target, prop, receiver) {
       if (prop === CONFIG_INTERNAL) return internal;
@@ -135,12 +174,21 @@ function validate<T extends ZodShape>(shape: T, values: unknown) {
 
 /**
  * Build a slice's config: deep-merge the `APP_ENV`-selected profile over
- * `default`, validate the merged result through the `server`/`client` zod
- * shapes (coercion runs on the merge), and return a guarded object.
+ * `default`, layer the env overrides on top, validate the result through the
+ * `server`/`client` zod shapes (coercion runs on the merge), and return a
+ * guarded object. Precedence, override last (ADR 0033):
  *
- * Arrays *replace* rather than concatenate (`mergeArrays: false`) — an overlay
- * that sets a list means "use this list", not "append to the base's" (the ADR's
- * array-merge sub-decision).
+ *   `default` → `APP_ENV` overlay → env override → validate
+ *
+ * Each lane sees only its own bag — the server bag can only reach `server`
+ * paths, the client bag only `client` paths — which is what keeps runtime and
+ * build-time sampling from crossing (see {@link ConfigOverrides}).
+ *
+ * Arrays *replace* rather than concatenate between profiles
+ * (`mergeArrays: false`) — an overlay that sets a list means "use this list",
+ * not "append to the base's" (the ADR 0026 array-merge sub-decision). The
+ * override layer instead patches an array element **by position**; ADR 0033 §4
+ * documents why the two layers differ.
  *
  * Config *always* validates, in every context — it is never gated by
  * `shouldSkipEnvValidation()` (ADR 0026 §6): its values come from code, so the
@@ -162,10 +210,24 @@ export function createConfig<
   );
 
   const serverValues = options.server
-    ? validate(options.server, merged.server ?? {})
+    ? validate(
+        options.server,
+        applyOverrides(
+          options.server,
+          merged.server ?? {},
+          context.overrides?.server,
+        ),
+      )
     : {};
   const clientValues = options.client
-    ? validate(options.client, merged.client ?? {})
+    ? validate(
+        options.client,
+        applyOverrides(
+          options.client,
+          merged.client ?? {},
+          context.overrides?.client,
+        ),
+      )
     : {};
   const combined = { ...clientValues, ...serverValues };
   const serverKeys = new Set(Object.keys(options.server ?? {}));
@@ -174,6 +236,8 @@ export function createConfig<
     combined,
     serverKeys,
     context.isServer,
+    options.server ?? {},
+    options.client ?? {},
   );
 }
 
@@ -198,6 +262,8 @@ type MergeConfigs<T extends readonly object[]> = T extends readonly []
 export function configExtends<T extends readonly object[]>(configs: [...T]) {
   const values: Record<string, unknown> = {};
   const serverKeys = new Set<string>();
+  const serverShape: ZodShape = {};
+  const clientShape: ZodShape = {};
   let isServer = true;
 
   for (const config of configs) {
@@ -208,9 +274,54 @@ export function configExtends<T extends readonly object[]>(configs: [...T]) {
       );
     }
     Object.assign(values, internal.values);
+    Object.assign(serverShape, internal.serverShape);
+    Object.assign(clientShape, internal.clientShape);
     for (const key of internal.serverKeys) serverKeys.add(key);
     isServer = internal.isServer;
   }
 
-  return guard<MergeConfigs<T>>(values, serverKeys, isServer);
+  return guard<MergeConfigs<T>>(
+    values,
+    serverKeys,
+    isServer,
+    serverShape,
+    clientShape,
+  );
+}
+
+/**
+ * What is overridable about a config, derived from its declared shapes and
+ * resolved values (ADR 0033). The one introspection seam this package exposes,
+ * and the reason every override name in the repo is *derived* rather than
+ * hand-listed — three consumers read it:
+ *
+ * - each app's build config, to inline the client lane and register its leaf
+ *   names in the bundler's `define`/`env` map;
+ * - `scripts/check-config-overrides.ts`, to enforce the three lint guards;
+ * - the package's own tests.
+ *
+ * `intolerantPaths` are leaves a same-name variable could never override,
+ * because the schema rejects the string an environment hands over (a bare
+ * `z.number()`, say). That is a config-authoring bug, so `pnpm lint` fails on it
+ * rather than leaving a key that looks overridable and isn't.
+ */
+export function describeConfig(config: object) {
+  const internal = readInternal(config);
+  if (!internal) {
+    throw new Error(
+      'describeConfig: argument must be a config built by createConfig.',
+    );
+  }
+  const { values, serverShape, clientShape } = internal;
+  const serverLeaves = shapeLeaves(serverShape, values);
+  const clientLeaves = shapeLeaves(clientShape, values);
+  return {
+    serverKeys: Object.keys(serverShape),
+    clientKeys: Object.keys(clientShape),
+    serverOverridePaths: serverLeaves.map((leaf) => leaf.path),
+    clientOverridePaths: clientLeaves.map((leaf) => leaf.path),
+    intolerantPaths: [...serverLeaves, ...clientLeaves]
+      .filter((leaf) => !isCoercionTolerant(leaf.schema))
+      .map((leaf) => leaf.path),
+  };
 }
