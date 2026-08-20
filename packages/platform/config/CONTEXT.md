@@ -4,6 +4,12 @@ Non-sensitive, per-deploy-target tunable values live in code here, not in
 `process.env`. `process.env` is reserved for **secrets + selectors**; config is
 the values a selector picks. See [ADR 0026](../../../docs/adr/0026-config-as-code.md).
 
+Code is the source of truth, but not the last word. Any config value is
+**overridable by an environment variable of the same name**, so an image is built
+once and retuned per deploy: at runtime for server config, at build time for
+client config. See [ADR 0033](../../../docs/adr/0033-config-values-env-overridable.md)
+and [Overriding config from the environment](#overriding-config-from-the-environment).
+
 ## Ubiquitous language
 
 - **Config** — a static, non-sensitive, zod-validated value that differs per
@@ -16,9 +22,23 @@ the values a selector picks. See [ADR 0026](../../../docs/adr/0026-config-as-cod
   Unset → `development` (the base); unknown → throws. Orthogonal to `NODE_ENV`.
 - **Profile** — a named layer of values. `default` **is** `development`; `staging`
   and `production` are overlays deep-merged over it (arrays replace, not concat).
-- **Context** — the injected `{ appEnv, isServer }` a slice's config factory
-  receives. Config is **pure**: it never reads `process.env`/`NODE_ENV` — the app
-  resolves the context once at its edge and threads it in.
+- **Context** — the injected `{ appEnv, isServer, overrides }` a slice's config
+  factory receives. Config is **pure**: it never reads `process.env`/`NODE_ENV` —
+  the app resolves the context once at its edge and threads it in.
+- **Override** — an environment variable of the same name as a config key, which
+  replaces the profile value. Applied after profile merging and before
+  validation, so it is coerced and checked like any authored value.
+- **Override path** — the `__`-joined address of a scalar leaf inside a nested
+  config value: `stripe__apiBase`, `CREDIT_LIMITS__Pro`, `replicas__1__weight`.
+  A config key may never contain a literal `__` (lint-enforced), so the split is
+  unambiguous.
+- **Lane** — which side an override applies to, and therefore when it is sampled.
+  The server lane is read from `process.env` at runtime. The client lane is
+  inlined by the bundler at build time and frozen in the image.
+- **Coercion-tolerant** — a leaf schema that accepts the string an environment
+  hands over: `z.string()`, `z.url()`, `z.enum()`, `z.coerce.number()`,
+  `coercedBoolean()`. A bare `z.number()` / `z.boolean()` is not, and fails
+  `pnpm lint`.
 
 ## Surface
 
@@ -29,7 +49,54 @@ the values a selector picks. See [ADR 0026](../../../docs/adr/0026-config-as-cod
   the app edge, mirroring `env.ts`'s `extends: [...]`.
 - `resolveAppEnv(raw)` — the app's edge turns `process.env.APP_ENV` into a
   validated `AppEnv`.
+- `serverConfigContext(env)` — the context for a server edge: deploy target plus
+  the server override lane.
+- `appConfigContext({ appEnv, clientOverrides, serverEnv })` — the context for an
+  app edge, which needs both lanes.
+- `coercedBoolean()` — an override-safe boolean leaf.
+- `describeConfig(config)` / `clientOverrideBuildEnv(config, env)` — derive what
+  is overridable, for the lint gate and the bundler configs.
 - `ConfigValidationError` — wraps the `ZodError`; message is `z.prettifyError`.
+
+## Overriding config from the environment
+
+Any value is retunable by a variable of the same name (ADR 0033). Precedence,
+override last:
+
+```
+default profile → APP_ENV overlay → env override → validate
+```
+
+```bash
+DB_PORT=6543                                  # scalar, by bare name
+stripe__apiBase=http://localhost:9000         # nested object, __-joined path
+CREDIT_LIMITS__Pro=4000                       # record entry, by key
+store__mode=remote store__region=eu-west-2    # union flip: discriminant + fields
+replicas__1__weight=9                         # array element, by position
+```
+
+Rules worth knowing before you use it:
+
+- **Unset or empty falls through.** `FOO=` is not an override of `''`; the
+  profile value stands.
+- **A union flips only if the target variant is complete.** Set the discriminant
+  and that variant's required fields. Zod strips the previous variant's leftovers.
+  An incomplete flip fails validation loudly.
+- **Arrays: profiles replace, overrides patch.** A `staging` or `production`
+  overlay that sets an array replaces it wholesale. `KEY__1__field` patches
+  element 1 in place and leaves its siblings alone. Two semantics in one system,
+  unavoidable with index addressing, so ADR 0033 §4 calls it out rather than
+  reconciling it.
+- **Sampling time differs by lane.** Server config is read from `process.env` at
+  **runtime**, so set it on the container and restart. Client config is inlined at
+  **build** time and frozen in the image, so its override has to be set when the
+  bundle is built. Setting it on a deployed container does nothing. Client leaf
+  names are derived into each app's `env` or `define` map and into `turbo.json`
+  `globalEnv`, which is what busts the build cache.
+- **Secrets are not overridable config.** They stay in `env.ts`. Three things
+  hard-fail `pnpm lint` via `scripts/check-config-overrides.ts`: a config key that
+  collides with a secret-env key or with `APP_ENV` / `NEXT_PUBLIC_WEBAPP`, a leaf
+  that is not coercion-tolerant, and a `__` inside a key name.
 
 ## Config-conditional secret validation (config ↔ env)
 

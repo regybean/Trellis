@@ -24,6 +24,17 @@ the [config-as-code wayfinder map](https://github.com/regybean/Trellis/issues/76
 
 ### 1. The principle — `process.env` = secrets **+ selectors**; config = the values selectors pick
 
+> **Superseded in part by [ADR 0033](0033-config-values-env-overridable.md).**
+> This section's decoupling claim no longer holds. It said a value is _either_ a
+> `process.env` entry _or_ config-as-code, never both. `process.env` is still the
+> sole home of secrets and selectors, and config's source of truth is still code,
+> but `process.env` is now also an **override channel**: any non-sensitive config
+> value can be retuned by a variable of the same name, nested via `__`. Env can
+> only retune a value a profile already authored and a schema already validates.
+> It can never introduce a config key. The rest of this section, meaning what
+> belongs in a credential store and why the selector carve-out is narrow, stands
+> unchanged.
+
 A value stays in `process.env` iff it is a **secret** (leaking it grants
 access/impersonation — API keys, passwords, signing secrets, and dev/test
 placeholders that occupy a credential slot) **or** a **selector**, where a
