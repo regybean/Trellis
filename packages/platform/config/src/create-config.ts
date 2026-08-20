@@ -324,6 +324,18 @@ export function configExtends<T extends readonly object[]>(configs: [...T]) {
 }
 
 /**
+ * Was this object built by {@link createConfig} / {@link configExtends}?
+ *
+ * For tooling that walks a slice's `config.ts` without knowing which exports are
+ * config factories — `scripts/check-config-overrides.ts` discovers them rather
+ * than keeping a list, and a name convention alone can't tell `billingConfig`
+ * from `toBillingClientConfig`.
+ */
+export function isConfig(value: unknown): value is object {
+  return typeof value === 'object' && value !== null && !!readInternal(value);
+}
+
+/**
  * What is overridable about a config, derived from its declared shapes and
  * resolved values (ADR 0033). The one introspection seam this package exposes,
  * and the reason every override name in the repo is *derived* rather than
