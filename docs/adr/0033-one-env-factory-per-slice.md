@@ -219,13 +219,16 @@ satisfy every slice's selectors just to read a port. Overriding `DB_NAME`
 therefore points a _connection_ at a different database; it does not rename the
 one compose provisions.
 
-### 6a. The one bent case: `@acme/auth`
+### 6a. The two bent cases: `@acme/auth` and `@acme/models`
 
-`@acme/auth` has **two** `createEnv` calls. `clerkWiringEnv()` carries the five
+One call per slice is the rule; two slices split their call, and in both the
+reason is that **something other than the config/secret line** forces a subset to
+be demandable on its own. Neither is a second config mechanism — every call still
+routes through `withProfiles`, and `skipValidation` is still never passed.
+
+**`@acme/auth` — split by runtime.** `clerkWiringEnv()` carries the five
 browser-safe authored keys and no secret; `authEnv()` `extends` it and adds
-`CLERK_SECRET_KEY`, and is what the full apps compose.
-
-The reason is the **runtime**, not the config/secret line. `apps/nextjs`'s
+`CLERK_SECRET_KEY`, and is what the full apps compose. `apps/nextjs`'s
 `middleware.ts` runs in the Edge runtime and needs only the publishable key; a
 call that also declared the secret would demand it from a `process.env` that is a
 build-time snapshot there, so a correctly configured deploy would 500 on every
@@ -233,11 +236,30 @@ request (the same hazard the pre-existing "resolve just the auth slice here, NOT
 `~/env`" comment guarded against). `<ClerkProvider>` in both apps reads the same
 subset, which is also what keeps an isomorphic route from touching a server key.
 
+**`@acme/models` — split by conditional secrets.** Three calls: `env` holds the
+two authored provider selections (`MODELS_CHAT`, `MODELS_EMBED`), and
+`awsSecretEnv()` / `openrouterSecretEnv()` each hold one provider's credentials.
+Which secrets are required is a **function of the resolved selection** — Bedrock
+needs the AWS creds, OpenRouter needs its API key, Ollama needs nothing — and a
+single call cannot express that: it would have to mark every provider's
+credentials `.optional()`, which is precisely the permissive shape this ADR
+removes. So the groups are separate calls, demanded conditionally by
+`validateModelSecrets()`, and each uses `secretsOnly(appEnv)` — no authored
+values, so every key in them is a secret by construction. The selection axis
+(what to use) stays one call; the value axis (which credentials that implies) is
+resolved from it.
+
 ### 7. `@acme/config` dissolves into `@acme/env`
 
 Two packages for one mechanism would reproduce at package level the confusion
-being removed at slice level. `withProfiles`, `resolveAppEnv`, `appEnvSchema`,
-`APP_ENVS`, `AppEnv`, `readEnv` and `jsonEnv` live in `@acme/env`.
+being removed at slice level. `withProfiles`, `secretsOnly`, `resolveAppEnv`,
+`appEnvSchema`, `APP_ENVS`, `AppEnv`, `readEnv`, `jsonEnv` and `webappSchema` live
+in `@acme/env`. The last three are there because they are the shapes every slice
+would otherwise repeat: `readEnv` is the one guarded `process.env` read, `jsonEnv`
+the one non-string override channel, and `webappSchema` the single declaration of
+`NEXT_PUBLIC_WEBAPP`'s Postgres-identifier constraint (six slices declare that
+key). `secretsOnly(appEnv)` is `withProfiles` with an empty profile — the
+secrets-gate calls in §6a.
 
 Deleted: `createConfig`, `configExtends`, `describeConfig`,
 `ConfigValidationError`, the client-guard Proxy, the `ConfigContext` /

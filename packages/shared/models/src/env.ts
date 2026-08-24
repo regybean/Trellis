@@ -73,6 +73,12 @@ export const env = createEnv({
 // AWS creds — required whenever Bedrock is the chat OR embed provider. Resolved
 // via the standard AWS provider chain at call time; declared here only so a
 // Bedrock-active app fails fast with a clear message.
+//
+// `@acme/ingest` declares this same pair for S3, where development authors the
+// LocalStack dummies. One variable, one value per process: the two agree on
+// staging/production (both unauthored), and can only diverge in development with
+// Bedrock selected — see "When two slices declare the same key" in @acme/env's
+// CONTEXT.md.
 function awsSecretEnv() {
   return createEnv({
     clientPrefix: 'NEXT_PUBLIC_',

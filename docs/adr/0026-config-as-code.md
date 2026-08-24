@@ -30,9 +30,25 @@ the [config-as-code wayfinder map](https://github.com/regybean/Trellis/issues/76
 > is still code, but `process.env` is now also an **override channel**: every key
 > in a slice's env call can be set from the environment, and the authored profile
 > value is what an _unset_ variable resolves to. Env can only retune a key the
-> slice declares and a schema validates; it can never introduce one. The rest of
-> this section — what belongs in a credential store, and why the selector
-> carve-out is narrow — stands unchanged, restated by ADR 0033 §1 as the
+> slice declares and a schema validates; it can never introduce one.
+>
+> **The credential-slot clause below is also superseded.** This section put
+> "dev/test placeholders that occupy a credential slot" in `process.env`, on the
+> reasoning that a key which is ever a real credential should never be authored
+> in code. ADR 0033 §1 replaces that with a per-target rule, because the
+> config/secret line is now drawn mechanically by whether a profile supplies a
+> value — and a profile is per deploy target. So a throwaway that is not a
+> credential _in development_ is authored in the `default` profile
+> (`BILLING_DEVELOPMENT_PROFILE`'s localstripe `STRIPE_SECRET_KEY`,
+> `@acme/ingest`'s LocalStack `AWS_ACCESS_KEY_ID: 'test'`), and the staging and
+> production overlays **unauthor** it (`KEY: undefined`), which makes it a
+> required secret on exactly the targets where it grants real access. The
+> underlying rule is intact — nothing that grants access anywhere is authored for
+> the target it grants access on — but the unit it applies to is a
+> `(key, target)` pair, not a key.
+>
+> The rest of this section — what belongs in a credential store, and why the
+> selector carve-out is narrow — stands unchanged, restated by ADR 0033 §1 as the
 > mechanical rule "a key with no profile value is a secret".
 
 A value stays in `process.env` iff it is a **secret** (leaking it grants
@@ -165,7 +181,7 @@ the same sanctioned kind of read as the app's `env.ts`, and builds its singleton
 with `xConfig({ appEnv, isServer: true })`. That per-slice read is still a
 per-edge read threaded explicitly — not a module-init global — and `config.ts`
 stays pure either way. This "context-less server edge" convention is documented
-in [`@acme/config`'s CONTEXT.md](../../packages/platform/config/CONTEXT.md) and is
+in [`@acme/env`'s CONTEXT.md](../../packages/platform/env/CONTEXT.md) and is
 what the shipped Phase-2 slices use.
 
 `NODE_ENV` is deliberately not consulted: it is tooling-owned runtime-mode and
@@ -623,4 +639,4 @@ sweep) in #96.
   `*.enabled` config toggle was introduced: activation stays the dependency graph,
   not a second source of truth. The dead `CLERK_WEBHOOK_SIGNING_SECRET` (no handler,
   no source reference) was dropped from both full apps' `.env.example`. Principle
-  recorded in [`@acme/config`'s CONTEXT.md](../../packages/platform/config/CONTEXT.md).
+  recorded in [`@acme/env`'s CONTEXT.md](../../packages/platform/env/CONTEXT.md).

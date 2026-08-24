@@ -46,11 +46,19 @@ that make that one call work. See
   its key's schema with `.prefault()`, so the literal is coerced and validated
   like any other input; relaxes the keys with **no** profile value — the secrets —
   when `shouldSkipEnvValidation()` says this run cannot supply one.
+- `secretsOnly(appEnv)` — `withProfiles` with an empty profile, for a call whose
+  shape is all secrets (`@acme/auth`'s `CLERK_SECRET_KEY`, `@acme/models`'
+  per-provider credential groups). Names why the profile is empty: these keys are
+  credentials by construction, not config someone forgot to author.
 - `resolveAppEnv(raw)` — turns `process.env.APP_ENV` into a validated `AppEnv`.
 - `readEnv(key)` — the `process.env` read a slice's `runtimeEnv` uses; guarded on
   `typeof process` so it returns `undefined` in the browser instead of throwing.
 - `jsonEnv(schema)` — wraps a non-string key's schema so it accepts the authored
   literal _or_ a JSON string, and validates both the same way.
+- `webappSchema` — the single declaration of `NEXT_PUBLIC_WEBAPP`'s constraint (a
+  valid Postgres identifier, because the value names a Postgres schema, the Redis
+  namespace and the BullMQ prefix). Six slices declare that key; the constraint
+  belongs to the value, not to any one of them.
 - `shouldSkipEnvValidation()` — whether the current run (lint step, Next build,
   vitest, CI) can supply secrets at all. Consumed **inside** `withProfiles`;
   `createEnv`'s own `skipValidation` is never passed anywhere.
@@ -106,6 +114,35 @@ Slices use `@t3-oss/env-core` with an explicit `clientPrefix`, not
 `@t3-oss/env-nextjs`: the Next wrapper's `runtimeEnv` is the _strict_ variant,
 which cannot carry an array or object profile value.
 
+### When two slices declare the same key
+
+Slices are isolated, but the environment is one namespace, so two slices can
+declare the same variable — and there is exactly **one** value for it per process.
+Each slice validates independently, so this is safe when both want the same value
+and a hazard when they want different ones.
+
+`AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` are the live case, and they are
+declared with opposite intents:
+
+- `@acme/ingest` authors the LocalStack dummy pair (`'test'`) in development and
+  unauthors it on staging/production — S3 config in dev, credential in prod.
+- `@acme/models`' `awsSecretEnv()` treats them as pure secrets on every target,
+  demanded only when Bedrock is the resolved chat or embed provider.
+
+On staging and production these agree: both are unauthored, so one real credential
+pair satisfies S3 and Bedrock alike. **They can only conflict in development, and
+only if Bedrock is selected there** — LocalStack accepts any pair, real Bedrock
+does not, and one variable cannot be both. The dev default is Ollama
+(`MODELS_DEVELOPMENT_PROFILE`), so nothing collides out of the box; a developer who
+selects Bedrock locally must supply real credentials, which then also become what
+`@acme/ingest` sends to LocalStack (harmless — it authenticates anything).
+
+The keys are deliberately **not** renamed apart. They are the names the AWS SDK's
+own provider chain reads, which is the whole reason both slices declare them
+rather than threading a value; a prefixed alias would validate a variable the SDK
+never looks at. If a future slice needs a genuinely different value for a shared
+key, that is the point to give it a distinct name — not to fork the profile.
+
 ## `client` vs `shared` vs `server`
 
 t3-env's access guard is **name-based**: a key is server-only if it lacks the
@@ -124,14 +161,23 @@ read goes to the owning slice's env (`@acme/auth/env`), not the app's composed
 exists it stays the client's source (`useBillingConfig()`), so the browser sees
 the values the server threaded across the RSC/Flight boundary.
 
-## The one bent case
+## The two bent cases
 
-`@acme/auth` has **two** `createEnv` calls: `clerkWiringEnv()` (the five
-browser-safe authored keys, no secret) and `authEnv()` (which `extends` it and adds
-`CLERK_SECRET_KEY`). The reason is the **runtime**, not the config/secret line:
-`apps/nextjs`'s `middleware.ts` runs in the Edge runtime, where `process.env` is a
-build-time snapshot, so a call that declared the secret would demand a value an
-edge worker cannot have. `<ClerkProvider>` reads the same subset.
+One call per slice is the rule; two slices split theirs, because something other
+than the config/secret line forces a subset to be demandable on its own. Both
+still route every call through `withProfiles` (ADR 0033 §6a).
+
+- **`@acme/auth`, by runtime.** Two calls: `clerkWiringEnv()` (the five
+  browser-safe authored keys, no secret) and `authEnv()` (which `extends` it and
+  adds `CLERK_SECRET_KEY`). `apps/nextjs`'s `middleware.ts` runs in the Edge
+  runtime, where `process.env` is a build-time snapshot, so a call that declared
+  the secret would demand a value an edge worker cannot have. `<ClerkProvider>`
+  reads the same subset.
+- **`@acme/models`, by conditional secrets.** Three calls: `env` (the two authored
+  provider selections) plus one `secretsOnly` group per provider's credentials,
+  demanded by `validateModelSecrets()` only when that provider is the resolved
+  choice. A single call would have to mark every provider's credentials
+  `.optional()` — the permissive shape this design removes.
 
 ## Composition-conditional secret validation
 
