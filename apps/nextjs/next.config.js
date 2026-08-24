@@ -5,19 +5,6 @@ import { createJiti } from 'jiti';
 const jiti = createJiti(import.meta.url);
 await jiti.import('./src/env');
 
-// Client config is inlined at build and frozen in the image, so its overrides
-// have to be sampled here rather than at runtime (ADR 0033). The leaf names are
-// derived from the app's composed config — never hand-listed — and the same names
-// are registered in `turbo.json` `globalEnv`, which is what makes a changed
-// override bust the build cache.
-const { clientOverrideBuildEnv } = /** @type {import('@acme/config')} */ (
-  await jiti.import('@acme/config')
-);
-const { config: appConfig } = /** @type {import('./src/config')} */ (
-  await jiti.import('./src/config')
-);
-const clientConfigEnv = clientOverrideBuildEnv(appConfig, process.env);
-
 const pkg = JSON.parse(
   fs.readFileSync(path.resolve(process.cwd(), 'package.json'), 'utf-8'),
 );
@@ -29,10 +16,10 @@ const transpilePackages = Object.keys(pkg.dependencies ?? {}).filter((dep) =>
 /** @type {import('next').NextConfig} */
 const config = {
   transpilePackages,
-  // Inline the config-as-code deploy-target selector into both the server and
+  // Inline the deploy-target selector into both the server and
   // client bundles so `resolveAppEnv(process.env.APP_ENV)` in env.ts resolves
-  // identically in each (ADR 0026). Unset → '' → the `development` base.
-  env: { APP_ENV: process.env.APP_ENV ?? '', ...clientConfigEnv },
+  // identically in each (ADR 0026 §5). Unset → '' → the `development` base.
+  env: { APP_ENV: process.env.APP_ENV ?? '' },
   // officeparser (via @acme/rag) ships an ESM wrapper that destructures its named
   // exports off the CJS default import. When bundled (Turbopack/webpack), the
   // default import resolves to the module's `exports.default` (the OfficeParser

@@ -21,15 +21,10 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 import { logger } from '@acme/logger';
 
-import { ingestConfig } from '../config';
-import { configContext, env } from '../env';
-
-// Region, endpoint and bucket are config-as-code (ADR 0026); the credentials are
-// secrets read from env.
-const config = ingestConfig(configContext);
+import { env } from '../env';
 
 export const s3Client = new S3Client({
-  region: config.AWS_REGION,
+  region: env.AWS_REGION,
   credentials: {
     accessKeyId: env.AWS_ACCESS_KEY_ID,
     secretAccessKey: env.AWS_SECRET_ACCESS_KEY,
@@ -40,8 +35,8 @@ export const s3Client = new S3Client({
   // the checksum protocol; disable it (TLS covers transit, server re-parses on
   // download). Don't "tidy" this away — it breaks direct uploads.
   requestChecksumCalculation: 'WHEN_REQUIRED',
-  ...(config.S3_ENDPOINT && {
-    endpoint: config.S3_ENDPOINT,
+  ...(env.S3_ENDPOINT && {
+    endpoint: env.S3_ENDPOINT,
     forcePathStyle: true, // Required for LocalStack
   }),
 });
@@ -53,7 +48,7 @@ export async function generatePresignedUploadUrl(
   expiresIn = 3600,
 ) {
   const command = new PutObjectCommand({
-    Bucket: config.S3_UPLOAD_BUCKET,
+    Bucket: env.S3_UPLOAD_BUCKET,
     Key: key,
     ContentType: contentType,
   });
@@ -66,7 +61,7 @@ export async function generatePresignedUploadUrl(
 /** Download a file from S3 as a Buffer. */
 export async function downloadFileFromS3(key: string) {
   const command = new GetObjectCommand({
-    Bucket: config.S3_UPLOAD_BUCKET,
+    Bucket: env.S3_UPLOAD_BUCKET,
     Key: key,
   });
 
@@ -87,7 +82,7 @@ export async function downloadFileFromS3(key: string) {
 /** Delete a single file from S3. Module-private — callers use `deleteFilesFromS3`. */
 async function deleteFileFromS3(key: string) {
   await s3Client.send(
-    new DeleteObjectCommand({ Bucket: config.S3_UPLOAD_BUCKET, Key: key }),
+    new DeleteObjectCommand({ Bucket: env.S3_UPLOAD_BUCKET, Key: key }),
   );
   logger.debug({ key }, 'Deleted file from S3');
 }

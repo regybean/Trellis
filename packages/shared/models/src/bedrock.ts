@@ -1,10 +1,10 @@
 import type { EmbeddingModelV3, LanguageModelV3 } from '@ai-sdk/provider';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 
-import type { BedrockChatConfig, BedrockEmbedConfig } from './config';
+import type { BedrockChatConfig, BedrockEmbedConfig } from './model-schemas';
 
 // Region + model ids arrive as the narrowed Bedrock variant (`config.chat` /
-// `config.embed`, ADR 0026); credentials resolve via the standard AWS provider
+// `env.MODELS_EMBED`, ADR 0033); credentials resolve via the standard AWS provider
 // chain. These factories read no env — a Bedrock-active app's credentials are
 // validated up front by `modelsEnv(config)` in `resolve.ts` (value axis).
 

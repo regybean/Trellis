@@ -24,16 +24,16 @@ the [config-as-code wayfinder map](https://github.com/regybean/Trellis/issues/76
 
 ### 1. The principle — `process.env` = secrets **+ selectors**; config = the values selectors pick
 
-> **Superseded in part by [ADR 0033](0033-config-values-env-overridable.md).**
-> This section's decoupling claim no longer holds. It said a value is _either_ a
-> `process.env` entry _or_ config-as-code, never both. `process.env` is still the
-> sole home of secrets and selectors, and config's source of truth is still code,
-> but `process.env` is now also an **override channel**: any non-sensitive config
-> value can be retuned by a variable of the same name, nested via `__`. Env can
-> only retune a value a profile already authored and a schema already validates.
-> It can never introduce a config key. The rest of this section, meaning what
-> belongs in a credential store and why the selector carve-out is narrow, stands
-> unchanged.
+> **Superseded in part by [ADR 0033](0033-one-env-factory-per-slice.md).** This
+> section's decoupling claim no longer holds. It said a value is _either_ a
+> `process.env` entry _or_ config-as-code, never both. Config's source of truth
+> is still code, but `process.env` is now also an **override channel**: every key
+> in a slice's env call can be set from the environment, and the authored profile
+> value is what an _unset_ variable resolves to. Env can only retune a key the
+> slice declares and a schema validates; it can never introduce one. The rest of
+> this section — what belongs in a credential store, and why the selector
+> carve-out is narrow — stands unchanged, restated by ADR 0033 §1 as the
+> mechanical rule "a key with no profile value is a secret".
 
 A value stays in `process.env` iff it is a **secret** (leaking it grants
 access/impersonation — API keys, passwords, signing secrets, and dev/test
@@ -58,6 +58,13 @@ pre-composition (`pgSchema()` at module scope, `drizzle.config.ts`, `worker.ts`,
 `vite.config.ts`) and is the per-suite test-isolation key.
 
 ### 2. The mechanism — extend the incumbent factory pattern, don't adopt a library
+
+> **Superseded by [ADR 0033](0033-one-env-factory-per-slice.md) §§1–2, 5, 7.**
+> `@acme/config` is deleted: a slice declares config _and_ secrets in one
+> `createEnv` call in one `env.ts`, and profile layering rides t3-env's
+> `createFinalSchema` seam (`withProfiles` in `@acme/env`). Profiles themselves —
+> the closed set, the deep-merge with arrays replacing, the typed literals — are
+> unchanged and still `ts-deepmerge`.
 
 `@acme/config` is a new platform leaf that mirrors `@acme/env`: a `createConfig`
 factory shaped like `@t3-oss/env`'s `createEnv`, with `server` / `client` zod
@@ -133,6 +140,13 @@ applied last at composition**, never by forking each app's profile set.
 
 ### 4. Purity + the arg-injection seam
 
+> **Superseded by [ADR 0033](0033-one-env-factory-per-slice.md) §7.** A single
+> `createEnv` call cannot be pure — it reads `runtimeEnv` — so the injected
+> `ConfigContext` is gone and each slice resolves `APP_ENV` at its own `env.ts`
+> edge, the file the ESLint guard already exempts. The two provisioning paths that
+> depended on purity read a slice's `development-profile.ts` literal instead
+> (ADR 0033 §6), so they still see the authored values and never an override.
+
 Config is **pure**: a `config.ts` module never reads `process.env` and never
 reads `NODE_ENV`. `appEnv` and `isServer` arrive via an injected `context`. Each
 slice exports a factory `xConfig(context)`; the context is resolved at a
@@ -176,6 +190,12 @@ can't even express `staging` (staging builds run `NODE_ENV=production`).
   `APP_ENV` mandatory always, which would tax every local and test run.
 
 ### 6. Config always validates — decoupled from `shouldSkipEnvValidation()`
+
+> **Restated by [ADR 0033](0033-one-env-factory-per-slice.md) §3.** The guarantee
+> survives: `skipValidation` is never passed anywhere, and the skip moved from
+> per-call to per-key inside `withProfiles` — it relaxes exactly the keys with no
+> profile value (the secrets) on a run that cannot supply one. Authored values are
+> still always coerced and validated.
 
 Config **always validates**, on a path that never calls and is never gated by
 `shouldSkipEnvValidation()` ([ADR 0022](0022-centralized-env-validation-policy.md)),
@@ -496,7 +516,8 @@ feedback,billing`); recommend keeping whole in env unless the split is cheap.
 
 ## Status
 
-accepted — migration complete. Phase 0 (the `@acme/config` mechanism + app
+accepted — migration complete, then **superseded in part** by
+[ADR 0033](0033-one-env-factory-per-slice.md) (§§2, 4, 6 above; §§1, 3, 5 stand). Phase 0 (the `@acme/config` mechanism + app
 composition edge) built in #93; Phase 1 (the billing/Stripe + Clerk
 publishable-key dedup, and the retirement of `.env.{staging,production}`) in #94;
 Phase 2 (the remaining per-slice tunables) in #95; Phase 3 (the `REDIS_URL`

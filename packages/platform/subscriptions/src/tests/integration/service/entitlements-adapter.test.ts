@@ -4,7 +4,7 @@ import { flushTestDb } from '@acme/redis/testing';
 
 import { createSubscriptionsEntitlements } from '../../../entitlements-adapter';
 
-// Plan IDs the provider maps products to (billingConfig values, injected at the
+// Plan ids the provider maps products to (billing-env values, injected at the
 // app edge in production — supplied directly here since config is pure).
 const subscriptionsEntitlements = createSubscriptionsEntitlements({
   standardPlanId: 'price_standard_test',

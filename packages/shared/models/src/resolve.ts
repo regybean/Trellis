@@ -1,13 +1,12 @@
 import type { SharedV3ProviderOptions } from '@ai-sdk/provider';
 
-import type { ChatConfig, EmbedConfig } from './config';
+import type { ChatConfig, EmbedConfig } from './model-schemas';
 import {
   bedrockChatModel,
   bedrockEmbedModel,
   bedrockTitleModel,
 } from './bedrock';
-import { modelsConfig } from './config';
-import { configContext, modelsEnv } from './env';
+import { env, modelsEnv } from './env';
 import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
 import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
@@ -18,10 +17,10 @@ type EmbedProvider = EmbedConfig['provider'];
 
 // --- Pure core: variant-parameterised resolvers reading NO module-scope env ---
 //
-// Each resolver takes the narrowed config variant (`config.chat` / `config.embed`)
+// Each resolver takes the narrowed variant (`env.MODELS_CHAT` / `env.MODELS_EMBED`)
 // and dispatches on its `provider` discriminant to that provider's factory. The
-// active providers' secrets are validated once up front by `modelsEnv(config)`
-// below (ADR 0026 value axis), so the factories only build model instances — they
+// active providers' secrets are validated once up front by `modelsEnv()` below
+// (ADR 0033, value axis), so the factories only build model instances — they
 // read no env. The variant carries exactly the chosen provider's fields — no
 // region on Ollama, no base URL on Bedrock — so the factories need no
 // cross-provider guards. Chat and embed are resolved independently — e.g.
@@ -88,25 +87,24 @@ export function embedProviderOptionsFor(
   return options;
 }
 
-// --- Eager singletons: thin caps binding the config-selected provider ---
+// --- Eager singletons: thin caps binding the env-selected provider ---
 //
 // The active providers are constructed once at import and a missing/invalid
-// config for an active provider blocks here rather than failing deep inside a
+// selection for an active provider blocks here rather than failing deep inside a
 // request. This eager-at-import behaviour is deliberately retained (ADR 0014 /
 // ADR 0024): the build and test infra rely on it.
-const config = modelsConfig(configContext);
-
+//
 // Fail fast at import on missing credentials for whichever providers the resolved
-// config selected (value axis), instead of failing deep inside the first request.
-modelsEnv(config);
+// selection needs (value axis), instead of failing deep inside the first request.
+modelsEnv();
 
-export const chatModel = resolveChatModel(config.chat);
-export const titleModel = resolveTitleModel(config.chat);
-export const embedModel = resolveEmbedModel(config.embed);
+export const chatModel = resolveChatModel(env.MODELS_CHAT);
+export const titleModel = resolveTitleModel(env.MODELS_CHAT);
+export const embedModel = resolveEmbedModel(env.MODELS_EMBED);
 
 // Thin cap over `embedProviderOptionsFor`, binding the config-selected embed
 // provider. Callers pass the result straight to `embedMany` / the vector query
 // tool without knowing which provider is active.
 export function embedProviderOptions(purpose: 'document' | 'query') {
-  return embedProviderOptionsFor(config.embed.provider, purpose);
+  return embedProviderOptionsFor(env.MODELS_EMBED.provider, purpose);
 }

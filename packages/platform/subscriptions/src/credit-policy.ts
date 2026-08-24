@@ -1,6 +1,5 @@
 import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
-import { subscriptionsConfig } from './config';
-import { configContext } from './env';
+import { env } from './env';
 
 /**
  * The pure Credit policy: per-tier limits and the billing-window that bounds a
@@ -9,14 +8,14 @@ import { configContext } from './env';
  * (`tests/unit`) while the storage operations are tested against real Redis
  * (`tests/integration/service`).
  *
- * The tier limits are config-as-code (ADR 0026): built once here, server-side,
- * from the deploy-target profile in `config.ts`.
+ * The tier limits are authored config (ADR 0033): resolved from the
+ * deploy-target profile in `env.ts`, where a same-named variable can retune them
+ * per deploy.
  */
-const config = subscriptionsConfig(configContext);
 
 /** The full monthly Credit limit for a tier, falling back for unknown tiers. */
 export function creditLimitFor(tier: SubscriptionTier) {
-  return config.CREDIT_LIMITS[tier] ?? config.DEFAULT_LIMIT;
+  return env.CREDIT_LIMITS[tier] ?? env.DEFAULT_LIMIT;
 }
 
 /**

@@ -9,8 +9,18 @@ export default [
   ...baseConfig,
   ...securityConfig,
   ...testingConfig,
-  // `src/env.ts` is the one file that reads `process.env` to make the
-  // skip decision — it is matched by restrictEnvAccess's `**/env.ts` ignore,
-  // so the no-restricted-properties ban doesn't (and shouldn't) apply to it.
   ...restrictEnvAccess,
+  // `should-skip-env-validation.ts` is this package's one `process.env` reader:
+  // it inspects the *run* (lint step, Next build, vitest, CI) to decide whether
+  // secrets can be supplied at all. Those signals are set by the tooling around
+  // us, so neither the validated-env ban nor turbo's declared-env check applies.
+  // Scoped to the two rules rather than ignoring the file, so everything else
+  // still lints it.
+  {
+    files: ['src/should-skip-env-validation.ts'],
+    rules: {
+      'no-restricted-properties': 'off',
+      'turbo/no-undeclared-env-vars': 'off',
+    },
+  },
 ];

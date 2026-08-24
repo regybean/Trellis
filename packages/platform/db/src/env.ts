@@ -1,69 +1,69 @@
-import { createEnv } from '@t3-oss/env-nextjs';
+import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod/v4';
 
-import { serverConfigContext } from '@acme/config';
-import { shouldSkipEnvValidation } from '@acme/env';
+import {
+  readEnv,
+  resolveAppEnv,
+  shouldSkipEnvValidation,
+  withProfiles,
+} from '@acme/env';
 
-import { dbConfig } from './config';
-
-const skipValidation = shouldSkipEnvValidation();
+import { DB_DEVELOPMENT_PROFILE } from './development-profile';
 
 /**
- * The config-as-code deploy-target selector (ADR 0026), resolved at this slice's
- * sanctioned `process.env` edge and threaded into `dbConfig`.
- *
- * The same edge samples the **override** bag (ADR 0033), which is what makes
- * `DB_HOST` / `DB_PORT` dynamic: a testcontainer hands back a mapped port and a
- * prod endpoint is infra-injected, neither of which static config can know. This
- * slice used to hand-roll exactly that as `process.env.DB_HOST ?? config.DB_HOST`
- * — the seed the general override layer grew from, and now the general path
- * covers it for every key, not just the two someone remembered to wire.
+ * The deploy-target selector, resolved at this slice's sanctioned `process.env`
+ * edge (ADR 0026 §5). Each slice resolves the same selector at its own edge, so
+ * the profiles agree without threading a context.
  */
-export const configContext = serverConfigContext(process.env);
+const appEnv = resolveAppEnv(process.env.APP_ENV);
 
-// The one remaining DB secret. Host/port/user/name are config-as-code (see
-// `config.ts`); only the password leaks access, so it stays in `process.env`.
-const secretEnv = createEnv({
+/**
+ * The resolved Postgres connection, declared once (ADR 0033). Read by
+ * `createDb()` and the rag storage/vector clients.
+ *
+ * **Config** — host, port, user and database name carry profile values, so a
+ * clean checkout connects to the local stack with no `.env` rows. Every key is in
+ * `runtimeEnv`, so every key is env-overridable (ADR 0033 §4); `DB_HOST` /
+ * `DB_PORT` are the two that *must* be — a testcontainer hands back a mapped port
+ * and a prod endpoint is infra-injected, so no profile can know them. That used to
+ * be hand-rolled here as `process.env.DB_HOST ?? config.DB_HOST` and
+ * `Number(process.env.DB_PORT)`; coercion now lives in the schema, so `DB_PORT=abc`
+ * fails loudly instead of reaching a caller as `NaN`.
+ *
+ * **Secret** — `DB_PASSWORD` carries no profile value on any target, so it is
+ * demanded everywhere: a leaked password grants access, and the local container's
+ * throwaway comes from `deploy/.env` (which `pnpm dev` / `pnpm with-env` load)
+ * rather than from a literal that a real deploy could inherit by accident.
+ */
+export const env = createEnv({
+  clientPrefix: 'NEXT_PUBLIC_',
+  client: {},
   server: {
+    DB_HOST: z.string().nonempty(),
+    DB_PORT: z.coerce.number().int().positive(),
+    DB_USER: z.string().nonempty(),
+    DB_NAME: z.string().nonempty(),
     DB_PASSWORD: z.string().nonempty(),
   },
+  createFinalSchema: (shape) =>
+    withProfiles(shape, appEnv, {
+      default: DB_DEVELOPMENT_PROFILE,
+    }),
   runtimeEnv: {
-    // When validation is skipped (lint / the Next production build / a bare
-    // worktree — see `shouldSkipEnvValidation`) there is no real password and
-    // none is needed: no query runs. But Mastra's `PgVector`/`PostgresStore`
-    // validate a non-empty password in their *constructor*, which the Next build
-    // triggers by importing the chat route to collect page data. Stub it in that
-    // case so construction succeeds; runtime and vitest never skip validation, so
-    // the real secret is still enforced there.
+    DB_HOST: readEnv('DB_HOST'),
+    DB_PORT: readEnv('DB_PORT'),
+    DB_USER: readEnv('DB_USER'),
+    DB_NAME: readEnv('DB_NAME'),
+    // When this run cannot supply secrets (lint / the Next production build,
+    // which builds with a real `APP_ENV` — see `shouldSkipEnvValidation`) there is
+    // no password and none is needed: no query runs. But Mastra's
+    // `PgVector`/`PostgresStore` validate a non-empty password in their
+    // *constructor*, which the Next build triggers by importing the chat route to
+    // collect page data. Stub it in that case so construction succeeds (ADR 0024);
+    // runtime and vitest never skip, so the real secret is still enforced there.
     DB_PASSWORD:
-      process.env.DB_PASSWORD ??
-      (skipValidation ? 'skip-validation-stub' : undefined),
+      readEnv('DB_PASSWORD') ??
+      (shouldSkipEnvValidation() ? 'skip-validation-stub' : undefined),
   },
-  skipValidation,
+  emptyStringAsUndefined: true,
 });
-
-const config = dbConfig(configContext);
-
-/**
- * The resolved Postgres connection (ADR 0026). `config.ts` is the authored
- * source — development works from its defaults with no `.env` rows — and any of
- * `DB_HOST` / `DB_PORT` / `DB_USER` / `DB_NAME` is retunable by a same-name
- * variable through the config override lane (ADR 0033), so the hand-written
- * `?? config.X` fallbacks that used to sit here are gone: `configContext` carries
- * the whole bag and `dbConfig` coerces + validates whatever it finds.
- *
- * `DB_PASSWORD` stays the sole secret and stays in `createEnv`: a leaked password
- * grants access, so it never becomes an overridable config key — the collision
- * guard in `scripts/check-config-overrides.ts` makes that a lint failure rather
- * than a judgement call.
- *
- * Kept as the `env` export (same `DB_*` shape as before) so `createDb()` and the
- * rag storage/vector clients read it unchanged.
- */
-export const env = {
-  DB_HOST: config.DB_HOST,
-  DB_PORT: config.DB_PORT,
-  DB_USER: config.DB_USER,
-  DB_NAME: config.DB_NAME,
-  DB_PASSWORD: secretEnv.DB_PASSWORD,
-};

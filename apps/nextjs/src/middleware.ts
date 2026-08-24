@@ -1,33 +1,21 @@
 import { NextResponse } from 'next/server';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-import { authConfig } from '@acme/auth/config';
-import { appConfigContext } from '@acme/config';
+import { clerkWiringEnv } from '@acme/auth/env';
 
-// The Clerk publishable key is config-as-code (authConfig, ADR 0026), so
-// clerkMiddleware is given it explicitly rather than reading it from env. We
-// resolve just the auth slice here — NOT `~/env` — deliberately: importing the
-// app env would execute the full feature-env `createEnv` graph in the Edge
-// runtime, validating server vars (DB/Redis/secrets) that don't exist there.
-// `APP_ENV` is the build-inlined selector (next.config `env`), read directly for
-// the same reason; `appConfigContext` keeps the unset/unknown handling.
+// The Clerk publishable key is authored config (ADR 0033), so clerkMiddleware is
+// given it explicitly rather than reading it from env. We resolve the *wiring*
+// subset here — NOT `~/env`, and not `authEnv()` — deliberately: this file runs in
+// the **Edge** runtime, where importing the app env would execute the full
+// feature-env graph and validate server vars (DB/Redis/secrets) that do not exist
+// there, and even `authEnv()` would demand `CLERK_SECRET_KEY` from a
+// `process.env` that is a build-time snapshot. `clerkWiringEnv()` demands nothing
+// an edge worker cannot have; `APP_ENV` (the build-inlined selector, next.config
+// `env`) resolves the profile inside it.
+//
 // Only `publishableKey` is passed: passing `secretKey` too would trigger Clerk's
 // Dynamic Keys mode and require CLERK_ENCRYPTION_KEY, so the secret stays in env.
-//
-// The client override lane is read here too (ADR 0033): the publishable key is a
-// *client* value, frozen at build, and middleware must resolve the same frozen
-// value the browser bundle holds — a runtime-only override would hand Clerk a key
-// the client never saw.
-const { CLERK_PUBLISHABLE_KEY } = authConfig(
-  appConfigContext({
-    // eslint-disable-next-line no-restricted-properties -- selector, not validated env (see above)
-    appEnv: process.env.APP_ENV,
-    // eslint-disable-next-line no-restricted-properties -- build-inlined literal (see above)
-    clientOverrides: process.env.ACME_CONFIG_CLIENT_OVERRIDES,
-    // eslint-disable-next-line no-restricted-properties -- sanctioned override edge (see above)
-    serverEnv: () => process.env,
-  }),
-);
+const { CLERK_PUBLISHABLE_KEY } = clerkWiringEnv();
 
 const isPublicRoute = createRouteMatcher([
   '/',

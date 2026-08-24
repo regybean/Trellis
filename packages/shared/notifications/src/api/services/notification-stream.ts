@@ -2,8 +2,7 @@ import type { StreamCodec, StreamEntry } from '@acme/redis';
 import { createDurableStream, HEAD_CURSOR } from '@acme/redis';
 
 import type { Notification } from '../schemas/notification-schema';
-import { notificationsConfig } from '../../config';
-import { configContext } from '../../env';
+import { env } from '../../env';
 import { notificationKey } from '../notification-keys';
 import { notificationSchema } from '../schemas/notification-schema';
 
@@ -14,8 +13,7 @@ import { notificationSchema } from '../schemas/notification-schema';
 // hand-copy alongside chat and ingest (and where the two fixes ingest already
 // shipped, atomic TTL + a real-id fresh-connect seed, had never propagated). What
 // stays here is only notifications' own: the wire codec and the tail-from-now
-// cursor-seed policy. Config-as-code (ADR 0026).
-const config = notificationsConfig(configContext);
+// cursor-seed policy. Its tunables are authored config in `env.ts` (ADR 0033).
 
 // `publish` writes the whole envelope as a single `payload` JSON field — the
 // nested `data` object can't be a flat field map. Decode is the inverse: the
@@ -41,7 +39,7 @@ export const decodeNotification = codec.decode;
 export const notificationStream = (userId: string) =>
   createDurableStream<Notification>({
     key: notificationKey(userId),
-    ttlSeconds: config.NOTIFICATION_TTL,
+    ttlSeconds: env.NOTIFICATION_TTL,
     codec,
   });
 
@@ -71,8 +69,8 @@ export async function tailNotifications(
   const stream = notificationStream(userId);
   const seed = lastEventId ?? (await stream.lastId()) ?? HEAD_CURSOR;
   return stream.tail(seed, {
-    pollMinMs: config.POLL_MIN_MS,
-    pollMaxMs: config.POLL_MAX_MS,
+    pollMinMs: env.POLL_MIN_MS,
+    pollMaxMs: env.POLL_MAX_MS,
     signal,
   });
 }

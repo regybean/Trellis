@@ -2,8 +2,7 @@ import type { StreamCodec, StreamEntry } from '@acme/redis';
 import { createDurableStream, HEAD_CURSOR } from '@acme/redis';
 
 import type { IngestProgressEvent } from '../schemas/ingest-progress-schema';
-import { ingestConfig } from '../../config';
-import { configContext } from '../../env';
+import { env } from '../../env';
 import { ingestProgressKey } from '../ingest-keys';
 import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 
@@ -13,8 +12,7 @@ import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 // append-with-TTL — that ingest used to hand-copy alongside chat and
 // notifications. What stays here is ingest's own: the wire codec (encode/decode
 // off the one `ingestProgressEventSchema`) and the fresh-connect cursor-seed
-// policy. Config-as-code (ADR 0026).
-const config = ingestConfig(configContext);
+// policy. Its tunables are authored config in `env.ts` (ADR 0033).
 
 // A validated event → the flat field record `xAdd` writes. `stage` is always
 // emitted; `error` rides only on `failed`. Pure — the inverse of `decodeProgress`,
@@ -47,7 +45,7 @@ const codec: StreamCodec<IngestProgressEvent> = {
 export const ingestProgressStream = (userId: string) =>
   createDurableStream<IngestProgressEvent>({
     key: ingestProgressKey(userId),
-    ttlSeconds: config.INGEST_PROGRESS_TTL_SECONDS,
+    ttlSeconds: env.INGEST_PROGRESS_TTL_SECONDS,
     codec,
   });
 
@@ -91,8 +89,8 @@ export function tailIngestProgress(
 ) {
   const seed = cursor.lastEventId ?? cursor.sinceId ?? HEAD_CURSOR;
   return ingestProgressStream(userId).tail(seed, {
-    pollMinMs: config.INGEST_PROGRESS_POLL_MIN_MS,
-    pollMaxMs: config.INGEST_PROGRESS_POLL_MAX_MS,
+    pollMinMs: env.INGEST_PROGRESS_POLL_MIN_MS,
+    pollMaxMs: env.INGEST_PROGRESS_POLL_MAX_MS,
     signal,
   });
 }

@@ -2,7 +2,6 @@
   "name": "@acme/billing",
   "dependencies": {
     "@acme/auth": "workspace:*",
-    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
@@ -36,7 +35,7 @@
     "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
     "@acme/vitest-config": "workspace:*",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@testing-library/jest-dom": "catalog:",
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
@@ -62,10 +61,6 @@
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
     }
   },
   "sideEffects": [

@@ -1,14 +1,14 @@
 import { z } from 'zod/v4';
 
-import type { ConfigContext } from '@acme/config';
-import { createConfig } from '@acme/config';
-
 /**
- * Models config-as-code (ADR 0026). Provider selection, the embedding dimension,
- * and every provider's model ids / region / base URL are non-sensitive tunables
- * that differ per deploy target — they live here, not in `process.env`. The raw
- * credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `OPENROUTER_API_KEY`)
- * stay in `env.ts` (`modelsEnv`), validated from this config's selected providers.
+ * The provider-selection schemas `env.ts` validates `MODELS_CHAT` and
+ * `MODELS_EMBED` against, and the narrowed variant types each factory receives.
+ *
+ * Kept beside `env.ts` rather than inside it so the env module stays what it is —
+ * one `createEnv` call — while the schemas and the six UI-facing types live in a
+ * plain module. Imports only zod, so a consumer that needs a value from the
+ * resolved env (e.g. `@acme/rag`'s `documents-schema` reading
+ * `MODELS_EMBED.dimensions`) never triggers provider resolution.
  *
  * `chat` and `embed` are **per-role discriminated unions** keyed by `provider`:
  * selecting a provider requires (and validates) only that provider's fields — on
@@ -16,11 +16,6 @@ import { createConfig } from '@acme/config';
  * is absent from the `embed` union (it exposes no embeddings API), so a no-embed
  * selection is structurally unrepresentable rather than a runtime `throw` in the
  * resolver.
- *
- * This module imports only zod + `@acme/config` — never the ai-sdk provider
- * factories — so consumers that need a value here (e.g. `@acme/rag`'s
- * `documents-schema` reading `embed.dimensions`) can build it without triggering
- * provider resolution, exactly as `@acme/models/env` allowed before.
  */
 
 // Shared connection params, single-authored and spread into each variant below:
@@ -85,35 +80,3 @@ export type OpenRouterChatConfig = Extract<
 >;
 export type OllamaEmbedConfig = Extract<EmbedConfig, { provider: 'ollama' }>;
 export type BedrockEmbedConfig = Extract<EmbedConfig, { provider: 'bedrock' }>;
-
-export function modelsConfig(context: ConfigContext) {
-  return createConfig({
-    server: {
-      chat: chatConfigSchema,
-      embed: embedConfigSchema,
-    },
-    profiles: {
-      // Ollama is the dev/test default (ADR 0026): tiny CPU-only models over the
-      // OpenAI-compatible `/v1` endpoint. Flipping a role to Bedrock/OpenRouter
-      // for a deploy target is a staging/production overlay supplying that
-      // provider's variant — the discriminated union then strips the Ollama-only
-      // `baseUrl` on merge (zod object-strip).
-      default: {
-        server: {
-          chat: {
-            provider: 'ollama',
-            baseUrl: 'http://localhost:11434/v1',
-            model: 'qwen2.5:1.5b',
-          },
-          embed: {
-            provider: 'ollama',
-            baseUrl: 'http://localhost:11434/v1',
-            model: 'nomic-embed-text',
-            dimensions: 768,
-          },
-        },
-      },
-    },
-    context,
-  });
-}

@@ -39,7 +39,7 @@ catalog:
   "@opentelemetry/semantic-conventions": ^1.43.0
   "@openrouter/ai-sdk-provider": ^2.9.1
   "@react-pdf/renderer": ^4.3.1
-  "@t3-oss/env-nextjs": ^0.13.10
+  "@t3-oss/env-core": ^0.13.10
   "@tailwindcss/postcss": ^4.1.16
   "@tailwindcss/vite": ^4.1.16
   "@turbo/gen": ^2.7.5

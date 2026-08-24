@@ -5,8 +5,7 @@ import type {
 import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 
-import { chatConfig } from '../../config';
-import { configContext } from '../../env';
+import { env } from '../../env';
 import {
   chatAbortKey,
   chatInflightKey,
@@ -15,9 +14,6 @@ import {
 } from '../chat-keys';
 import { createConversation, persistUserMessage } from './chat-memory';
 import { enqueueGenerationTurn } from './chat-queue';
-
-// Turn-lifecycle tunables are config-as-code (ADR 0026).
-const config = chatConfig(configContext);
 
 // The Turn lifecycle — the one home for a durable Turn's control plane, expressed
 // as terminal-typed *transitions* rather than a bag of Redis verbs. A Turn moves
@@ -36,15 +32,15 @@ const config = chatConfig(configContext);
 // a single server-side compare-and-delete, so no read-then-act window exists for a
 // re-acquiring Turn to slip into.
 
-// The TTLs are config-as-code (ADR 0026). The In-flight lock's TTL
-// (`config.INFLIGHT_LOCK_TTL`) doubles as the crash-recovery bound: the worker
+// The TTLs are authored config (ADR 0033). The In-flight lock's TTL
+// (`env.INFLIGHT_LOCK_TTL`) doubles as the crash-recovery bound: the worker
 // does NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
 // the lock to self-expire, after which the next `beginTurn` can re-acquire. Until
 // then a wedged Conversation is recovered by `reconcileTurn` (client-driven refund
 // + teardown when a reader closes with no terminal). The abort signal
-// (`config.ABORT_SIGNAL_TTL`) shares the value so a never-observed stop cannot
+// (`env.ABORT_SIGNAL_TTL`) shares the value so a never-observed stop cannot
 // linger past its Turn. After a terminal the Stream is shortened to a brief safety
-// window (`config.STREAM_POST_TERMINAL_TTL`) and then proactively deleted — that
+// window (`env.STREAM_POST_TERMINAL_TTL`) and then proactively deleted — that
 // TTL is only a net for a failed delete.
 
 // The three worker terminals. `settleTurn` takes one so the caller names the
@@ -79,7 +75,7 @@ export interface BeginTurnInput extends TurnRef {
 async function acquireInflightLock({ conversationId, turnId }: TurnRef) {
   const acquired = await redis.set(chatInflightKey(conversationId), turnId, {
     NX: true,
-    EX: config.INFLIGHT_LOCK_TTL,
+    EX: env.INFLIGHT_LOCK_TTL,
   });
   return acquired !== null;
 }
@@ -148,7 +144,7 @@ export async function refundTurnCredits(
 ) {
   const acquired = await redis.set(chatRefundedKey(turnId), '1', { NX: true });
   if (acquired === null) return false;
-  await refund(userId, tier, config.CREDITS_PER_TURN);
+  await refund(userId, tier, env.CREDITS_PER_TURN);
   return true;
 }
 
@@ -203,7 +199,7 @@ export async function settleTurn(kind: TurnTerminalKind, ref: TurnRef) {
   logger.debug({ conversationId, turnId, kind }, 'chat: turn settled');
   await redis.expire(
     chatStreamKey(conversationId),
-    config.STREAM_POST_TERMINAL_TTL,
+    env.STREAM_POST_TERMINAL_TTL,
   );
   await redis.del(chatAbortKey(conversationId));
   await releaseInflightLock(ref);
@@ -214,7 +210,7 @@ export async function settleTurn(kind: TurnTerminalKind, ref: TurnRef) {
 // `turnId`.
 export async function abortTurn({ conversationId, turnId }: TurnRef) {
   await redis.set(chatAbortKey(conversationId), turnId, {
-    EX: config.ABORT_SIGNAL_TTL,
+    EX: env.ABORT_SIGNAL_TTL,
   });
 }
 

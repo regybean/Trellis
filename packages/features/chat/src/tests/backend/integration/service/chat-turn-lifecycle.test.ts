@@ -22,8 +22,7 @@ import {
   refundTurnCredits,
   settleTurn,
 } from '../../../../api/services/chat-turn-lifecycle';
-import { chatConfig } from '../../../../config';
-import { configContext } from '../../../../env';
+import { env } from '../../../../env';
 import {
   createTestChat,
   createTestSessionId,
@@ -49,8 +48,7 @@ import {
  * router pass theirs — never a `vi.mock` of a seam chat owns.
  */
 
-const { CREDITS_PER_TURN, STREAM_POST_TERMINAL_TTL } =
-  chatConfig(configContext);
+const { CREDITS_PER_TURN, STREAM_POST_TERMINAL_TTL } = env;
 
 interface RefundCall {
   userId: string;

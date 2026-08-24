@@ -6,14 +6,12 @@ import { DocumentParseError, uploadDoc } from '@acme/rag/server';
 
 import type { JobFailure } from './ingest-notify';
 import type { IngestJob } from './ingest-queue';
-import { ingestConfig } from '../../config';
-import { configContext } from '../../env';
+import { env } from '../../env';
 import { deleteFilesFromS3, downloadFileFromS3 } from '../../utils/s3-client';
 import { notifyJobComplete } from './ingest-notify';
 import { createIngestProgressWriter } from './ingest-progress-stream';
 
-// INGEST_CONCURRENCY (fan-out width) + BullMQ retention are config-as-code (ADR 0026).
-const config = ingestConfig(configContext);
+// INGEST_CONCURRENCY (fan-out width) + BullMQ retention are authored config (ADR 0033).
 
 // A per-Upload outcome on the SETTLED path only. A content failure
 // (`DocumentParseError`) is isolated here — it does NOT throw, so the sibling
@@ -65,7 +63,7 @@ async function processUpload(
 async function runIngestJob(job: Job<IngestJob>) {
   const { jobId, userId, uploads } = job.data;
   const writer = createIngestProgressWriter(userId, jobId);
-  const limit = pLimit(config.INGEST_CONCURRENCY);
+  const limit = pLimit(env.INGEST_CONCURRENCY);
 
   logger.info(
     { jobId, userId, total: uploads.length },

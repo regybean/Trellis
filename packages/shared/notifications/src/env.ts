@@ -1,36 +1,49 @@
-import { createEnv } from '@t3-oss/env-nextjs';
-import { z } from 'zod';
+import { createEnv } from '@t3-oss/env-core';
+import { z } from 'zod/v4';
 
-import { serverConfigContext } from '@acme/config';
-import { shouldSkipEnvValidation } from '@acme/env';
+import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 
-const skipValidation = shouldSkipEnvValidation();
+/** The deploy-target selector, resolved at this slice's `process.env` edge. */
+const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * The config-as-code deploy-target selector (ADR 0026), resolved at this
- * package's sanctioned `process.env` edge and threaded into `notificationsConfig`
- * where the server (`publish` / reader) builds its config. Mirrors chat's
- * `env.ts`; keeps `config.ts` pure. On the client `process.env.APP_ENV` is
- * undefined and resolves to the base profile — the client never reads config.
- *
- * The same edge samples the **override** bag (ADR 0033): every one of this
- * slice's config values can be retuned by a same-name environment variable at
- * runtime, so nothing here has to be re-authored per deploy.
+ * Notifications' environment, declared once (ADR 0033). The stream TTL and the
+ * reader's idle backoff bounds are operational tunables that can differ per
+ * deploy target, so they are authored here as profile values rather than
+ * hardcoded in the service layer — and each is env-overridable (ADR 0033 §4), so
+ * a noisy deploy can be retuned without a rebuild. All server-side: `publish` and
+ * `tailNotifications` run on the backend.
  */
-export const configContext = serverConfigContext(process.env);
-
-export function notificationsEnv() {
-  return createEnv({
-    shared: {
-      NODE_ENV: z
-        .enum(['development', 'production', 'test'])
-        .default('development'),
-    },
-    runtimeEnv: {
-      NODE_ENV: process.env.NODE_ENV,
-    },
-    skipValidation,
-  });
-}
-
-export const env = notificationsEnv();
+export const env = createEnv({
+  clientPrefix: 'NEXT_PUBLIC_',
+  client: {},
+  shared: {
+    NODE_ENV: z.enum(['development', 'production', 'test']),
+  },
+  server: {
+    // Rolling TTL (seconds) refreshed on every `publish`. No MAXLEN — a stream
+    // with no reader simply expires. Delivery is best-effort (ADR 0030): a
+    // publish with no page open is never delivered.
+    NOTIFICATION_TTL: z.coerce.number().int().positive(),
+    // Reader idle backoff (ms): starts at MIN, doubles up to MAX while the
+    // stream is empty, snaps back to MIN on the first new entry.
+    POLL_MIN_MS: z.coerce.number().int().positive(),
+    POLL_MAX_MS: z.coerce.number().int().positive(),
+  },
+  createFinalSchema: (shape) =>
+    withProfiles(shape, appEnv, {
+      default: {
+        NODE_ENV: 'development',
+        NOTIFICATION_TTL: 3600,
+        POLL_MIN_MS: 100,
+        POLL_MAX_MS: 1000,
+      },
+    }),
+  runtimeEnv: {
+    NODE_ENV: process.env.NODE_ENV,
+    NOTIFICATION_TTL: readEnv('NOTIFICATION_TTL'),
+    POLL_MIN_MS: readEnv('POLL_MIN_MS'),
+    POLL_MAX_MS: readEnv('POLL_MAX_MS'),
+  },
+  emptyStringAsUndefined: true,
+});

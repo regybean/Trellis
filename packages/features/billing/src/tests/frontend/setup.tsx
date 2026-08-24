@@ -13,7 +13,7 @@ import { TRPCReactProvider } from '../../trpc/react';
 import '@testing-library/jest-dom';
 
 /**
- * The billing config the client seam reads (ADR 0026), supplied directly here —
+ * The billing values the client seam reads (ADR 0033), supplied directly here —
  * config is pure, so a test constructs it with no env. The plan IDs match the
  * subscription-cache products the MSW handlers/backends seed.
  */

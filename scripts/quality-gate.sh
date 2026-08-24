@@ -31,7 +31,7 @@ mkdir -p "$STAGE_DIR"
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
-order=(turbo check:exports check:config boundaries lint:ws deps:lint test:policy gitleaks audit)
+order=(turbo check:exports boundaries lint:ws deps:lint test:policy gitleaks audit)
 
 # Dependency audit (ADR 0027). CI is the hard backstop; locally this stage
 # graceful-degrades on network failure (skip + warn, like gitleaks) so offline
@@ -63,12 +63,10 @@ launch() {
 
 # The cacheable, build-dependent turbo tasks in ONE invocation so turbo builds a
 # single DAG and parallelises across packages and task types. --continue keeps
-# it running past a failed task. check:exports and check:config are verify-only,
-# so they move out of the `lint` script (which prefixes them) and run as their
-# own parallel stages.
+# it running past a failed task. check:exports is verify-only, so it moves out of
+# the `lint` script (which prefixes it) and runs as its own parallel stage.
 launch turbo         pnpm turbo run lint format typecheck test --continue
 launch check:exports pnpm check:exports
-launch check:config  pnpm check:config
 launch boundaries    pnpm boundaries
 launch lint:ws       pnpm lint:ws
 launch deps:lint     pnpm deps:lint

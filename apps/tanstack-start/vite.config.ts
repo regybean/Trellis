@@ -4,7 +4,6 @@ import type { Plugin } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 import { tanstackStart } from '@tanstack/react-start/plugin/vite';
 import viteReact from '@vitejs/plugin-react';
-import { createJiti } from 'jiti';
 import { nitro } from 'nitro/vite';
 import { defineConfig } from 'vite';
 import tsConfigPaths from 'vite-tsconfig-paths';
@@ -70,40 +69,16 @@ const publicEnvDefine = Object.fromEntries(
     .map(([key, value]) => [`process.env.${key}`, JSON.stringify(value)]),
 );
 
-// Client config is inlined at build and frozen in the image, so its overrides
-// have to be sampled here rather than at runtime (ADR 0033). The leaf names are
-// derived from the app's composed config — never hand-listed — and the same names
-// are registered in `turbo.json` `globalEnv`, which is what makes a changed
-// override bust the build cache. Each entry is defined as a `process.env.<KEY>`
-// member expression, the only form Vite rewrites.
-//
-// Loaded through jiti, as `next.config.js` does, and for the same reason: Vite
-// bundles this config file but leaves bare workspace imports external, and every
-// `@acme/*` package resolves `default` to raw TypeScript (ADR 0015) that Node's
-// loader cannot read.
-const jiti = createJiti(import.meta.url);
-const { clientOverrideBuildEnv } =
-  await jiti.import<typeof import('@acme/config')>('@acme/config');
-const { config: appConfig } =
-  await jiti.import<typeof import('./src/config')>('./src/config');
-
-const clientConfigDefine = Object.fromEntries(
-  Object.entries(clientOverrideBuildEnv(appConfig, process.env)).map(
-    ([key, value]) => [`process.env.${key}`, JSON.stringify(value)],
-  ),
-);
-
 export default defineConfig({
   // Expose the shared NEXT_PUBLIC_* env (reused from the Next.js app) to the
   // client bundle so <ClerkProvider> can read the publishable key.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above), plus
-  // the config-as-code deploy-target selector so env.ts's
+  // the deploy-target selector so env.ts's
   // `resolveAppEnv(process.env.APP_ENV)` resolves in the client bundle too
-  // (ADR 0026). Unset → '' → the `development` base.
+  // (ADR 0026 §5). Unset → '' → the `development` base.
   define: {
     ...publicEnvDefine,
-    ...clientConfigDefine,
     'process.env.APP_ENV': JSON.stringify(process.env.APP_ENV ?? ''),
   },
   // Pre-declare deps only reachable through subpath/lazy imports so Vite's
