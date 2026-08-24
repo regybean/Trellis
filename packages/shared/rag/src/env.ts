@@ -1,7 +1,13 @@
 import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod/v4';
 
-import { jsonEnv, readEnv, resolveAppEnv, withProfiles } from '@acme/env';
+import {
+  jsonEnv,
+  readEnv,
+  resolveAppEnv,
+  webappSchema,
+  withProfiles,
+} from '@acme/env';
 
 import { RAG_DEVELOPMENT_PROFILE } from './development-profile';
 
@@ -32,14 +38,8 @@ export const env = createEnv({
   client: {},
   shared: {
     NODE_ENV: z.enum(['development', 'production', 'test']),
-    // Per-app identity — names the Postgres/pgvector schema. Must be a valid
-    // Postgres identifier: lowercase letter, then lowercase/digits/underscores.
-    NEXT_PUBLIC_WEBAPP: z
-      .string()
-      .regex(
-        /^[a-z][a-z0-9_]*$/,
-        'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
-      ),
+    // Per-app identity — names the Postgres/pgvector schema.
+    NEXT_PUBLIC_WEBAPP: webappSchema,
   },
   server: {
     DB_VECTOR_NAME: z.string().nonempty(),

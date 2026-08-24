@@ -6,7 +6,7 @@ import {
   bedrockEmbedModel,
   bedrockTitleModel,
 } from './bedrock';
-import { env, modelsEnv } from './env';
+import { env, validateModelSecrets } from './env';
 import { ollamaChatModel, ollamaEmbedModel, ollamaTitleModel } from './ollama';
 import { openrouterChatModel, openrouterTitleModel } from './openrouter';
 
@@ -19,7 +19,7 @@ type EmbedProvider = EmbedConfig['provider'];
 //
 // Each resolver takes the narrowed variant (`env.MODELS_CHAT` / `env.MODELS_EMBED`)
 // and dispatches on its `provider` discriminant to that provider's factory. The
-// active providers' secrets are validated once up front by `modelsEnv()` below
+// active providers' secrets are validated once up front by `validateModelSecrets()` below
 // (ADR 0033, value axis), so the factories only build model instances — they
 // read no env. The variant carries exactly the chosen provider's fields — no
 // region on Ollama, no base URL on Bedrock — so the factories need no
@@ -96,7 +96,7 @@ export function embedProviderOptionsFor(
 //
 // Fail fast at import on missing credentials for whichever providers the resolved
 // selection needs (value axis), instead of failing deep inside the first request.
-modelsEnv();
+validateModelSecrets();
 
 export const chatModel = resolveChatModel(env.MODELS_CHAT);
 export const titleModel = resolveTitleModel(env.MODELS_CHAT);

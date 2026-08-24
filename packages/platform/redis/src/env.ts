@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod/v4';
 
-import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
+import { readEnv, resolveAppEnv, webappSchema, withProfiles } from '@acme/env';
 
 import { REDIS_DEVELOPMENT_PROFILE } from './development-profile';
 
@@ -29,16 +29,9 @@ export const env = createEnv({
     NODE_ENV: z.enum(['development', 'production', 'test']),
     // App identity — partitions every shared datastore per app. Mirrors the
     // per-app Postgres schema (see @acme/rag env). Drives the Redis key prefix so
-    // the two apps never collide on one shared Redis instance. Must be a valid
-    // Postgres identifier — it names a schema and the Redis key prefix.
-    // Lowercase letter, then lowercase/digits/underscores (no hyphens). Fails
-    // loud rather than silently producing a broken schema.
-    NEXT_PUBLIC_WEBAPP: z
-      .string()
-      .regex(
-        /^[a-z][a-z0-9_]*$/,
-        'NEXT_PUBLIC_WEBAPP must be a valid Postgres identifier: lowercase letter then lowercase/digits/underscores',
-      ),
+    // the two apps never collide on one shared Redis instance. The
+    // Postgres-identifier constraint is `webappSchema`'s.
+    NEXT_PUBLIC_WEBAPP: webappSchema,
   },
   server: {
     REDIS_URL: z.url(),

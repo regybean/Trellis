@@ -28,9 +28,15 @@ describe('readEnv', () => {
     const realProcess = globalThis.process;
     Reflect.deleteProperty(globalThis, 'process');
     // Read and restore before asserting: vitest's own matchers run on `process`,
-    // so the browser is modelled for exactly one call.
-    const value = readEnv('ACME_READ_ENV_PROBE');
-    globalThis.process = realProcess;
+    // so the browser is modelled for exactly one call. `finally` is what keeps
+    // that window closed even if the read throws — a worker left with no
+    // `process` would take every later test in the file down with it.
+    let value: string | undefined;
+    try {
+      value = readEnv('ACME_READ_ENV_PROBE');
+    } finally {
+      globalThis.process = realProcess;
+    }
 
     expect(value).toBeUndefined();
   });

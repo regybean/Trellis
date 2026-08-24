@@ -178,3 +178,25 @@ export function withProfiles<TShape extends EnvShape>(
     },
   };
 }
+
+/**
+ * `createFinalSchema` for a call whose shape is **all secrets** — no key carries
+ * an authored value, so there is no profile to write:
+ *
+ * ```ts
+ * createFinalSchema: secretsOnly(appEnv),
+ * ```
+ *
+ * It is `withProfiles(shape, appEnv, { default: {} })`, which is the shape every
+ * secrets-gate call reaches for (`@acme/auth`'s `CLERK_SECRET_KEY`,
+ * `@acme/models`' per-provider credential groups). Naming it says *why* the
+ * profile is empty — these keys are credentials by construction, not config
+ * someone forgot to author — and keeps the empty `default: {}` from reading like
+ * an oversight at each site. It still routes through `withProfiles`, so the
+ * per-key relaxation on a run that cannot supply secrets (ADR 0033 §3) is
+ * identical; `skipValidation` is still never passed.
+ */
+export function secretsOnly(appEnv: AppEnv) {
+  return <TShape extends EnvShape>(shape: TShape) =>
+    withProfiles(shape, appEnv, { default: {} });
+}

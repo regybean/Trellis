@@ -1,7 +1,13 @@
 import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod/v4';
 
-import { jsonEnv, readEnv, resolveAppEnv, withProfiles } from '@acme/env';
+import {
+  jsonEnv,
+  readEnv,
+  resolveAppEnv,
+  secretsOnly,
+  withProfiles,
+} from '@acme/env';
 
 import { MODELS_DEVELOPMENT_PROFILE } from './development-profile';
 import { chatConfigSchema, embedConfigSchema } from './model-schemas';
@@ -14,7 +20,7 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * dimension, and every provider's model ids / region / base URL are non-sensitive
  * values that differ per deploy target, so they are authored here as profile
  * values; the raw credentials are the keys with no profile value and are demanded
- * by `modelsEnv()` below, from the *selected* providers (value axis).
+ * by `validateModelSecrets()` below, from the *selected* providers (value axis).
  *
  * Both keys go through `jsonEnv`, so each is overridable as one JSON document —
  * `MODELS_CHAT='{"provider":"openrouter","model":"…"}'`. Whole-value override is
@@ -75,7 +81,7 @@ function awsSecretEnv() {
       AWS_ACCESS_KEY_ID: z.string().nonempty(),
       AWS_SECRET_ACCESS_KEY: z.string().nonempty(),
     },
-    createFinalSchema: (shape) => withProfiles(shape, appEnv, { default: {} }),
+    createFinalSchema: secretsOnly(appEnv),
     runtimeEnv: {
       AWS_ACCESS_KEY_ID: readEnv('AWS_ACCESS_KEY_ID'),
       AWS_SECRET_ACCESS_KEY: readEnv('AWS_SECRET_ACCESS_KEY'),
@@ -91,7 +97,7 @@ function openrouterSecretEnv() {
     clientPrefix: 'NEXT_PUBLIC_',
     client: {},
     server: { OPENROUTER_API_KEY: z.string().nonempty() },
-    createFinalSchema: (shape) => withProfiles(shape, appEnv, { default: {} }),
+    createFinalSchema: secretsOnly(appEnv),
     runtimeEnv: { OPENROUTER_API_KEY: readEnv('OPENROUTER_API_KEY') },
     emptyStringAsUndefined: true,
   });
@@ -102,7 +108,7 @@ function openrouterSecretEnv() {
 // are authored together in the helper above so they can't drift, and only the
 // active providers' groups run. Ollama (the dev/test default) matches neither
 // branch, so it validates nothing.
-export function modelsEnv() {
+export function validateModelSecrets() {
   if (
     env.MODELS_CHAT.provider === 'bedrock' ||
     env.MODELS_EMBED.provider === 'bedrock'

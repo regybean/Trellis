@@ -14,11 +14,16 @@
  * - `readEnv` and `jsonEnv` are what make **every** key overridable (ADR 0033
  *   §4): `readEnv` is the `process.env` read that survives the client bundle,
  *   and `jsonEnv` lets a key whose value is not a string accept a JSON document.
+ * - `secretsOnly` is `withProfiles` for a call that authors nothing, and
+ *   `webappSchema` is the one declaration of `NEXT_PUBLIC_WEBAPP`'s
+ *   Postgres-identifier constraint — both exist so the shapes every slice
+ *   repeats are stated once.
  *
  * This package absorbed `@acme/config` (ADR 0033 supersedes ADR 0026 §§2, 4, 6).
  */
-export { withProfiles } from './profiles';
+export { withProfiles, secretsOnly } from './profiles';
 export type { Profiles } from './profiles';
+export { webappSchema } from './webapp-schema';
 export { resolveAppEnv, appEnvSchema, APP_ENVS } from './app-env';
 export type { AppEnv } from './app-env';
 export { shouldSkipEnvValidation } from './should-skip-env-validation';

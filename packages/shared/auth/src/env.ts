@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod/v4';
 
-import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
+import { readEnv, resolveAppEnv, secretsOnly, withProfiles } from '@acme/env';
 
 /** The deploy-target selector, resolved at this slice's `process.env` edge. */
 const appEnv = resolveAppEnv(process.env.APP_ENV);
@@ -97,7 +97,7 @@ export function authEnv() {
     server: {
       CLERK_SECRET_KEY: z.string().nonempty(),
     },
-    createFinalSchema: (shape) => withProfiles(shape, appEnv, { default: {} }),
+    createFinalSchema: secretsOnly(appEnv),
     runtimeEnv: {
       CLERK_SECRET_KEY: readEnv('CLERK_SECRET_KEY'),
     },

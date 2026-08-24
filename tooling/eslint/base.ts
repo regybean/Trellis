@@ -160,11 +160,6 @@ export const restrictEnvAccess = defineConfig(
       // of the public env.ts seam); it is an env-config file and reads
       // process.env just like env.ts.
       '**/env-providers.ts',
-      // read-env.ts is @acme/env's own guarded `process.env` read — the one every
-      // slice's `runtimeEnv` goes through (ADR 0033 §4). It is the same
-      // sanctioned edge as env.ts, factored out so the guard against reading
-      // `process` in a browser bundle lives in one place.
-      '**/read-env.ts',
     ],
   },
   {
