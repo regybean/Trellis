@@ -213,3 +213,20 @@ remain in the facade. The `subscribe`/`pSubscribe` wrappers attach ioredis
 `message`/`pmessage` event listeners via a tracked Map so `unsubscribe`/
 `pUnsubscribe` can remove the exact handler — preventing listener accumulation.
 There are currently zero real consumers of pub/sub (it is reserved for T2).
+
+## Amendment — identity is the one exception to the partitioning rule
+
+The construct above ("one app-identity value partitions every shared datastore")
+now has a documented exception: **Better Auth's four tables live in a constant
+`auth` Postgres schema, not in `pgSchema(NEXT_PUBLIC_WEBAPP)`.**
+
+The rule exists to stop apps reading each other's _domain data_. Identity is not
+domain data — it is what the domain data is keyed by — and a person signing in to
+`nextjs` and to `tanstack-start` is one person, not two. Partitioning it would
+mean four rows, four password hashes and four password resets for one human.
+
+The exception is narrow and deliberate: it applies to `user`, `session`,
+`account` and `verification`, and to nothing else. Every other app-owned table,
+and the Redis keyspace in its entirety, still partition on `NEXT_PUBLIC_WEBAPP`.
+Rationale, costs and the rejected alternatives are in
+[ADR 0034](0034-auth-tables-in-a-dedicated-schema.md).
