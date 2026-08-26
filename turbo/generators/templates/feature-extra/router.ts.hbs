@@ -21,8 +21,9 @@ import {
 /**
  * Sample CRUD router demonstrating the patterns used across this monorepo:
  * - `protectedProcedure` / `adminProcedure` for auth (tested once via middleware)
- * - `rateLimit()` to consume tier tokens
- * - `ctx.telemetry` for tracing and validated parsing
+ * - the caller read off `ctx.session.user` — never off an input
+ * - `rateLimit()` to consume tier credits
+ * - telemetry is ambient (ADR 0023): the platform owns the per-procedure span
  * - ownership checks before mutating user-owned rows
  *
  * Replace `items` with your real domain.
@@ -30,8 +31,7 @@ import {
 export const {{ camelCase name }}Router = createTRPCRouter({
   // List the caller's items (zero | one | many).
   list: protectedProcedure.query(async ({ ctx }) => {
-    const { userId } = ctx.auth;
-    ctx.telemetry.set({ 'user.id': userId });
+    const { id: userId } = ctx.session.user;
 
     const rows = await ctx.db
       .select()
@@ -39,18 +39,14 @@ export const {{ camelCase name }}Router = createTRPCRouter({
       .where(eq(items.userId, userId))
       .orderBy(asc(items.createdAt));
 
-    ctx.telemetry.set({ 'result.count': rows.length });
-    return rows.map((row) =>
-      ctx.telemetry.parseWithTelemetry(selectItemSchema, row, 'selectItemSchema'),
-    );
+    return rows.map((row) => selectItemSchema.parse(row));
   }),
 
   // Fetch a single owned item by id.
   byId: protectedProcedure
     .input(ItemIdRequest)
     .query(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
-      ctx.telemetry.set({ 'user.id': userId, 'input.id': input.id });
+      const { id: userId } = ctx.session.user;
 
       const [row] = await ctx.db
         .select()
@@ -62,26 +58,17 @@ export const {{ camelCase name }}Router = createTRPCRouter({
         throw new TRPCError({ code: 'NOT_FOUND', message: 'Item not found' });
       }
 
-      return ctx.telemetry.parseWithTelemetry(
-        selectItemSchema,
-        row,
-        'selectItemSchema',
-      );
+      return selectItemSchema.parse(row);
     }),
 
-  // Create an item for the caller. Consumes one rate-limit token.
+  // Create an item for the caller. Consumes one rate-limit credit.
   create: protectedProcedure
     .input(CreateItemRequest)
     .use(rateLimit())
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
-      ctx.telemetry.set({ 'user.id': userId, 'input.textLength': input.text.length });
+      const { id: userId } = ctx.session.user;
 
-      const values = ctx.telemetry.parseWithTelemetry(
-        insertItemSchema,
-        { userId, text: input.text },
-        'insertItemSchema',
-      );
+      const values = insertItemSchema.parse({ userId, text: input.text });
 
       const [created] = await ctx.db.insert(items).values(values).returning();
       if (!created) {
@@ -92,19 +79,14 @@ export const {{ camelCase name }}Router = createTRPCRouter({
       }
 
       logger.info({ userId, id: created.id }, 'item created');
-      return ctx.telemetry.parseWithTelemetry(
-        selectItemSchema,
-        created,
-        'selectItemSchema',
-      );
+      return selectItemSchema.parse(created);
     }),
 
   // Delete an owned item. Rejects if the item belongs to another user.
   remove: protectedProcedure
     .input(ItemIdRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
-      ctx.telemetry.set({ 'user.id': userId, 'input.id': input.id });
+      const { id: userId } = ctx.session.user;
 
       const deleted = await ctx.db
         .delete(items)
@@ -125,10 +107,10 @@ export const {{ camelCase name }}Router = createTRPCRouter({
   adminList: adminProcedure
     .input(z.object({ userId: z.string() }))
     .query(async ({ ctx, input }) => {
-      ctx.telemetry.set({
-        'admin.userId': ctx.auth.userId ?? '',
-        'target.userId': input.userId,
-      });
+      logger.info(
+        { adminId: ctx.session.user.id, targetUserId: input.userId },
+        'admin listing items',
+      );
       return ctx.db
         .select()
         .from(items)

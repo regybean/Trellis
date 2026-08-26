@@ -71,19 +71,19 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
 
   const dependencies: Record<string, string> = {};
   if (o.api) {
+    // No auth SDK and no billing implementation: the session and the
+    // entitlements provider are injected by the app (ADR 0003 / ADR 0006), and
+    // every procedure is built by `@acme/trpc`.
     Object.assign(dependencies, {
-      "@acme/billing": "workspace:*",
+      "@acme/db": "workspace:*",
       "@acme/logger": "workspace:*",
       "@acme/redis": "workspace:*",
-      "@acme/telemetry": "workspace:*",
-      "@clerk/nextjs": "catalog:",
-      "@opentelemetry/api": "catalog:",
+      "@acme/trpc": "workspace:*",
       "@t3-oss/env-nextjs": "catalog:",
       "@trpc/server": "catalog:",
       "drizzle-orm": "catalog:",
       "drizzle-zod": "catalog:",
       "server-only": "catalog:",
-      superjson: "catalog:",
       zod: "catalog:",
     });
   }

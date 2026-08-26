@@ -1,11 +1,13 @@
-// Global type declarations for Clerk auth.
-// Augments Clerk's session claims so `auth().sessionClaims.metadata.role` is typed.
+// Global type declarations for the platform's injected principal. No auth
+// provider is named here: `@acme/trpc` owns the `InjectedUser` seam, and a
+// feature's program can't include the platform's own `global.d.ts`, so the base
+// is redeclared. Augment it with any extra field this feature reads off
+// `ctx.session.user` — the app injecting it must then supply that field.
 export type Roles = 'admin' | 'user';
 
 declare global {
-  interface CustomJwtSessionClaims {
-    metadata: {
-      role?: Roles;
-    };
+  interface InjectedUser {
+    id: string;
+    role?: Roles;
   }
 }

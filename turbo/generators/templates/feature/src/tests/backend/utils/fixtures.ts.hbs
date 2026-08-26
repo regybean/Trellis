@@ -2,13 +2,11 @@
  * Test fixtures — factory helpers for creating consistent test data with
  * sensible, overridable defaults.
  */
-import { redis } from '@acme/redis';
-
 import type { SelectItemSchema } from '../../../api/schemas/item-schema';
 import { items } from '../../../api/schemas/item-schema';
 import { db } from '../../../api/trpc';
 
-/** Clerk-style user id. */
+/** A stable, provider-agnostic test principal id. */
 export function createTestUserId(suffix?: string) {
   return `user_test_${suffix ?? crypto.randomUUID().slice(0, 8)}`;
 }
@@ -46,14 +44,4 @@ export async function createTestItems(opts: {
     created.push(await createTestItem({ userId, text: `Test item ${i + 1}` }));
   }
   return created;
-}
-
-/** Seed Redis tokens so rate-limited procedures pass/fail deterministically. */
-export async function setupTestTokens(
-  userId: string,
-  tier = 'Basic',
-  remaining = 100,
-) {
-  if (!redis.isOpen) await redis.connect();
-  await redis.set(`tokens:${userId}:${tier}`, remaining.toString());
 }

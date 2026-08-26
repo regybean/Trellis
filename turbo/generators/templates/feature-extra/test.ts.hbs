@@ -5,14 +5,14 @@
  * - Test shared middleware (auth, rate limit) ONCE.
  * - Focus on business logic against a REAL database (testcontainers).
  * - Use the "zero / one / many" pattern for collections.
- * - Build callers with `createTestContext` to simulate different auth states.
+ * - Build callers with `createTestContext` to simulate different sessions.
  *
  * Requires Docker (the global setup starts PostgreSQL + Redis containers).
  */
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { TestContextOptions } from '@acme/test-utils';
+import type { TestContextOptions } from '../utils/test-context';
 
 import { appRouter } from '../../../api/root';
 import { items } from '../../../api/schemas/item-schema';
@@ -20,7 +20,7 @@ import { db } from '../../../api/trpc';
 import { createTestItem, createTestItems, createTestUserId } from '../utils/fixtures';
 import { cleanupTestData, createTestContext } from '../utils/test-context';
 
-const baseTokens = {
+const baseCredits = {
   remaining: 100,
   limit: 100,
   resetAt: Date.now() + 86_400_000,
@@ -31,7 +31,7 @@ function caller(opts: Partial<TestContextOptions> & { userId: string }) {
     createTestContext({
       role: 'user',
       tier: 'Basic',
-      tokens: baseTokens,
+      credits: baseCredits,
       ...opts,
     }),
   );
@@ -51,10 +51,10 @@ describe('{{ camelCase name }}Router', () => {
       ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
     });
 
-    it('rejects mutations when rate-limit tokens are exhausted', async () => {
+    it('rejects mutations when rate-limit credits are exhausted', async () => {
       const api = caller({
         userId: createTestUserId(),
-        tokens: { ...baseTokens, remaining: 0 },
+        credits: { ...baseCredits, remaining: 0 },
       });
       await expect(
         api.{{ camelCase name }}.create({ text: 'nope' }),
