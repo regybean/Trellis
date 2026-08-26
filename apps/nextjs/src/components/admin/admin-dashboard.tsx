@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { Users } from 'lucide-react';
 
-import { transformUserForClient } from '@acme/auth/server';
+import { readRole, transformUserForClient } from '@acme/auth/server';
 import {
   RateLimitManagement,
   StripeTesting,
@@ -33,8 +33,7 @@ interface Props {
  * `'use server'` role mutations from `~/lib/admin`. See ADR 0011.
  */
 export async function AdminDashboard({ searchParams }: Props) {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata.role !== 'admin') {
+  if (readRole(await auth()) !== 'admin') {
     redirect('/');
   }
 

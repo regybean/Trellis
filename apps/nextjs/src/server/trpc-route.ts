@@ -1,6 +1,7 @@
 import type { AnyRouter } from '@trpc/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 
+import { readRole } from '@acme/auth/server';
 import { toPlanIds } from '@acme/billing/config';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
@@ -26,7 +27,26 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
  */
 
 /**
- * App-owned auth seam: resolve Clerk here and shape the neutral context input.
+ * App-owned auth seam: resolve Clerk here and map it onto the platform's neutral
+ * `InjectedSession`. The principal carries only what the substrate and the
+ * features read — the id, the role (from the session token, via `@acme/auth`)
+ * and the primary email billing opens a Stripe customer with. The Clerk `User`
+ * instance itself never reaches the context.
+ */
+const resolveSession = async () => {
+  const [session, user] = await Promise.all([auth(), currentUser()]);
+
+  return {
+    user: user && {
+      id: user.id,
+      role: readRole(session) ?? undefined,
+      primaryEmailAddress: user.primaryEmailAddress,
+    },
+  };
+};
+
+/**
+ * Shape the neutral context input the feature `createTRPCContext` expects.
  * `origin` is the app's own public origin (its `PORT` in dev, deploy origin in
  * prod), read off the incoming request and threaded in so billing can build the
  * absolute Stripe checkout redirect URLs (ADR 0026 follow-up).
@@ -35,8 +55,7 @@ const resolveContext = async (req: Request) => ({
   headers: req.headers,
   req,
   origin: new URL(req.url).origin,
-  auth: await auth(),
-  user: await currentUser(),
+  session: await resolveSession(),
   entitlements,
 });
 

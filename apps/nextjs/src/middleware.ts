@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
 import { authConfig } from '@acme/auth/config';
+import { readRole } from '@acme/auth/server';
 import { resolveAppEnv } from '@acme/config';
 
 // The Clerk publishable key is config-as-code (authConfig, ADR 0026), so
@@ -65,13 +66,12 @@ export default clerkMiddleware(
     if (!isPublicRoute(request)) {
       await auth.protect();
     }
-    // if it is an admin route and your an admin then go to that route
-    if (isAdminRoute(request)) {
-      const authResult = await auth();
-      if (authResult.sessionClaims?.metadata.role !== 'admin') {
-        const url = new URL('/', request.url);
-        return NextResponse.redirect(url);
-      }
+    // an admin route stays admin-only; the role comes off the session token,
+    // read through the auth seam (short-circuited, so non-admin routes never
+    // resolve the session here)
+    if (isAdminRoute(request) && readRole(await auth()) !== 'admin') {
+      const url = new URL('/', request.url);
+      return NextResponse.redirect(url);
     }
 
     return NextResponse.next();

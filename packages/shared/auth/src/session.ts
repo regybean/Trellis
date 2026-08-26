@@ -10,9 +10,13 @@ import { z } from 'zod/v4';
  */
 const roleMetadata = z.object({ role: z.enum(['admin', 'user']).optional() });
 
-/** A resolved session, as `auth()` returns it on either Clerk framework SDK. */
+/**
+ * A resolved session, as `auth()` returns it on either Clerk framework SDK: the
+ * decoded token claims, or `null` when signed out. Claims are `unknown`-valued
+ * by construction, which is why the role is parsed rather than read.
+ */
 interface ResolvedSession {
-  sessionClaims?: { metadata?: unknown } | null;
+  sessionClaims: Record<string, unknown> | null;
 }
 
 /** The caller's role, or `null` when signed out or role-less. */
