@@ -16,7 +16,10 @@ export default {
     ssl: false,
   },
   // Mastra namespaces its tables under a per-app schema (NEXT_PUBLIC_WEBAPP).
-  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'nextjs'],
+  // `auth` is the deliberate second entry: identity is shared across the apps on
+  // one database, so Better Auth's tables sit outside the per-app schema (ADR
+  // 0034). Without it here, push would ignore them entirely.
+  schemaFilter: [process.env.NEXT_PUBLIC_WEBAPP ?? 'nextjs', 'auth'],
   tablesFilter: ['*'],
   out: './migrations/db',
   casing: 'camelCase',

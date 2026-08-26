@@ -52,6 +52,11 @@ export const staticTestEnv = {
   // them belong here. Only the Stripe secrets remain in env.
   STRIPE_SECRET_KEY: 'sk_test_123',
   STRIPE_WEBHOOK_SECRET: 'whsec_test_123',
+  // @acme/auth — Better Auth signs its session cookies with this. A real value
+  // (not a mock): the auth suite runs the genuine sign-up/sign-in flow against
+  // Postgres, so the secret has to be long enough for scrypt/HMAC to work.
+  BETTER_AUTH_SECRET: 'test-better-auth-secret-0123456789abcdef',
+  CLERK_SECRET_KEY: 'sk_test_123',
 } satisfies Record<string, string>;
 
 interface BackendProjectOptions {

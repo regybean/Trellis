@@ -1,3 +1,4 @@
+import type { UserWithRole } from 'better-auth/plugins/admin';
 import type { Auth as BetterAuthInstance } from 'better-auth/types';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 // `better-auth/minimal` rather than `better-auth`: the default entry bundles
@@ -95,8 +96,20 @@ export function initAuth(
   return betterAuth(authOptions(options));
 }
 
-/** The app's fully-inferred Better Auth instance (plugin types included). */
+/** The app's fully-inferred Better Auth instance. */
 export type Auth = ReturnType<typeof initAuth>;
 
-/** `{ session, user }` as Better Auth resolves it, with the admin plugin's fields. */
-export type Session = Auth['$Infer']['Session'];
+/**
+ * `{ session, user }` as Better Auth resolves it, with the admin plugin's user
+ * fields.
+ *
+ * The intersection is doing real work: Better Auth's `$Infer` does *not* widen
+ * `user` with a plugin's schema fields, and it types `getSession` as returning
+ * the core columns only — the admin plugin surfaces `role`/`banned`/… as its own
+ * `UserWithRole` on the admin endpoints instead. The row genuinely carries them
+ * (see `authUser`, and the role assertions in the backend suite), so the type is
+ * corrected here once rather than at every consumer.
+ */
+export type Session = Omit<Auth['$Infer']['Session'], 'user'> & {
+  user: UserWithRole;
+};
