@@ -14,23 +14,20 @@ import { instrumentDrizzleClient } from '@acme/telemetry';
 import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
 
 /**
- * The auth seam. Clerk is resolved by the *app's* adapter (Next.js route
- * handler via `@clerk/nextjs/server`, or TanStack Start via
- * `@clerk/tanstack-react-start/server`) and the result is injected here. This
- * package depends on no Clerk SDK at all — `InjectedAuth` is a neutral local
- * type and `ctx.user` is the augmentable `InjectedUser` global (below). See
- * docs/adr/0003-framework-agnostic-auth-seam.md and
+ * The session seam. The *app's* adapter resolves whoever its auth provider says
+ * is calling and injects the result here; this package names no provider and
+ * depends on no auth SDK. See docs/adr/0003-framework-agnostic-auth-seam.md and
  * docs/adr/0006-entitlements-injection-seam.md.
  */
 /**
- * The slice of session auth the platform consumes (`userId` + `sessionClaims`).
- * Apps inject their Clerk `SessionAuthObject`, which is structurally assignable
- * to this discriminated union — so `protectedProcedure` narrows `userId` to a
- * non-null `string`.
+ * The whole of the session the platform consumes: a principal, or nothing.
+ * `user` is the augmentable `InjectedUser` global (below), whose base carries
+ * the only two fields the substrate reads — `id` and `role`.
+ * `protectedProcedure` narrows it to a non-null `InjectedUser`.
  */
-export type InjectedAuth =
-  | { userId: string; sessionClaims: CustomJwtSessionClaims }
-  | { userId: null; sessionClaims: null };
+export interface InjectedSession {
+  user: InjectedUser | null;
+}
 
 /**
  * Re-exported so app adapters and RSC callers can type the injected billing
@@ -50,14 +47,13 @@ interface ContextOpts {
    * checkout paths to build the Stripe redirect URLs (ADR 0026 follow-up).
    */
   origin?: string;
-  /** Resolved Clerk session auth, injected by the app adapter. */
-  auth: InjectedAuth;
   /**
-   * The full user, injected by the app adapter (null when signed out). Typed
-   * via the augmentable `InjectedUser` global so an app can sharpen it to its
-   * own user shape (the full apps augment it to a Clerk `User`).
+   * The resolved session, injected by the app adapter (`user: null` when signed
+   * out). `user` is typed via the augmentable `InjectedUser` global, so an app
+   * can sharpen it to its own principal shape (the full apps add the fields
+   * they map off their provider's user).
    */
-  user: InjectedUser | null;
+  session: InjectedSession;
   /**
    * The billing policy — rate limiting + tier gating. Required, with no
    * implicit default (mirroring the auth seam): a deployment must explicitly
@@ -76,21 +72,20 @@ type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 
 /**
  * Builds the base request context shared by every feature from the
- * app-injected auth + user + entitlements provider: resolves the billing
+ * app-injected session + entitlements provider: resolves the billing
  * context (subscription / tier / credits) through the provider. Telemetry is
  * ambient — the telemetry middleware owns the per-procedure span and everything
  * reads it from the active OTel context (ADR 0023), so nothing is threaded here.
  */
 export async function createTRPCContext(opts: ContextOpts) {
-  const { auth: authResult, user, entitlements, ...rest } = opts;
+  const { session, entitlements, ...rest } = opts;
   const { subscription, tier, credits } = await entitlements.resolve(
-    authResult.userId,
+    session.user?.id ?? null,
   );
 
   return {
     ...rest,
-    auth: authResult,
-    user,
+    session,
     entitlements,
     subscription,
     credits,
@@ -131,7 +126,7 @@ function buildCore() {
       span.setAttributes({
         'trpc.procedure.path': path,
         'trpc.procedure.type': type,
-        ...(ctx.auth.userId && { 'user.id': ctx.auth.userId }),
+        ...(ctx.session.user && { 'user.id': ctx.session.user.id }),
       });
 
       try {
@@ -191,7 +186,8 @@ function buildCore() {
 
   const isAuthed = t.middleware(({ next, ctx }) => {
     const span = trace.getActiveSpan();
-    if (!ctx.auth.userId) {
+    const { user } = ctx.session;
+    if (!user) {
       span?.addEvent('auth.denied', { reason: 'not_authenticated' });
       throw new TRPCError({
         code: 'UNAUTHORIZED',
@@ -201,12 +197,15 @@ function buildCore() {
 
     span?.addEvent('auth.granted');
 
-    return next({ ctx: { auth: ctx.auth } });
+    // Re-injecting the narrowed session is what gives every downstream
+    // procedure a non-null `ctx.session.user`.
+    return next({ ctx: { session: { user } } });
   });
 
   const isAdmin = t.middleware(({ next, ctx }) => {
     const span = trace.getActiveSpan();
-    const role = ctx.auth.sessionClaims?.metadata.role;
+    const { user } = ctx.session;
+    const role = user?.role;
 
     if (role !== 'admin') {
       span?.addEvent('auth.denied', {
@@ -222,7 +221,8 @@ function buildCore() {
     span?.setAttributes({ 'user.role': 'admin' });
     span?.addEvent('auth.granted', { role: 'admin' });
 
-    return next({ ctx: { auth: ctx.auth } });
+    // An admin role implies a principal, so this narrows `user` too.
+    return next({ ctx: { session: { user } } });
   });
 
   const publicProcedure = t.procedure
@@ -240,8 +240,8 @@ function buildCore() {
     t.middleware(async ({ next, ctx }) => {
       const span = trace.getActiveSpan();
       const creditsToConsume = opts.credits ?? 1;
-      const { auth: authCtx, credits, tier } = ctx;
-      const userId = authCtx.userId;
+      const { session, credits, tier } = ctx;
+      const userId = session.user?.id ?? null;
 
       span?.setAttributes({
         'rateLimit.creditsToConsume': creditsToConsume,

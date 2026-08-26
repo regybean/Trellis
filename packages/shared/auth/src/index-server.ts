@@ -1,8 +1,10 @@
 /**
  * Backend auth surface — no `'use client'` boundary, so it can *run* on the
  * server. Holds `transformUserForClient` (maps a backend Clerk `User` to the
- * serializable shape sent to client components). Kept out of the `'use client'`
+ * serializable shape sent to client components) and `readRole` (the validated
+ * read of the role claim off a resolved session). Kept out of the `'use client'`
  * barrel in `./index.ts` so it executes server-side instead of becoming a
  * client reference. See docs/adr/0003-framework-agnostic-auth-seam.md.
  */
+export * from './session';
 export * from './types/admin';

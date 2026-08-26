@@ -25,7 +25,7 @@ import type {
 } from '@acme/entitlements';
 import { isTierAtLeast } from '@acme/entitlements';
 
-import type { createTRPCContext, InjectedAuth } from './index';
+import type { createTRPCContext, InjectedSession } from './index';
 
 /** Knobs a test varies per caller: identity, role, tier, and credit balance. */
 export interface TestContextOptions {
@@ -89,36 +89,39 @@ export function createMockEntitlements(opts: {
 }
 
 /**
- * Stubbed session auth in the neutral `InjectedAuth` shape the platform
- * actually consumes (Clerk is resolved in the app adapter, never here) — just
- * enough for `protectedProcedure`/`adminProcedure` to narrow `userId` and read
- * the role claim.
+ * A minimal injected principal, typed as the augmentable `InjectedUser` seam.
+ * The platform reads only `id` and `role`; the extra `primaryEmailAddress` is
+ * there for the consumers that augment the seam with it (billing's Stripe
+ * customer lookup). It is built as a plain object rather than an annotated
+ * literal deliberately: the platform's own base declares only the two fields it
+ * reads, so a literal would be an excess-property error here even though a
+ * consumer's augmented view needs the extra one at runtime.
  */
-export function createMockAuth(userId: string, role: 'admin' | 'user') {
-  return {
-    userId,
-    sessionClaims: { metadata: { role } },
-  } satisfies InjectedAuth;
+export function createMockUser(
+  userId: string,
+  role: 'admin' | 'user',
+): InjectedUser {
+  const user = {
+    id: userId,
+    role,
+    primaryEmailAddress: { emailAddress: 'test@example.com' },
+  };
+  return user;
 }
 
 /**
- * A minimal injected user, typed as the augmentable `InjectedUser` seam. The
- * platform reads no user fields (the base is empty), so the runtime object is
- * minimal; the return annotation makes the emitted type adapt per consumer — a
- * feature that augments `InjectedUser` to a Clerk `User` (e.g. billing) sees the
- * richer type without this package importing any Clerk SDK.
+ * A stubbed session in the neutral `InjectedSession` shape the platform
+ * actually consumes (an auth provider is resolved in the app adapter, never
+ * here) — just enough for `protectedProcedure` to narrow the principal and
+ * `adminProcedure` to read its role.
  */
-export function createMockUser(userId: string): InjectedUser {
-  return {
-    id: userId,
-    emailAddresses: [{ emailAddress: 'test@example.com' }],
-    primaryEmailAddress: { emailAddress: 'test@example.com' },
-  };
+export function createMockSession(userId: string, role: 'admin' | 'user') {
+  return { user: createMockUser(userId, role) } satisfies InjectedSession;
 }
 
 /**
  * Build a tRPC caller context for backend tests. Pass it straight to a feature's
- * `appRouter.createCaller(...)`. Stubs auth/user and injects the mock
+ * `appRouter.createCaller(...)`. Stubs the session and injects the mock
  * entitlements provider; real DB/Redis come from the feature's own `db`/`redis`
  * clients (validated against the running containers — never mocked). Telemetry
  * is ambient (ADR 0023) — there is no span in a caller test, so the ambient
@@ -133,8 +136,7 @@ export function createTestContext(
     // A realistic app origin so procedures that build absolute redirect URLs
     // (billing checkout) resolve one, matching what an app edge would inject.
     origin: 'http://localhost:3000',
-    auth: createMockAuth(opts.userId, opts.role),
-    user: createMockUser(opts.userId),
+    session: createMockSession(opts.userId, opts.role),
     entitlements: createMockEntitlements(opts),
     subscription,
     tier,
