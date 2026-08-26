@@ -154,6 +154,8 @@ Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.js
 
 Each skill also carries `agents/openai.yaml` — its Codex-facing metadata (`interface.display_name`, `interface.short_description`, and `policy.allow_implicit_invocation` where the skill must not fire on its own). Keep it alongside the `SKILL.md` frontmatter when adding a skill; both describe the same skill to different harnesses.
 
+Prose that reaches the user — grilling questions, plan and spec text, PR/issue bodies, end-of-task summaries — goes through the `unslop` skill before you send it.
+
 ### Issue tracker
 
 See `docs/agents/issue-tracker.md`.
