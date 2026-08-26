@@ -60,7 +60,7 @@ accepted
   `@clerk/shared` → `swr` into the server graph, where `swr` resolves via its
   `react-server` export condition (no default export / no `useSWR*`) and the
   build fails. Backend code (`transformUserForClient`) must stay out of the
-  `'use client'` barrel because it has to *run* on the server, not become a
+  `'use client'` barrel because it has to _run_ on the server, not become a
   client reference.
 - The seam is guarded by ESLint (`no-restricted-imports` in
   `tooling/eslint/base.ts`): `@clerk/nextjs/server` and
@@ -72,8 +72,62 @@ accepted
 - **One blessed feature-level exception:** `@acme/billing` ships a Next-coupled
   RSC (`stripe-success-handler.tsx`, exported only via `@acme/billing/server-next`,
   never the neutral `@acme/billing/server`). It resolves Clerk directly and
-  carries an inline `eslint-disable` citing this ADR. This is a *named* Next
+  carries an inline `eslint-disable` citing this ADR. This is a _named_ Next
   adapter living in the package, not a leak into the neutral surface — the
   TanStack app reimplements the same flow with a server function over
   `syncStripeDataToKV`. Any future feature-level Clerk use must clear the same
   bar (isolated behind a framework-specific entry point) or be injected instead.
+
+## Amendment — the seam covered resolution, not the session type
+
+Decision 1 above is narrower than it reads. Making `createTRPCContext` take an
+injected `auth` moved _resolution_ into the app, but the _type_ it injected was
+still Clerk's: `InjectedAuth` was `{ userId, sessionClaims: CustomJwtSessionClaims }`,
+and `CustomJwtSessionClaims` — Clerk's JWT-claims augmentation point — had to be
+declared in every program that touched a procedure. It was declared seven times:
+`@acme/auth`, `@acme/trpc`, the `global.d.ts` of all four features, and the
+feature generator template. So every feature carried the provider's session
+vocabulary despite importing no Clerk SDK, a newly scaffolded feature inherited
+it, and swapping providers would have touched all seven.
+
+Issue #220 replaces it:
+
+- `InjectedSession { user: InjectedUser | null }` is the whole of what the
+  platform consumes, and `ctx.auth` + `ctx.user` collapse into `ctx.session`.
+- `InjectedUser`'s base (in `@acme/trpc`) carries exactly what the substrate
+  reads: a guaranteed `id` and an optional `role`. `isAdmin` gates on
+  `ctx.session.user.role`; `isAuthed` re-injects the narrowed session, so a
+  protected procedure's `ctx.session.user` is non-null. Because an admin implies
+  a principal, `adminProcedure` narrows too — `@acme/ingest`'s local
+  `requireUserId` guard, which existed only because the old union didn't narrow,
+  is gone.
+- `CustomJwtSessionClaims` is deleted everywhere, including the generator
+  template. A scaffolded feature now names no auth provider at all: its
+  `api/trpc.ts` delegates to `createFeatureTRPCWithDb` and its package.json
+  drops `@clerk/nextjs`.
+- `adminProcedure` stays in `@acme/trpc` rather than moving up into each app —
+  all four features, both slim apps, the generator template and three test suites
+  use it. Carrying `role` on the base principal is the price of keeping it.
+
+The provider vocabulary now lives in two places, which is what "the seam is
+app-owned" was meant to mean:
+
+- **`@acme/auth`** holds the Clerk-shaped pieces: `readRole` (the single
+  validated read of the role claim — Clerk types session claims as
+  `{ [k: string]: unknown }`, so the shape is parsed, not asserted) and the
+  `InjectedUser` augmentation, typed off Clerk's `User` via `Pick` so a renamed
+  provider field is a compile error.
+- **The two full apps** map Clerk onto the neutral principal in their context
+  resolvers (`id`, `role`, and the `primaryEmailAddress` billing opens a Stripe
+  customer with) and read the role through `readRole` in the Next middleware
+  admin gate, the Start route guard, and both admin server-action gates. The
+  Clerk `User` instance itself no longer reaches the tRPC context; `@acme/billing`
+  augments the seam with the one email field it reads, structurally.
+
+The role still comes off the session token, so behaviour is unchanged — a role
+change takes effect on token refresh, exactly as before.
+
+Consequence: swapping Clerk for another provider is a change to `@acme/auth`
+plus the two full apps. The slim apps show the floor — a constant
+`{ user: { id: 'local', role: 'admin' } }` with no provider behind it
+([ADR 0010](0010-slim-no-auth-apps.md)).

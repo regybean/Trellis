@@ -12,11 +12,11 @@ The per-feature tRPC instance (router, procedures, context) produced by one call
 _Avoid_: "the tRPC setup", "the router config"
 
 **Base context**:
-The request context every procedure receives — the app-injected `auth` and `user`,
-the injected `entitlements` provider, and the billing context
+The request context every procedure receives — the app-injected `session`, the
+injected `entitlements` provider, and the billing context
 (`subscription`/`tier`/`credits`) resolved from it. There is no `telemetry` on the
 context: telemetry is ambient (ADR 0023).
-_Avoid_: "the session"
+_Avoid_: "the request object", "the tRPC context object"
 
 **Entitlements provider**:
 The `EntitlementsProvider` (`@acme/entitlements`) injected into `createTRPCContext`
@@ -28,14 +28,25 @@ _Avoid_: "the billing service", "the subscription client"
 
 **Billing context**:
 The `subscription` / `tier` / `credits` triple, resolved once per request by calling
-`entitlements.resolve(userId)` on the injected **Entitlements provider** — never by
-importing a billing package into the substrate.
+`entitlements.resolve(ctx.session.user?.id ?? null)` on the injected
+**Entitlements provider** — never by importing a billing package into the
+substrate.
+
+**Injected session**:
+The `InjectedSession` an app resolves at its edge and passes to
+`createTRPCContext` — `{ user: InjectedUser | null }`, where `InjectedUser` is the
+augmentable global whose base carries the only two fields the substrate reads,
+`id` and `role`. No auth provider is named here; mapping a provider's session
+onto this shape is the app's job (ADR 0003).
+_Avoid_: "the auth object", "the Clerk session"
 
 **Protected procedure**:
-A procedure requiring an authenticated Clerk user (`isAuthed`).
+A procedure requiring a principal — `isAuthed` rejects a null `ctx.session.user`
+and re-injects the narrowed session, so downstream `ctx.session.user` is non-null.
 
 **Admin procedure**:
-A procedure requiring `auth.sessionClaims.metadata.role === 'admin'` (`isAdmin`).
+A procedure requiring `ctx.session.user.role === 'admin'` (`isAdmin`). An admin
+implies a principal, so this narrows `ctx.session.user` too.
 
 **Rate limit**:
 Token-bucket middleware (`rateLimit({ credits })`) that decrements a per-user,
@@ -49,8 +60,9 @@ exactly like `rateLimit`.
 
 **Context resolver**:
 The app-owned function that turns an HTTP `Request` into the neutral context input
-`createTRPCContext` expects (Clerk for the full apps; a constant local principal for
-the slim apps). The _only_ per-app/per-framework piece of the route seam — it stays
+`createTRPCContext` expects, mapping its auth provider's session onto the
+**Injected session** (Clerk for the full apps; a constant local principal for the
+slim apps). The _only_ per-app/per-framework piece of the route seam — it stays
 in the app to keep framework + auth specifics out of the platform (ADR 0003 / 0010).
 _Avoid_: "the auth handler", "the context builder"
 
@@ -114,12 +126,12 @@ framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM ty
 boundary if constructed in the platform package.
 
 **`@acme/trpc/testing` is the one home for a test caller context**: `createTestContext`
-(+ `createMockEntitlements`, `createMockAuth`, `createMockUser`)
+(+ `createMockEntitlements`, `createMockSession`, `createMockUser`)
 live here — beside the `BaseContext` they must match — so every feature builds a caller
 from the real platform types, not the structural `as any` a tooling package below
 `platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
 The context is synchronous but its `subscription`/`tier`/`credits` are derived from the
 same mock `EntitlementsProvider.resolve` the real `createTRPCContext` would call, so a
 test context cannot drift from production. `createMockUser` is typed as the augmentable
-`InjectedUser` so a feature that sharpens it to a Clerk `User` (billing) sees the richer
-type without this package importing any Clerk SDK. See [docs/TESTING.md](../../../docs/TESTING.md).
+`InjectedUser`, so a feature that augments the seam with extra fields (billing adds the
+primary email) sees the richer type without this package naming an auth provider. See [docs/TESTING.md](../../../docs/TESTING.md).
