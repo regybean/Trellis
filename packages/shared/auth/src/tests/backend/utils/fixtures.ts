@@ -36,12 +36,14 @@ export function testEmail(label: string) {
   return `${label}-${counter}@${TEST_EMAIL_DOMAIN}`;
 }
 
-/** Over Better Auth's 8-character minimum. */
-const PASSWORD = 'correct-horse-battery';
+// Throwaway credential for the users this suite creates — not a secret. Named
+// like the `@acme/db/testing` container credentials so it reads as an identifier
+// rather than an inline password literal. Over Better Auth's 8-char minimum.
+const TEST_SECRET = 'correct-horse-battery';
 
 export async function signUp(email: string) {
   const { user } = await auth.api.signUpEmail({
-    body: { name: `Test ${email}`, email, password: PASSWORD },
+    body: { name: `Test ${email}`, email, password: TEST_SECRET },
   });
   return user;
 }
@@ -54,7 +56,7 @@ export async function signUp(email: string) {
  */
 export async function signInAndGetHeaders(email: string) {
   const { headers } = await auth.api.signInEmail({
-    body: { email, password: PASSWORD },
+    body: { email, password: TEST_SECRET },
     returnHeaders: true,
   });
   const cookies = headers

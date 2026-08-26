@@ -19,11 +19,15 @@ import {
   testEmail,
 } from '../../utils/fixtures';
 
-/** Rows from `information_schema.tables`, as `db.execute` hands them back. */
-type TableRow = {
+/**
+ * Rows from `information_schema.tables`, as `db.execute` hands them back. The
+ * `Record` in the extends clause is `db.execute`'s own generic constraint — an
+ * interface has no implicit index signature, so it has to be declared.
+ */
+interface TableRow extends Record<string, unknown> {
   table_schema: string;
   table_name: string;
-};
+}
 
 describe('better auth instance', () => {
   it('puts its four tables in the auth schema, not the per-app schema', async () => {
@@ -36,7 +40,7 @@ describe('better auth instance', () => {
     `);
 
     const located = rows.map((row) => `${row.table_schema}.${row.table_name}`);
-    expect(located.toSorted()).toEqual([
+    expect(located.toSorted((a, b) => a.localeCompare(b))).toEqual([
       'auth.account',
       'auth.session',
       'auth.user',
