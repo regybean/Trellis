@@ -100,6 +100,18 @@ export {
   type UserManagementUser,
 } from './widgets/user-detailed-management';
 
+// Auth forms and the signed-in menu. Presentational and prop-driven, so the
+// package takes no `@acme/auth` dependency (ADR 0010) — the caller owns the
+// provider call and passes `error` / `pending` back in.
+export { SignInForm } from './widgets/sign-in-form';
+export { SignUpForm } from './widgets/sign-up-form';
+export { UserButton, type UserButtonUser } from './widgets/user-button';
+export {
+  MIN_PASSWORD_LENGTH,
+  type SignInCredentials,
+  type SignUpCredentials,
+} from './lib/auth-credentials';
+
 export { ToastThemeClient } from './providers/toast-theme-client';
 // The theme wrapper module owns the `next-themes` dependency — it exports the
 // provider and re-exports the hook, so apps read `resolvedTheme` through the
