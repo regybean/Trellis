@@ -32,7 +32,7 @@ export const ownedConversationProcedure = protectedProcedure.use(
     const { sessionId } = conversationInput.parse(await getRawInput());
     const conversation = await assertOwnedThreadForTRPC(
       sessionId,
-      ctx.auth.userId,
+      ctx.session.user.id,
     );
     return next({ ctx: { conversation } });
   },
@@ -45,7 +45,7 @@ export const existingConversationProcedure = protectedProcedure.use(
     const { sessionId } = conversationInput.parse(await getRawInput());
     const conversation = await assertOwnedThreadForTRPC(
       sessionId,
-      ctx.auth.userId,
+      ctx.session.user.id,
     );
     if (!conversation) {
       throw new TRPCError({
@@ -69,7 +69,7 @@ export const ownedConversationByIdProcedure = protectedProcedure.use(
     const { conversationId } = conversationIdInput.parse(await getRawInput());
     const conversation = await assertOwnedThreadForTRPC(
       conversationId,
-      ctx.auth.userId,
+      ctx.session.user.id,
     );
     return next({ ctx: { conversation } });
   },

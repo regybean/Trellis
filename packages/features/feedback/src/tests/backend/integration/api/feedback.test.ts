@@ -59,7 +59,7 @@ describe('feedbackRouter', () => {
           tier: 'Basic',
           credits: baseCredits,
         }),
-        auth: { userId: null, sessionClaims: null },
+        session: { user: null },
       };
       const caller = appRouter.createCaller(ctx);
 

@@ -33,7 +33,7 @@ export const feedbackRouter = createTRPCRouter({
   forMessage: protectedProcedure
     .input(MessageFeedbackRequest)
     .query(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       const [row] = await ctx.db
         .select()
@@ -54,7 +54,7 @@ export const feedbackRouter = createTRPCRouter({
   submit: protectedProcedure
     .input(SubmitFeedbackRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       // 1. Thread ownership — the Mastra-owned ownership fact. Foreign ownership
       // is mapped to FORBIDDEN inside the shared adapter; absence is a NOT_FOUND
@@ -126,7 +126,7 @@ export const feedbackRouter = createTRPCRouter({
   remove: protectedProcedure
     .input(MessageFeedbackRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       await ctx.db
         .delete(messageFeedback)

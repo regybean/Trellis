@@ -1,16 +1,14 @@
-// Global type declarations for Clerk auth.
-// Roles is owned by @acme/auth — import it rather than redeclaring.
+// Global type declarations for the platform's injected principal. No auth
+// provider is named: `@acme/trpc` owns the `InjectedUser` seam, and a feature's
+// program can't include the platform's own `global.d.ts`, so the base is
+// redeclared here. `Roles` is owned by @acme/auth — imported, not redeclared.
 import type { Roles } from '@acme/auth';
 
 declare global {
-  interface CustomJwtSessionClaims {
-    metadata: {
-      role?: Roles;
-    };
+  // `ctx.session.user`. Chat reads only the id; `role` is the base field
+  // `adminProcedure` gates on. See @acme/trpc.
+  interface InjectedUser {
+    id: string;
+    role?: Roles;
   }
-
-  // `ctx.user` shape. The platform declares this open interface; chat reads no
-  // user fields, so the base (empty) is enough. See @acme/trpc.
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface InjectedUser {}
 }

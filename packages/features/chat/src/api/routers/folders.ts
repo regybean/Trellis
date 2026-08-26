@@ -41,7 +41,7 @@ export async function assertFolderOwned(
 // those Conversations to their Date Bucket with no per-Conversation write.
 export const foldersRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
-    const { userId } = ctx.auth;
+    const { id: userId } = ctx.session.user;
 
     const rows = await ctx.db
       .select()
@@ -55,7 +55,7 @@ export const foldersRouter = createTRPCRouter({
   create: protectedProcedure
     .input(CreateFolderRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       const [created] = await ctx.db
         .insert(chatFolder)
@@ -76,7 +76,7 @@ export const foldersRouter = createTRPCRouter({
   delete: protectedProcedure
     .input(DeleteFolderRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       // Scoped delete: a caller can only delete their own Folder. Member threads
       // are intentionally left untouched (lazy delete).

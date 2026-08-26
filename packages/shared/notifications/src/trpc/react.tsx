@@ -11,7 +11,7 @@ import { createQueryClient } from './query-client';
 // (`subscriptions: true`, `httpSubscriptionLink`); the plain `http` transport
 // half exists so tests stay MSW-friendly and the link never throws while the SSE
 // can't connect in jsdom (ADR 0018). No persister, no `scopeKey` — the server
-// keys the stream by `ctx.auth.userId`.
+// keys the stream by `ctx.session.user.id`.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: 'notifications',
   nodeEnv: env.NODE_ENV,

@@ -205,12 +205,13 @@ function buildCore() {
   const isAdmin = t.middleware(({ next, ctx }) => {
     const span = trace.getActiveSpan();
     const { user } = ctx.session;
-    const role = user?.role;
 
-    if (role !== 'admin') {
+    // Checked through the optional chain rather than via an aliased `role`, so
+    // the admitted path narrows `user` to a non-null principal.
+    if (user?.role !== 'admin') {
       span?.addEvent('auth.denied', {
         reason: 'not_admin',
-        actual_role: role ?? 'none',
+        actual_role: user?.role ?? 'none',
       });
       throw new TRPCError({
         code: 'UNAUTHORIZED',
