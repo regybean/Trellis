@@ -39,6 +39,7 @@ catalog:
   "@opentelemetry/semantic-conventions": ^1.43.0
   "@openrouter/ai-sdk-provider": ^2.9.1
   "@react-pdf/renderer": ^4.3.1
+  "@t3-oss/env-core": ^0.13.11
   "@t3-oss/env-nextjs": ^0.13.10
   "@tailwindcss/postcss": ^4.1.16
   "@tailwindcss/vite": ^4.1.16
@@ -61,6 +62,7 @@ catalog:
   "@vitejs/plugin-react": ^5.1.1
   "@xmldom/xmldom": ^0.9.8
   ai: ^6.0.204
+  better-auth: ^1.7.1
   bullmq: ^5.80.0
   clsx: ^2.1.0
   drizzle-orm: ^0.45.2 # GHSA-gpj5-g38j-94v9 (SQL injection) patched >=0.45.2
