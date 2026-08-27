@@ -4,9 +4,9 @@ import type { ConfigContext } from '@acme/config';
 import { createConfig } from '@acme/config';
 
 /**
- * Host port the local compose stack publishes Postgres on, and the port a local
- * (non-testcontainers) backend suite probes — `testing.ts` reads this same
- * constant so the two can never drift apart.
+ * Host port the local compose stack publishes Postgres on — dev infra only.
+ * Tests never reach it: every backend suite starts its own Postgres on a random
+ * host port (ADR 0033).
  *
  * Deliberately *not* 5432: the container publishes to a fixed host port, so the
  * default collides with any other project running Postgres on this machine —
@@ -27,9 +27,9 @@ export const LOCAL_DB_PORT = 5444;
  * stay pure config. `DB_PASSWORD` stays a secret in `env.ts`. Server-side — the
  * connection factory runs on the backend.
  *
- * The base (development) values double as the test-container values
- * (`localhost:${LOCAL_DB_PORT}`, `postgres` / `testdb`), so a suite validates
- * against the same profile it connects to.
+ * The base (development) values double as the test-container credentials
+ * (`postgres` / `testdb`), so a suite validates against the same profile it
+ * connects to; only host/port differ, and those come from the container.
  */
 export function dbConfig(context: ConfigContext) {
   return createConfig({
