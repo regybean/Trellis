@@ -17,14 +17,6 @@ import { tailIngestProgress } from '../services/ingest-progress-stream';
 import { enqueueIngestJob } from '../services/ingest-queue';
 import { adminProcedure, createTRPCRouter } from '../trpc';
 
-// `adminProcedure` checks the role but doesn't narrow `userId` off the auth
-// union. An admin is always authenticated, so narrow it here (a client can only
-// act on / tail its own stream) before it's used as a Redis-key segment.
-function requireUserId(userId: string | null | undefined) {
-  if (!userId) throw new TRPCError({ code: 'UNAUTHORIZED' });
-  return userId;
-}
-
 export const documentsRouter = createTRPCRouter({
   /** List indexed documents grouped by filename. */
   list: adminProcedure.input(z.void()).query(async () => {
@@ -41,7 +33,7 @@ export const documentsRouter = createTRPCRouter({
   getPresignedUploadUrls: adminProcedure
     .input(getPresignedUrlsSchema)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       // Annotated `string` so the branded UUID template type doesn't leak into
       // the wire contract — clients receive plain strings.
@@ -77,7 +69,7 @@ export const documentsRouter = createTRPCRouter({
   startIngestJob: adminProcedure
     .input(startIngestJobSchema)
     .mutation(async ({ ctx, input }) => {
-      const userId = requireUserId(ctx.auth.userId);
+      const { id: userId } = ctx.session.user;
       const { jobId, uploads } = input;
 
       // Cheap integrity guard: every echoed key must live under this Job's prefix.
@@ -120,7 +112,7 @@ export const documentsRouter = createTRPCRouter({
    * `documents.list`), so a completed file never re-seeds as a duplicate row.
    */
   progressSnapshot: adminProcedure.input(z.void()).query(async ({ ctx }) => {
-    const userId = requireUserId(ctx.auth.userId);
+    const { id: userId } = ctx.session.user;
     return readProgressSnapshot(userId);
   }),
 
@@ -135,7 +127,7 @@ export const documentsRouter = createTRPCRouter({
   progress: adminProcedure
     .input(progressReaderSchema)
     .subscription(async function* ({ ctx, input, signal }) {
-      const userId = requireUserId(ctx.auth.userId);
+      const { id: userId } = ctx.session.user;
 
       logger.info(
         { userId, lastEventId: input.lastEventId, sinceId: input.sinceId },

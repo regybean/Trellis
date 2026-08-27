@@ -60,8 +60,8 @@ export const accountRouter = createTRPCRouter({
     .input(CheckoutRequest)
     .mutation(async ({ input, ctx }) => {
       // Get user information from context
-      const { userId } = ctx.auth;
-      const email = ctx.user?.primaryEmailAddress?.emailAddress;
+      const { id: userId } = ctx.session.user;
+      const email = ctx.session.user.primaryEmailAddress?.emailAddress;
 
       if (!email) {
         throw billingError(
@@ -103,8 +103,8 @@ export const accountRouter = createTRPCRouter({
 
   createDashboardSession: protectedProcedure.mutation(async ({ ctx }) => {
     // Get user information from context
-    const { userId } = ctx.auth;
-    const email = ctx.user?.primaryEmailAddress?.emailAddress;
+    const { id: userId } = ctx.session.user;
+    const email = ctx.session.user.primaryEmailAddress?.emailAddress;
 
     if (!email) {
       throw billingError(

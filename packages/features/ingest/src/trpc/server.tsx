@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { EntitlementsProvider, InjectedAuth } from '@acme/trpc';
+import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
 
 import type { AppRouter } from '../api/root';
 import { appRouter } from '../api/root';
@@ -14,18 +14,17 @@ import { createQueryClient } from './query-client';
 
 /**
  * Framework-neutral RSC server caller (reference scaffold — no app imports it
- * today). The auth + billing seams: the *app* resolves Clerk and chooses an
- * entitlements provider at its boundary, then injects the principal here. This
- * feature depends on no Clerk SDK and no billing provider. A Next.js app would
- * wire `await auth()` / `await currentUser()` (from `@clerk/nextjs/server`) and
+ * today). The auth + billing seams: the *app* resolves its identity provider and
+ * chooses an entitlements provider at its boundary, then injects the resolved
+ * session here. This feature depends on no auth SDK and no billing provider. An
+ * app maps its provider's session onto `InjectedSession` and picks
  * `subscriptionsEntitlements` (or `unlimitedEntitlements` for a no-billing
- * build) into `createServerTRPC`. See docs/adr/0003-framework-agnostic-auth-seam.md
+ * build), then passes both to `createServerTRPC`. See docs/adr/0003-framework-agnostic-auth-seam.md
  * and docs/adr/0006-entitlements-injection-seam.md.
  */
 export interface ServerTRPCOptions {
   headers: Headers;
-  auth: InjectedAuth;
-  user: InjectedUser | null;
+  session: InjectedSession;
   entitlements: EntitlementsProvider;
 }
 
@@ -38,8 +37,7 @@ export function createServerTRPC(opts: ServerTRPCOptions) {
 
     return createTRPCContext({
       headers: heads,
-      auth: opts.auth,
-      user: opts.user,
+      session: opts.session,
       entitlements: opts.entitlements,
     });
   });

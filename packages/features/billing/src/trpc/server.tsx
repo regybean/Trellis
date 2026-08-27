@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { EntitlementsProvider, InjectedAuth } from '@acme/trpc';
+import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
 
 import type { AppRouter } from '../api/root';
 import { appRouter } from '../api/root';
@@ -23,8 +23,7 @@ import { createQueryClient } from './query-client';
  */
 export interface ServerTRPCOptions {
   headers: Headers;
-  auth: InjectedAuth;
-  user: InjectedUser | null;
+  session: InjectedSession;
   entitlements: EntitlementsProvider;
 }
 
@@ -37,8 +36,7 @@ export function createServerTRPC(opts: ServerTRPCOptions) {
 
     return createTRPCContext({
       headers: heads,
-      auth: opts.auth,
-      user: opts.user,
+      session: opts.session,
       entitlements: opts.entitlements,
     });
   });
