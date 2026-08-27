@@ -60,7 +60,7 @@ accepted
   `@clerk/shared` → `swr` into the server graph, where `swr` resolves via its
   `react-server` export condition (no default export / no `useSWR*`) and the
   build fails. Backend code (`transformUserForClient`) must stay out of the
-  `'use client'` barrel because it has to *run* on the server, not become a
+  `'use client'` barrel because it has to _run_ on the server, not become a
   client reference.
 - The seam is guarded by ESLint (`no-restricted-imports` in
   `tooling/eslint/base.ts`): `@clerk/nextjs/server` and
@@ -72,8 +72,65 @@ accepted
 - **One blessed feature-level exception:** `@acme/billing` ships a Next-coupled
   RSC (`stripe-success-handler.tsx`, exported only via `@acme/billing/server-next`,
   never the neutral `@acme/billing/server`). It resolves Clerk directly and
-  carries an inline `eslint-disable` citing this ADR. This is a *named* Next
+  carries an inline `eslint-disable` citing this ADR. This is a _named_ Next
   adapter living in the package, not a leak into the neutral surface — the
   TanStack app reimplements the same flow with a server function over
   `syncStripeDataToKV`. Any future feature-level Clerk use must clear the same
   bar (isolated behind a framework-specific entry point) or be injected instead.
+
+## Amendment (#220) — the injected type is a neutral session, not the provider's
+
+The decision above was half right. Resolution _was_ app-owned: each app called
+its own Clerk SDK and injected the result, and no feature imported a framework
+Clerk SDK. But the **shape** injected was Clerk's, not ours:
+
+- `InjectedAuth` was `{ userId, sessionClaims: CustomJwtSessionClaims }` — the
+  Clerk session object, chosen precisely so an app could pass `await auth()`
+  straight through. That structural convenience is what made it Clerk's type.
+- `CustomJwtSessionClaims` is a _Clerk_ global, and the platform declared it, as
+  did `@acme/auth`, all four feature `global.d.ts` files, and the feature
+  generator template — seven declarations of provider vocabulary in layers that
+  ADR 0003 claimed knew nothing about the provider.
+- `isAdmin` read the role off a JWT claim, which only exists because Clerk
+  projects `public_metadata` into the session token.
+
+So "the platform doesn't know frameworks exist" held, while "the platform
+doesn't know _providers_ exist" did not. Swapping the provider would have
+touched every one of those seven files.
+
+The injected type is now neutral:
+
+```ts
+export type InjectedSession = { user: InjectedUser } | { user: null };
+```
+
+`ctx.auth` and `ctx.user` collapse into a single `ctx.session`. `InjectedUser`
+stays the augmentable global, and the platform's base declares the only two
+fields it reads: `id` and an optional `role`. `isAdmin` reads
+`ctx.session.user.role`. Written as a union rather than
+`{ user: InjectedUser | null }` so it narrows — once `isAuthed` has rejected the
+signed-out case, `ctx.session.user` is non-null downstream, which is what let
+`@acme/ingest` delete the `requireUserId` guard it had needed.
+
+Consequences:
+
+- **Mapping, not pass-through, is the app's job.** A resolver can no longer hand
+  the platform its provider's session object; it maps onto `InjectedSession`
+  explicitly. This is the honest seam — and it is now the only provider-shaped
+  code in the request path.
+- **`CustomJwtSessionClaims` moves to the apps.** It survives only in
+  `apps/nextjs/src/global.d.ts` and `apps/tanstack-start/src/global.d.ts`, beside
+  the Clerk adapters that read it, and it goes away with Clerk. Provider
+  vocabulary lives with the adapter that owns it, not in `@acme/auth` or
+  `@acme/trpc`.
+- **Role is a field, not a claim.** Where it comes from is the app's business:
+  under Clerk the resolvers still read `sessionClaims.metadata.role` and attach
+  it to the injected user, so behaviour is unchanged; under a provider that
+  stores role on the user row it is read directly.
+- **The slim apps get simpler**, which is the check that ADR 0010 holds: their
+  constant principal is `{ user: { id: 'local', role: 'admin' } }`, with no
+  provider shape left to fake.
+
+This amendment is a prefactor — it lands with Clerk still installed and every
+behaviour identical. It exists so that replacing the provider (#218) touches
+`@acme/auth` and the two full apps, and nothing else.

@@ -12,12 +12,12 @@ Clerk and Stripe: a deployment can drop both and still run.
 ## Language
 
 **Constant principal** (`src/server/trpc-route.ts`):
-The fixed `InjectedAuth` this app injects in place of a resolved Clerk session —
-`{ userId: 'local', sessionClaims: { metadata: { role: 'admin' } } }`. The features
-still require a principal (`@acme/chat` is `protectedProcedure`; `@acme/ingest` is
+The fixed `InjectedSession` this app injects in place of a resolved provider
+session — `{ user: { id: 'local', role: 'admin' } }`. The features still require a
+principal (`@acme/chat` is `protectedProcedure`; `@acme/ingest` is
 `adminProcedure`), so the app supplies one constant admin user rather than resolving
-auth. `ctx.user` is `null` — no retained feature reads it. See
-[ADR 0010](../../docs/adr/0010-slim-no-auth-apps.md).
+auth. There is no provider shape to fake: the session seam is neutral (ADR 0003
+amendment). See [ADR 0010](../../docs/adr/0010-slim-no-auth-apps.md).
 _Avoid_: "fake user", "mock auth".
 
 **Unlimited entitlements**:
