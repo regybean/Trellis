@@ -20,10 +20,29 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error
  * logging and CORS live once in `@acme/trpc/handler`; this file owns only the
- * app-specific auth seam — resolving Clerk and shaping the neutral context input
- * the feature `createTRPCContext` expects. The feature packages never import a
- * framework Clerk SDK or a billing implementation themselves (ADR 0003).
+ * app-specific auth seam — resolving Clerk and mapping it onto the neutral
+ * context input the feature `createTRPCContext` expects. The feature packages
+ * never import a framework Clerk SDK or a billing implementation themselves
+ * (ADR 0003).
  */
+
+/**
+ * Map Clerk's session onto the platform's neutral `InjectedSession`. This is the
+ * only Clerk-shaped code in the request path: the role moves off the JWT claim
+ * and onto the injected user, which is what the platform's `isAdmin` reads.
+ *
+ * `Object.assign` rather than a spread because Clerk's `User` exposes
+ * `primaryEmailAddress` (which the billing account router reads) as a prototype
+ * getter — spreading would drop it. The object is per-request, so mutating it is
+ * contained. Branching on `user` rather than returning `{ user: user && … }`
+ * keeps the result a *union* of the two session shapes, which is what narrows.
+ */
+const resolveSession = async () => {
+  const { sessionClaims } = await auth();
+  const user = await currentUser();
+  if (!user) return { user: null };
+  return { user: Object.assign(user, { role: sessionClaims?.metadata.role }) };
+};
 
 /**
  * App-owned auth seam: resolve Clerk here and shape the neutral context input.
@@ -35,8 +54,7 @@ const resolveContext = async (req: Request) => ({
   headers: req.headers,
   req,
   origin: new URL(req.url).origin,
-  auth: await auth(),
-  user: await currentUser(),
+  session: await resolveSession(),
   entitlements,
 });
 

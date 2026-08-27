@@ -28,4 +28,4 @@ export {
 } from '@clerk/clerk-react';
 
 export type { SerializableUser } from './types/admin';
-export type * from './types/globals';
+export type { Roles } from './types/roles';

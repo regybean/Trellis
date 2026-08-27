@@ -1,6 +1,6 @@
 import type { AnyRouter } from '@trpc/server';
 
-import type { InjectedAuth } from '@acme/trpc';
+import type { InjectedSession } from '@acme/trpc';
 import { unlimitedEntitlements } from '@acme/entitlements';
 import {
   corsPreflightHeaders,
@@ -11,20 +11,20 @@ import {
  * App-owned tRPC route-handler seam for the slim (no-auth, no-billing) Next.js
  * app. The fetch-adapter wiring, error logging and CORS live once in
  * `@acme/trpc/handler`; this file owns only the app-specific seam — injecting a
- * constant local principal and `unlimitedEntitlements` in place of Clerk +
- * billing (ADR 0010).
+ * constant local principal and `unlimitedEntitlements` in place of an identity
+ * provider + billing (ADR 0010).
  */
 
 /**
  * Constant local principal. This app strips Clerk, but the feature procedures
  * still require a principal: `@acme/chat` is `protectedProcedure` (scopes Mastra
- * memory by a non-null `userId`) and `@acme/ingest` is `adminProcedure` (gates on
- * `sessionClaims.metadata.role === 'admin'`). So we inject a single fixed admin
- * user. `user` is null — no retained feature reads `ctx.user`. See ADR-0006.
+ * memory by a non-null user) and `@acme/ingest` is `adminProcedure` (gates on the
+ * session user's role). So we inject a single fixed admin user — which is the
+ * whole of what the neutral session seam asks for, with no provider vocabulary
+ * to fake. See ADR-0003 / ADR-0006.
  */
-const LOCAL_PRINCIPAL: InjectedAuth = {
-  userId: 'local',
-  sessionClaims: { metadata: { role: 'admin' } },
+const LOCAL_PRINCIPAL: InjectedSession = {
+  user: { id: 'local', role: 'admin' },
 };
 
 /**
@@ -35,8 +35,7 @@ const LOCAL_PRINCIPAL: InjectedAuth = {
 const resolveContext = (req: Request) => ({
   headers: req.headers,
   req,
-  auth: LOCAL_PRINCIPAL,
-  user: null,
+  session: LOCAL_PRINCIPAL,
   entitlements: unlimitedEntitlements,
 });
 

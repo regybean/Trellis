@@ -1,8 +1,7 @@
 // Global type declarations for the auth seam.
 import type { User } from '@clerk/backend';
 
-// Create a type for the roles
-export type Roles = 'admin' | 'user';
+import type { Roles } from './roles';
 
 declare global {
   // The canonical `ctx.session.user` augmentation for the full apps: both apps

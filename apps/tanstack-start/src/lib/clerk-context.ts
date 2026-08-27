@@ -12,23 +12,36 @@ import { config } from '../config';
 const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
 
 /**
- * App-owned auth seam: resolve Clerk on the server (session auth + full user)
- * and shape it into the fields the neutral tRPC context expects, alongside the
- * Stripe/Redis-backed entitlements provider. Each feature's `createTRPCContext`
- * (re-exported from the platform seam) consumes this — the feature packages
- * never import a framework Clerk SDK or a billing implementation themselves.
+ * Map Clerk's session onto the platform's neutral `InjectedSession`. This is the
+ * only Clerk-shaped code in the request path: the role moves off the JWT claim
+ * and onto the injected user, which is what the platform's `isAdmin` reads.
  *
  * `auth()` reads the Start request context populated by `clerkMiddleware()`
  * (registered in `src/start.ts`); the full user is fetched only when signed in,
  * mirroring the Next.js app's `currentUser()` injection.
+ *
+ * `Object.assign` rather than a spread because Clerk's `User` exposes
+ * `primaryEmailAddress` (which the billing account router reads) as a prototype
+ * getter — spreading would drop it. The object is per-request, so mutating it is
+ * contained. Branching on `userId` rather than returning `{ user: user && … }`
+ * keeps the result a *union* of the two session shapes, which is what narrows.
+ */
+async function resolveSession() {
+  const { userId, sessionClaims } = await auth();
+  if (!userId) return { user: null };
+
+  const user = await clerkClient().users.getUser(userId);
+  return { user: Object.assign(user, { role: sessionClaims.metadata.role }) };
+}
+
+/**
+ * App-owned auth seam: resolve Clerk on the server and shape it into the fields
+ * the neutral tRPC context expects, alongside the Stripe/Redis-backed
+ * entitlements provider. Each feature's `createTRPCContext` (re-exported from
+ * the platform seam) consumes this — the feature packages never import a
+ * framework Clerk SDK or a billing implementation themselves.
  */
 export async function resolveClerkContext(req: Request) {
-  const authObject = await auth();
-  const client = clerkClient();
-  const user = authObject.userId
-    ? await client.users.getUser(authObject.userId)
-    : null;
-
   return {
     headers: req.headers,
     req,
@@ -36,8 +49,7 @@ export async function resolveClerkContext(req: Request) {
     // off the request so billing can build the absolute Stripe checkout redirect
     // URLs from the config-owned paths (ADR 0026 follow-up).
     origin: new URL(req.url).origin,
-    auth: authObject,
-    user,
+    session: await resolveSession(),
     entitlements,
   };
 }
