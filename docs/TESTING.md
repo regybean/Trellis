@@ -134,11 +134,17 @@ below follows from that.
 Each feature owns `src/tests/frontend/setup.tsx` exporting `renderWithProviders`
 (wraps in `TRPCReactProvider`, and `<ToastContainer />` when the feature toasts)
 and `trpcMsw` (a `createTRPCMsw<AppRouter>` bound to the feature's tRPC endpoint)
-— plus the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture). The
-config is `vitest.config.frontend.ts` (`environment: 'jsdom'`, `staticTestEnv`,
-`@vitejs/plugin-react`). `feedback`'s setup + `feedback-buttons` /
-`use-feedback` tests are the reference; `ingest`'s `documents-list` is the worked
-example of the MSW-over-shallow-mock rewrite.
+— plus `import '@acme/test-utils/jsdom'`, the shared side-effect module holding
+the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture,
+`scrollIntoView`). The config is `vitest.config.frontend.ts`
+(`environment: 'jsdom'`, `staticTestEnv`, `@vitejs/plugin-react`). `feedback`'s
+setup + `feedback-buttons` / `use-feedback` tests are the reference; `ingest`'s
+`documents-list` is the worked example of the MSW-over-shallow-mock rewrite.
+
+A **library** package with no provider tree (`@acme/ui`, `@acme/hooks`) owns a
+plain `setup.ts` instead: nothing to wrap, so no `renderWithProviders` and no
+JSX — its tests `render` prop-driven components directly. The `staticTestEnv`
+spread still applies.
 
 ## What is real vs mocked
 
