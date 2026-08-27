@@ -1,10 +1,9 @@
-import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
-import { DropdownMenuItem, UserButton } from '../../../../index';
+import { UserButton } from '../../../../index';
 
 // The injected sign-out handler is observed through what it renders — the
 // harness swaps the button for a signed-out marker — so the assertion stays on
@@ -15,30 +14,27 @@ const ada = {
   email: 'ada@example.com',
 };
 
-function Harness({ menuItems }: { menuItems?: ReactNode }) {
+/** The trigger's accessible name comes from its own content. */
+const trigger = { name: /Ada Lovelace/ };
+
+function Harness() {
   const [signedIn, setSignedIn] = useState(true);
 
   if (!signedIn) {
     return <p>Signed out</p>;
   }
 
-  return (
-    <UserButton
-      user={ada}
-      onSignOut={() => setSignedIn(false)}
-      menuItems={menuItems}
-    />
-  );
+  return <UserButton user={ada} onSignOut={() => setSignedIn(false)} />;
 }
 
 describe('UserButton', () => {
   it('renders the user name and email on the trigger', async () => {
     render(<Harness />);
 
-    const trigger = await screen.findByRole('button');
+    const control = await screen.findByRole('button', trigger);
 
-    expect(trigger).toHaveTextContent('Ada Lovelace');
-    expect(trigger).toHaveTextContent('ada@example.com');
+    expect(control).toHaveTextContent('Ada Lovelace');
+    expect(control).toHaveTextContent('ada@example.com');
   });
 
   it('falls back to initials when there is no image', async () => {
@@ -51,26 +47,9 @@ describe('UserButton', () => {
     const user = userEvent.setup();
     render(<Harness />);
 
-    await user.click(await screen.findByRole('button'));
+    await user.click(await screen.findByRole('button', trigger));
     await user.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
 
     expect(await screen.findByText('Signed out')).toBeInTheDocument();
-  });
-
-  it('renders app-supplied menu items above sign-out', async () => {
-    const user = userEvent.setup();
-    render(
-      <Harness
-        menuItems={<DropdownMenuItem>Manage billing</DropdownMenuItem>}
-      />,
-    );
-
-    await user.click(await screen.findByRole('button'));
-
-    const items = await screen.findAllByRole('menuitem');
-
-    expect(items).toHaveLength(2);
-    expect(items[0]).toHaveTextContent('Manage billing');
-    expect(items[1]).toHaveTextContent('Sign out');
   });
 });

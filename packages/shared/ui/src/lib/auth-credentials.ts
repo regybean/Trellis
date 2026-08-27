@@ -41,3 +41,43 @@ export const signUpFormSchema = signUpSchema
     error: 'Passwords do not match',
     path: ['confirmPassword'],
   });
+
+/** One message per field name, as the forms render them. */
+export type CredentialFieldErrors = Record<string, string | undefined>;
+
+/**
+ * First issue per field, keyed by field name — the shape both auth forms hold
+ * as state. Refinements that set an explicit `path` (the confirmation match)
+ * land on that field like any other.
+ */
+export function firstIssuePerField<T>(error: z.ZodError<T>) {
+  const messages: CredentialFieldErrors = {};
+
+  for (const issue of error.issues) {
+    const [field] = issue.path;
+
+    if (typeof field === 'string' && messages[field] === undefined) {
+      messages[field] = issue.message;
+    }
+  }
+
+  return messages;
+}
+
+/**
+ * The prop shape both auth forms share. The caller owns the provider call, so
+ * it also owns the outcome: `error` renders until the caller clears it — reset
+ * it when a fresh attempt starts, or the previous rejection stays on screen.
+ */
+export interface AuthFormProps<Credentials> {
+  /**
+   * Called with validated credentials. The form never talks to a provider, so
+   * `@acme/ui` needs no `@acme/auth` dependency (ADR 0010).
+   */
+  onSubmit: (credentials: Credentials) => void;
+  /** A rejected attempt, rendered above the submit control. Caller-cleared. */
+  error?: string | null;
+  /** Submission in flight: the submit control disables and shows progress. */
+  pending?: boolean;
+  className?: string;
+}

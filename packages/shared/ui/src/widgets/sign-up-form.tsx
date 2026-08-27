@@ -1,17 +1,19 @@
 'use client';
 
-import { useId, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { z } from 'zod';
+import { useState } from 'react';
 
-import type { SignUpCredentials } from '../../src/lib/auth-credentials';
+import type {
+  AuthFormProps,
+  CredentialFieldErrors,
+  SignUpCredentials,
+} from '../lib/auth-credentials';
+import { cn } from '../../src/lib/utils';
 import {
+  firstIssuePerField,
   MIN_PASSWORD_LENGTH,
   signUpFormSchema,
-} from '../../src/lib/auth-credentials';
-import { cn } from '../../src/lib/utils';
+} from '../lib/auth-credentials';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Button } from '../ui/button';
 import {
   Card,
   CardContent,
@@ -20,28 +22,11 @@ import {
   CardHeader,
   CardTitle,
 } from '../ui/card';
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from '../ui/field';
-import { Input } from '../ui/input';
+import { FieldGroup } from '../ui/field';
+import { AuthSubmitButton, CredentialField } from './auth-form-parts';
 
-interface SignUpFormProps {
-  /**
-   * Called with validated credentials — name, email and password. The
-   * confirmation field is form-only and never handed on. As with
-   * `SignInForm`, the caller owns the provider call (ADR 0010).
-   */
-  onSubmit: (credentials: SignUpCredentials) => void;
-  /** A rejected attempt, rendered above the submit control. */
-  error?: string | null;
-  /** Submission in flight: the submit control disables and shows progress. */
-  pending?: boolean;
+interface SignUpFormProps extends AuthFormProps<SignUpCredentials> {
   signInHref?: string;
-  className?: string;
 }
 
 export function SignUpForm({
@@ -51,43 +36,20 @@ export function SignUpForm({
   signInHref = '/sign-in',
   className,
 }: SignUpFormProps) {
-  const fieldId = useId();
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{
-    name?: string;
-    email?: string;
-    password?: string;
-    confirmPassword?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<CredentialFieldErrors>({});
 
-  const nameId = `${fieldId}-name`;
-  const emailId = `${fieldId}-email`;
-  const passwordId = `${fieldId}-password`;
-  const confirmPasswordId = `${fieldId}-confirm-password`;
-
-  // `noValidate` hands validation to zod rather than the browser, so the
-  // messages are ours and assertable in the DOM.
+  // Uncontrolled inputs read through `FormData`, so validation messages are the
+  // form's only state. `confirmPassword` is validated but never handed on — the
+  // caller receives name, email and password.
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const parsed = signUpFormSchema.safeParse({
-      name,
-      email,
-      password,
-      confirmPassword,
-    });
+    const parsed = signUpFormSchema.safeParse(
+      Object.fromEntries(new FormData(event.currentTarget)),
+    );
 
     if (!parsed.success) {
-      const { fieldErrors: errors } = z.flattenError(parsed.error);
-      setFieldErrors({
-        name: errors.name?.[0],
-        email: errors.email?.[0],
-        password: errors.password?.[0],
-        confirmPassword: errors.confirmPassword?.[0],
-      });
+      setFieldErrors(firstIssuePerField(parsed.error));
       return;
     }
 
@@ -110,68 +72,40 @@ export function SignUpForm({
       <CardContent>
         <form onSubmit={handleSubmit} noValidate>
           <FieldGroup>
-            <Field data-invalid={fieldErrors.name !== undefined}>
-              <FieldLabel htmlFor={nameId}>Name</FieldLabel>
-              <Input
-                id={nameId}
-                name="name"
-                type="text"
-                autoComplete="name"
-                placeholder="Ada Lovelace"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                aria-invalid={fieldErrors.name !== undefined}
-              />
-              <FieldError>{fieldErrors.name}</FieldError>
-            </Field>
+            <CredentialField
+              label="Name"
+              name="name"
+              type="text"
+              autoComplete="name"
+              placeholder="Ada Lovelace"
+              error={fieldErrors.name}
+            />
 
-            <Field data-invalid={fieldErrors.email !== undefined}>
-              <FieldLabel htmlFor={emailId}>Email</FieldLabel>
-              <Input
-                id={emailId}
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                aria-invalid={fieldErrors.email !== undefined}
-              />
-              <FieldError>{fieldErrors.email}</FieldError>
-            </Field>
+            <CredentialField
+              label="Email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              error={fieldErrors.email}
+            />
 
-            <Field data-invalid={fieldErrors.password !== undefined}>
-              <FieldLabel htmlFor={passwordId}>Password</FieldLabel>
-              <Input
-                id={passwordId}
-                name="password"
-                type="password"
-                autoComplete="new-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                aria-invalid={fieldErrors.password !== undefined}
-              />
-              <FieldDescription>
-                At least {MIN_PASSWORD_LENGTH} characters.
-              </FieldDescription>
-              <FieldError>{fieldErrors.password}</FieldError>
-            </Field>
+            <CredentialField
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete="new-password"
+              description={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+              error={fieldErrors.password}
+            />
 
-            <Field data-invalid={fieldErrors.confirmPassword !== undefined}>
-              <FieldLabel htmlFor={confirmPasswordId}>
-                Confirm password
-              </FieldLabel>
-              <Input
-                id={confirmPasswordId}
-                name="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(event) => setConfirmPassword(event.target.value)}
-                aria-invalid={fieldErrors.confirmPassword !== undefined}
-              />
-              <FieldError>{fieldErrors.confirmPassword}</FieldError>
-            </Field>
+            <CredentialField
+              label="Confirm password"
+              name="confirmPassword"
+              type="password"
+              autoComplete="new-password"
+              error={fieldErrors.confirmPassword}
+            />
 
             {error && (
               <Alert variant="destructive">
@@ -179,10 +113,11 @@ export function SignUpForm({
               </Alert>
             )}
 
-            <Button type="submit" disabled={pending} aria-busy={pending}>
-              {pending && <Loader2 className="animate-spin" />}
-              {pending ? 'Creating account…' : 'Create account'}
-            </Button>
+            <AuthSubmitButton
+              pending={pending}
+              label="Create account"
+              pendingLabel="Creating account…"
+            />
           </FieldGroup>
         </form>
       </CardContent>

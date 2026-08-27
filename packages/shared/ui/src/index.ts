@@ -106,8 +106,12 @@ export {
 export { SignInForm } from './widgets/sign-in-form';
 export { SignUpForm } from './widgets/sign-up-form';
 export { UserButton, type UserButtonUser } from './widgets/user-button';
+// The schemas ship alongside the types so a caller owning the provider call can
+// re-validate what it was handed before sending it on.
 export {
   MIN_PASSWORD_LENGTH,
+  signInSchema,
+  signUpSchema,
   type SignInCredentials,
   type SignUpCredentials,
 } from './lib/auth-credentials';

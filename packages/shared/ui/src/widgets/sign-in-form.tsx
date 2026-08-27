@@ -1,14 +1,15 @@
 'use client';
 
-import { useId, useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { z } from 'zod';
+import { useState } from 'react';
 
-import type { SignInCredentials } from '../../src/lib/auth-credentials';
-import { signInSchema } from '../../src/lib/auth-credentials';
+import type {
+  AuthFormProps,
+  CredentialFieldErrors,
+  SignInCredentials,
+} from '../lib/auth-credentials';
 import { cn } from '../../src/lib/utils';
+import { firstIssuePerField, signInSchema } from '../lib/auth-credentials';
 import { Alert, AlertDescription } from '../ui/alert';
-import { Button } from '../ui/button';
 import {
   Card,
   CardContent,
@@ -17,23 +18,11 @@ import {
   CardHeader,
   CardTitle,
 } from '../ui/card';
-import { Field, FieldError, FieldGroup, FieldLabel } from '../ui/field';
-import { Input } from '../ui/input';
+import { FieldGroup } from '../ui/field';
+import { AuthSubmitButton, CredentialField } from './auth-form-parts';
 
-interface SignInFormProps {
-  /**
-   * Called with validated credentials. The form never talks to a provider —
-   * the caller owns the sign-in call, so `@acme/ui` needs no `@acme/auth`
-   * dependency (ADR 0010).
-   */
-  onSubmit: (credentials: SignInCredentials) => void;
-  /** A rejected attempt, rendered above the submit control. */
-  error?: string | null;
-  /** Submission in flight: the submit control disables and shows progress. */
-  pending?: boolean;
+interface SignInFormProps extends AuthFormProps<SignInCredentials> {
   signUpHref?: string;
-  forgotPasswordHref?: string;
-  className?: string;
 }
 
 export function SignInForm({
@@ -41,33 +30,23 @@ export function SignInForm({
   error,
   pending = false,
   signUpHref = '/sign-up',
-  forgotPasswordHref,
   className,
 }: SignInFormProps) {
-  const fieldId = useId();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{
-    email?: string;
-    password?: string;
-  }>({});
+  const [fieldErrors, setFieldErrors] = useState<CredentialFieldErrors>({});
 
-  const emailId = `${fieldId}-email`;
-  const passwordId = `${fieldId}-password`;
-
-  // `noValidate` on the form hands validation to zod rather than the browser,
-  // so the messages are ours and assertable in the DOM.
+  // The inputs are uncontrolled: the DOM already holds what was typed, so the
+  // only state worth keeping is the validation messages. `noValidate` hands
+  // validation to zod rather than the browser, so the messages are ours and
+  // assertable in the DOM.
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
-    const parsed = signInSchema.safeParse({ email, password });
+    const parsed = signInSchema.safeParse(
+      Object.fromEntries(new FormData(event.currentTarget)),
+    );
 
     if (!parsed.success) {
-      const { fieldErrors: errors } = z.flattenError(parsed.error);
-      setFieldErrors({
-        email: errors.email?.[0],
-        password: errors.password?.[0],
-      });
+      setFieldErrors(firstIssuePerField(parsed.error));
       return;
     }
 
@@ -86,34 +65,22 @@ export function SignInForm({
       <CardContent>
         <form onSubmit={handleSubmit} noValidate>
           <FieldGroup>
-            <Field data-invalid={fieldErrors.email !== undefined}>
-              <FieldLabel htmlFor={emailId}>Email</FieldLabel>
-              <Input
-                id={emailId}
-                name="email"
-                type="email"
-                autoComplete="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                aria-invalid={fieldErrors.email !== undefined}
-              />
-              <FieldError>{fieldErrors.email}</FieldError>
-            </Field>
+            <CredentialField
+              label="Email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="you@example.com"
+              error={fieldErrors.email}
+            />
 
-            <Field data-invalid={fieldErrors.password !== undefined}>
-              <FieldLabel htmlFor={passwordId}>Password</FieldLabel>
-              <Input
-                id={passwordId}
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                aria-invalid={fieldErrors.password !== undefined}
-              />
-              <FieldError>{fieldErrors.password}</FieldError>
-            </Field>
+            <CredentialField
+              label="Password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              error={fieldErrors.password}
+            />
 
             {error && (
               <Alert variant="destructive">
@@ -121,28 +88,21 @@ export function SignInForm({
               </Alert>
             )}
 
-            <Button type="submit" disabled={pending} aria-busy={pending}>
-              {pending && <Loader2 className="animate-spin" />}
-              {pending ? 'Signing in…' : 'Sign in'}
-            </Button>
+            <AuthSubmitButton
+              pending={pending}
+              label="Sign in"
+              pendingLabel="Signing in…"
+            />
           </FieldGroup>
         </form>
       </CardContent>
-      <CardFooter className="flex-col items-start gap-2 text-sm">
+      <CardFooter className="text-sm">
         <p className="text-muted-foreground">
           Don&apos;t have an account?{' '}
           <a href={signUpHref} className="text-primary hover:underline">
             Sign up
           </a>
         </p>
-        {forgotPasswordHref && (
-          <a
-            href={forgotPasswordHref}
-            className="text-muted-foreground hover:underline"
-          >
-            Forgot your password?
-          </a>
-        )}
       </CardFooter>
     </Card>
   );

@@ -1,43 +1,10 @@
 import '@testing-library/jest-dom';
+// jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
+import '@acme/test-utils/jsdom';
 
 // `@acme/ui` is presentational — no network, no providers, no tRPC client — so
 // this suite needs no MSW server (ADR 0018's HTTP-boundary fake has nothing to
-// intercept here). Components take their data and handlers as props and the
-// tests assert what renders.
-
-// --- jsdom gaps the Radix primitives rely on -----------------------------
-class ResizeObserverMock {
-  observe() {
-    // no-op
-  }
-  unobserve() {
-    // no-op
-  }
-  disconnect() {
-    // no-op
-  }
-}
-globalThis.ResizeObserver = ResizeObserverMock;
-
-if (!('hasPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.hasPointerCapture = () => false;
-}
-if (!('setPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.setPointerCapture = () => {
-    // no-op
-  };
-}
-if (!('releasePointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.releasePointerCapture = () => {
-    // no-op
-  };
-}
-if (!('scrollIntoView' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.scrollIntoView = () => {
-    // no-op
-  };
-}
+// intercept here) and no `renderWithProviders`: components take their data and
+// handlers as props and the tests `render` them directly. That's why this is a
+// plain `setup.ts` rather than the feature recipe's `setup.tsx` (docs/TESTING.md
+// § "Setup and config") — there is no provider tree to wrap, so no JSX.

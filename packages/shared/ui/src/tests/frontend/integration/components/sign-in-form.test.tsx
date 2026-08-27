@@ -53,10 +53,13 @@ describe('SignInForm', () => {
     await user.type(screen.getByLabelText('Password'), 'correct-horse');
     await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
-    expect(
-      await screen.findByText('Enter a valid email address'),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText('Email')).toBeInvalid();
+    const message = await screen.findByText('Enter a valid email address');
+    const email = screen.getByLabelText('Email');
+
+    expect(email).toBeInvalid();
+    // The message is linked to the field, not just announced by its role.
+    expect(email).toHaveAccessibleDescription('Enter a valid email address');
+    expect(message).toBeInTheDocument();
     expect(screen.queryByTestId('submitted')).not.toBeInTheDocument();
   });
 
