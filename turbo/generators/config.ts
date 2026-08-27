@@ -73,10 +73,11 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
   if (o.api) {
     Object.assign(dependencies, {
       "@acme/billing": "workspace:*",
+      "@acme/db": "workspace:*",
       "@acme/logger": "workspace:*",
       "@acme/redis": "workspace:*",
       "@acme/telemetry": "workspace:*",
-      "@clerk/nextjs": "catalog:",
+      "@acme/trpc": "workspace:*",
       "@opentelemetry/api": "catalog:",
       "@t3-oss/env-nextjs": "catalog:",
       "@trpc/server": "catalog:",

@@ -8,7 +8,7 @@ import type { SelectItemSchema } from '../../../api/schemas/item-schema';
 import { items } from '../../../api/schemas/item-schema';
 import { db } from '../../../api/trpc';
 
-/** Clerk-style user id. */
+/** A test user id. */
 export function createTestUserId(suffix?: string) {
   return `user_test_${suffix ?? crypto.randomUUID().slice(0, 8)}`;
 }

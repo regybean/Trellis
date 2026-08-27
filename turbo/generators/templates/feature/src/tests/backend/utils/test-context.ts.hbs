@@ -1,49 +1,33 @@
 /**
- * Test context factory.
+ * Test context — {{ kebabCase name }}.
  *
- * Builds the object tRPC procedures expect as `ctx`. We use the REAL db/redis
- * clients (pointed at testcontainers) and only stub the layers we don't want to
- * test here: Clerk auth. Telemetry is ambient (ADR 0023) — no span in a caller
- * test, so nothing to stub.
+ * The tRPC caller context comes from the one canonical builder
+ * (`@acme/trpc/testing`), so it can never drift from what the real
+ * `createTRPCContext` assembles. It stubs the session — the only layer we don't
+ * want to exercise here — and injects a mock entitlements provider; db/redis are
+ * the REAL clients, pointed at testcontainers. Telemetry is ambient (ADR 0023):
+ * no span in a caller test, so nothing to stub.
+ *
+ * This file owns only the feature's data cleanup.
  */
-import type { TestContextOptions } from '@acme/test-utils';
-import { redis } from '@acme/redis';
-import { createMockAuth, createMockUser } from '@acme/test-utils';
+import { flushTestDb } from '@acme/redis/testing';
 
-import type { createTRPCContext } from '../../../api/trpc';
 import { items } from '../../../api/schemas/item-schema';
 import { db } from '../../../api/trpc';
 
-type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
-
-export function createTestContext(opts: TestContextOptions): TRPCContext {
-  return {
-    headers: new Headers(),
-    db,
-    auth: createMockAuth(opts.userId, opts.role),
-    user: createMockUser(opts.userId),
-    subscription: { status: 'none' } as const,
-    tokens: opts.tokens,
-    tier: opts.tier,
-  };
-}
+export { createTestContext } from '@acme/trpc/testing';
+export type { TestContextOptions } from '@acme/trpc/testing';
 
 /**
- * Remove all rows this feature owns + flush Redis. Call in `beforeEach` for
- * isolation between tests.
+ * Remove all rows this feature owns + flush the isolated Redis DB. Call in
+ * `beforeEach` for isolation between tests.
  */
 export async function cleanupTestData() {
   try {
     await db.delete(items);
-  } catch (error) {
-    // Tables may not exist if migrations haven't been pushed yet.
-    console.log('⚠️ cleanup warning:', error);
+  } catch {
+    // Table might not exist yet — nothing to clean.
   }
 
-  try {
-    if (!redis.isOpen) await redis.connect();
-    await redis.flushDb();
-  } catch {
-    // Redis may not be connected in every scenario.
-  }
+  await flushTestDb();
 }

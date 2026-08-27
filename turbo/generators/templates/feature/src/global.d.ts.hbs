@@ -1,11 +1,16 @@
-// Global type declarations for Clerk auth.
-// Augments Clerk's session claims so `auth().sessionClaims.metadata.role` is typed.
+// Global type declarations for the auth seam. Mirrors the platform's augmentable
+// `InjectedUser` base (see @acme/trpc), which is the only user shape the
+// substrate reads: `id` for identity, `role` for the `adminProcedure` gate.
+//
+// If this feature depends on @acme/auth, import `Roles` from there instead of
+// redeclaring it. If it needs more of the user than `id`, sharpen this interface
+// (`extends User`) rather than reaching for the provider's SDK — the app resolves
+// the session and injects it (ADR 0003).
 export type Roles = 'admin' | 'user';
 
 declare global {
-  interface CustomJwtSessionClaims {
-    metadata: {
-      role?: Roles;
-    };
+  interface InjectedUser {
+    id: string;
+    role?: Roles;
   }
 }
