@@ -12,11 +12,11 @@ The per-feature tRPC instance (router, procedures, context) produced by one call
 _Avoid_: "the tRPC setup", "the router config"
 
 **Base context**:
-The request context every procedure receives — the app-injected `auth` and `user`,
-the injected `entitlements` provider, and the billing context
+The request context every procedure receives — the app-injected `session`, the
+injected `entitlements` provider, and the billing context
 (`subscription`/`tier`/`credits`) resolved from it. There is no `telemetry` on the
 context: telemetry is ambient (ADR 0023).
-_Avoid_: "the session"
+_Avoid_: "the auth context"
 
 **Entitlements provider**:
 The `EntitlementsProvider` (`@acme/entitlements`) injected into `createTRPCContext`
@@ -31,11 +31,19 @@ The `subscription` / `tier` / `credits` triple, resolved once per request by cal
 `entitlements.resolve(userId)` on the injected **Entitlements provider** — never by
 importing a billing package into the substrate.
 
+**Injected session**:
+`InjectedSession` — `{ user: InjectedUser } | { user: null }`, the whole of auth
+the platform consumes. Written as a union so it narrows: once `isAuthed` has
+rejected the signed-out case, `ctx.session.user` is non-null downstream. The base
+`InjectedUser` declares only `id` and `role`; apps and features augment it.
+_Avoid_: "the auth object", "the claims"
+
 **Protected procedure**:
-A procedure requiring an authenticated Clerk user (`isAuthed`).
+A procedure requiring a signed-in user — `ctx.session.user` non-null (`isAuthed`).
 
 **Admin procedure**:
-A procedure requiring `auth.sessionClaims.metadata.role === 'admin'` (`isAdmin`).
+A procedure requiring `ctx.session.user.role === 'admin'` (`isAdmin`). The role is
+a field on the injected user, not a provider claim.
 
 **Rate limit**:
 Token-bucket middleware (`rateLimit({ credits })`) that decrements a per-user,
@@ -49,9 +57,11 @@ exactly like `rateLimit`.
 
 **Context resolver**:
 The app-owned function that turns an HTTP `Request` into the neutral context input
-`createTRPCContext` expects (Clerk for the full apps; a constant local principal for
-the slim apps). The _only_ per-app/per-framework piece of the route seam — it stays
-in the app to keep framework + auth specifics out of the platform (ADR 0003 / 0010).
+`createTRPCContext` expects — including mapping the identity provider's session
+onto `InjectedSession` (the full apps resolve a real provider; the slim apps inject
+a constant local principal). The _only_ per-app/per-framework piece of the route
+seam, and the only provider-shaped code in the request path — it stays in the app
+to keep framework + auth specifics out of the platform (ADR 0003 / 0010).
 _Avoid_: "the auth handler", "the context builder"
 
 **tRPC route handler factory** (`@acme/trpc/handler`):
@@ -114,12 +124,12 @@ framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM ty
 boundary if constructed in the platform package.
 
 **`@acme/trpc/testing` is the one home for a test caller context**: `createTestContext`
-(+ `createMockEntitlements`, `createMockAuth`, `createMockUser`)
+(+ `createMockEntitlements`, `createMockSession`, `createMockUser`)
 live here — beside the `BaseContext` they must match — so every feature builds a caller
 from the real platform types, not the structural `as any` a tooling package below
 `platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
 The context is synchronous but its `subscription`/`tier`/`credits` are derived from the
 same mock `EntitlementsProvider.resolve` the real `createTRPCContext` would call, so a
 test context cannot drift from production. `createMockUser` is typed as the augmentable
-`InjectedUser` so a feature that sharpens it to a Clerk `User` (billing) sees the richer
-type without this package importing any Clerk SDK. See [docs/TESTING.md](../../../docs/TESTING.md).
+`InjectedUser` so a feature that sharpens it to a provider `User` (billing) sees the
+richer type without this package importing any auth SDK. See [docs/TESTING.md](../../../docs/TESTING.md).
