@@ -78,7 +78,6 @@
       "cache": false
     },
     "test": {
-      "env": ["CI"],
       "dependsOn": ["^topo", "^build"],
       "outputLogs": "errors-only"
     },
@@ -87,7 +86,6 @@
       "persistent": true
     },
     "test:frontend": {
-      "env": ["CI"],
       "dependsOn": ["^topo", "^build"]
     },
     "test:frontend:watch": {
@@ -95,7 +93,6 @@
       "persistent": true
     },
     "test:backend": {
-      "env": ["CI"],
       "dependsOn": ["^topo", "^build"]
     },
     "test:backend:watch": {
