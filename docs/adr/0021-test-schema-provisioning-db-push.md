@@ -18,10 +18,9 @@ two ways, and both were **masked by the Turbo cache** ([ADR 0019](0019-worktrees
   not an app — `cd apps/feedback_test` failed outright. Only `chat`/`rag`
   (`webapp: 'nextjs'`) even resolved a directory.
 
-The migrate step runs **only** under testcontainers (`useTestcontainers`); the
-local compose path skips it, assuming a dev `pnpm db:push` already ran. So the
-step only ever executed in CI — and CI served cache hits populated by local
-compose passes, so it never actually ran. The entire backend-testcontainer
+The migrate step ran **only** under testcontainers (`useTestcontainers`), so it
+only ever executed in CI — and CI served cache hits populated by local compose
+passes, so it never actually ran. The entire backend-testcontainer
 provisioning path was dead and undetected until [ADR 0019](0019-worktrees-mirror-ci-test-infra.md)
 partitioned the cache and made worktrees exercise it. `push` reads `schema.ts`
 directly and force-syncs it — the same declarative sync dev relies on — so it
@@ -49,11 +48,8 @@ accepted
   tables too), the price of a single app-owned push.
 - A feature with push-managed tables must be re-exported from `nextjs/schema.ts`
   to be provisioned in tests — the same requirement production has.
-- The local compose path still skips provisioning in the global-setup (assumes
-  dev `db:push`); this ADR only governs the fresh-container path. That assumption
-  is made true for isolated `*_test` schemas by `pnpm db:push`, which — after the
-  four app-schema pushes — reuses the canonical app's own `db:push` per test
-  schema (`NEXT_PUBLIC_WEBAPP` overridden; `scripts/push-test-schemas.sh`).
-  Without it, chat/rag (`webapp: 'nextjs'`) pass off the app schema while a suite
-  pinned to its own `*_test` schema finds no tables locally. `pnpm dev` pushes
-  via the per-app scripts, not the root one, so its boot is unaffected.
+- Provisioning is unconditional: every backend suite starts a fresh Postgres and
+  pushes into it on every run ([ADR 0033](0033-backend-tests-always-self-provision.md)).
+  The compose path that skipped this step — and `scripts/push-test-schemas.sh`,
+  which existed to make its "dev `db:push` already ran" assumption true for the
+  isolated `*_test` schemas — are both gone.
