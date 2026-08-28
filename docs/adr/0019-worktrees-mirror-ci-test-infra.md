@@ -1,6 +1,6 @@
 # Test-infra mode follows `CI`; worktrees mirror CI; the Turbo cache is partitioned on `CI`
 
-> **Superseded by [ADR 0033](0033-backend-tests-always-self-provision.md).** The
+> **Superseded by [ADR 0036](0036-backend-tests-always-self-provision.md).** The
 > compose path is gone — every backend suite self-provisions testcontainers on
 > every run, so there are no longer two behavioural worlds to partition. `CI` has
 > left the test tasks' hash, worktrees no longer force `CI=true`, and
@@ -71,7 +71,7 @@ identical path.
 
 ## Status
 
-superseded by [ADR 0033](0033-backend-tests-always-self-provision.md)
+superseded by [ADR 0036](0036-backend-tests-always-self-provision.md)
 
 ## Consequences
 

@@ -9,11 +9,18 @@
  */
 import type { InfraDescriptor } from '@acme/test-utils/infra';
 
-// Throwaway credentials for the ephemeral test container — not a secret. Hoisted
-// to plain constants so they read as identifiers, not inline password literals.
-const TEST_USER = 'postgres';
+import { DB_DEVELOPMENT_PROFILE } from './development-profile';
+
+// The throwaway credentials for the ephemeral test container come from the same
+// authored development profile the app connects with, so a suite validates
+// against the values it provisions (ADR 0033 §6). `DB_VECTOR_NAME` is
+// `@acme/rag`'s to author, so it stays a literal here rather than making this
+// package depend on that one; the two agree by convention and the init script
+// defaults to the same name.
+const { DB_USER: TEST_USER, DB_NAME: TEST_DB } = DB_DEVELOPMENT_PROFILE;
+// The container's throwaway password — a secret on every target (no profile
+// authors it), so it stays a literal here, matching `deploy/.env.example`.
 const TEST_SECRET = 'password123';
-const TEST_DB = 'testdb';
 const TEST_VECTOR_DB = 'vectordb';
 
 export const postgresContainer: InfraDescriptor = {
@@ -21,7 +28,7 @@ export const postgresContainer: InfraDescriptor = {
   // Pinned to match the docker-compose `postgres` service (pgvector).
   image: 'pgvector/pgvector:pg17',
   // Container-internal only. Testcontainers publishes it to a random host port,
-  // so a suite never contends with the dev stack's fixed port (see `config.ts`).
+  // so a suite never contends with the dev stack's fixed port (see `development-profile.ts`).
   containerPort: 5432,
   containerEnv: {
     POSTGRES_USER: TEST_USER,

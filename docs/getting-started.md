@@ -88,7 +88,7 @@ pnpm db:push             # Drizzle → Postgres + pgvector (confirm prompts)
 
 This pushes the four app schemas — the dev database only. Tests need nothing from
 it: every backend suite starts its own throwaway Postgres and pushes into it
-([ADR 0033](adr/0033-backend-tests-always-self-provision.md)), so `pnpm test`
+([ADR 0036](adr/0036-backend-tests-always-self-provision.md)), so `pnpm test`
 needs a running container runtime and no `pnpm infra:up` or `pnpm db:push`.
 
 If you exercise billing, also seed the dev products/plans:

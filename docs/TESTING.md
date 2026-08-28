@@ -24,7 +24,7 @@ isn't one, global-setup fails immediately with a message saying so.
 binds random host ports, so a test run never touches the dev stack on 5444/6379
 and dev state can never affect a result. There is one behaviour and one turbo
 cache partition, so a local pass proves what a CI pass proves. See
-[ADR 0033](adr/0033-backend-tests-always-self-provision.md). Infra-less suites
+[ADR 0036](adr/0036-backend-tests-always-self-provision.md). Infra-less suites
 (see `infra: false` below) need no runtime at all.
 
 ## Test the contract, not the internals
@@ -133,11 +133,17 @@ below follows from that.
 Each feature owns `src/tests/frontend/setup.tsx` exporting `renderWithProviders`
 (wraps in `TRPCReactProvider`, and `<ToastContainer />` when the feature toasts)
 and `trpcMsw` (a `createTRPCMsw<AppRouter>` bound to the feature's tRPC endpoint)
-— plus the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture). The
-config is `vitest.config.frontend.ts` (`environment: 'jsdom'`, `staticTestEnv`,
-`@vitejs/plugin-react`). `feedback`'s setup + `feedback-buttons` /
-`use-feedback` tests are the reference; `ingest`'s `documents-list` is the worked
-example of the MSW-over-shallow-mock rewrite.
+— plus `import '@acme/test-utils/jsdom'`, the shared side-effect module holding
+the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture,
+`scrollIntoView`). The config is `vitest.config.frontend.ts`
+(`environment: 'jsdom'`, `staticTestEnv`, `@vitejs/plugin-react`). `feedback`'s
+setup + `feedback-buttons` / `use-feedback` tests are the reference; `ingest`'s
+`documents-list` is the worked example of the MSW-over-shallow-mock rewrite.
+
+A **library** package with no provider tree (`@acme/ui`, `@acme/hooks`) owns a
+plain `setup.ts` instead: nothing to wrap, so no `renderWithProviders` and no
+JSX — its tests `render` prop-driven components directly. The `staticTestEnv`
+spread still applies.
 
 ## What is real vs mocked
 

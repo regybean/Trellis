@@ -2,7 +2,6 @@
   "name": "@acme/nextjs-slim",
   "dependencies": {
     "@acme/chat": "workspace:*",
-    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/entitlements": "workspace:*",
     "@acme/env": "workspace:*",
@@ -17,7 +16,7 @@
     "@acme/ui": "workspace:*",
     "@fontsource-variable/archivo": "^5.2.5",
     "@fontsource-variable/bricolage-grotesque": "^5.2.5",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@tailwindcss/postcss": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",

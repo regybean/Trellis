@@ -7,14 +7,17 @@
 // `acme.infra` over its transitive workspace closure. Nothing is assumed on:
 // an app whose closure declares nothing starts no infra.
 //
-// The graph yields a CANDIDATE set; config then PRUNES it for services that are
-// only needed under a given configuration. Both prunes read config-as-code now
-// (ADR 0026), NOT process.env:
-//   - `billing` (localstripe) is dropped unless the Stripe connection resolves
-//     to `localstripe` (real Stripe needs no local container). Reads
-//     `billingConfig`'s `stripe` discriminated union.
+// The graph yields a CANDIDATE set; the slices' authored development profiles
+// then PRUNE it for services that are only needed under a given configuration
+// (ADR 0033 §6), NOT process.env:
+//   - `billing` (localstripe) is dropped unless the authored Stripe connection is
+//     `localstripe` (real Stripe needs no local container). Reads
+//     `BILLING_DEVELOPMENT_PROFILE`'s `STRIPE_CONNECTION` discriminated union.
 //   - `ollama` is dropped unless the chat or embed role's provider is `ollama`.
-//     Reads the role variants on `modelsConfig`.
+//     Reads the role variants on `MODELS_DEVELOPMENT_PROFILE`.
+// The `development-profile.ts` modules are imported rather than each slice's
+// `env.ts`: this decides what to PROVISION, so it wants the authored values and
+// never an operator's override, and those modules execute no `createEnv` call.
 // Run via `pnpm exec tsx` (not `node`) so the TS config imports resolve,
 // mirroring scripts/resolve-compose-env.ts.
 //
@@ -26,8 +29,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { billingConfig } from "../packages/features/billing/src/config";
-import { modelsConfig } from "../packages/shared/models/src/config";
+import { BILLING_DEVELOPMENT_PROFILE } from "../packages/features/billing/src/development-profile";
+import { MODELS_DEVELOPMENT_PROFILE } from "../packages/shared/models/src/development-profile";
 
 // `import.meta.dirname` is undefined under tsx's CJS transform; derive it from
 // the module URL, which tsx shims.
@@ -89,18 +92,15 @@ for (const proj of projects) {
   if (Array.isArray(infra)) for (const p of infra) profiles.add(p);
 }
 
-// Config prunes (see header). Both `billing` and `ollama` read config-as-code.
-// Hardcode the development profile: infra is a local dev/test concern and
-// neither prune has a staging/production override (mirrors
-// scripts/resolve-compose-env.ts).
-const billing = billingConfig({
-  appEnv: "development",
-  isServer: true,
-});
-if (billing.stripe.mode !== "localstripe") profiles.delete("billing");
-const models = modelsConfig({ appEnv: "development", isServer: true });
-const ollama =
-  models.chat.provider === "ollama" || models.embed.provider === "ollama";
-if (!ollama) profiles.delete("ollama");
+// Profile prunes (see header). Infra is a local dev/test concern, so both read
+// the development profile — the same source `scripts/resolve-compose-env.ts`
+// reads.
+if (BILLING_DEVELOPMENT_PROFILE.STRIPE_CONNECTION.mode !== "localstripe") {
+  profiles.delete("billing");
+}
+const { MODELS_CHAT: chat, MODELS_EMBED: embed } = MODELS_DEVELOPMENT_PROFILE;
+if (chat.provider !== "ollama" && embed.provider !== "ollama") {
+  profiles.delete("ollama");
+}
 
 process.stdout.write([...profiles].sort().join(","));

@@ -6,10 +6,9 @@ import { Link } from '@tanstack/react-router';
 import { FileText, MessageSquare, SquareTerminal, Tag } from 'lucide-react';
 
 import { SignedIn, SignedOut, SignInButton, UserButton } from '@acme/auth';
-import { NavUserSubscription } from '@acme/billing';
+import { NavUserSubscription, useBillingConfig } from '@acme/billing';
 import { Button, StripeIcon } from '@acme/ui';
 
-import { config } from '../config';
 import { StatusBar } from './status-bar';
 
 const ProfileIcon = () => (
@@ -43,6 +42,10 @@ const navItems: NavItem[] = [
  */
 export function ConsoleShell({ children }: { children: ReactNode }) {
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  // The billing-portal URL comes through the provider the root route mounts, not
+  // from this app's composed `env`: the values the browser sees are the ones the
+  // server threaded across the RSC/Flight boundary (ADR 0033 §6).
+  const billing = useBillingConfig();
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -97,7 +100,7 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
                   label="Manage Billing"
                   labelIcon={<StripeIcon />}
                   onClick={() =>
-                    window.open(config.STRIPE_MANAGE_BILLING_URL, '_blank')
+                    window.open(billing.STRIPE_MANAGE_BILLING_URL, '_blank')
                   }
                 />
               </UserButton.MenuItems>

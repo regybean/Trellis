@@ -1,9 +1,8 @@
 {
   "name": "@acme/db",
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "drizzle-orm": "catalog:",
     "postgres": "catalog:"
   },
@@ -22,10 +21,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
     },
     "./env": {
       "types": "./dist/env.d.ts",

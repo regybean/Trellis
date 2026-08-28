@@ -5,8 +5,7 @@ import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 import { HEAD_CURSOR } from '@acme/redis';
 
-import { chatConfig } from '../../config';
-import { appEnv } from '../../env';
+import { env } from '../../env';
 import {
   DeleteChatRequest,
   InflightTurnRequest,
@@ -51,9 +50,8 @@ import {
 } from '../trpc';
 import { assertFolderOwned, foldersRouter } from './folders';
 
-// CREDITS_PER_TURN has one origin in config (ADR 0026) — the credit gate + consume
+// CREDITS_PER_TURN has one origin in env (ADR 0033) — the credit gate + consume
 // read it here; the Turn lifecycle's refund reads the same config value.
-const config = chatConfig({ appEnv, isServer: true });
 
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no
@@ -82,8 +80,8 @@ export const chatRouter = createTRPCRouter({
       for await (const { id, event } of chatStream(conversationId).tail(
         lastEventId ?? HEAD_CURSOR,
         {
-          pollMinMs: config.POLL_INTERVAL_MS,
-          pollMaxMs: config.POLL_INTERVAL_MS,
+          pollMinMs: env.POLL_INTERVAL_MS,
+          pollMaxMs: env.POLL_INTERVAL_MS,
           signal,
           keepGoing: async () =>
             (await readInflightTurn(conversationId)) !== null,
@@ -127,7 +125,7 @@ export const chatRouter = createTRPCRouter({
           query,
           conversationExists: ctx.conversation != null,
           consume: async () => {
-            if (ctx.credits.remaining < config.CREDITS_PER_TURN) {
+            if (ctx.credits.remaining < env.CREDITS_PER_TURN) {
               throw new TRPCError({
                 code: 'TOO_MANY_REQUESTS',
                 message: 'Insufficient credits',
@@ -136,7 +134,7 @@ export const chatRouter = createTRPCRouter({
             await ctx.entitlements.consume(
               userId,
               ctx.tier,
-              config.CREDITS_PER_TURN,
+              env.CREDITS_PER_TURN,
             );
           },
         });

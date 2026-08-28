@@ -56,7 +56,7 @@ redisContainer])`, wired via
 `localPort` has since left the descriptor contract: it named the host port to
 probe when a suite used the local compose stack instead of a container, and that
 path is gone — every suite now starts its own container on a random host port
-([ADR 0033](0033-backend-tests-always-self-provision.md)). A descriptor declares
+([ADR 0036](0036-backend-tests-always-self-provision.md)). A descriptor declares
 `containerPort` only.
 
 ## Status

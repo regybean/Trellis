@@ -17,8 +17,8 @@ import {
  * only on the neutral contract, never on this module.
  *
  * A factory (not a const) because the product→tier mapping now needs the
- * `billingConfig` plan IDs, resolved once at the app edge and injected here
- * (ADR 0026) rather than read from `process.env`. The options object is the
+ * billing's authored plan ids, resolved once at the app edge and injected here
+ * (ADR 0033) rather than read from `process.env`. The options object is the
  * extension point for further per-deploy billing policy (e.g. credit limits).
  */
 export function createSubscriptionsEntitlements(
