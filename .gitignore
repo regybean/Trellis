@@ -58,3 +58,5 @@ dist/
 
 # dev/compose log capture (ADR 0028) — recreated by dev.sh's `mkdir -p logs`
 /logs/
+# Agent scratch space (never committed)
+.scratch/

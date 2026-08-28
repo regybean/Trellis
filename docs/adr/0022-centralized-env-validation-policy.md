@@ -1,5 +1,16 @@
 # Env-validation skip is one policy in `@acme/env`, not a predicate copied per package
 
+> **Superseded in part by [ADR 0033](0033-one-env-factory-per-slice.md) §3.** The
+> decision this ADR made — the skip predicate is one policy owned by `@acme/env`,
+> not copy-pasted per package — **stands, and is the load-bearing part.** What
+> changed is where it is applied: `skipValidation` is no longer passed to
+> `createEnv` anywhere. `shouldSkipEnvValidation()` is now consumed _inside_
+> `withProfiles`, which relaxes the **secrets** of a slice's shape and nothing
+> else. That removes the all-or-nothing cost described below: a skipped run keeps
+> validating and coercing every key a profile authors, instead of returning the
+> whole of `runtimeEnv` raw. Read the paragraph that follows as the problem
+> statement of the era, not as current behaviour.
+
 Every package's `env.ts` calls `createEnv({ ..., skipValidation })`. `skipValidation: true`
 passes raw `process.env` through **untyped and uncoerced** — `z.coerce.number()` never
 runs — which is right for steps that have no real env and touch no coerced value, and

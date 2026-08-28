@@ -2,15 +2,11 @@ import { PgVector } from '@mastra/pg';
 
 import { env as dbEnv } from '@acme/db/env';
 
-import { ragConfig } from './config';
-import { appEnv, env } from './env';
+import { env } from './env';
 import {
   EMBED_DIMENSIONS,
   KNOWLEDGE_BASE_TABLE,
 } from './schemas/documents-schema';
-
-// The dedicated vector database name is config-as-code (ADR 0026).
-const config = ragConfig({ appEnv, isServer: true });
 
 // Knowledge-base table name within the per-app schema (see RAG_SCHEMA). Matches
 // the Drizzle mirror so both Mastra and Drizzle address the same table.
@@ -26,7 +22,7 @@ export const pgVector = new PgVector({
   id: 'rag-pg-vector',
   host: dbEnv.DB_HOST,
   port: dbEnv.DB_PORT,
-  database: config.DB_VECTOR_NAME,
+  database: env.DB_VECTOR_NAME,
   user: dbEnv.DB_USER,
   password: dbEnv.DB_PASSWORD,
   schemaName: RAG_SCHEMA,

@@ -65,7 +65,9 @@
       "ScheduleWakeup",
       "SendMessage"
     ],
-    "allow": ["Read(node_modules/@mastra/**)"]
+    "allow": [
+      "Read(node_modules/@mastra/**)"
+    ]
   },
   "disableBundledSkills": true,
   "disableWorkflows": true,
@@ -85,8 +87,5 @@
         ]
       }
     ]
-  },
-  "enabledPlugins": {
-    "typescript-lsp@claude-plugins-official": true
   }
 }

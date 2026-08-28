@@ -8,10 +8,6 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
-    },
     "./schema": {
       "types": "./dist/index-schema.d.ts",
       "default": "./src/index-schema.ts"
@@ -45,7 +41,6 @@
   },
   "prettier": "@acme/prettier-config",
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
@@ -54,7 +49,7 @@
     "@mastra/memory": "catalog:",
     "@mastra/pg": "catalog:",
     "@mastra/rag": "catalog:",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@trpc/server": "catalog:",
     "ai": "catalog:",
     "drizzle-orm": "catalog:",

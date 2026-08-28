@@ -8,9 +8,9 @@ import { useAuth } from '@acme/auth';
 
 import type { PricingPlan } from '../data/pricing-data';
 import type { ButtonState } from '../lib/plan-selection';
-import { toPlanIds } from '../config';
 import { useBillingConfig } from '../config-context';
 import { buildPricingPlans } from '../data/pricing-data';
+import { toPlanIds } from '../env';
 import { getButtonState } from '../lib/plan-selection';
 import { useTRPC } from '../trpc/react';
 import { useBillingRedirect } from './use-billing-redirect';

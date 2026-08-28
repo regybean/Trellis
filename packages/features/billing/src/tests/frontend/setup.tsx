@@ -11,9 +11,11 @@ import { BillingConfigProvider } from '../../config-context';
 import { TRPCReactProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
+// jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
+import '@acme/test-utils/jsdom';
 
 /**
- * The billing config the client seam reads (ADR 0026), supplied directly here —
+ * The billing values the client seam reads (ADR 0033), supplied directly here —
  * config is pure, so a test constructs it with no env. The plan IDs match the
  * subscription-cache products the MSW handlers/backends seed.
  */
@@ -85,34 +87,3 @@ export const trpcMsw = createTRPCMsw<AppRouter>({
   links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/billing' })],
   transformer: { input: superjson, output: superjson },
 });
-
-// --- jsdom gaps some UI primitives rely on -------------------------------
-class ResizeObserverMock {
-  observe() {
-    // no-op
-  }
-  unobserve() {
-    // no-op
-  }
-  disconnect() {
-    // no-op
-  }
-}
-globalThis.ResizeObserver = ResizeObserverMock;
-
-if (!('hasPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.hasPointerCapture = () => false;
-}
-if (!('setPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.setPointerCapture = () => {
-    // no-op
-  };
-}
-if (!('releasePointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.releasePointerCapture = () => {
-    // no-op
-  };
-}

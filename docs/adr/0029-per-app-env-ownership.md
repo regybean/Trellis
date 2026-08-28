@@ -48,6 +48,13 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
 - **Promote the shared model secrets to config-as-code instead.** They are genuine
   secrets (leaking grants provider access), so they stay in `process.env` per the
   ADR 0026 rule — config-as-code is for non-secret values only.
+
+  > **Restated by [ADR 0033](0033-one-env-factory-per-slice.md) §1.** The
+  > conclusion is unchanged and the mechanism is now what enforces it: these keys
+  > are declared in `@acme/models`' env call with **no profile value**, which is
+  > exactly what makes them secrets. There is no longer a separate config
+  > mechanism to promote them into.
+
 - **Fold `deploy/.env` into apps too.** Rejected: compose is repo-level and one
   local stack is shared across apps; there is no single app that owns the container
   passwords.

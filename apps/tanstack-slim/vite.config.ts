@@ -74,9 +74,9 @@ export default defineConfig({
   // client bundle so <ClerkProvider> can read the publishable key.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above), plus
-  // the config-as-code deploy-target selector so env.ts's
+  // the deploy-target selector so env.ts's
   // `resolveAppEnv(process.env.APP_ENV)` resolves in the client bundle too
-  // (ADR 0026). Unset → '' → the `development` base.
+  // (ADR 0026 §5). Unset → '' → the `development` base.
   define: {
     ...publicEnvDefine,
     'process.env.APP_ENV': JSON.stringify(process.env.APP_ENV ?? ''),

@@ -15,16 +15,13 @@
  */
 import Stripe from 'stripe';
 
-import { resolveAppEnv } from '@acme/config';
+import { env } from '../src/env';
 
-import { billingConfig } from '../src/config';
-
-// The Stripe connection is config-as-code now (ADR 0026 follow-up): localstripe
-// (dev) carries the `apiBase`; real Stripe carries none and needs no seeding.
-const connection = billingConfig({
-  appEnv: resolveAppEnv(process.env.APP_ENV),
-  isServer: true,
-}).stripe;
+// The Stripe connection is authored config (ADR 0033): localstripe (dev) carries
+// the `apiBase`; real Stripe carries none and needs no seeding. Read off the
+// slice's own env, so seeding follows a `STRIPE_CONNECTION` override rather than
+// the profile's value when one is set.
+const connection = env.STRIPE_CONNECTION;
 if (connection.mode === 'real') {
   console.log('Stripe connection is real — using real Stripe, skipping seed.');
   process.exit(0);

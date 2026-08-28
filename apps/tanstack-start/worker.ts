@@ -20,20 +20,18 @@
  * to its empty stub rather than the guard that throws outside an RSC bundle.
  */
 
-import { toPlanIds } from '@acme/billing/config';
+import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createChatGenerationProcessor } from '@acme/chat/server';
 import { createIngestProcessor } from '@acme/ingest/server';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
-import { config } from './src/config';
-
 // Inject the SAME provider this app's route handler injects into
 // `createTRPCContext` (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter,
-// built from the app's `billingConfig` plan IDs (ADR 0026), so a worker error
-// refunds the real Credit ledger.
-const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
+// built from the plan ids billing's own env resolves (ADR 0033), so a worker
+// error refunds the real Credit ledger.
+const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 const worker = createWorker(
   QUEUE_NAMES.GENERATION,
   createChatGenerationProcessor(entitlements),

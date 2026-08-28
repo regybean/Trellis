@@ -1,7 +1,7 @@
 import { clerkMiddleware } from '@clerk/tanstack-react-start/server';
 import { createCsrfMiddleware, createStart } from '@tanstack/react-start';
 
-import { config } from './config';
+import { clerkWiringEnv } from '@acme/auth/env';
 
 /**
  * Same-origin guard for server functions. Server functions are RPC endpoints
@@ -22,11 +22,12 @@ const csrfMiddleware = createCsrfMiddleware({
  * `@clerk/nextjs/server` resolver). See docs/adr/0003-framework-agnostic-auth-seam.md.
  */
 export const startInstance = createStart(() => ({
-  // Clerk publishable key is config-as-code (authConfig, ADR 0026), passed
-  // explicitly rather than read from env. Secret key stays in env (passing it
-  // here would trigger Clerk's Dynamic Keys mode + require CLERK_ENCRYPTION_KEY).
+  // Clerk publishable key is authored config (ADR 0033), read off the owning
+  // slice's env and passed explicitly. The secret key stays a secret in that same
+  // call and is never passed here (that would trigger Clerk's Dynamic Keys mode +
+  // require CLERK_ENCRYPTION_KEY).
   requestMiddleware: [
     csrfMiddleware,
-    clerkMiddleware({ publishableKey: config.CLERK_PUBLISHABLE_KEY }),
+    clerkMiddleware({ publishableKey: clerkWiringEnv().CLERK_PUBLISHABLE_KEY }),
   ],
 }));

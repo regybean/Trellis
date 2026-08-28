@@ -174,8 +174,8 @@ const CANONICAL_APP = 'nextjs';
 export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
   console.log(`📊 Pushing database schemas into "${targetSchema}"...`);
   // Host/port are the dynamic bits (a testcontainer hands back a mapped port);
-  // user/name are now static config-as-code (`@acme/db` `postgres`/`testdb`,
-  // ADR 0026), so they no longer ride `process.env` here.
+  // user/name are authored config (`@acme/db` `postgres`/`testdb`, ADR 0033),
+  // so they no longer ride `process.env` here.
   console.log(`   DB target: ${process.env.DB_HOST}:${process.env.DB_PORT}`);
 
   await new Promise<void>((resolvePromise, reject) => {

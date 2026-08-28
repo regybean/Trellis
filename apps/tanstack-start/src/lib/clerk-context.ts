@@ -1,16 +1,14 @@
 import { auth, clerkClient } from '@clerk/tanstack-react-start/server';
 
 import { readRole } from '@acme/auth/server';
-import { toPlanIds } from '@acme/billing/config';
+import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
-import { config } from '../config';
-
 /**
- * The Stripe/Redis entitlements provider, closing over the `billingConfig` plan
- * IDs resolved once at the app edge (ADR 0026).
+ * The Stripe/Redis entitlements provider, closing over the plan ids billing's own
+ * env resolves (ADR 0033).
  */
-const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
+const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 
 /**
  * App-owned auth seam: resolve Clerk on the server and map it onto the platform's
@@ -38,7 +36,7 @@ export async function resolveClerkContext(req: Request) {
     req,
     // The app's own public origin (its PORT in dev, deploy origin in prod), read
     // off the request so billing can build the absolute Stripe checkout redirect
-    // URLs from the config-owned paths (ADR 0026 follow-up).
+    // URLs from the authored paths (ADR 0033).
     origin: new URL(req.url).origin,
     session: {
       user: user && {

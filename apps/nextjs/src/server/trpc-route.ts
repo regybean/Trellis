@@ -2,21 +2,19 @@ import type { AnyRouter } from '@trpc/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 
 import { readRole } from '@acme/auth/server';
-import { toPlanIds } from '@acme/billing/config';
+import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
   corsPreflightHeaders,
   createTRPCFetchHandler,
 } from '@acme/trpc/handler';
 
-import { config } from '../config';
-
 /**
- * The Stripe/Redis entitlements provider, closing over the `billingConfig` plan
- * IDs resolved once at the app edge (ADR 0026) — the product→tier mapping needs
- * them, and the platform no longer reads them from `process.env`.
+ * The Stripe/Redis entitlements provider, closing over the plan ids billing's
+ * own env resolves (ADR 0033) — the product→tier mapping needs them, and the
+ * platform no longer reads them from `process.env`.
  */
-const entitlements = createSubscriptionsEntitlements(toPlanIds(config));
+const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error

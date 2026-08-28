@@ -8,7 +8,8 @@
  * - `server-only` so server modules import under vitest
  * - the S3 client (`utils/s3-client`) — no network in tests
  * - `@acme/models`, with a functional fake embed model so real `embedMany` runs
- *   against a fixed dimension-correct vector (mirrors @acme/rag's suite)
+ *   against a fixed dimension-correct vector (mirrors @acme/rag's suite). Mocking
+ *   it requires the package to be resolvable from here — see the note at the mock.
  *
  * `@acme/rag/server` is NOT mocked here: the progress reader tails a real Redis
  * Stream, and the worker path (ticket 3) indexes for real. A pure orchestration
@@ -40,6 +41,18 @@ vi.mock('../../utils/s3-client');
 // (dedup keys on the content-derived id, never on the embedding).
 const EMBED_DIMENSIONS = 768;
 
+// `vi.mock` keys the registry on the RESOLVED module id, resolved from the file
+// that calls it — this setup file, inside @acme/ingest. Under pnpm's strict
+// node_modules a package can only resolve what it declares, and ingest declared no
+// `@acme/models`: there was no `node_modules/@acme/models` symlink here to resolve
+// through. Vitest does not fail on an unresolvable mock path — it registers the
+// literal string instead, which never matches the id @acme/rag's
+// `document-uploader.ts` resolves the same specifier to
+// (`packages/shared/models/src/index.ts`). The mock silently no-op'd and `uploadDoc`
+// embedded against a real Ollama on localhost:11434 (issue #232), which the dev
+// compose stack happened to be serving — so the suite passed for the wrong reason.
+// The fix is the `@acme/models` devDependency in package.json: with the symlink
+// present both packages resolve to the same realpath, one module id, one mock.
 vi.mock('@acme/models', () => ({
   chatModel: {},
   embedModel: new MockEmbeddingModelV3({

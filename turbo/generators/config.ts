@@ -76,10 +76,11 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
     // every procedure is built by `@acme/trpc`.
     Object.assign(dependencies, {
       "@acme/db": "workspace:*",
+      "@acme/env": "workspace:*",
       "@acme/logger": "workspace:*",
       "@acme/redis": "workspace:*",
       "@acme/trpc": "workspace:*",
-      "@t3-oss/env-nextjs": "catalog:",
+      "@t3-oss/env-core": "catalog:",
       "@trpc/server": "catalog:",
       "drizzle-orm": "catalog:",
       "drizzle-zod": "catalog:",
