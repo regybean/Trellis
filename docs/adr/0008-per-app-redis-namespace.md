@@ -229,4 +229,4 @@ The exception is narrow and deliberate: it applies to `user`, `session`,
 `account` and `verification`, and to nothing else. Every other app-owned table,
 and the Redis keyspace in its entirety, still partition on `NEXT_PUBLIC_WEBAPP`.
 Rationale, costs and the rejected alternatives are in
-[ADR 0034](0034-auth-tables-in-a-dedicated-schema.md).
+[ADR 0035](0035-auth-tables-in-a-dedicated-schema.md).

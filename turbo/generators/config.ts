@@ -73,12 +73,13 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
   if (o.api) {
     Object.assign(dependencies, {
       "@acme/billing": "workspace:*",
+      "@acme/env": "workspace:*",
       "@acme/logger": "workspace:*",
       "@acme/redis": "workspace:*",
       "@acme/telemetry": "workspace:*",
       "@clerk/nextjs": "catalog:",
       "@opentelemetry/api": "catalog:",
-      "@t3-oss/env-nextjs": "catalog:",
+      "@t3-oss/env-core": "catalog:",
       "@trpc/server": "catalog:",
       "drizzle-orm": "catalog:",
       "drizzle-zod": "catalog:",

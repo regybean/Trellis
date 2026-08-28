@@ -13,7 +13,7 @@ export type { Job } from 'bullmq';
 
 // BullMQ manages its own ioredis connections internally when given plain options,
 // separate from @acme/redis's clients — but the connection string is sourced from
-// @acme/redis's config home (`REDIS_URL` is config-as-code, ADR 0026), not a queue
+// @acme/redis's env home (`REDIS_URL` is authored config, ADR 0033), not a queue
 // env row. maxRetriesPerRequest: null is required for Worker blocking commands to
 // avoid ioredis timing them out.
 const parseRedisUrl = (url: string) => {

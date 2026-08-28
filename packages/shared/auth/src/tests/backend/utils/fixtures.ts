@@ -16,7 +16,7 @@ import { authUser, authVerification } from '../../../schemas/auth-schema';
 /**
  * Every user this suite creates gets an address on this domain, and cleanup
  * deletes by it. The `auth` schema is *shared*, not per-suite like the
- * `NEXT_PUBLIC_WEBAPP` schemas (ADR 0034) — on the local compose path that is a
+ * `NEXT_PUBLIC_WEBAPP` schemas (ADR 0035) — on the local compose path that is a
  * developer's actual identity table, so a blanket `DELETE FROM auth.user` would
  * wipe real rows. `session` and `account` cascade from `user`.
  */

@@ -4,11 +4,15 @@ import type { Metadata, Viewport } from 'next';
 import { ClerkProvider } from '@clerk/nextjs';
 import { auth } from '@clerk/nextjs/server';
 
+import { clerkWiringEnv } from '@acme/auth/env';
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
-import { toBillingClientConfig } from '@acme/billing/config';
-// Server-derived from the connection config (billingConfig server side, ADR
-// 0026 follow-up); threaded to the client through the BillingConfigProvider seam
-// so the client never proxies billing mode through NODE_ENV.
+import {
+  env as billingEnvValues,
+  toBillingClientConfig,
+} from '@acme/billing/env';
+// Server-derived from the Stripe connection (billing env, ADR 0033); threaded to
+// the client through the BillingConfigProvider seam so the client never proxies
+// billing mode through NODE_ENV.
 import { localstripeMode } from '@acme/billing/server';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
@@ -17,8 +21,12 @@ import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { EditorialShell } from '../components/pages/layout/editorial-shell';
 import { PersistedFeatureProviders } from '../components/pages/layout/persisted-feature-providers';
-import { config } from '../config';
 import { env } from '../env';
+
+// Clerk's browser-safe wiring comes from the owning slice's env, not the app's
+// composed `env`: t3-env's access guard is name-based, so an unprefixed key is
+// only readable through the call that declares it `shared` (ADR 0033 §6).
+const clerk = clerkWiringEnv();
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -47,11 +55,11 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
     <html lang="en" suppressHydrationWarning>
       <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
         <ClerkProvider
-          publishableKey={config.CLERK_PUBLISHABLE_KEY}
-          signInUrl={config.CLERK_SIGN_IN_URL}
-          signUpUrl={config.CLERK_SIGN_UP_URL}
-          signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
-          signUpForceRedirectUrl={config.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
+          publishableKey={clerk.CLERK_PUBLISHABLE_KEY}
+          signInUrl={clerk.CLERK_SIGN_IN_URL}
+          signUpUrl={clerk.CLERK_SIGN_UP_URL}
+          signInForceRedirectUrl={clerk.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
+          signUpForceRedirectUrl={clerk.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
         >
           <NextThemeProvider
             attribute="class"
@@ -60,7 +68,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             disableTransitionOnChange
           >
             <BillingConfigProvider
-              config={toBillingClientConfig(config)}
+              config={toBillingClientConfig(billingEnvValues)}
               localstripeMode={localstripeMode}
             >
               <BillingTRPCReactProvider>

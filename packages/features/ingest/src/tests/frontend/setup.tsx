@@ -9,6 +9,8 @@ import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
+// jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
+import '@acme/test-utils/jsdom';
 
 // NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
 // msw-trpc can intercept. Env is real (validated by ../../env). We fake the
@@ -41,34 +43,3 @@ export const trpcMsw = createTRPCMsw<AppRouter>({
   links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/ingest' })],
   transformer: { input: superjson, output: superjson },
 });
-
-// --- jsdom gaps some UI primitives rely on -------------------------------
-class ResizeObserverMock {
-  observe() {
-    // no-op
-  }
-  unobserve() {
-    // no-op
-  }
-  disconnect() {
-    // no-op
-  }
-}
-globalThis.ResizeObserver = ResizeObserverMock;
-
-if (!('hasPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.hasPointerCapture = () => false;
-}
-if (!('setPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.setPointerCapture = () => {
-    // no-op
-  };
-}
-if (!('releasePointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.releasePointerCapture = () => {
-    // no-op
-  };
-}

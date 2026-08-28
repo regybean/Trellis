@@ -1,10 +1,11 @@
 {
   "name": "@acme/subscriptions",
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/entitlements": "workspace:*",
+    "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/redis": "workspace:*",
+    "@t3-oss/env-core": "catalog:",
     "server-only": "catalog:",
     "zod": "catalog:"
   },
@@ -23,10 +24,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
     },
     "./env": {
       "types": "./dist/env.d.ts",

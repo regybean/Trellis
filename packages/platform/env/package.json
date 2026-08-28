@@ -3,6 +3,11 @@
   "acme": {
     "testClass": "backend-library"
   },
+  "dependencies": {
+    "@t3-oss/env-core": "catalog:",
+    "ts-deepmerge": "catalog:",
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",

@@ -3,9 +3,9 @@
 import { createContext, useContext } from 'react';
 
 /**
- * The client-readable billing config values (ADR 0026): the four Stripe values
- * that `billingConfig`'s `client` shape carries. The app resolves the composed
- * config once at its edge and threads it in here — feature runtime never reads
+ * The client-readable billing values (ADR 0033): the four Stripe keys this
+ * slice's env declares `shared`. The app narrows its env at the edge
+ * (`toBillingClientConfig`) and threads them in here — feature runtime never reads
  * `process.env` for these, nor re-resolves `APP_ENV`.
  */
 export interface BillingConfigValues {
@@ -18,7 +18,7 @@ export interface BillingConfigValues {
 /**
  * What the feature reads through the provider: the threaded config values plus
  * `localstripeMode` — the single localstripe-vs-real-Stripe signal, derived once
- * on the server from `billingConfig (server side)` (ADR 0026 follow-up) and threaded
+ * on the server from `env.STRIPE_CONNECTION` (ADR 0033) and threaded
  * here so the client reads one value instead of proxying the condition through
  * `NODE_ENV`.
  */
@@ -30,10 +30,10 @@ const BillingConfigContext = createContext<BillingClientConfig | null>(null);
 
 /**
  * Provide the billing config to the feature's client components/hooks. Mounted
- * at the app edge with the app's composed `config` (from `configExtends`) and the
- * server-derived localstripe mode —
+ * at the app edge with this slice's narrowed env values and the server-derived
+ * localstripe mode —
  * `<BillingConfigProvider config={config} localstripeMode={localstripeMode}>`.
- * The composed config is structurally a `BillingConfigValues`; only its client
+ * The threaded object is structurally a `BillingConfigValues`; only those four
  * keys are read here.
  */
 export function BillingConfigProvider(props: {
@@ -61,7 +61,7 @@ export function useBillingConfig() {
   if (!config) {
     throw new Error(
       'useBillingConfig must be used within a <BillingConfigProvider>. ' +
-        'Mount it at the app edge with the composed config (ADR 0026).',
+        'Mount it at the app edge with the narrowed billing env (ADR 0033).',
     );
   }
   return config;

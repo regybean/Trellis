@@ -1,7 +1,6 @@
 {
   "name": "@acme/auth",
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@clerk/backend": "catalog:",
@@ -35,10 +34,6 @@
     "./schema": {
       "types": "./dist/index-schema.d.ts",
       "default": "./src/index-schema.ts"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
     },
     "./env": {
       "types": "./dist/env.d.ts",

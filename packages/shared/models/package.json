@@ -8,10 +8,6 @@
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
     },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
-    },
     "./env": {
       "types": "./dist/env.d.ts",
       "default": "./src/env.ts"
@@ -29,13 +25,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@ai-sdk/amazon-bedrock": "catalog:",
     "@ai-sdk/openai-compatible": "catalog:",
     "@ai-sdk/provider": "catalog:",
     "@openrouter/ai-sdk-provider": "catalog:",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "ai": "catalog:",
     "zod": "catalog:"
   },

@@ -7,6 +7,9 @@ import superjson from 'superjson';
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
+// jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
+import '@acme/test-utils/jsdom';
+
 // NODE_ENV='test' (from the shared vitest base env) makes the provider use a
 // plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
 // real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
@@ -37,33 +40,3 @@ export const trpcMsw = createTRPCMsw<AppRouter>({
   transformer: { input: superjson, output: superjson },
 });
 
-// --- jsdom gaps some UI primitives rely on -------------------------------
-class ResizeObserverMock {
-  observe() {
-    // no-op
-  }
-  unobserve() {
-    // no-op
-  }
-  disconnect() {
-    // no-op
-  }
-}
-globalThis.ResizeObserver = ResizeObserverMock;
-
-if (!('hasPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.hasPointerCapture = () => false;
-}
-if (!('setPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.setPointerCapture = () => {
-    // no-op
-  };
-}
-if (!('releasePointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.releasePointerCapture = () => {
-    // no-op
-  };
-}

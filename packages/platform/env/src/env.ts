@@ -1,35 +1,31 @@
 /**
- * `shouldSkipEnvValidation()` — the single source of truth for when a package's
- * `createEnv` skips schema validation. Replaces the predicate that used to be
- * copy-pasted into every package's `env.ts`.
+ * `@acme/env` — the one mechanism a slice uses to declare its environment
+ * (ADR 0033). A slice writes a single `createEnv` call in a single `env.ts`:
  *
- * `createEnv({ skipValidation: true })` passes raw `process.env` through
- * untyped and *uncoerced* — so `z.coerce.number()` never runs and a numeric var
- * arrives as its string. That is correct for steps that have no real env and
- * never touch a coerced value (lint, the Next production build), but wrong for
- * tests, which must validate + coerce against real values (ADR 0014).
+ * - `withProfiles` layers the `APP_ENV`-selected profile onto the call through
+ *   t3-env's `createFinalSchema` seam. A key the profile supplies a value for is
+ *   **config**; a key it doesn't is a **secret**. That is the whole distinction —
+ *   mechanical, not editorial.
+ * - `resolveAppEnv` turns the raw `APP_ENV` selector into the closed `AppEnv` set.
+ * - `shouldSkipEnvValidation` decides when a run cannot supply secrets. It is
+ *   consumed *inside* `withProfiles`, per key: `createEnv`'s own `skipValidation`
+ *   is never passed, anywhere, because it returns `runtimeEnv` raw and would
+ *   discard every config default (and the client access guard) along with it.
+ * - `readEnv` and `jsonEnv` are what make **every** key overridable (ADR 0033
+ *   §4): `readEnv` is the `process.env` read that survives the client bundle,
+ *   and `jsonEnv` lets a key whose value is not a string accept a JSON document.
+ * - `secretsOnly` is `withProfiles` for a call that authors nothing, and
+ *   `webappSchema` is the one declaration of `NEXT_PUBLIC_WEBAPP`'s
+ *   Postgres-identifier constraint — both exist so the shapes every slice
+ *   repeats are stated once.
  *
- * `CI` alone can't separate the two: it is set both for the lint/build CI steps
- * *and* for the testcontainer test run. `VITEST` (set by vitest in every worker)
- * is the discriminator.
- *
- * Precedence:
- *   1. lint / a production build — skip unconditionally (no real env, none needed).
- *   2. under vitest — always validate + coerce (ADR 0014), even in CI.
- *   3. otherwise — skip when CI (a non-test CI step, or a bare worktree with no
- *      `.env`), validate locally.
- *
- * Build detection uses `IS_NEXT_BUILD` (set by the next apps' build scripts),
- * not `NEXT_PHASE`: `next.config.js` jiti-imports `env` before Next sets
- * `NEXT_PHASE`, so the phase check never fired at build time and a bare
- * worktree build blew up on missing runtime env. `NEXT_PHASE` is kept as a
- * secondary signal for the non-build Next phases. (Vite/TanStack builds don't
- * import env at config load, so they need no build flag.)
+ * This package absorbed `@acme/config` (ADR 0033 supersedes ADR 0026 §§2, 4, 6).
  */
-export function shouldSkipEnvValidation() {
-  if (process.env.npm_lifecycle_event === 'lint') return true;
-  if (process.env.IS_NEXT_BUILD) return true;
-  if (process.env.NEXT_PHASE === 'phase-production-build') return true;
-  if (process.env.VITEST) return false;
-  return !!process.env.CI;
-}
+export { withProfiles, secretsOnly } from './profiles';
+export type { Profiles } from './profiles';
+export { webappSchema } from './webapp-schema';
+export { resolveAppEnv, appEnvSchema, APP_ENVS } from './app-env';
+export type { AppEnv } from './app-env';
+export { shouldSkipEnvValidation } from './should-skip-env-validation';
+export { readEnv } from './read-env';
+export { jsonEnv } from './json-env';

@@ -3,7 +3,7 @@
 The auth seam. **Mid-migration:** Clerk is still what the apps run on, and Better
 Auth's self-hosted server half now sits beside it. Both surfaces are live in this
 package until #218 finishes moving the apps over and deletes the Clerk one. See
-[ADR 0033](../../../docs/adr/0033-better-auth-replaces-clerk.md) for the
+[ADR 0034](../../../docs/adr/0034-better-auth-replaces-clerk.md) for the
 replacement decision and
 [ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) for the seam
 the Clerk half was built on.
@@ -30,7 +30,7 @@ the row carries them.
 Better Auth's four tables as Drizzle tables, hand-authored in **`pgSchema('auth')`**
 — a constant schema, not the per-app `NEXT_PUBLIC_WEBAPP` one, because identity
 is shared across the apps on one database
-([ADR 0034](../../../docs/adr/0034-auth-tables-in-a-dedicated-schema.md)).
+([ADR 0035](../../../docs/adr/0035-auth-tables-in-a-dedicated-schema.md)).
 Prefixed `auth*` so `user`/`session` don't collide in a consumer's imports.
 `authTables` is the unprefixed model→table map the Drizzle adapter needs.
 _Avoid_: "the auth schema" for the Drizzle module (it means the Postgres schema
@@ -43,15 +43,20 @@ _Avoid_: "session claims", "JWT claims" — Clerk vocabulary with no Better Auth
 equivalent. Role lives on the **user row** (`authUser.role`), not in a token.
 
 **`authEnv()`** (`@acme/auth/env`):
+The slice's one env call ([ADR 0033](../../../docs/adr/0033-one-env-factory-per-slice.md)):
+`clerkWiringEnv()` extended with the two secrets no profile authors —
 `BETTER_AUTH_SECRET` plus, for now, `CLERK_SECRET_KEY`. Built on
 `@t3-oss/env-core`, not `env-nextjs` — a shared-layer package must not carry a
-framework dependency, and there are no `NEXT_PUBLIC_*` client vars here to need
-the Next flavour. Composed only by the two _full_ apps; the `*-slim` apps mount no
-auth ([ADR 0010](../../../docs/adr/0010-slim-no-auth-apps.md)).
+framework dependency. Composed only by the two _full_ apps; the `*-slim` apps
+mount no auth ([ADR 0010](../../../docs/adr/0010-slim-no-auth-apps.md)).
 
-**`authConfig(context)`** (`@acme/auth/config`):
-Clerk's config-as-code — route URLs and publishable key per deploy profile
-(ADR 0026). Goes with the Clerk half.
+**`clerkWiringEnv()`** (`@acme/auth/env`):
+Clerk's browser-safe wiring — the four route URLs and the publishable key,
+authored as profile defaults per deploy target and read without a secret in the
+call. `authEnv()` extends it; `apps/nextjs`'s Edge middleware calls it directly,
+because validating `CLERK_SECRET_KEY` in a runtime whose `process.env` is a
+build-time snapshot would 500 a correctly configured deploy. Goes with the Clerk
+half.
 
 ## Relationships
 
