@@ -2,6 +2,8 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll } from 'vitest';
 
 import '@testing-library/jest-dom';
+// jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
+import '@acme/test-utils/jsdom';
 
 // Notifications' only frontend contract is the dispatch → toast mapping, driven
 // as an independently-callable function (ADR 0018 — the SSE tail isn't drivable
@@ -17,17 +19,3 @@ export const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
-
-// jsdom gaps some primitives rely on.
-class ResizeObserverMock {
-  observe() {
-    // no-op
-  }
-  unobserve() {
-    // no-op
-  }
-  disconnect() {
-    // no-op
-  }
-}
-globalThis.ResizeObserver = ResizeObserverMock;

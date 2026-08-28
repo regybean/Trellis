@@ -14,6 +14,8 @@ import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
+// jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
+import '@acme/test-utils/jsdom';
 
 // jsdom ships no IndexedDB; `fake-indexeddb/auto` installs an in-memory one so
 // the query persister (ADR 0025) can be exercised. A fresh factory per test
@@ -79,20 +81,6 @@ export const trpcMsw = createTRPCMsw<AppRouter>({
   transformer: { input: superjson, output: superjson },
 });
 
-// --- jsdom gaps some UI primitives rely on -------------------------------
-class ResizeObserverMock {
-  observe() {
-    // no-op
-  }
-  unobserve() {
-    // no-op
-  }
-  disconnect() {
-    // no-op
-  }
-}
-globalThis.ResizeObserver = ResizeObserverMock;
-
 // jsdom doesn't implement matchMedia; the sidebar rail reads it for its
 // mobile default. Report desktop (matches:false) so tests render expanded.
 globalThis.matchMedia = (query: string) => ({
@@ -113,20 +101,3 @@ globalThis.matchMedia = (query: string) => ({
   },
   dispatchEvent: () => false,
 });
-
-if (!('hasPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.hasPointerCapture = () => false;
-}
-if (!('setPointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.setPointerCapture = () => {
-    // no-op
-  };
-}
-if (!('releasePointerCapture' in Element.prototype)) {
-  // @ts-expect-error - jsdom doesn't implement this API
-  Element.prototype.releasePointerCapture = () => {
-    // no-op
-  };
-}
