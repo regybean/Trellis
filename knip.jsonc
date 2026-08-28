@@ -59,6 +59,15 @@
       // defect: issue #235.
       "entry": ["drizzle.push.config.ts", "src/env.ts"]
     },
+    "packages/features/ingest": {
+      // `src/tests/backend/setup.ts` does `vi.mock('@acme/models', …)`. The mock
+      // is a string, so knip sees no import — but vitest still has to *resolve*
+      // the specifier, which needs the workspace symlink this devDependency
+      // creates. Removing it breaks the suite in CI only. See the note in that
+      // file.
+      "ignoreDependencies": ["@acme/models"],
+      "entry": ["src/trpc/server.tsx"]
+    },
     "packages/features/chat": {
       // The Mastra CLI entry (`mastra dev|lint --dir src/mastra`).
       "entry": ["src/mastra/index.ts", "src/trpc/server.tsx"]

@@ -31,6 +31,7 @@
     "@acme/auth": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/eslint-config": "workspace:*",
+    "@acme/models": "workspace:*",
     "@acme/prettier-config": "workspace:*",
     "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
