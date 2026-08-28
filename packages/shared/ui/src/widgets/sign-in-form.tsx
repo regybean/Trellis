@@ -1,14 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 
-import type {
-  AuthFormProps,
-  CredentialFieldErrors,
-  SignInCredentials,
-} from '../lib/auth-credentials';
+import type { AuthFormProps, SignInCredentials } from '../lib/auth-credentials';
 import { cn } from '../../src/lib/utils';
-import { firstIssuePerField, signInSchema } from '../lib/auth-credentials';
+import { firstErrorMessage, signInSchema } from '../lib/auth-credentials';
 import { Alert, AlertDescription } from '../ui/alert';
 import {
   Card,
@@ -32,27 +28,17 @@ export function SignInForm({
   signUpHref = '/sign-up',
   className,
 }: SignInFormProps) {
-  const [fieldErrors, setFieldErrors] = useState<CredentialFieldErrors>({});
-
-  // The inputs are uncontrolled: the DOM already holds what was typed, so the
-  // only state worth keeping is the validation messages. `noValidate` hands
-  // validation to zod rather than the browser, so the messages are ours and
-  // assertable in the DOM.
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const parsed = signInSchema.safeParse(
-      Object.fromEntries(new FormData(event.currentTarget)),
-    );
-
-    if (!parsed.success) {
-      setFieldErrors(firstIssuePerField(parsed.error));
-      return;
-    }
-
-    setFieldErrors({});
-    onSubmit(parsed.data);
-  };
+  // TanStack Form takes the zod schema directly as a Standard Schema validator
+  // — no resolver package, and the messages stay zod's. `noValidate` hands
+  // validation to it rather than the browser, so those messages are the ones
+  // that render and they are assertable in the DOM.
+  const form = useForm({
+    defaultValues: { email: '', password: '' },
+    validators: { onSubmit: signInSchema },
+    onSubmit: ({ value }) => {
+      onSubmit(value);
+    },
+  });
 
   return (
     <Card className={cn('w-full max-w-sm', className)}>
@@ -63,24 +49,44 @@ export function SignInForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} noValidate>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          noValidate
+        >
           <FieldGroup>
-            <CredentialField
-              label="Email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              error={fieldErrors.email}
-            />
+            <form.Field name="email">
+              {(field) => (
+                <CredentialField
+                  label="Email"
+                  name={field.name}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  error={firstErrorMessage(field.state.meta.errors)}
+                />
+              )}
+            </form.Field>
 
-            <CredentialField
-              label="Password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              error={fieldErrors.password}
-            />
+            <form.Field name="password">
+              {(field) => (
+                <CredentialField
+                  label="Password"
+                  name={field.name}
+                  type="password"
+                  autoComplete="current-password"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  error={firstErrorMessage(field.state.meta.errors)}
+                />
+              )}
+            </form.Field>
 
             {error && (
               <Alert variant="destructive">

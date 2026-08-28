@@ -1,17 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useForm } from '@tanstack/react-form';
 
-import type {
-  AuthFormProps,
-  CredentialFieldErrors,
-  SignUpCredentials,
-} from '../lib/auth-credentials';
+import type { AuthFormProps, SignUpCredentials } from '../lib/auth-credentials';
 import { cn } from '../../src/lib/utils';
 import {
-  firstIssuePerField,
+  firstErrorMessage,
   MIN_PASSWORD_LENGTH,
   signUpFormSchema,
+  signUpSchema,
 } from '../lib/auth-credentials';
 import { Alert, AlertDescription } from '../ui/alert';
 import {
@@ -36,30 +33,19 @@ export function SignUpForm({
   signInHref = '/sign-in',
   className,
 }: SignUpFormProps) {
-  const [fieldErrors, setFieldErrors] = useState<CredentialFieldErrors>({});
-
-  // Uncontrolled inputs read through `FormData`, so validation messages are the
-  // form's only state. `confirmPassword` is validated but never handed on — the
-  // caller receives name, email and password.
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const parsed = signUpFormSchema.safeParse(
-      Object.fromEntries(new FormData(event.currentTarget)),
-    );
-
-    if (!parsed.success) {
-      setFieldErrors(firstIssuePerField(parsed.error));
-      return;
-    }
-
-    setFieldErrors({});
-    onSubmit({
-      name: parsed.data.name,
-      email: parsed.data.email,
-      password: parsed.data.password,
-    });
-  };
+  // The form validates against `signUpFormSchema` (the rendered fields), then
+  // re-parses through `signUpSchema` to build the payload. That second parse is
+  // what applies the name's `trim()` and drops `confirmPassword` — the form-only
+  // field — so the caller receives exactly `SignUpCredentials` without the
+  // payload being assembled by hand. It cannot throw: the wider schema extends
+  // the narrower one and has already passed.
+  const form = useForm({
+    defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
+    validators: { onSubmit: signUpFormSchema },
+    onSubmit: ({ value }) => {
+      onSubmit(signUpSchema.parse(value));
+    },
+  });
 
   return (
     <Card className={cn('w-full max-w-sm', className)}>
@@ -70,42 +56,76 @@ export function SignUpForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} noValidate>
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+          noValidate
+        >
           <FieldGroup>
-            <CredentialField
-              label="Name"
-              name="name"
-              type="text"
-              autoComplete="name"
-              placeholder="Ada Lovelace"
-              error={fieldErrors.name}
-            />
+            <form.Field name="name">
+              {(field) => (
+                <CredentialField
+                  label="Name"
+                  name={field.name}
+                  type="text"
+                  autoComplete="name"
+                  placeholder="Ada Lovelace"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  error={firstErrorMessage(field.state.meta.errors)}
+                />
+              )}
+            </form.Field>
 
-            <CredentialField
-              label="Email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@example.com"
-              error={fieldErrors.email}
-            />
+            <form.Field name="email">
+              {(field) => (
+                <CredentialField
+                  label="Email"
+                  name={field.name}
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  error={firstErrorMessage(field.state.meta.errors)}
+                />
+              )}
+            </form.Field>
 
-            <CredentialField
-              label="Password"
-              name="password"
-              type="password"
-              autoComplete="new-password"
-              description={`At least ${MIN_PASSWORD_LENGTH} characters.`}
-              error={fieldErrors.password}
-            />
+            <form.Field name="password">
+              {(field) => (
+                <CredentialField
+                  label="Password"
+                  name={field.name}
+                  type="password"
+                  autoComplete="new-password"
+                  description={`At least ${MIN_PASSWORD_LENGTH} characters.`}
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  error={firstErrorMessage(field.state.meta.errors)}
+                />
+              )}
+            </form.Field>
 
-            <CredentialField
-              label="Confirm password"
-              name="confirmPassword"
-              type="password"
-              autoComplete="new-password"
-              error={fieldErrors.confirmPassword}
-            />
+            <form.Field name="confirmPassword">
+              {(field) => (
+                <CredentialField
+                  label="Confirm password"
+                  name={field.name}
+                  type="password"
+                  autoComplete="new-password"
+                  value={field.state.value}
+                  onChange={(event) => field.handleChange(event.target.value)}
+                  onBlur={field.handleBlur}
+                  error={firstErrorMessage(field.state.meta.errors)}
+                />
+              )}
+            </form.Field>
 
             {error && (
               <Alert variant="destructive">

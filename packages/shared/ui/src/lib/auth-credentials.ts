@@ -8,6 +8,10 @@ import { z } from 'zod';
  * auth seam and the slim apps' graph is unaffected (ADR 0010). The caller's
  * `onSubmit` receives the parsed credentials and owns the call to whatever
  * provider is wired up.
+ *
+ * The schemas are handed to TanStack Form as Standard Schema validators, so
+ * zod stays the single source of the messages — no resolver package, and no
+ * second copy of the rules.
  */
 
 /** Password floor, mirrored in the sign-up hint text. */
@@ -42,26 +46,29 @@ export const signUpFormSchema = signUpSchema
     path: ['confirmPassword'],
   });
 
-/** One message per field name, as the forms render them. */
-export type CredentialFieldErrors = Record<string, string | undefined>;
-
 /**
- * First issue per field, keyed by field name — the shape both auth forms hold
- * as state. Refinements that set an explicit `path` (the confirmation match)
- * land on that field like any other.
+ * The message a field renders, read off TanStack Form's `meta.errors`.
+ *
+ * That array is typed as the union of every validator slot the field could
+ * carry, so it is narrowed structurally here rather than asserted: a Standard
+ * Schema validator contributes issue objects with a `message`, a plain function
+ * validator contributes a bare string. Anything else counts as "no message"
+ * rather than rendering `[object Object]` at the user.
  */
-export function firstIssuePerField<T>(error: z.ZodError<T>) {
-  const messages: CredentialFieldErrors = {};
+export function firstErrorMessage(errors: readonly unknown[]) {
+  for (const error of errors) {
+    if (typeof error === 'string') {
+      return error;
+    }
 
-  for (const issue of error.issues) {
-    const [field] = issue.path;
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const { message } = error;
 
-    if (typeof field === 'string' && messages[field] === undefined) {
-      messages[field] = issue.message;
+      if (typeof message === 'string') {
+        return message;
+      }
     }
   }
-
-  return messages;
 }
 
 /**

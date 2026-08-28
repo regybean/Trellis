@@ -57,6 +57,25 @@ describe('SignUpForm', () => {
     );
   });
 
+  it('hands on a trimmed name', async () => {
+    const user = userEvent.setup();
+    render(<Harness />);
+
+    await user.type(screen.getByLabelText('Name'), '  Ada Lovelace  ');
+    await user.type(screen.getByLabelText('Email'), 'ada@example.com');
+    await user.type(screen.getByLabelText('Password'), validCredential);
+    await user.type(screen.getByLabelText('Confirm password'), validCredential);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
+
+    expect(await screen.findByTestId('submitted')).toHaveTextContent(
+      JSON.stringify({
+        name: 'Ada Lovelace',
+        email: 'ada@example.com',
+        password: validCredential,
+      }),
+    );
+  });
+
   it('rejects an invalid email at the field, and does not call the handler', async () => {
     const user = userEvent.setup();
     render(<Harness />);
