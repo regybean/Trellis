@@ -2,7 +2,7 @@
 
 The auth seam ([ADR 0003](0003-framework-agnostic-auth-seam.md)) and the
 entitlements seam ([ADR 0006](0006-entitlements-injection-seam.md)) made the
-caller's identity and billing policy *injected* values: the platform substrate
+caller's identity and billing policy _injected_ values: the platform substrate
 (`@acme/trpc`) imports no Clerk SDK and no Stripe/Redis implementation. ADR 0006
 named the motivating case — "a single-user `nextjs-slim` app". This ADR records
 how that app (and its TanStack Start twin) is actually built.
@@ -16,25 +16,31 @@ features still gate on one:
 
 - `@acme/chat` — every procedure is `protectedProcedure`; it scopes Mastra memory
   by a **non-null** `userId`.
-- `@acme/ingest` — every procedure is `adminProcedure`; it gates on
-  `sessionClaims.metadata.role === 'admin'`.
+- `@acme/ingest` — every procedure is `adminProcedure`; it gates on the
+  principal's `role` being `'admin'`.
 
-So a no-auth app cannot inject "signed out" (`{ userId: null }`) — chat would
+So a no-auth app cannot inject "signed out" (`{ user: null }`) — chat would
 reject every call and ingest would 403. Instead each slim app injects a single
 **constant principal** at its tRPC route seam:
 
 ```ts
-const LOCAL_PRINCIPAL: InjectedAuth = {
-  userId: 'local',
-  sessionClaims: { metadata: { role: 'admin' } },
+const LOCAL_SESSION: InjectedSession = {
+  user: { id: "local", role: "admin" },
 };
-// inject: { headers, req, auth: LOCAL_PRINCIPAL, user: null, entitlements: unlimitedEntitlements }
+// inject: { headers, req, session: LOCAL_SESSION, entitlements: unlimitedEntitlements }
 ```
 
 The `role: 'admin'` is **load-bearing, not cosmetic**: it is the only reason
-`@acme/ingest`'s `adminProcedure` admits the caller. `ctx.user` is `null` because
-no retained feature reads it (only `@acme/billing`, which is dropped, did).
-Entitlements are `unlimitedEntitlements` from `@acme/entitlements` (ADR 0006).
+`@acme/ingest`'s `adminProcedure` admits the caller. The principal carries
+nothing else, because no retained feature reads anything else (only
+`@acme/billing`, which is dropped, needed the email). Entitlements are
+`unlimitedEntitlements` from `@acme/entitlements` (ADR 0006).
+
+> Updated by #220: the seam was `{ auth: InjectedAuth, user }` when this ADR was
+> written — a Clerk-shaped `{ userId, sessionClaims }` pair plus a separate
+> `ctx.user`. It is now the single neutral `InjectedSession`
+> ([ADR 0003](0003-framework-agnostic-auth-seam.md), amendment). The decision is
+> unchanged; only the shape being injected is.
 
 The surprising consequence — **a no-auth app injects `role: 'admin'`** — is the
 thing this ADR exists to make legible. It reads like a privilege escalation; it

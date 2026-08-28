@@ -64,9 +64,11 @@ accepted
 
 - **`@acme/trpc` drops three dependencies**: `@acme/subscriptions`, `@acme/redis`
   (a phantom dependency it never imported directly), and `@clerk/backend`.
-  `ctx.user` is typed via an augmentable `InjectedUser` global (declaration
+  the principal is typed via an augmentable `InjectedUser` global (declaration
   merging) rather than a backend Clerk `User` import, so the substrate no longer
-  names Clerk at all.
+  names Clerk at all. (It reached the context as `ctx.user` when this ADR was
+  written; it is `ctx.session.user` since #220 — see
+  [ADR 0003](0003-framework-agnostic-auth-seam.md), amendment.)
 - **`createTRPCContext`'s signature gains a required `entitlements`.** Every
   caller supplies one: both apps' route handlers and the TanStack `clerk-context`
   resolver inject `subscriptionsEntitlements`; the reference RSC callers in chat
@@ -76,7 +78,7 @@ accepted
   RSC callers became neutral factories (`createServerTRPC({ headers, auth, user,
 entitlements })`); `@clerk/nextjs` and `@acme/subscriptions` left their
   `package.json`. `@acme/billing` remains legitimately coupled to Clerk + Stripe
-  (its account router reads `ctx.user.primaryEmailAddress`; its success handler
+  (its account router reads the principal's `primaryEmailAddress`; its success handler
   resolves `auth()`), so it keeps those deps and its `server.tsx` stays a
   concrete worked example.
 - **Tests no longer mock `@acme/subscriptions`.** Removing the

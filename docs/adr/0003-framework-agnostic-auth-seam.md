@@ -101,6 +101,14 @@ Issue #220 replaces it:
   a principal, `adminProcedure` narrows too — `@acme/ingest`'s local
   `requireUserId` guard, which existed only because the old union didn't narrow,
   is gone.
+- The base is **declared once**. It lives in `@acme/trpc`'s `src/index.ts`, not
+  a `global.d.ts` — `tsc` never re-emits a `.d.ts`, so a declaration file in
+  `src` reaches nobody, which is why the old claims type had to be restated in
+  every program. Declared in a module that _is_ emitted, it rides
+  `dist/index.d.ts` into every consumer. Packages that need more augment the
+  interface (`@acme/billing`'s primary email, `@acme/auth`'s for the full apps);
+  nobody restates the base, so replacing the provider's session type cannot
+  fan out the way `CustomJwtSessionClaims` did.
 - `CustomJwtSessionClaims` is deleted everywhere, including the generator
   template. A scaffolded feature now names no auth provider at all: its
   `api/trpc.ts` delegates to `createFeatureTRPCWithDb` and its package.json
@@ -114,15 +122,26 @@ app-owned" was meant to mean:
 
 - **`@acme/auth`** holds the Clerk-shaped pieces: `readRole` (the single
   validated read of the role claim — Clerk types session claims as
-  `{ [k: string]: unknown }`, so the shape is parsed, not asserted) and the
-  `InjectedUser` augmentation, typed off Clerk's `User` via `Pick` so a renamed
-  provider field is a compile error.
-- **The two full apps** map Clerk onto the neutral principal in their context
-  resolvers (`id`, `role`, and the `primaryEmailAddress` billing opens a Stripe
-  customer with) and read the role through `readRole` in the Next middleware
-  admin gate, the Start route guard, and both admin server-action gates. The
-  Clerk `User` instance itself no longer reaches the tRPC context; `@acme/billing`
-  augments the seam with the one email field it reads, structurally.
+  `{ [k: string]: unknown }`, so the shape is parsed, not asserted) and
+  `toInjectedPrincipal`, the single Clerk→principal mapping. The mapping is
+  _provider_-specific, not _framework_-specific, so both full apps share it;
+  what stays app-owned is resolution — which SDK's `auth()` and user fetch to
+  call. `toInjectedPrincipal` reads `primaryEmailAddress` off the real Clerk
+  `User`, so a renamed provider field is a compile error in exactly one place,
+  while the seam itself stays structural (typing the augmentation `Pick<User,
+…>` instead would give the merged member two different types, since
+  `@acme/billing` declares the same field without Clerk in scope).
+- **The two full apps** resolve Clerk in their context resolvers and hand the
+  results to `toInjectedPrincipal`, and read the role through `readRole` in the
+  Next middleware admin gate, the Start route guard, and both admin
+  server-action gates. The Clerk `User` instance itself no longer reaches the
+  tRPC context; `@acme/billing` augments the seam with the one email field it
+  reads, structurally.
+- **Identity comes off the session, not the user fetch.** `protectedProcedure`
+  has always gated on `auth().userId`, independently of `currentUser()`, so
+  `toInjectedPrincipal` returns a principal whenever the session has a `userId`
+  — a caller whose user fetch comes back empty still authenticates, and only
+  billing's Stripe lookup notices the missing email.
 
 The role still comes off the session token, so behaviour is unchanged — a role
 change takes effect on token refresh, exactly as before.
