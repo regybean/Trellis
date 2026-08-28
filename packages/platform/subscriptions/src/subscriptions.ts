@@ -7,9 +7,9 @@ import type { SubscriptionCache, SubscriptionTier } from './subscription-cache';
 import { SubscriptionCacheSchema } from './subscription-cache';
 
 /**
- * The Stripe product IDs a paid tier maps to. Config-as-code (ADR 0026): the
+ * The Stripe product ids a paid tier maps to. Authored config (ADR 0033): the
  * plan IDs are non-sensitive, per-deploy-target values owned by `@acme/billing`'s
- * `billingConfig`, resolved once at the app edge and threaded in — never read
+ * billing's env, resolved once at the app edge and threaded in — never read
  * from `process.env` here. Injected into `createSubscriptionsEntitlements` and
  * passed to `getSubscriptionType`.
  */

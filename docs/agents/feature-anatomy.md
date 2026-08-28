@@ -29,7 +29,7 @@ packages/features/<name>/
       root.ts             # appRouter — aggregates this feature's routers
       routers/<name>.ts   # the procedures (the BACKEND contract)
       schemas/*-schema.ts # drizzle tables + zod schemas
-    env.ts                # type-safe env (@t3-oss/env-nextjs); validated, never mocked
+    env.ts                # the slice env: one createEnv call, APP_ENV profiles (ADR 0033); validated, never mocked
     components/           # presentational UI only — MUST NOT import trpc or call hooks' data layer directly
     hooks/use-*.ts        # data access + business logic (the FRONTEND contract)
     trpc/

@@ -1,11 +1,10 @@
 {
   "name": "@acme/auth",
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@clerk/backend": "catalog:",
     "@clerk/clerk-react": "catalog:",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "react": "catalog:",
     "zod": "catalog:"
   },
@@ -25,10 +24,6 @@
     "./server": {
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
     },
     "./env": {
       "types": "./dist/env.d.ts",

@@ -1,5 +1,17 @@
 # CI build stubs for infrastructure-client env vars
 
+> **Rationale updated by [ADR 0033](0033-one-env-factory-per-slice.md) §3.** The
+> stub table below still holds, but not for the reason given here. An
+> `IS_NEXT_BUILD` run no longer skips coercion: `withProfiles` always builds and
+> parses the schema, relaxing only the keys no profile authors. So the stubs no
+> longer "bypass T3 entirely" — they are parsed and coerced like any other input,
+> which means a stub must now be a **valid** value for its schema rather than any
+> non-empty string. That is a tightening, and the values in the table already
+> satisfy it. The stubs are still needed for the reason this ADR identified: they
+> exist to satisfy the infrastructure clients' own constructor guards, which run
+> at module import regardless of what env validation does. Keys that now carry an
+> authored profile value need no stub at all.
+
 `shouldSkipEnvValidation()=true` during `IS_NEXT_BUILD` skips T3 schema coercion but
 **not** the infrastructure client constructors (`PgVector`, `PostgresStore` from
 `@mastra/pg`) which do their own non-empty host validation at instantiation time. Those
@@ -47,8 +59,11 @@ Stubs declared in CI:
 | `OLLAMA_CHAT_MODEL`  | `stub`                   | ollama chat model id                                      |
 | `OLLAMA_EMBED_MODEL` | `stub`                   | ollama embed model id                                     |
 
-T3 env validation is already skipped (`shouldSkipEnvValidation()=true`), so these stubs
-bypass T3 entirely. They exist only to satisfy Mastra/AI-SDK constructor guards. All stub
+These stubs exist to satisfy Mastra/AI-SDK constructor guards, which run at module
+import whatever env validation does. (As noted at the top: since ADR 0033 §3 they are
+also coerced and validated by the slice's schema rather than bypassing it, so each one
+has to be a legal value for its key — the reason `OLLAMA_BASE_URL` above is a
+well-formed URL and not `stub`.) All stub
 vars are also listed in `turbo.json` `globalEnv` — turbo filters subprocess env to declared
 vars only, so CI step env vars are silently dropped unless listed there.
 

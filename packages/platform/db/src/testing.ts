@@ -9,13 +9,18 @@
  */
 import type { InfraDescriptor } from '@acme/test-utils/infra';
 
-import { LOCAL_DB_PORT } from './config';
+import { DB_DEVELOPMENT_PROFILE } from './development-profile';
 
-// Throwaway credentials for the ephemeral test container — not a secret. Hoisted
-// to plain constants so they read as identifiers, not inline password literals.
-const TEST_USER = 'postgres';
+// The throwaway credentials for the ephemeral test container come from the same
+// authored development profile the app connects with, so a suite validates
+// against the values it provisions (ADR 0033 §6). `DB_VECTOR_NAME` is
+// `@acme/rag`'s to author, so it stays a literal here rather than making this
+// package depend on that one; the two agree by convention and the init script
+// defaults to the same name.
+const { DB_USER: TEST_USER, DB_NAME: TEST_DB } = DB_DEVELOPMENT_PROFILE;
+// The container's throwaway password — a secret on every target (no profile
+// authors it), so it stays a literal here, matching `deploy/.env.example`.
 const TEST_SECRET = 'password123';
-const TEST_DB = 'testdb';
 const TEST_VECTOR_DB = 'vectordb';
 
 export const postgresContainer: InfraDescriptor = {
@@ -24,10 +29,10 @@ export const postgresContainer: InfraDescriptor = {
   image: 'pgvector/pgvector:pg17',
   containerPort: 5432,
   // Container-internal is always 5432; the *host* port compose publishes to is
-  // the config value, which is not 5432 (see `config.ts`). Read from there
+  // the authored profile value, which is not 5432 (see `env.ts`). Read from there
   // rather than repeated as a literal — a local backend suite probes this port,
   // so a drift between the two silently points tests at the wrong database.
-  localPort: LOCAL_DB_PORT,
+  localPort: DB_DEVELOPMENT_PROFILE.DB_PORT,
   containerEnv: {
     POSTGRES_USER: TEST_USER,
     POSTGRES_PASSWORD: TEST_SECRET,

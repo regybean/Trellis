@@ -24,14 +24,14 @@ import {
  * Tier is controlled the way production sets it: by seeding the Stripe
  * subscription cache in Redis (`setStripeCustomerId` + `setSubscriptionCache`),
  * which `getUserSubscriptionFromRedis` + `getSubscriptionType` then resolve. The
- * `credits.*` admin ops take the resolved `(subscription, tier)` (ADR 0026 — plan
+ * `credits.*` admin ops take the resolved `(subscription, tier)` (ADR 0033 — plan
  * IDs are config, injected, not read from env); `resolve` below stands in for the
  * entitlements provider, mapping the seeded product ids via `PLAN_IDS`.
  */
 
 const USER = 'user_1';
 
-/** The plan IDs `seedTier`'s products map to — the billingConfig values a
+/** The plan ids `seedTier`'s products map to — the billing-env values a
  *  provider would inject; here supplied directly (config is pure). */
 const PLAN_IDS = {
   standardPlanId: 'price_standard_test',

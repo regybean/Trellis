@@ -1,7 +1,7 @@
 {
   "name": "@acme/telemetry",
   "dependencies": {
-    "@acme/config": "workspace:*",
+    "@acme/env": "workspace:*",
     "@kubiks/otel-drizzle": "catalog:",
     "@opentelemetry/api": "catalog:",
     "@opentelemetry/auto-instrumentations-node": "catalog:",
@@ -10,6 +10,7 @@
     "@opentelemetry/sdk-node": "catalog:",
     "@opentelemetry/sdk-trace-base": "catalog:",
     "@opentelemetry/semantic-conventions": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "server-only": "catalog:",
     "zod": "catalog:"
   },
@@ -35,9 +36,9 @@
       "types": "./dist/register.d.ts",
       "default": "./src/register.ts"
     },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
+    "./env": {
+      "types": "./dist/env.d.ts",
+      "default": "./src/env.ts"
     }
   },
   "sideEffects": [
