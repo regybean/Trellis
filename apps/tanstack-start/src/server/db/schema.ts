@@ -18,3 +18,15 @@ export { appSchema } from '../app-schema';
 // the feature schema notes and ADR-0002.
 export { feedbackRating, messageFeedback } from '@acme/feedback/schema';
 export { chatFolder } from '@acme/chat/schema';
+
+// Better Auth's tables, in their own `auth` Postgres schema rather than
+// `appSchema` — identity is shared across the apps on one database (ADR 0035).
+// `authSchema` is exported so drizzle owns `CREATE SCHEMA auth`, and `auth` is
+// listed in the drizzle configs' `schemaFilter` so push manages them at all.
+export {
+  authSchema,
+  authUser,
+  authSession,
+  authAccount,
+  authVerification,
+} from '@acme/auth/schema';

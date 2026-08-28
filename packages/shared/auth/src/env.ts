@@ -78,12 +78,14 @@ export function clerkWiringEnv() {
  * *full* apps only — the `*-slim` apps mount no auth, so they never demand the
  * secret (ADR 0010, composition axis).
  *
- * `CLERK_SECRET_KEY` is the one key no profile authors, so it is the one key a
- * deploy target must supply. This is *validation-only*: the Clerk SDK
- * (`clerkClient()` / `auth()` / `clerkMiddleware()`) keeps reading it implicitly
- * from `process.env` — passing `secretKey` to middleware would flip Clerk into
- * Dynamic Keys mode (#94). Declaring it forces a full app to fail fast at boot on
- * a missing key instead of on the first Clerk call with an opaque error.
+ * `BETTER_AUTH_SECRET` and `CLERK_SECRET_KEY` are the keys no profile authors, so
+ * they are the keys a deploy target must supply. Both are *validation-only*:
+ * Better Auth and the Clerk SDK (`clerkClient()` / `auth()` /
+ * `clerkMiddleware()`) each keep reading their own off `process.env` — passing
+ * `secretKey` to Clerk middleware would flip it into Dynamic Keys mode (#94).
+ * Declaring them forces a full app to fail fast at boot on a missing key instead
+ * of on the first call with an opaque error, or (for Better Auth) on a silent
+ * fallback to a hardcoded development secret.
  *
  * Because the app composes this one call, the slice cannot ship its wiring with
  * its gated secret unvalidated — the failure the old two-mechanism split allowed
@@ -95,10 +97,26 @@ export function authEnv() {
     extends: [clerkWiringEnv()],
     client: {},
     server: {
+      // Signs session cookies and encrypts stored tokens. Better Auth would
+      // otherwise fall back to reading `BETTER_AUTH_SECRET` off `process.env`
+      // itself — and silently use a hardcoded development default when unset.
+      // Declaring it makes a full app fail fast at boot instead. Generate with
+      // `openssl rand -base64 32`.
+      BETTER_AUTH_SECRET: z.string().nonempty(),
+      // Clerk secret. Clerk is still the live auth provider (#218 migrates the
+      // apps); this row goes when it does.
+      //
+      // This is *validation-only*: the Clerk SDK (`clerkClient()`/`auth()`/
+      // `clerkMiddleware()`) keeps reading `CLERK_SECRET_KEY` implicitly from
+      // `process.env` — the key is never passed to Clerk here (passing
+      // `secretKey` to middleware would flip Clerk into Dynamic Keys mode, #94).
+      // Declaring it forces a full app to fail fast at boot on a missing key
+      // instead of on the first Clerk call with an opaque error.
       CLERK_SECRET_KEY: z.string().nonempty(),
     },
     createFinalSchema: secretsOnly(appEnv),
     runtimeEnv: {
+      BETTER_AUTH_SECRET: readEnv('BETTER_AUTH_SECRET'),
       CLERK_SECRET_KEY: readEnv('CLERK_SECRET_KEY'),
     },
     emptyStringAsUndefined: true,
