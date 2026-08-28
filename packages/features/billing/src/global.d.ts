@@ -1,17 +1,15 @@
-// Global type declarations for the platform's injected principal. No auth
-// provider is named: `@acme/trpc` owns the `InjectedUser` seam, and a feature's
-// program can't include the platform's own `global.d.ts`, so the base is
-// redeclared here. `Roles` is owned by @acme/auth — imported, not redeclared.
-import type { Roles } from '@acme/auth';
+// Billing's *augmentation* of the injected principal. The base (`id` + `role`)
+// is declared once in `@acme/trpc` and arrives through its `dist/index.d.ts`,
+// so nothing is restated here — this file only contributes the extra field
+// billing reads off `ctx.session.user`.
+//
+// No imports, so this is an ambient script file and the interface merges into
+// the global `InjectedUser` directly (no `declare global` wrapper needed).
 
-declare global {
-  // `ctx.session.user`. Billing's account router opens a Stripe customer for the
-  // caller, so it augments the platform's base with the primary email address —
-  // structurally, naming no provider. The full apps map it off their auth
-  // provider's user (see @acme/auth's globals).
-  interface InjectedUser {
-    id: string;
-    role?: Roles;
-    primaryEmailAddress: { emailAddress: string } | null;
-  }
+// The account router opens a Stripe customer for the caller, so it needs the
+// primary email address. Declared structurally, naming no auth provider, and
+// identically to `@acme/auth`'s augmentation — two declarations of one merged
+// member have to agree. The full apps map it off their provider's user.
+interface InjectedUser {
+  primaryEmailAddress: { emailAddress: string } | null;
 }

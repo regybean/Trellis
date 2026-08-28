@@ -19,10 +19,33 @@ import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
  * depends on no auth SDK. See docs/adr/0003-framework-agnostic-auth-seam.md and
  * docs/adr/0006-entitlements-injection-seam.md.
  */
+
+/** The role union `adminProcedure` gates on. Declared once, here. */
+export type Roles = 'admin' | 'user';
+
+declare global {
+  /**
+   * The injected principal — `ctx.session.user`. Open by design: the substrate
+   * reads only `id` (identity) and `role` (the `adminProcedure` gate), so the
+   * base declares exactly those, and consumers that need more *augment* it.
+   *
+   * The declaration lives in this module rather than a `global.d.ts` on
+   * purpose: `tsc` emits it into `dist/index.d.ts`, so every program that
+   * imports `@acme/trpc` inherits the base instead of restating it. Augmenting
+   * is then additive — `@acme/billing` contributes the primary email its Stripe
+   * customer lookup reads, `@acme/auth` contributes what the full apps map off
+   * a Clerk `User` — and no package has to keep a copy of the base in sync.
+   */
+  interface InjectedUser {
+    id: string;
+    role?: Roles;
+  }
+}
+
 /**
  * The whole of the session the platform consumes: a principal, or nothing.
- * `user` is the augmentable `InjectedUser` global (below), whose base carries
- * the only two fields the substrate reads — `id` and `role`.
+ * `user` is the augmentable `InjectedUser` global above, whose base carries the
+ * only two fields the substrate reads — `id` and `role`.
  * `protectedProcedure` narrows it to a non-null `InjectedUser`.
  */
 export interface InjectedSession {

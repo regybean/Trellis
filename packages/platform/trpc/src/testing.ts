@@ -25,14 +25,35 @@ import type {
 } from '@acme/entitlements';
 import { isTierAtLeast } from '@acme/entitlements';
 
-import type { createTRPCContext, InjectedSession } from './index';
+import type { createTRPCContext, InjectedSession, Roles } from './index';
 
-/** Knobs a test varies per caller: identity, role, tier, and credit balance. */
-export interface TestContextOptions {
-  userId: string;
-  role: 'admin' | 'user';
+/** The billing knobs a test varies per caller. */
+export interface TestEntitlementsOptions {
   tier: SubscriptionTier;
   credits: CreditBalance;
+}
+
+/**
+ * What `createTestContext` needs. The principal arrives whole rather than as
+ * `userId` + `role`, because `InjectedUser` is an augmentable global: a feature
+ * that adds a field to the seam (billing's primary email) is the only program
+ * that can build a complete principal, and building it there is what keeps this
+ * platform package free of any one feature's knowledge — and free of the
+ * widening it would otherwise take to fake it.
+ */
+export interface TestContextOptions extends TestEntitlementsOptions {
+  user: InjectedUser;
+}
+
+/**
+ * The knobs a *feature's* own `createTestContext` wrapper exposes to its tests:
+ * identity and role, plus the billing knobs. The wrapper turns `userId`/`role`
+ * into the feature's own `InjectedUser` — see any feature's
+ * `tests/backend/utils/test-context.ts`.
+ */
+export interface FeatureTestContextOptions extends TestEntitlementsOptions {
+  userId: string;
+  role: Roles;
 }
 
 /**
@@ -57,10 +78,7 @@ function subscriptionForTier(tier: SubscriptionTier): SubscriptionCache {
 }
 
 /** The single derivation shared by the mock provider and the test context. */
-function resolveEntitlements(opts: {
-  tier: SubscriptionTier;
-  credits: CreditBalance;
-}): Entitlements {
+function resolveEntitlements(opts: TestEntitlementsOptions): Entitlements {
   return {
     subscription: subscriptionForTier(opts.tier),
     tier: opts.tier,
@@ -75,10 +93,7 @@ function resolveEntitlements(opts: {
  * `isTierAtLeast` is the REAL ordering from `@acme/entitlements` so `requireTier`
  * gates behave exactly as in production.
  */
-export function createMockEntitlements(opts: {
-  tier: SubscriptionTier;
-  credits: CreditBalance;
-}) {
+export function createMockEntitlements(opts: TestEntitlementsOptions) {
   const resolved = resolveEntitlements(opts);
   return {
     resolve: () => Promise.resolve(resolved),
@@ -89,34 +104,13 @@ export function createMockEntitlements(opts: {
 }
 
 /**
- * A minimal injected principal, typed as the augmentable `InjectedUser` seam.
- * The platform reads only `id` and `role`; the extra `primaryEmailAddress` is
- * there for the consumers that augment the seam with it (billing's Stripe
- * customer lookup). It is built as a plain object rather than an annotated
- * literal deliberately: the platform's own base declares only the two fields it
- * reads, so a literal would be an excess-property error here even though a
- * consumer's augmented view needs the extra one at runtime.
- */
-export function createMockUser(
-  userId: string,
-  role: 'admin' | 'user',
-): InjectedUser {
-  const user = {
-    id: userId,
-    role,
-    primaryEmailAddress: { emailAddress: 'test@example.com' },
-  };
-  return user;
-}
-
-/**
  * A stubbed session in the neutral `InjectedSession` shape the platform
  * actually consumes (an auth provider is resolved in the app adapter, never
  * here) — just enough for `protectedProcedure` to narrow the principal and
  * `adminProcedure` to read its role.
  */
-export function createMockSession(userId: string, role: 'admin' | 'user') {
-  return { user: createMockUser(userId, role) } satisfies InjectedSession;
+export function createMockSession(user: InjectedUser) {
+  return { user } satisfies InjectedSession;
 }
 
 /**
@@ -136,7 +130,7 @@ export function createTestContext(
     // A realistic app origin so procedures that build absolute redirect URLs
     // (billing checkout) resolve one, matching what an app edge would inject.
     origin: 'http://localhost:3000',
-    session: createMockSession(opts.userId, opts.role),
+    session: createMockSession(opts.user),
     entitlements: createMockEntitlements(opts),
     subscription,
     tier,

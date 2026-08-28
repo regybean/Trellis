@@ -7,14 +7,32 @@
  * isolated Redis DB.
  */
 
+import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { mastraMessages, mastraThreads } from '@acme/rag/schema';
 import { flushTestDb } from '@acme/redis/testing';
+import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
 
 import { messageFeedback } from '../../../api/schemas/feedback-schema';
 import { db } from '../../../api/trpc';
 
-export { createTestContext } from '@acme/trpc/testing';
-export type { TestContextOptions } from '@acme/trpc/testing';
+/**
+ * The knobs feedback's backend tests vary. Identical for every feature; only the
+ * principal differs, which is why building it is the feature's job.
+ */
+export type TestContextOptions = FeatureTestContextOptions;
+
+/**
+ * Build the tRPC caller context. The one canonical builder lives in
+ * `@acme/trpc/testing`; this wrapper supplies the `InjectedUser` feedback's own
+ * program declares — the platform base, `id` + `role`, and nothing more.
+ */
+export function createTestContext({
+  userId,
+  role,
+  ...entitlements
+}: TestContextOptions) {
+  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
+}
 
 /**
  * Remove all test data: app-owned feedback first, then the Mastra tables

@@ -36,8 +36,11 @@ substrate.
 The `InjectedSession` an app resolves at its edge and passes to
 `createTRPCContext` — `{ user: InjectedUser | null }`, where `InjectedUser` is the
 augmentable global whose base carries the only two fields the substrate reads,
-`id` and `role`. No auth provider is named here; mapping a provider's session
-onto this shape is the app's job (ADR 0003).
+`id` and `role`. The base is declared in `src/index.ts`, so `tsc` emits it into
+`dist/index.d.ts` and every program that imports `@acme/trpc` inherits it —
+consumers _augment_ the interface, they never restate the base. No auth provider
+is named here; mapping a provider's session onto this shape is the app's job
+(ADR 0003).
 _Avoid_: "the auth object", "the Clerk session"
 
 **Protected procedure**:
@@ -126,12 +129,20 @@ framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM ty
 boundary if constructed in the platform package.
 
 **`@acme/trpc/testing` is the one home for a test caller context**: `createTestContext`
-(+ `createMockEntitlements`, `createMockSession`, `createMockUser`)
+(+ `createMockEntitlements`, `createMockSession`)
 live here — beside the `BaseContext` they must match — so every feature builds a caller
 from the real platform types, not the structural `as any` a tooling package below
 `platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
 The context is synchronous but its `subscription`/`tier`/`credits` are derived from the
 same mock `EntitlementsProvider.resolve` the real `createTRPCContext` would call, so a
-test context cannot drift from production. `createMockUser` is typed as the augmentable
-`InjectedUser`, so a feature that augments the seam with extra fields (billing adds the
-primary email) sees the richer type without this package naming an auth provider. See [docs/TESTING.md](../../../docs/TESTING.md).
+test context cannot drift from production. See [docs/TESTING.md](../../../docs/TESTING.md).
+
+**The feature supplies the principal, this package supplies everything else**:
+`createTestContext` takes `user: InjectedUser` whole rather than a `userId` +
+`role` it fakes a principal from. `InjectedUser` is an augmentable global, so
+only the _consuming_ program can build a complete one — a feature that adds a
+field (billing's primary email) is the only place that knows about it. Each
+feature's `tests/backend/utils/test-context.ts` wraps this builder and maps the
+`FeatureTestContextOptions` its tests pass (`userId`, `role`, `tier`, `credits`)
+onto its own principal. That keeps this package free of any feature's knowledge,
+and free of the type widening it would otherwise take to invent the field here.

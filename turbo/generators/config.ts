@@ -287,7 +287,6 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       if (data.api) {
         actions.push(
           add("src/env.ts", t("src/env.ts.hbs")),
-          add("src/global.d.ts", t("src/global.d.ts.hbs")),
           add("src/index-server.ts", t("src/index-server.ts.hbs")),
           add("src/index-schema.ts", t("src/index-schema.ts.hbs")),
           add("src/api/trpc.ts", t("src/api/trpc.ts.hbs")),
