@@ -31,7 +31,6 @@
     "@acme/notifications": "workspace:*",
     "@acme/queue": "workspace:*",
     "@acme/rag": "workspace:*",
-    "@acme/redis": "workspace:*",
     "@acme/subscriptions": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",

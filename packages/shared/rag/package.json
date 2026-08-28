@@ -64,7 +64,6 @@
     "@acme/prettier-config": "workspace:*",
     "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
-    "@acme/vitest-config": "workspace:*",
     "eslint": "catalog:",
     "prettier": "catalog:",
     "typescript": "catalog:",

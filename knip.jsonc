@@ -1,0 +1,73 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+
+  // Dead-code / unused-dependency gate. Scoped to the classes that indicate a
+  // real defect in a monorepo of libraries: files nothing reaches, dependencies
+  // nothing imports, and imports nothing declares.
+  //
+  // `exports` and `types` are deliberately absent. Every package here is a
+  // library consumed across a workspace boundary through its `exports` map, and
+  // the apps are reference compositions rather than the full set of intended
+  // consumers (ADR 0010) — so a slice export with no in-repo caller is the normal
+  // state of its public API, not dead code. Reporting it trains the reader to
+  // ignore the gate.
+  "include": [
+    "files",
+    "dependencies",
+    "devDependencies",
+    "optionalPeerDependencies",
+    "unlisted",
+    "unresolved",
+    "binaries",
+    "catalog"
+  ],
+
+  // Installed on the runner by the gitleaks action / brew, never a package dep.
+  "ignoreBinaries": ["gitleaks"],
+
+  // Named as a postcss *plugin string* in @acme/tailwind-config/postcss-config,
+  // which each app re-exports from its own postcss.config.js — postcss resolves
+  // it from the app's node_modules, so the app must declare it with no import.
+  "ignoreDependencies": [
+    "@tailwindcss/postcss",
+    "postcss",
+    // Invoked as a binary from the shell (`pnpm exec tsx scripts/…` in
+    // scripts/*.sh), which knip does not parse.
+    "tsx"
+  ],
+
+  "workspaces": {
+    ".": {
+      // Shell-invoked (`pnpm exec tsx scripts/…` from scripts/dev.sh) and
+      // turbo-invoked (`pnpm turbo gen`) — reachable, but not from any import.
+      "entry": [
+        "scripts/*.ts",
+        "turbo/generators/config.ts",
+        "turbo/generators/templates/**"
+      ],
+      "project": ["scripts/*.ts", "turbo/**/*.ts"]
+    },
+    "apps/*": {
+      // drizzle-kit CLI reads it via `--config`; the drizzle plugin only knows
+      // about the default `drizzle.config.ts`.
+      "entry": ["drizzle.push.config.ts"]
+    },
+    "apps/tanstack-slim": {
+      // `src/env.ts` is the app's one composition edge (ADR 0033) — a root of the
+      // graph, not something another module imports. Declared an entry so its
+      // own imports still count. That nothing *loads* it at boot is a separate
+      // defect: issue #235.
+      "entry": ["drizzle.push.config.ts", "src/env.ts"]
+    },
+    "packages/features/chat": {
+      // The Mastra CLI entry (`mastra dev|lint --dir src/mastra`).
+      "entry": ["src/mastra/index.ts", "src/trpc/server.tsx"]
+    },
+    "packages/features/*": {
+      // Documented reference scaffold for an RSC caller; no app mounts one yet,
+      // but it is part of the slice's intended surface, so it is a graph root
+      // rather than dead code.
+      "entry": ["src/trpc/server.tsx"]
+    }
+  }
+}
