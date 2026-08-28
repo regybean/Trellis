@@ -1,46 +1,27 @@
 /**
  * Backend test setup — runs before each backend test file.
  *
- * Responsibilities:
- * - Mock `env.ts` with values injected by the global setup (real testcontainer
- *   DB / Redis connection details), so the app's db/redis clients connect to the
- *   throwaway containers rather than your dev environment.
- * - Mock peer-package env modules and `server-only`.
+ * **Env is not mocked** (ADR 0014). `@acme/test-utils`'s infra setup has already
+ * populated `process.env` with the running testcontainers' DB/Redis details by
+ * the time this file loads, so `src/env.ts` validates against the real services
+ * — a broken env schema fails the suite instead of hiding behind a stub.
  *
- * The container lifecycle itself lives in `global-setup.ts`.
+ * Only behavioural / external-service mocks belong here. The container
+ * lifecycle lives in `global-setup.ts`; app-owned tables are provisioned once by
+ * the global `drizzle-kit push --force` into this suite's isolated schema
+ * (ADR 0021).
  */
-import { beforeEach, inject, vi } from 'vitest';
+import { afterEach, vi } from 'vitest';
 
-// `inject(...)` reads values published by `@acme/test-utils/setup` (global-setup).
-vi.mock('../../env', () => ({
-  env: {
-    NODE_ENV: 'test',
-    NEXT_PUBLIC_WEBAPP: inject('NEXT_PUBLIC_WEBAPP'),
-    REDIS_URL: inject('REDIS_URL'),
-    DB_HOST: inject('DB_HOST'),
-    DB_PORT: inject('DB_PORT'),
-    DB_USER: inject('DB_USER'),
-    DB_PASSWORD: inject('DB_PASSWORD'),
-    DB_NAME: inject('DB_NAME'),
-  },
-}));
-
-vi.mock('@acme/redis/env', () => ({
-  env: { REDIS_URL: inject('REDIS_URL') },
-}));
-
-vi.mock('@acme/billing/env', () => ({
-  env: {
-    NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: 'pk_test_12345',
-    NEXT_PUBLIC_STRIPE_MANAGE_BILLING_URL: 'https://billing.example.com',
-    NEXT_PUBLIC_STRIPE_PRO_PLAN_ID: 'pro_plan_12345',
-    NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID: 'standard_plan_12345',
-  },
-}));
+import { cleanupTestData } from './utils/test-context';
 
 // Allow importing server-only modules under vitest.
 vi.mock('server-only', () => ({}));
 
-beforeEach(() => {
-  vi.clearAllMocks();
+afterEach(async () => {
+  try {
+    await cleanupTestData();
+  } catch {
+    // Ignore cleanup errors (the DB may not be connected in some scenarios).
+  }
 });
