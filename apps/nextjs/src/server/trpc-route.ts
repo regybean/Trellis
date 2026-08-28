@@ -1,7 +1,7 @@
 import type { AnyRouter } from '@trpc/server';
 import { auth, currentUser } from '@clerk/nextjs/server';
 
-import { readRole } from '@acme/auth/server';
+import { toInjectedPrincipal } from '@acme/auth/server';
 import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
@@ -25,22 +25,15 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
  */
 
 /**
- * App-owned auth seam: resolve Clerk here and map it onto the platform's neutral
+ * App-owned auth seam: resolve Clerk here — the framework-specific half — and
+ * let `@acme/auth` do the provider-specific mapping onto the platform's neutral
  * `InjectedSession`. The principal carries only what the substrate and the
- * features read — the id, the role (from the session token, via `@acme/auth`)
- * and the primary email billing opens a Stripe customer with. The Clerk `User`
- * instance itself never reaches the context.
+ * features read; the Clerk `User` instance itself never reaches the context.
  */
 const resolveSession = async () => {
   const [session, user] = await Promise.all([auth(), currentUser()]);
 
-  return {
-    user: user && {
-      id: user.id,
-      role: readRole(session) ?? undefined,
-      primaryEmailAddress: user.primaryEmailAddress,
-    },
-  };
+  return { user: toInjectedPrincipal(session, user) };
 };
 
 /**

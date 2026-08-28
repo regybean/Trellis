@@ -1,6 +1,6 @@
 import { auth, clerkClient } from '@clerk/tanstack-react-start/server';
 
-import { readRole } from '@acme/auth/server';
+import { toInjectedPrincipal } from '@acme/auth/server';
 import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
@@ -19,10 +19,10 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
  *
  * `auth()` reads the Start request context populated by `clerkMiddleware()`
  * (registered in `src/start.ts`); the full user is fetched only when signed in,
- * mirroring the Next.js app's `currentUser()` injection. The principal carries
- * only what the substrate and the features read — id, role (from the session
- * token, via `@acme/auth`) and the primary email billing opens a Stripe customer
- * with; the Clerk `User` instance itself never reaches the context.
+ * mirroring the Next.js app's `currentUser()` injection. Resolving Clerk is the
+ * framework-specific half; the provider-specific mapping onto the neutral
+ * principal is `@acme/auth`'s `toInjectedPrincipal`, shared with the Next.js
+ * app. The Clerk `User` instance itself never reaches the context.
  */
 export async function resolveClerkContext(req: Request) {
   const session = await auth();
@@ -38,13 +38,7 @@ export async function resolveClerkContext(req: Request) {
     // off the request so billing can build the absolute Stripe checkout redirect
     // URLs from the authored paths (ADR 0033).
     origin: new URL(req.url).origin,
-    session: {
-      user: user && {
-        id: user.id,
-        role: readRole(session) ?? undefined,
-        primaryEmailAddress: user.primaryEmailAddress,
-      },
-    },
+    session: { user: toInjectedPrincipal(session, user) },
     entitlements,
   };
 }
