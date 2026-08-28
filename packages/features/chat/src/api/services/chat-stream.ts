@@ -2,8 +2,7 @@ import type { StreamCodec, StreamEntry } from '@acme/redis';
 import { createDurableStream } from '@acme/redis';
 
 import type { StreamReaderEvent } from '../schemas/chat-schema';
-import { chatConfig } from '../../config';
-import { appEnv } from '../../env';
+import { env } from '../../env';
 import { chatStreamKey } from '../chat-keys';
 import { streamReaderEventSchema } from '../schemas/chat-schema';
 
@@ -14,8 +13,7 @@ import { streamReaderEventSchema } from '../schemas/chat-schema';
 // is only chat's own: the wire codec (encode/decode off the one
 // `streamReaderEventSchema`), the delta-coalesce it passes as the tail
 // `transform`, and the terminal predicate the router closes on. Config-as-code
-// (ADR 0026).
-const config = chatConfig({ appEnv, isServer: true });
+// (ADR 0033).
 
 // The pure inverse of `decodeEvent`: a validated event → the flat field record
 // `xAdd` writes. A `delta` carries only `chunk` (no `type`, so an absent `type`
@@ -108,7 +106,7 @@ const codec: StreamCodec<StreamReaderEvent> = {
 export const chatStream = (conversationId: string) =>
   createDurableStream<StreamReaderEvent>({
     key: chatStreamKey(conversationId),
-    ttlSeconds: config.STREAM_SAFETY_TTL,
+    ttlSeconds: env.STREAM_SAFETY_TTL,
     codec,
   });
 

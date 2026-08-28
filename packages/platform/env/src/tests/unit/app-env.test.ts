@@ -1,8 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod/v4';
 
 import { resolveAppEnv } from '../../app-env';
-import { ConfigValidationError } from '../../errors';
 
 describe('resolveAppEnv', () => {
   it('defaults to development when unset (dev-is-base)', () => {
@@ -21,19 +19,9 @@ describe('resolveAppEnv', () => {
     },
   );
 
-  it('throws ConfigValidationError on an unknown value (loud, not silent)', () => {
-    expect(() => resolveAppEnv('prod')).toThrow(ConfigValidationError);
-  });
-
-  it('surfaces the zod error on the thrown instance', () => {
-    try {
-      resolveAppEnv('staging2');
-      expect.unreachable('should have thrown');
-    } catch (error) {
-      expect(error).toBeInstanceOf(ConfigValidationError);
-      if (error instanceof ConfigValidationError) {
-        expect(error.zodError).toBeInstanceOf(z.ZodError);
-      }
-    }
+  it('throws on an unknown value, naming it (loud, not silent)', () => {
+    expect(() => resolveAppEnv('prod')).toThrow(
+      /APP_ENV is not a known deploy target/,
+    );
   });
 });

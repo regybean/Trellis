@@ -42,7 +42,7 @@ function linkWorktreeEnv() {
   const worktreeRoot = git("rev-parse", "--show-toplevel");
 
   // Candidate env files, relative to a checkout root: deploy (infra secrets,
-  // ADR 0026 #127) + each app. The root application .env was deprecated —
+  // #127) + each app. The root application .env was deprecated —
   // each app owns its env entirely now (ADR 0029).
   const relPaths = ["deploy/.env"];
   const appsDir = join(primaryRoot, "apps");

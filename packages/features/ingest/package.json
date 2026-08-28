@@ -1,7 +1,6 @@
 {
   "name": "@acme/ingest",
   "dependencies": {
-    "@acme/config": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
@@ -15,7 +14,7 @@
     "@aws-sdk/client-s3": "catalog:",
     "@aws-sdk/s3-request-presigner": "catalog:",
     "@opentelemetry/api": "catalog:",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
@@ -53,10 +52,6 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./src/index.ts"
-    },
-    "./config": {
-      "types": "./dist/config.d.ts",
-      "default": "./src/config.ts"
     },
     "./server": {
       "types": "./dist/index-server.d.ts",

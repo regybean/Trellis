@@ -78,7 +78,7 @@ catalogs:
     '@opentelemetry/semantic-conventions':
       specifier: ^1.43.0
       version: 1.43.0
-    '@t3-oss/env-nextjs':
+    '@t3-oss/env-core':
       specifier: ^0.13.10
       version: 0.13.10
     '@tailwindcss/postcss':
@@ -318,9 +318,6 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../packages/platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../packages/platform/db
@@ -375,7 +372,7 @@ importers:
       '@fontsource-variable/hanken-grotesk':
         specifier: ^5.2.8
         version: 5.2.8
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tailwindcss/postcss':
@@ -478,9 +475,6 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../packages/platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../packages/platform/db
@@ -523,7 +517,7 @@ importers:
       '@fontsource-variable/bricolage-grotesque':
         specifier: ^5.2.5
         version: 5.2.10
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tailwindcss/postcss':
@@ -626,9 +620,6 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../packages/platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../packages/platform/db
@@ -671,7 +662,7 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.2.8
         version: 5.2.8
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
@@ -750,6 +741,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      jiti:
+        specifier: ^2.6.1
+        version: 2.7.0
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
@@ -780,9 +774,6 @@ importers:
       '@acme/chat':
         specifier: workspace:*
         version: link:../../packages/features/chat
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../packages/platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../packages/platform/db
@@ -840,7 +831,7 @@ importers:
       '@fontsource-variable/geist-mono':
         specifier: ^5.2.8
         version: 5.2.8
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
@@ -919,6 +910,9 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      jiti:
+        specifier: ^2.6.1
+        version: 2.7.0
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
@@ -943,9 +937,6 @@ importers:
       '@acme/auth':
         specifier: workspace:*
         version: link:../../shared/auth
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
@@ -1040,7 +1031,7 @@ importers:
       '@acme/vitest-config':
         specifier: workspace:*
         version: link:../../../tooling/vitest
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@testing-library/jest-dom':
@@ -1070,9 +1061,6 @@ importers:
 
   packages/features/chat:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
@@ -1121,7 +1109,7 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
@@ -1251,7 +1239,7 @@ importers:
       '@clerk/nextjs':
         specifier: 'catalog:'
         version: 6.39.5(next@15.5.22(@babel/core@7.29.7)(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
@@ -1363,9 +1351,6 @@ importers:
 
   packages/features/ingest:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -1405,7 +1390,7 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
@@ -1500,49 +1485,12 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jsdom@27.1.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
 
-  packages/platform/config:
-    dependencies:
-      ts-deepmerge:
-        specifier: 'catalog:'
-        version: 8.0.0
-      zod:
-        specifier: 'catalog:'
-        version: 4.4.3
-    devDependencies:
-      '@acme/eslint-config':
-        specifier: workspace:*
-        version: link:../../../tooling/eslint
-      '@acme/prettier-config':
-        specifier: workspace:*
-        version: link:../../../tooling/prettier
-      '@acme/tsconfig':
-        specifier: workspace:*
-        version: link:../../../tooling/typescript
-      '@acme/vitest-config':
-        specifier: workspace:*
-        version: link:../../../tooling/vitest
-      eslint:
-        specifier: 'catalog:'
-        version: 9.39.2(jiti@2.7.0)
-      prettier:
-        specifier: 'catalog:'
-        version: 3.7.4
-      typescript:
-        specifier: 'catalog:'
-        version: 5.9.3
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jsdom@27.1.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
-
   packages/platform/db:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../config
       '@acme/env':
         specifier: workspace:*
         version: link:../env
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       drizzle-orm:
@@ -1611,6 +1559,16 @@ importers:
         version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(jsdom@27.1.0)(msw@2.12.7(@types/node@24.10.4)(typescript@5.9.3))(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
 
   packages/platform/env:
+    dependencies:
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
+      ts-deepmerge:
+        specifier: 'catalog:'
+        version: 8.0.0
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@acme/eslint-config':
         specifier: workspace:*
@@ -1673,7 +1631,7 @@ importers:
       '@acme/redis':
         specifier: workspace:*
         version: link:../redis
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       bullmq:
@@ -1704,16 +1662,13 @@ importers:
 
   packages/platform/redis:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../config
       '@acme/env':
         specifier: workspace:*
         version: link:../env
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       ioredis:
@@ -1750,18 +1705,21 @@ importers:
 
   packages/platform/subscriptions:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../config
       '@acme/entitlements':
         specifier: workspace:*
         version: link:../entitlements
+      '@acme/env':
+        specifier: workspace:*
+        version: link:../env
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
       '@acme/redis':
         specifier: workspace:*
         version: link:../redis
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
@@ -1799,9 +1757,9 @@ importers:
 
   packages/platform/telemetry:
     dependencies:
-      '@acme/config':
+      '@acme/env':
         specifier: workspace:*
-        version: link:../config
+        version: link:../env
       '@kubiks/otel-drizzle':
         specifier: 'catalog:'
         version: 2.1.0(@opentelemetry/api@1.9.0)(drizzle-orm@0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.6)(pg@8.21.0)(postgres@3.4.7))
@@ -1826,6 +1784,9 @@ importers:
       '@opentelemetry/semantic-conventions':
         specifier: 'catalog:'
         version: 1.43.0
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
@@ -1903,9 +1864,6 @@ importers:
 
   packages/shared/auth:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -1915,7 +1873,7 @@ importers:
       '@clerk/clerk-react':
         specifier: 'catalog:'
         version: 5.61.8(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       react:
@@ -2013,9 +1971,6 @@ importers:
 
   packages/shared/models:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -2031,7 +1986,7 @@ importers:
       '@openrouter/ai-sdk-provider':
         specifier: 'catalog:'
         version: 2.9.1(ai@6.0.204(zod@4.4.3))(zod@4.4.3)
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       ai:
@@ -2071,9 +2026,6 @@ importers:
 
   packages/shared/notifications:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -2092,7 +2044,7 @@ importers:
       '@acme/ui':
         specifier: workspace:*
         version: link:../ui
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@tanstack/react-query':
@@ -2177,9 +2129,6 @@ importers:
 
   packages/shared/rag:
     dependencies:
-      '@acme/config':
-        specifier: workspace:*
-        version: link:../../platform/config
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
@@ -2204,7 +2153,7 @@ importers:
       '@mastra/rag':
         specifier: 'catalog:'
         version: 2.2.1(@mastra/core@1.42.0(@grpc/grpc-js@1.14.4)(ai@6.0.204(zod@4.4.3))(express@5.2.1)(zod@4.4.3))(zod@4.4.3)
-      '@t3-oss/env-nextjs':
+      '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@trpc/server':
@@ -6148,23 +6097,6 @@ packages:
 
   '@t3-oss/env-core@0.13.10':
     resolution: {integrity: sha512-NNFfdlJ+HmPHkLi2HKy7nwuat9SIYOxei9K10lO2YlcSObDILY7mHZNSHsieIM3A0/5OOzw/P/b+yLvPdaG52g==}
-    peerDependencies:
-      arktype: ^2.1.0
-      typescript: '>=5.0.0'
-      valibot: ^1.0.0-beta.7 || ^1.0.0
-      zod: ^3.24.0 || ^4.0.0
-    peerDependenciesMeta:
-      arktype:
-        optional: true
-      typescript:
-        optional: true
-      valibot:
-        optional: true
-      zod:
-        optional: true
-
-  '@t3-oss/env-nextjs@0.13.10':
-    resolution: {integrity: sha512-JfSA2WXOnvcc/uMdp31paMsfbYhhdvLLRxlwvrnlPE9bwM/n0Z+Qb9xRv48nPpvfMhOrkrTYw1I5Yc06WIKBJQ==}
     peerDependencies:
       arktype: ^2.1.0
       typescript: '>=5.0.0'
@@ -15413,13 +15345,6 @@ snapshots:
       tslib: 2.8.1
 
   '@t3-oss/env-core@0.13.10(typescript@5.9.3)(zod@4.4.3)':
-    optionalDependencies:
-      typescript: 5.9.3
-      zod: 4.4.3
-
-  '@t3-oss/env-nextjs@0.13.10(typescript@5.9.3)(zod@4.4.3)':
-    dependencies:
-      '@t3-oss/env-core': 0.13.10(typescript@5.9.3)(zod@4.4.3)
     optionalDependencies:
       typescript: 5.9.3
       zod: 4.4.3

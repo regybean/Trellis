@@ -1,10 +1,6 @@
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
-import { ingestConfig } from '../../config';
-import { appEnv } from '../../env';
-
-// BullMQ job-retention counts are config-as-code (ADR 0026).
-const config = ingestConfig({ appEnv, isServer: true });
+import { env } from '../../env';
 
 // One BullMQ job per batch (one presign call). `s3Key` is passed explicitly so
 // the worker stays dumb — it never re-derives a key from `jobId`/`uploadId`.
@@ -26,8 +22,8 @@ const ingestQueue = createQueue<IngestJob>(QUEUE_NAMES.INGEST);
 export const enqueueIngestJob = (job: IngestJob) =>
   ingestQueue.add('ingest', job, {
     jobId: job.jobId,
-    removeOnComplete: config.QUEUE_REMOVE_ON_COMPLETE,
-    removeOnFail: config.QUEUE_REMOVE_ON_FAIL,
+    removeOnComplete: env.QUEUE_REMOVE_ON_COMPLETE,
+    removeOnFail: env.QUEUE_REMOVE_ON_FAIL,
   });
 
 // Exposed for tests: drain or inspect the queue without going through the

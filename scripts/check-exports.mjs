@@ -49,8 +49,7 @@ const ALLOWED_KEYS = new Set([
   // roles
   "./server",
   "./schema",
-  "./env",
-  "./config", // config-as-code factory, sibling to ./env (ADR 0026)
+  "./env", // the slice's one env factory — config *and* secrets (ADR 0033)
   "./testing", // backend/test helpers shipped for consumers' suites
   // registered one-off seams
   "./handler", // @acme/trpc — framework-parametric fetch handler

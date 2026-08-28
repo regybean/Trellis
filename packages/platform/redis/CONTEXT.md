@@ -89,13 +89,15 @@ by luck, and every caller would have to re-derive the same guarantee.
 **One sanctioned cast**: branding is nominal typing and needs a single
 `as NamespacedKey` inside `nsKey`, isolated to that one constructor.
 
-**`REDIS_URL` is config-as-code, and this is its home** (`config.ts` →
-`redisConfig`, ADR 0026 / #124): the whole DSN is authored here with the base
-default `redis://localhost:6379`, so dev needs no `.env` row. `env.ts` layers a
-runtime `process.env.REDIS_URL` override for the _dynamic_ case only — a
-testcontainer's mapped port, an infra-injected prod endpoint — mirroring
-`dbConfig`'s host/port override. `REDIS_URL` is a server-only config key (the
-client guard throws if read on the client). Other Redis-touching packages don't
+**`REDIS_URL` is authored config, and this is its home** (`env.ts`, ADR 0033 /
+#124): the whole DSN is authored in the development profile as
+`redis://localhost:6379`, so dev needs no `.env` row, and a same-named variable
+retunes it — which is what the _dynamic_ cases need (a testcontainer's mapped
+port, an infra-injected prod endpoint), re-validated as a URL rather than passed
+through raw. `src/development-profile.ts` holds the literal so
+`scripts/resolve-compose-env.ts` can parse the local port out of it without
+evaluating this slice's env. `REDIS_URL` is a `server` key (reading it in browser
+code throws). Other Redis-touching packages don't
 re-declare it: `@acme/queue` imports the resolved value from `@acme/redis/env`
 (as `@acme/rag` imports `@acme/db/env`); the app's remaining slices carry no
 `REDIS_URL` env row at all.

@@ -5,7 +5,7 @@ import { env } from '@acme/db/env';
 export default {
   dialect: 'postgresql',
   schema: './src/server/db/schema.ts',
-  // Connection is config-as-code (ADR 0026): `@acme/db/env` resolves the profile
+  // Connection is authored config (ADR 0033): `@acme/db/env` resolves the profile
   // defaults + the runtime host/port override drizzle-kit push needs.
   dbCredentials: {
     host: env.DB_HOST,

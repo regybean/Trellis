@@ -10,26 +10,35 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 
+import { clerkWiringEnv } from '@acme/auth/env';
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
-import { toBillingClientConfig } from '@acme/billing/config';
+import {
+  env as billingEnvValues,
+  toBillingClientConfig,
+} from '@acme/billing/env';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
 import { ConsoleShell } from '../components/console-shell';
 import { PersistedFeatureProviders } from '../components/persisted-feature-providers';
-import { config } from '../config';
 import { getAuthState } from '../lib/auth';
 import { getLocalstripeMode } from '../lib/stripe';
 import appCss from '../styles.css?url';
+
+// Clerk's browser-safe wiring comes from the owning slice's env, not the app's
+// composed `env`: t3-env's access guard is name-based, so an unprefixed key is
+// only readable through the call that declares it `shared` (ADR 0033 §6). This
+// route renders on both sides, which is exactly why the read goes here.
+const clerk = clerkWiringEnv();
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     // Server-resolved so the chat/feedback persisters have their scope on the
     // first render (see PersistedFeatureProviders). Signed out ⇒ userId null ⇒
-    // network-only. localstripeMode is server-derived from the connection config
-    // (ADR 0026 follow-up) and threaded to the client through the
-    // BillingConfigProvider seam below.
+    // network-only. localstripeMode is server-derived from the Stripe connection
+    // (ADR 0033) and threaded to the client through the BillingConfigProvider seam
+    // below.
     beforeLoad: async () => {
       const [{ userId }, localstripeMode] = await Promise.all([
         getAuthState(),
@@ -73,11 +82,11 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
         <ClerkProvider
-          publishableKey={config.CLERK_PUBLISHABLE_KEY}
-          signInUrl={config.CLERK_SIGN_IN_URL}
-          signUpUrl={config.CLERK_SIGN_UP_URL}
-          signInForceRedirectUrl={config.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
-          signUpForceRedirectUrl={config.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
+          publishableKey={clerk.CLERK_PUBLISHABLE_KEY}
+          signInUrl={clerk.CLERK_SIGN_IN_URL}
+          signUpUrl={clerk.CLERK_SIGN_UP_URL}
+          signInForceRedirectUrl={clerk.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
+          signUpForceRedirectUrl={clerk.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
           appearance={{ baseTheme: dark }}
         >
           <NextThemeProvider
@@ -86,7 +95,7 @@ function RootDocument({ children }: { children: ReactNode }) {
             disableTransitionOnChange
           >
             <BillingConfigProvider
-              config={toBillingClientConfig(config)}
+              config={toBillingClientConfig(billingEnvValues)}
               localstripeMode={localstripeMode}
             >
               <BillingTRPCReactProvider>

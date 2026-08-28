@@ -29,29 +29,28 @@ import baseConfig from '@acme/vitest-config/base';
  */
 export const staticTestEnv = {
   NEXT_PUBLIC_WEBAPP: 'testing',
-  // @acme/config — the deploy-target selector. Set explicitly (rather than
-  // leaning on the unset→development default) so suites document that they
-  // validate against the base profile. See ADR 0026.
+  // The deploy-target selector. Set explicitly (rather than leaning on the
+  // unset→development default) so suites document that they validate against the
+  // base profile. See ADR 0033.
   APP_ENV: 'development',
-  // @acme/models / @acme/rag / @acme/ingest tunables (provider selection, model
-  // ids, region, S3 endpoint + bucket, vector db name, chunk sizes, embedding
-  // dimension) are config-as-code now (ADR 0026) — served from each slice's
-  // config.ts base profile, so no test env is needed. Only the AWS credentials
-  // stay env secrets (S3/Bedrock are never contacted — the S3 client + doc store
-  // are mocked).
-  AWS_ACCESS_KEY_ID: 'test',
-  AWS_SECRET_ACCESS_KEY: 'test',
-  // Fallback for infra-less suites (e.g. ingest, whose @acme/redis/env only
-  // needs a valid url — Redis is never contacted). Backend suites with a
-  // testcontainer have this overwritten per-run by hydrate-env.
+  // Every slice's non-secret values — provider selection, model ids, region, S3
+  // endpoint + bucket, vector db name, chunk sizes, embedding dimension, the
+  // Stripe plan ids/connection/checkout paths, the TTLs — are authored in each
+  // slice's `env.ts` development profile (ADR 0033), so no test env is needed for
+  // them. The development profile also authors the *local* credentials that a
+  // real deploy must supply (LocalStack's dummy AWS pair, localstripe's fixed
+  // placeholders), which is why they are absent here too: a suite validating
+  // against the authored values is validating what dev actually runs.
+  //
+  // Fallback for infra-less suites (e.g. ingest, whose @acme/redis/env only needs
+  // a valid url — Redis is never contacted). Backend suites with a testcontainer
+  // have this overwritten per-run by hydrate-env; the authored profile default is
+  // the same endpoint, so it is here only to make the intent explicit.
   REDIS_URL: 'redis://localhost:6379',
-  // @acme/billing — every non-secret Stripe value is config-as-code now
-  // (billingConfig + stripeConnectionConfig, ADR 0026 + #146 follow-up), not env:
-  // the plan IDs / publishable key / manage URL (client) and the localstripe
-  // connection + checkout redirect paths (server) resolve from config, so none of
-  // them belong here. Only the Stripe secrets remain in env.
-  STRIPE_SECRET_KEY: 'sk_test_123',
-  STRIPE_WEBHOOK_SECRET: 'whsec_test_123',
+  // The one secret no profile authors on any target: `@acme/db`'s password. The
+  // testcontainer's real value arrives per-run from hydrate-env; this keeps an
+  // infra-less suite that merely *imports* `@acme/db/env` from failing validation.
+  DB_PASSWORD: 'password123',
 } satisfies Record<string, string>;
 
 interface BackendProjectOptions {

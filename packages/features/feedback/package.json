@@ -48,7 +48,7 @@
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
     "@clerk/nextjs": "catalog:",
-    "@t3-oss/env-nextjs": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",

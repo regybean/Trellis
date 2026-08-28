@@ -11,17 +11,15 @@ export async function register() {
   // Only initialize telemetry on the Node.js runtime (not Edge)
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     const { initTelemetry } = await import('@acme/telemetry');
-    const { telemetryConfig } = await import('@acme/telemetry/config');
-    const { appEnv } = await import('./env');
+    const { env: telemetryEnv } = await import('@acme/telemetry/env');
 
-    // OTLP endpoint is config-as-code (ADR 0026); the per-app service name stays
-    // an app-owned literal (app identity, not shared config).
-    const config = telemetryConfig({ appEnv, isServer: true });
-
+    // The OTLP endpoint is authored config, overridable per deploy (ADR 0033);
+    // the per-app service name stays an app-owned literal (app identity, not
+    // shared config).
     initTelemetry({
       serviceName: 'trellis-nextjs',
       serviceVersion: process.env.npm_package_version ?? '0.0.0',
-      otlpEndpoint: config.OTEL_EXPORTER_OTLP_ENDPOINT,
+      otlpEndpoint: telemetryEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
       debug: process.env.NODE_ENV === 'development',
     });
 
