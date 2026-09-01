@@ -14,7 +14,7 @@ const streamInput = z.object({ lastEventId: z.string().nullish() });
 export const notificationsRouter = createTRPCRouter({
   // Cross-cutting per-user subscription — the first in the repo. `protectedProcedure`
   // (all authenticated users), NOT `adminProcedure`: any user can receive a
-  // notification. `userId` is read from `ctx.auth.userId` (never a client input),
+  // notification. `userId` is read from `ctx.session.user` (never a client input),
   // so a client can only ever tail its own stream. Re-emits each entry via tRPC
   // v11 `tracked(entryId, notification)`, so the entry id becomes the SSE
   // `Last-Event-ID`. Never self-closes — only client abort ends it.
@@ -23,7 +23,7 @@ export const notificationsRouter = createTRPCRouter({
     input,
     signal,
   }) {
-    const userId = ctx.auth.userId;
+    const userId = ctx.session.user.id;
     logger.info(
       { userId, lastEventId: input.lastEventId },
       'notifications.stream: reader attached',

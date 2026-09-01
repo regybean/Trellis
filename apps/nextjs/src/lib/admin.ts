@@ -2,6 +2,8 @@
 
 import { auth, clerkClient } from '@clerk/nextjs/server';
 
+import { readRole } from '@acme/auth/server';
+
 // `formData.get` is `string | File | null`; the role form only ever submits
 // text fields, so narrow to a string rather than blind-stringifying a File.
 const getField = (formData: FormData, key: string) => {
@@ -10,8 +12,7 @@ const getField = (formData: FormData, key: string) => {
 };
 
 async function assertAdmin() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata.role !== 'admin') {
+  if (readRole(await auth()) !== 'admin') {
     throw new Error('Not authorized');
   }
 }

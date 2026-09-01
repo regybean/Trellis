@@ -1,6 +1,6 @@
 import type { AnyRouter } from '@trpc/server';
 
-import type { InjectedAuth } from '@acme/trpc';
+import type { InjectedSession } from '@acme/trpc';
 import { unlimitedEntitlements } from '@acme/entitlements';
 import {
   corsPreflightHeaders,
@@ -18,13 +18,12 @@ import {
 /**
  * Constant local principal. This app strips Clerk, but the feature procedures
  * still require a principal: `@acme/chat` is `protectedProcedure` (scopes Mastra
- * memory by a non-null `userId`) and `@acme/ingest` is `adminProcedure` (gates on
- * `sessionClaims.metadata.role === 'admin'`). So we inject a single fixed admin
- * user. `user` is null — no retained feature reads `ctx.user`. See ADR-0006.
+ * memory by a non-null principal) and `@acme/ingest` is `adminProcedure` (gates
+ * on the principal's `role`). So we inject a single fixed admin user — the whole
+ * session, with no provider behind it. See ADR-0006 and ADR-0010.
  */
-const LOCAL_PRINCIPAL: InjectedAuth = {
-  userId: 'local',
-  sessionClaims: { metadata: { role: 'admin' } },
+const LOCAL_SESSION: InjectedSession = {
+  user: { id: 'local', role: 'admin' },
 };
 
 /**
@@ -35,8 +34,7 @@ const LOCAL_PRINCIPAL: InjectedAuth = {
 const resolveContext = (req: Request) => ({
   headers: req.headers,
   req,
-  auth: LOCAL_PRINCIPAL,
-  user: null,
+  session: LOCAL_SESSION,
   entitlements: unlimitedEntitlements,
 });
 

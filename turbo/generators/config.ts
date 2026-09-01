@@ -71,20 +71,20 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
 
   const dependencies: Record<string, string> = {};
   if (o.api) {
+    // No auth SDK and no billing implementation: the session and the
+    // entitlements provider are injected by the app (ADR 0003 / ADR 0006), and
+    // every procedure is built by `@acme/trpc`.
     Object.assign(dependencies, {
-      "@acme/billing": "workspace:*",
+      "@acme/db": "workspace:*",
       "@acme/env": "workspace:*",
       "@acme/logger": "workspace:*",
       "@acme/redis": "workspace:*",
-      "@acme/telemetry": "workspace:*",
-      "@clerk/nextjs": "catalog:",
-      "@opentelemetry/api": "catalog:",
+      "@acme/trpc": "workspace:*",
       "@t3-oss/env-core": "catalog:",
       "@trpc/server": "catalog:",
       "drizzle-orm": "catalog:",
       "drizzle-zod": "catalog:",
       "server-only": "catalog:",
-      superjson: "catalog:",
       zod: "catalog:",
     });
   }
@@ -287,7 +287,6 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
       if (data.api) {
         actions.push(
           add("src/env.ts", t("src/env.ts.hbs")),
-          add("src/global.d.ts", t("src/global.d.ts.hbs")),
           add("src/index-server.ts", t("src/index-server.ts.hbs")),
           add("src/index-schema.ts", t("src/index-schema.ts.hbs")),
           add("src/api/trpc.ts", t("src/api/trpc.ts.hbs")),

@@ -1,18 +1,15 @@
-// Global type declarations for Clerk auth.
-// Roles is owned by @acme/auth — import it rather than redeclaring.
-import type { User } from '@clerk/nextjs/server';
+// Billing's *augmentation* of the injected principal. The base (`id` + `role`)
+// is declared once in `@acme/trpc` and arrives through its `dist/index.d.ts`,
+// so nothing is restated here — this file only contributes the extra field
+// billing reads off `ctx.session.user`.
+//
+// No imports, so this is an ambient script file and the interface merges into
+// the global `InjectedUser` directly (no `declare global` wrapper needed).
 
-import type { Roles } from '@acme/auth';
-
-declare global {
-  interface CustomJwtSessionClaims {
-    metadata: {
-      role?: Roles;
-    };
-  }
-
-  // Billing's account router reads `ctx.user.primaryEmailAddress`, so it
-  // augments the platform's open `InjectedUser` to the concrete Clerk `User`.
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface InjectedUser extends User {}
+// The account router opens a Stripe customer for the caller, so it needs the
+// primary email address. Declared structurally, naming no auth provider, and
+// identically to `@acme/auth`'s augmentation — two declarations of one merged
+// member have to agree. The full apps map it off their provider's user.
+interface InjectedUser {
+  primaryEmailAddress: { emailAddress: string } | null;
 }

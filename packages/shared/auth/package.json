@@ -3,6 +3,7 @@
   "dependencies": {
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
+    "@acme/trpc": "workspace:*",
     "@clerk/backend": "catalog:",
     "@clerk/clerk-react": "catalog:",
     "@t3-oss/env-core": "catalog:",

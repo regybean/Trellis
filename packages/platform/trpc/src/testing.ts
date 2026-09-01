@@ -25,14 +25,35 @@ import type {
 } from '@acme/entitlements';
 import { isTierAtLeast } from '@acme/entitlements';
 
-import type { createTRPCContext, InjectedAuth } from './index';
+import type { createTRPCContext, InjectedSession, Roles } from './index';
 
-/** Knobs a test varies per caller: identity, role, tier, and credit balance. */
-export interface TestContextOptions {
-  userId: string;
-  role: 'admin' | 'user';
+/** The billing knobs a test varies per caller. */
+export interface TestEntitlementsOptions {
   tier: SubscriptionTier;
   credits: CreditBalance;
+}
+
+/**
+ * What `createTestContext` needs. The principal arrives whole rather than as
+ * `userId` + `role`, because `InjectedUser` is an augmentable global: a feature
+ * that adds a field to the seam (billing's primary email) is the only program
+ * that can build a complete principal, and building it there is what keeps this
+ * platform package free of any one feature's knowledge — and free of the
+ * widening it would otherwise take to fake it.
+ */
+export interface TestContextOptions extends TestEntitlementsOptions {
+  user: InjectedUser;
+}
+
+/**
+ * The knobs a *feature's* own `createTestContext` wrapper exposes to its tests:
+ * identity and role, plus the billing knobs. The wrapper turns `userId`/`role`
+ * into the feature's own `InjectedUser` — see any feature's
+ * `tests/backend/utils/test-context.ts`.
+ */
+export interface FeatureTestContextOptions extends TestEntitlementsOptions {
+  userId: string;
+  role: Roles;
 }
 
 /**
@@ -57,10 +78,7 @@ function subscriptionForTier(tier: SubscriptionTier): SubscriptionCache {
 }
 
 /** The single derivation shared by the mock provider and the test context. */
-function resolveEntitlements(opts: {
-  tier: SubscriptionTier;
-  credits: CreditBalance;
-}): Entitlements {
+function resolveEntitlements(opts: TestEntitlementsOptions): Entitlements {
   return {
     subscription: subscriptionForTier(opts.tier),
     tier: opts.tier,
@@ -75,10 +93,7 @@ function resolveEntitlements(opts: {
  * `isTierAtLeast` is the REAL ordering from `@acme/entitlements` so `requireTier`
  * gates behave exactly as in production.
  */
-export function createMockEntitlements(opts: {
-  tier: SubscriptionTier;
-  credits: CreditBalance;
-}) {
+export function createMockEntitlements(opts: TestEntitlementsOptions) {
   const resolved = resolveEntitlements(opts);
   return {
     resolve: () => Promise.resolve(resolved),
@@ -89,36 +104,18 @@ export function createMockEntitlements(opts: {
 }
 
 /**
- * Stubbed session auth in the neutral `InjectedAuth` shape the platform
- * actually consumes (Clerk is resolved in the app adapter, never here) — just
- * enough for `protectedProcedure`/`adminProcedure` to narrow `userId` and read
- * the role claim.
+ * A stubbed session in the neutral `InjectedSession` shape the platform
+ * actually consumes (an auth provider is resolved in the app adapter, never
+ * here) — just enough for `protectedProcedure` to narrow the principal and
+ * `adminProcedure` to read its role.
  */
-export function createMockAuth(userId: string, role: 'admin' | 'user') {
-  return {
-    userId,
-    sessionClaims: { metadata: { role } },
-  } satisfies InjectedAuth;
-}
-
-/**
- * A minimal injected user, typed as the augmentable `InjectedUser` seam. The
- * platform reads no user fields (the base is empty), so the runtime object is
- * minimal; the return annotation makes the emitted type adapt per consumer — a
- * feature that augments `InjectedUser` to a Clerk `User` (e.g. billing) sees the
- * richer type without this package importing any Clerk SDK.
- */
-export function createMockUser(userId: string): InjectedUser {
-  return {
-    id: userId,
-    emailAddresses: [{ emailAddress: 'test@example.com' }],
-    primaryEmailAddress: { emailAddress: 'test@example.com' },
-  };
+export function createMockSession(user: InjectedUser) {
+  return { user } satisfies InjectedSession;
 }
 
 /**
  * Build a tRPC caller context for backend tests. Pass it straight to a feature's
- * `appRouter.createCaller(...)`. Stubs auth/user and injects the mock
+ * `appRouter.createCaller(...)`. Stubs the session and injects the mock
  * entitlements provider; real DB/Redis come from the feature's own `db`/`redis`
  * clients (validated against the running containers — never mocked). Telemetry
  * is ambient (ADR 0023) — there is no span in a caller test, so the ambient
@@ -133,8 +130,7 @@ export function createTestContext(
     // A realistic app origin so procedures that build absolute redirect URLs
     // (billing checkout) resolve one, matching what an app edge would inject.
     origin: 'http://localhost:3000',
-    auth: createMockAuth(opts.userId, opts.role),
-    user: createMockUser(opts.userId),
+    session: createMockSession(opts.user),
     entitlements: createMockEntitlements(opts),
     subscription,
     tier,

@@ -9,10 +9,6 @@
     "plugins": [{ "name": "next" }],
     "module": "esnext"
   },
-  "include": [
-    ".",
-    ".next/types/**/*.ts",
-    "../../packages/platform/trpc/src/global.d.ts"
-  ],
+  "include": [".", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]
 }

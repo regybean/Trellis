@@ -2,7 +2,7 @@ import { auth, clerkClient } from '@clerk/tanstack-react-start/server';
 import { createServerFn } from '@tanstack/react-start';
 import { z } from 'zod';
 
-import { transformUserForClient } from '@acme/auth/server';
+import { readRole, transformUserForClient } from '@acme/auth/server';
 
 /**
  * App-owned admin data + role mutations as TanStack Start server functions —
@@ -12,8 +12,7 @@ import { transformUserForClient } from '@acme/auth/server';
  * per-app. See docs/adr/0003-framework-agnostic-auth-seam.md and ADR 0011.
  */
 async function assertAdmin() {
-  const { sessionClaims } = await auth();
-  if (sessionClaims?.metadata.role !== 'admin') {
+  if (readRole(await auth()) !== 'admin') {
     throw new Error('Not authorized');
   }
 }

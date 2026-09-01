@@ -73,7 +73,10 @@ accepted
   for a layer that no longer exists, the exact navigability problem this cleanup
   targets. Renaming to `app` makes the tag match the layer diagram.
 - **Keep admin's `global.d.ts` / `checkRole` indirection when folding in.**
-  Rejected — `@acme/auth` already exports `Roles` and augments
-  `CustomJwtSessionClaims.metadata.role` (both apps include it). The role guard
-  inlines to `sessionClaims?.metadata.role !== 'admin'`, as
-  `apps/tanstack-start/src/lib/admin.ts` already does.
+  Rejected — `@acme/auth` already owns the role vocabulary, and both apps
+  include its globals. The role guard inlines to a single read, as
+  `apps/tanstack-start/src/lib/admin.ts` already does. (At the time that read
+  was `sessionClaims?.metadata.role !== 'admin'` against Clerk's
+  `CustomJwtSessionClaims`; since #220 it is `readRole(await auth()) !== 'admin'`
+  — same claim, parsed in one place. See
+  [ADR 0003](0003-framework-agnostic-auth-seam.md), amendment.)

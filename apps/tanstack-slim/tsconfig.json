@@ -7,6 +7,6 @@
       "~/*": ["./src/*"]
     }
   },
-  "include": [".", "../../packages/platform/trpc/src/global.d.ts"],
+  "include": ["."],
   "exclude": ["node_modules", ".nitro", ".output", ".tanstack"]
 }

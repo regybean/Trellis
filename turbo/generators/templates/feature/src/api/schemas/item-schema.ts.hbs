@@ -1,16 +1,18 @@
-import { pgTableCreator } from 'drizzle-orm/pg-core';
+import { pgSchema } from 'drizzle-orm/pg-core';
 import { createInsertSchema, createSelectSchema } from 'drizzle-zod';
 import { z } from 'zod';
 
 import { env } from '../../env';
 
 // Sample entity for this feature — rename/replace with your real domain model.
-// Tables are prefixed per-app so multiple apps can share one database.
-const createTable = pgTableCreator(
-  (name) => `${env.NEXT_PUBLIC_WEBAPP}_${name}`,
-);
+//
+// Every app-owned table lives under the per-app Postgres schema named by
+// `NEXT_PUBLIC_WEBAPP`, so multiple apps share one database without colliding.
+// Declaring the schema here is idempotent — drizzle-kit dedupes by name — so
+// each feature names it beside the tables it owns (see `@acme/feedback`).
+export const {{ camelCase name }}Schema = pgSchema(env.NEXT_PUBLIC_WEBAPP);
 
-export const items = createTable('items', (t) => ({
+export const items = {{ camelCase name }}Schema.table('items', (t) => ({
   id: t.uuid().primaryKey().defaultRandom(),
   userId: t.text().notNull(),
   text: t.text().notNull(),

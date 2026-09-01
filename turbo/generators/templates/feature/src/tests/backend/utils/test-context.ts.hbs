@@ -1,49 +1,47 @@
 /**
- * Test context factory.
+ * Test context.
  *
- * Builds the object tRPC procedures expect as `ctx`. We use the REAL db/redis
- * clients (pointed at testcontainers) and only stub the layers we don't want to
- * test here: Clerk auth. Telemetry is ambient (ADR 0023) — no span in a caller
- * test, so nothing to stub.
+ * The tRPC caller context comes from the one canonical builder
+ * (`@acme/trpc/testing`) — it stubs the session (`ctx.session.user`) and the
+ * entitlements provider, and nothing else: the db/redis clients are the REAL
+ * ones, pointed at testcontainers. Telemetry is ambient (ADR 0023) — no span in
+ * a caller test, so nothing to stub. This file owns only the data cleanup.
  */
-import type { TestContextOptions } from '@acme/test-utils';
-import { redis } from '@acme/redis';
-import { createMockAuth, createMockUser } from '@acme/test-utils';
+import type { FeatureTestContextOptions } from '@acme/trpc/testing';
+import { flushTestDb } from '@acme/redis/testing';
+import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
 
-import type { createTRPCContext } from '../../../api/trpc';
 import { items } from '../../../api/schemas/item-schema';
 import { db } from '../../../api/trpc';
 
-type TRPCContext = Awaited<ReturnType<typeof createTRPCContext>>;
+/** The knobs this feature's backend tests vary. */
+export type TestContextOptions = FeatureTestContextOptions;
 
-export function createTestContext(opts: TestContextOptions): TRPCContext {
-  return {
-    headers: new Headers(),
-    db,
-    auth: createMockAuth(opts.userId, opts.role),
-    user: createMockUser(opts.userId),
-    subscription: { status: 'none' } as const,
-    tokens: opts.tokens,
-    tier: opts.tier,
-  };
+/**
+ * Build the tRPC caller context. The canonical builder takes the principal
+ * whole, because `InjectedUser` is an augmentable global and only this program
+ * can build a complete one. If this feature augments the seam with an extra
+ * field (see `src/global.d.ts` in `@acme/billing` for the pattern), add it here
+ * too — the compiler will tell you.
+ */
+export function createTestContext({
+  userId,
+  role,
+  ...entitlements
+}: TestContextOptions) {
+  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
 }
 
 /**
- * Remove all rows this feature owns + flush Redis. Call in `beforeEach` for
- * isolation between tests.
+ * Remove all rows this feature owns + flush the isolated Redis DB. Call in
+ * `beforeEach` for isolation between tests.
  */
 export async function cleanupTestData() {
   try {
     await db.delete(items);
-  } catch (error) {
+  } catch {
     // Tables may not exist if migrations haven't been pushed yet.
-    console.log('⚠️ cleanup warning:', error);
   }
 
-  try {
-    if (!redis.isOpen) await redis.connect();
-    await redis.flushDb();
-  } catch {
-    // Redis may not be connected in every scenario.
-  }
+  await flushTestDb();
 }

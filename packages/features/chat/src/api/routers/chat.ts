@@ -67,7 +67,7 @@ export const chatRouter = createTRPCRouter({
     .subscription(async function* ({ ctx, input, signal }) {
       const { conversationId, lastEventId } = input;
       logger.info(
-        { userId: ctx.auth.userId, conversationId, lastEventId },
+        { userId: ctx.session.user.id, conversationId, lastEventId },
         'chat.stream: reader attached',
       );
 
@@ -113,7 +113,7 @@ export const chatRouter = createTRPCRouter({
   send: ownedConversationByIdProcedure
     .input(SendChatRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
       const { conversationId, turnId, query } = input;
 
       try {
@@ -180,7 +180,7 @@ export const chatRouter = createTRPCRouter({
       }
       await abortTurn({ conversationId, turnId });
       logger.info(
-        { userId: ctx.auth.userId, conversationId, turnId },
+        { userId: ctx.session.user.id, conversationId, turnId },
         'chat.stop: abort published',
       );
       return { status: 'stopped' as const, turnId };
@@ -198,12 +198,12 @@ export const chatRouter = createTRPCRouter({
       const { refunded } = await reconcileTurn(
         (uid: string, creditTier: SubscriptionTier, amount: number) =>
           ctx.entitlements.refund(uid, creditTier, amount),
-        ctx.auth.userId,
+        ctx.session.user.id,
         ctx.tier,
         { conversationId, turnId },
       );
       logger.info(
-        { userId: ctx.auth.userId, conversationId, turnId, refunded },
+        { userId: ctx.session.user.id, conversationId, turnId, refunded },
         'chat.reconcileTurn: cleaned up',
       );
       return { refunded };
@@ -225,7 +225,7 @@ export const chatRouter = createTRPCRouter({
   create: ownedConversationProcedure
     .input(z.object({ sessionId: z.uuid() }))
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       try {
         logger.info(
@@ -263,7 +263,7 @@ export const chatRouter = createTRPCRouter({
     .input(z.object({ sessionId: z.uuid() }))
     .output(z.array(uiMessageSchema))
     .query(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       // New session: thread doesn't exist yet, no messages to return.
       if (!ctx.conversation) return [];
@@ -295,7 +295,7 @@ export const chatRouter = createTRPCRouter({
   delete: existingConversationProcedure
     .input(DeleteChatRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       try {
         logger.info(
@@ -323,7 +323,7 @@ export const chatRouter = createTRPCRouter({
   // The caller's Conversations for the history sidebar — a flat list ordered
   // `updatedAt DESC`. The client groups it into Folders and Date Buckets.
   list: protectedProcedure.query(async ({ ctx }) => {
-    const { userId } = ctx.auth;
+    const { id: userId } = ctx.session.user;
 
     try {
       const threads = await listConversationsForUser(userId);
@@ -348,7 +348,7 @@ export const chatRouter = createTRPCRouter({
   setFolder: existingConversationProcedure
     .input(SetFolderRequest)
     .mutation(async ({ ctx, input }) => {
-      const { userId } = ctx.auth;
+      const { id: userId } = ctx.session.user;
 
       // The target Folder, when given, must belong to the caller. Ownership is
       // asserted through the folders module so `chat_folder` is only ever
@@ -381,7 +381,7 @@ export const chatRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         logger.info(
-          { adminId: ctx.auth.userId, sessionId: input.sessionId },
+          { adminId: ctx.session.user.id, sessionId: input.sessionId },
           'Admin fetching chat',
         );
 
@@ -397,7 +397,7 @@ export const chatRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         logger.error(
-          { error, adminId: ctx.auth.userId, sessionId: input.sessionId },
+          { error, adminId: ctx.session.user.id, sessionId: input.sessionId },
           'Admin failed to fetch chat',
         );
         throw new TRPCError({
@@ -413,7 +413,7 @@ export const chatRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       try {
         logger.info(
-          { adminId: ctx.auth.userId, targetUserId: input.userId },
+          { adminId: ctx.session.user.id, targetUserId: input.userId },
           'Admin fetching chats for user',
         );
 
@@ -422,7 +422,7 @@ export const chatRouter = createTRPCRouter({
         return threads.map((thread) => toConversation(thread));
       } catch (error) {
         logger.error(
-          { error, adminId: ctx.auth.userId, targetUserId: input.userId },
+          { error, adminId: ctx.session.user.id, targetUserId: input.userId },
           'Admin failed to fetch chats for user',
         );
         throw new TRPCError({

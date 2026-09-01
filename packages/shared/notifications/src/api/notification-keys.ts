@@ -4,7 +4,7 @@ import { nsKey } from '@acme/redis';
 // `nsKey` so the app namespace prefix (derived from NEXT_PUBLIC_WEBAPP) is
 // applied consistently — one user's stream per app.
 //
-// `userId` comes from `ctx.auth.userId` server-side (never a client input). In
+// `userId` comes from `ctx.session.user` server-side (never a client input). In
 // the no-auth slim apps it collapses to the constant `'local'` principal, so
 // slim visitors share one `notifications:local` stream — accepted and documented
 // (docs/adr/0030-notifications-seam.md), the same collapse chat/ingest accept.

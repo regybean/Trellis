@@ -18,7 +18,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import '@testing-library/jest-dom';
 
 import { {{ pascalCase name }}List } from '../../../../components/{{ kebabCase name }}-list';
-import { renderWithProviders, trpcMsw } from '../../../setup';
+import { renderWithProviders, trpcMsw } from '../../setup';
 
 const server = setupServer();
 

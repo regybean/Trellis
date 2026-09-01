@@ -1,20 +1,20 @@
-// Global type declarations for Clerk auth
-import type { User } from '@clerk/backend';
-
-// Create a type for the roles
-export type Roles = 'admin' | 'user';
+// The provider-shaped *augmentation* of the injected principal, for the two full
+// apps. Both include this file in their tsconfig, so it — and only it — adds the
+// fields these apps map off a Clerk `User` to the platform's neutral
+// `InjectedUser` seam. The base (`id` + `role`) is declared once in `@acme/trpc`
+// and arrives through its `dist/index.d.ts`; nothing is restated here.
+//
+// Swapping Clerk out is a change to this file and `../session.ts`, not to the
+// platform or any feature.
+export type { Roles } from '@acme/trpc';
 
 declare global {
-  interface CustomJwtSessionClaims {
-    metadata: {
-      role?: Roles;
-    };
+  // The extra field the full apps inject: the primary email `@acme/billing`
+  // opens a Stripe customer with. Declared structurally, and identically to
+  // billing's own augmentation — two declarations of one merged member have to
+  // agree, and the Clerk shape is checked where it is actually read, in
+  // `toInjectedPrincipal`.
+  interface InjectedUser {
+    primaryEmailAddress: { emailAddress: string } | null;
   }
-
-  // The canonical `ctx.user` augmentation for the full apps: both apps include
-  // this file in their tsconfig, so injecting a Clerk `currentUser()` result is
-  // type-checked against the real `User`. The platform owns the open base
-  // interface (see @acme/trpc); this sharpens it.
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-  interface InjectedUser extends User {}
 }

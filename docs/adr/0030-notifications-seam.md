@@ -39,7 +39,7 @@ Ingest (spec #185) is its first consumer; the primitive is the durable win.
    `createTRPCContext`, mounted at its own **`/api/trpc/notifications`** in all 4
    apps (there is no aggregated root router in this repo — each feature/seam mounts
    its own). The subscription is `protectedProcedure`, `userId` from
-   `ctx.auth.userId` (never a client input). The reader is a pure `xRange`-polling
+   `ctx.session.user.id` (never a client input). The reader is a pure `xRange`-polling
    generator: tail-from-now on a fresh connect (seed cursor `${Date.now()}-0`),
    exclusive `(cursor` resume on transient reconnect, idle backoff, never
    self-closes (abort only). It builds on the db-less `createFeatureTRPC()`.

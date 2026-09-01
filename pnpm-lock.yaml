@@ -1876,6 +1876,9 @@ importers:
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
+      '@acme/trpc':
+        specifier: workspace:*
+        version: link:../../platform/trpc
       '@clerk/backend':
         specifier: ^2.33.5
         version: 2.33.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)

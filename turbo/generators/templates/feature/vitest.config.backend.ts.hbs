@@ -1,24 +1,14 @@
-import { defineConfig, mergeConfig } from 'vitest/config';
+import { backendProject } from '@acme/test-utils/vitest';
 
-import baseConfig from '@acme/vitest-config/base';
-
-export default mergeConfig(
-  baseConfig,
-  defineConfig({
-    test: {
-      name: 'backend',
-      environment: 'node',
-      include: ['src/tests/backend/**/*.test.ts'],
-      setupFiles: ['./src/tests/backend/setup.ts'],
-      // Starts/stops the PostgreSQL + Redis testcontainers (needs Docker).
-      globalSetup: ['./src/tests/backend/global-setup.ts'],
-      // Real DB means generous timeouts and a single, non-isolated worker so
-      // tests share one connection/transaction space deterministically.
-      testTimeout: 60_000,
-      hookTimeout: 60_000,
-      pool: 'forks',
-      maxWorkers: 1,
-      isolate: false,
-    },
-  }),
-);
+// Per-suite isolation on the shared testcontainer DB/Redis (turbo runs feature
+// backend suites concurrently): a dedicated Postgres schema (NEXT_PUBLIC_WEBAPP)
+// and a dedicated Redis logical DB, so a parallel suite's cleanup/flush can't
+// wipe ours. Pick a `redisDb` no other feature has claimed —
+// `rg redisDb packages/features/*/vitest.config.backend.ts` lists the taken
+// ones. Infra descriptors are declared in ./src/tests/backend/global-setup.ts.
+export default backendProject({
+  webapp: '{{ snakeCase name }}_test',
+  redisDb: '5',
+  globalSetup: './src/tests/backend/global-setup.ts',
+  setupFiles: ['./src/tests/backend/setup.ts'],
+});

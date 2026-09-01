@@ -179,10 +179,29 @@ real platform contract, and its `subscription`/`tier`/`credits` are derived from
 the same mock `EntitlementsProvider` the real `createTRPCContext` would resolve,
 so a test context can't drift from production.
 
+The builder takes the principal (`user: InjectedUser`) whole, not a `userId` +
+`role` it fabricates one from. `InjectedUser` is an augmentable global, so only
+the consuming program can build a complete one — billing augments it with the
+primary email its Stripe customer lookup reads, and the platform must not know
+that. So each feature's `test-context.ts` wraps the builder and maps the four
+knobs its tests pass onto its own principal:
+
 ```typescript
-// src/tests/backend/utils/test-context.ts re-exports it + owns feature cleanup:
-export { createTestContext } from "@acme/trpc/testing";
-export type { TestContextOptions } from "@acme/trpc/testing";
+// src/tests/backend/utils/test-context.ts wraps it + owns feature cleanup:
+import {
+  createTestContext as createBaseTestContext,
+  type FeatureTestContextOptions,
+} from "@acme/trpc/testing";
+
+export type TestContextOptions = FeatureTestContextOptions;
+
+export function createTestContext({
+  userId,
+  role,
+  ...entitlements
+}: TestContextOptions) {
+  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
+}
 
 // In a test:
 import { createTestContext } from "../utils/test-context";
