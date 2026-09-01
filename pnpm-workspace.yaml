@@ -30,15 +30,11 @@ catalog:
   # packages move in lockstep to avoid peer skew.
   "@opentelemetry/auto-instrumentations-node": ^0.79.0
   "@opentelemetry/exporter-trace-otlp-http": ^0.221.0
-  "@opentelemetry/instrumentation": ^0.221.0
-  "@opentelemetry/instrumentation-http": ^0.221.0
   "@opentelemetry/resources": ^2.10.0
   "@opentelemetry/sdk-node": ^0.221.0
   "@opentelemetry/sdk-trace-base": ^2.10.0
-  "@opentelemetry/sdk-trace-node": ^2.10.0
   "@opentelemetry/semantic-conventions": ^1.43.0
   "@openrouter/ai-sdk-provider": ^2.9.1
-  "@react-pdf/renderer": ^4.3.1
   "@t3-oss/env-core": ^0.13.10
   "@tailwindcss/postcss": ^4.1.16
   "@tailwindcss/vite": ^4.1.16
@@ -55,16 +51,14 @@ catalog:
   "@testing-library/react": ^16.3.0
   "@testing-library/user-event": ^14.6.1
   "@trpc/client": ^11.8.0
-  "@trpc/react-query": ^11.8.0
   "@trpc/server": ^11.8.0
   "@trpc/tanstack-react-query": ^11.8.0
   "@types/node": ^22.18.12
   "@vitejs/plugin-react": ^5.1.1
-  "@xmldom/xmldom": ^0.9.8
   ai: ^6.0.204
   better-auth: ^1.7.1
   bullmq: ^5.80.0
-  clsx: ^2.1.0
+  clsx: ^2.1.1
   drizzle-orm: ^0.45.2 # GHSA-gpj5-g38j-94v9 (SQL injection) patched >=0.45.2
   drizzle-zod: ^0.8.3
   eslint: ^9.39.1
@@ -72,6 +66,7 @@ catalog:
   framer-motion: ^12.23.22
   idb-keyval: ^6.2.5
   jsdom: 27.1.0
+  knip: ^6.32.3
   lefthook: ^1.11.0
   lucide-react: ^0.475.0
   mastra: ^1.13.0
@@ -81,14 +76,12 @@ catalog:
   next-themes: ^0.4.6
   officeparser: ^7.5.1
   p-limit: 7.2.0
-  pgvector: ^0.2.0
   postgres: ^3.4.5
   prettier: ^3.7.4
   react: ^19.2.0
   react-dom: ^19.2.0
   react-toastify: ^11.0.5
   ioredis: ^5.6.0
-  saxon-js: ^2.7.0
   server-only: ^0.0.1
   superjson: 2.2.2
   tailwind-merge: ^3.4.0
@@ -100,10 +93,7 @@ catalog:
   uuid: ^13.0.0
   vite: ^7.0.0
   vitest: ^4.1.10 # GHSA-5xrq-8626-4rwp (critical) patched >=4.1.0
-  xpath: 0.0.34
-  yaml: ^2.8.2
   zod: ^4.1.12
-  zod-form-data: ^3.0.1
 
 catalogMode: strict
 

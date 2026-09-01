@@ -18,7 +18,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@tanstack/react-form": "catalog:",
     "class-variance-authority": "^0.7.1",
-    "clsx": "^2.1.1",
+    "clsx": "catalog:",
     "lucide-react": "catalog:",
     "next-themes": "catalog:",
     "radix-ui": "^1.4.3",
