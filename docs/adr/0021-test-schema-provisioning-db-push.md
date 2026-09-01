@@ -49,7 +49,7 @@ accepted
 - A feature with push-managed tables must be re-exported from `nextjs/schema.ts`
   to be provisioned in tests — the same requirement production has.
 - Provisioning is unconditional: every backend suite starts a fresh Postgres and
-  pushes into it on every run ([ADR 0036](0036-backend-tests-always-self-provision.md)).
+  pushes into it on every run ([ADR 0034](0034-backend-tests-always-self-provision.md)).
   The compose path that skipped this step — and `scripts/push-test-schemas.sh`,
   which existed to make its "dev `db:push` already ran" assumption true for the
   isolated `*_test` schemas — are both gone.

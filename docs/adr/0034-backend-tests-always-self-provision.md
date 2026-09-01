@@ -24,11 +24,12 @@ stack on 5444/6379, and nothing reads from it.
 What goes with it:
 
 - `localPort` leaves the `InfraDescriptor` contract, along with the TCP port
-  probe, the local resolver, and `inLinkedWorktree()`. `@acme/db/testing` no
-  longer imports `LOCAL_DB_PORT` (the constant stays in `@acme/db`'s config,
-  scoped to dev infra); `@acme/redis/testing` drops its `localPort`.
-  `StartedInfra.container` is now required rather than "present only on the CI
-  path".
+  probe, the local resolver, and `inLinkedWorktree()`. `@acme/db/testing` drops
+  the `DB_DEVELOPMENT_PROFILE.DB_PORT` it fed that field (it still imports the
+  profile for `DB_USER`/`DB_NAME`, and `LOCAL_DB_PORT` stays in `@acme/db`'s
+  config, scoped to dev infra); `@acme/redis/testing` drops its `localPort` the
+  same way. `StartedInfra.container` is now required rather than "present only on
+  the CI path".
 - `scripts/push-test-schemas.sh` is deleted. It existed only to push the isolated
   `*_test` schemas into the dev database so the local path would find tables; the
   global-setup now does that per suite.
@@ -46,17 +47,26 @@ partition — the reuse ADR 0019 had to give up to stay correct.
 `CI=true`, on the reasoning that a local compose-backed run shared one Postgres
 and could fan out freely. Every run now starts containers, so every run needs the
 cap: `turbo run <task> --concurrency=${TEST_CONCURRENCY:-2}`. Every test entry
-point routes through `scripts/test.sh` to inherit it — including root
-`test:watch`, and including the quality gate, where `test` moves out of the
-batched `turbo run lint format typecheck` invocation into its own wrapper-routed
-stage.
+point routes through `scripts/test.sh` to inherit it, including the quality gate,
+where `test` moves out of the batched `turbo run lint format typecheck`
+invocation into its own wrapper-routed stage — the cap must reach `test` without
+throttling the other three.
+
+Watch tasks route through the wrapper too, but the wrapper exempts `*:watch` from
+the cap. They are `persistent: true`, and turbo refuses to start more persistent
+tasks than its concurrency allows, so capping them at 2 fails the run outright.
+The cap would buy nothing anyway: a watcher starts its containers once and holds
+them, rather than in waves.
 
 **Ryuk is disabled by default on every run.** A rootless podman machine (the
 macOS default) cannot bind-mount the docker socket the reaper needs, so it dies
 before signalling ready and takes global-setup with it. Cleanup does not depend on
 it: `stopInfra()` in the global teardown stops each container explicitly, and
 isolation comes from testcontainers' random ports and generated names. The
-default is set with `??=`, so an explicit outer value still wins.
+default is set with `??=`, so an explicit outer value still wins — but nothing
+sets one, CI included: a GitHub runner is torn down after the job, so the reaper
+has nothing left to reap that the runner's own teardown doesn't. CI runs
+reaper-less on purpose, not by omission.
 
 **A missing container runtime fails once, usefully.** Global-setup probes the
 runtime with `getContainerRuntimeClient()` before starting anything and throws one
@@ -77,6 +87,12 @@ error naming the fix, instead of one opaque socket error per descriptor per suit
   ADR exists to kill.
 - **A `TEST_INFRA_MODE` toggle** (ADR 0019's rejected alternative) — moot once
   there is only one mode.
+- **Cap the gate's single batched invocation instead of splitting `test` out.**
+  One `turbo run lint format typecheck test --concurrency=2` would need no second
+  invocation, but the cap is there for containers and would throttle lint, format
+  and typecheck to two tasks at a time for the whole run. Splitting `test` off
+  costs a foreground `build` prime — without which two concurrent `turbo run`
+  invocations each build the graph — and buys back the uncapped batch.
 
 ## Status
 
@@ -86,16 +102,12 @@ Supersedes [ADR 0019](0019-worktrees-mirror-ci-test-infra.md).
 
 ## Consequences
 
-- **Cold `pnpm test` at concurrency 2 takes ~2m56s** (35 turbo tasks, nothing
-  cached; M-series mac, 16 GB rootless podman machine, images already pulled). A
-  re-run with no source changes is a **full cache hit at ~52s** — 34/35 tasks
-  replayed, the remainder being turbo overhead. The cost is real and was free
-  locally before: each Postgres suite boots pgvector and pushes the full
-  aggregated `nextjs` schema. We accept it. If a cold run becomes intolerable,
-  revisit — but not with a prebaked artifact.
-  (Measured with one pre-existing failure in `@acme/ingest`, unrelated to infra —
-  its embed model reaches a real Ollama on `localhost:11434`. Turbo never caches a
-  failed task, so that one is the 35th; it also fails identically in CI on `main`.)
+- **Cold `pnpm test` at concurrency 2 takes ~2m02s** (34 turbo tasks, all green,
+  nothing cached; M-series mac, 16 GB rootless podman machine, images already
+  pulled). A re-run with no source changes is **FULL TURBO at ~3.5s** — 34/34
+  replayed. The cost is real and was free locally before: each Postgres suite
+  boots pgvector and pushes the full aggregated `nextjs` schema. We accept it. If
+  a cold run becomes intolerable, revisit — but not with a prebaked artifact.
 - **A container runtime is now a hard prerequisite for backend tests everywhere.**
   `pnpm infra:up` is no longer one; it is dev infra only. `podman machine start`
   is the whole setup.

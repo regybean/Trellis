@@ -38,7 +38,7 @@ Returns a Vitest `globalSetup` function that starts exactly the named infra as
 throwaway testcontainers, publishes the merged connection env as one `infraEnv`
 record, and tears the containers down. A suite calls it from a ~5-line per-suite
 `global-setup.ts` that imports its descriptors as live objects. There is **one
-path** — a suite self-provisions on every run, everywhere (ADR 0036); the old
+path** — a suite self-provisions on every run, everywhere (ADR 0034); the old
 "infra mode" / "local vs CI path" vocabulary is retired, and so are `localPort`,
 the port probe and `inLinkedWorktree()`.
 _Avoid_: "the setup harness", "the container bootstrap", "the testcontainers path"

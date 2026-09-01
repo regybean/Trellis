@@ -135,7 +135,7 @@ After pulling others' changes, re-run whatever changed: `pnpm i` (deps), `pnpm d
 
 ```bash
 pnpm tidy                    # auto-fix first: lint:fix + format:fix
-pnpm quality-gate            # then verify (read-only, parallel): turbo(lint+format+typecheck+build+test) + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
+pnpm quality-gate            # then verify (read-only, parallel): build + turbo(lint+format+typecheck) + test + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 
 (lefthook also runs prettier + a secret scan on staged files at commit time.)
@@ -185,7 +185,7 @@ Every script in [package.json](../package.json), grouped. ⚠️ = **manual-only
 | `pnpm deps:lint` / `pnpm deps:format` / `pnpm deps:update` | Version alignment (syncpack)                                                                                                                                                                                                                                            |
 | `pnpm gitleaks`                                            | Secret scan (CI enforces; skips gracefully if not installed)                                                                                                                                                                                                            |
 | `pnpm tidy`                                                | Auto-fix: `lint:fix` + `format:fix` (run before the gate)                                                                                                                                                                                                               |
-| `pnpm quality-gate`                                        | The full pre-push gate — **read-only, parallel**: turbo(lint+format+typecheck+build+test) + check:exports + boundaries + test-policy + lint:ws + deps:lint + gitleaks                                                                                                   |
+| `pnpm quality-gate`                                        | The full pre-push gate — **read-only, parallel**: build + turbo(lint+format+typecheck) + test + check:exports + boundaries + test-policy + lint:ws + deps:lint + gitleaks                                                                                               |
 | `pnpm turbo gen`                                           | Scaffold a new package/feature                                                                                                                                                                                                                                          |
 | `pnpm ui-add`                                              | Add a shadcn UI component                                                                                                                                                                                                                                               |
 | `pnpm skills:register`                                     | Re-link vendored agent skills (`.agents/skills/` → `.claude/skills/`); runs on `postinstall`                                                                                                                                                                            |

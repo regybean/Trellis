@@ -24,7 +24,7 @@ isn't one, global-setup fails immediately with a message saying so.
 binds random host ports, so a test run never touches the dev stack on 5444/6379
 and dev state can never affect a result. There is one behaviour and one turbo
 cache partition, so a local pass proves what a CI pass proves. See
-[ADR 0036](adr/0036-backend-tests-always-self-provision.md). Infra-less suites
+[ADR 0034](adr/0034-backend-tests-always-self-provision.md). Infra-less suites
 (see `infra: false` below) need no runtime at all.
 
 ## Test the contract, not the internals

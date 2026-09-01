@@ -10,7 +10,7 @@
  * A real container is started per descriptor on *every* run — primary checkout,
  * worktree and CI alike. There is no compose path: testcontainers binds random
  * host ports, so a suite never collides with, nor reads from, the dev stack. See
- * docs/adr/0033.
+ * docs/adr/0034.
  */
 
 /* eslint-disable no-restricted-syntax */

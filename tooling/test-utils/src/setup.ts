@@ -3,7 +3,7 @@
  *
  * `runInfraSetup(descriptors)` returns a Vitest `globalSetup` function that
  * brings up exactly the infra a suite names — always as throwaway
- * testcontainers, on every run (see ADR 0036) — publishes the merged connection
+ * testcontainers, on every run (see ADR 0034) — publishes the merged connection
  * env to test workers as a single `infraEnv` record (hydrated into `process.env`
  * by `@acme/test-utils/hydrate-env`), and tears the containers down after.
  *

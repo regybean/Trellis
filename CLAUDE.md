@@ -77,7 +77,7 @@ Tests split into `test:backend` (real Postgres/Redis via testcontainers) and
 `test:frontend` (jsdom + MSW at the HTTP boundary). Backend suites **always**
 start their own throwaway containers — everywhere, identically — so the only
 prerequisite is a reachable container runtime, never `pnpm infra:up`
-([ADR 0036](docs/adr/0036-backend-tests-always-self-provision.md)). Doctrine: [docs/TESTING.md](docs/TESTING.md),
+([ADR 0034](docs/adr/0034-backend-tests-always-self-provision.md)). Doctrine: [docs/TESTING.md](docs/TESTING.md),
 backend taxonomy in [docs/agents/testing.md](docs/agents/testing.md), frontend
 doctrine in [ADR 0018](docs/adr/0018-frontend-test-doctrine.md). Rule of thumb:
 **test the contract, not the internals** — the tRPC procedure on the backend, the
@@ -98,13 +98,13 @@ pnpm preview [app...]    # Serve the COMPILED build locally (no HMR) for true pa
 
 ```bash
 pnpm tidy                # Auto-fix first (lint:fix + format:fix) — the gate is read-only
-pnpm quality-gate        # READ-ONLY verify, parallel: turbo(lint+format+typecheck+build+test) + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
+pnpm quality-gate        # READ-ONLY verify, parallel: build + turbo(lint+format+typecheck) + test + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 
 How and when to run these — incremental per-package checks and the end-of-task
 gate — is [docs/agents/quality-gate.md](docs/agents/quality-gate.md); the rationale is [ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md).
 
-> In a git worktree, dev/preview/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. But for **observing dev output**: the human runs `pnpm dev`; its dev-server + infra output is mirrored to `logs/*.log`. Read those instead of starting `pnpm dev` yourself to watch output — see [docs/agents/dev-logs.md](docs/agents/dev-logs.md). (This supersedes the "you may run [dev] to test" allowance for observing dev output only; it stays silent on `preview`/`build`/`test` and doesn't ban `pnpm infra:up`.) Tests are the exception: `pnpm test` works in a worktree exactly as it does on the primary checkout — every backend suite self-provisions isolated testcontainers, so there is nothing to start and nothing special about a worktree. See [ADR 0036](docs/adr/0036-backend-tests-always-self-provision.md).
+> In a git worktree, dev/preview/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. But for **observing dev output**: the human runs `pnpm dev`; its dev-server + infra output is mirrored to `logs/*.log`. Read those instead of starting `pnpm dev` yourself to watch output — see [docs/agents/dev-logs.md](docs/agents/dev-logs.md). (This supersedes the "you may run [dev] to test" allowance for observing dev output only; it stays silent on `preview`/`build`/`test` and doesn't ban `pnpm infra:up`.) Tests are the exception: `pnpm test` works in a worktree exactly as it does on the primary checkout — every backend suite self-provisions isolated testcontainers, so there is nothing to start and nothing special about a worktree. See [ADR 0034](docs/adr/0034-backend-tests-always-self-provision.md).
 
 ## Architecture
 

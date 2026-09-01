@@ -57,7 +57,7 @@ DB/Redis details are hydrated by `@acme/test-utils/hydrate-env`.
 
 Every backend suite **starts its own** throwaway Postgres/Redis and pushes its
 schema — one path, identical on the primary checkout, in a worktree and in CI
-([ADR 0036](../adr/0036-backend-tests-always-self-provision.md)). A reachable
+([ADR 0034](../adr/0034-backend-tests-always-self-provision.md)). A reachable
 container runtime is the only prerequisite; `pnpm infra:up` is dev infra and is
 never needed for tests.
 
