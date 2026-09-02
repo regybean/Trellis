@@ -77,7 +77,7 @@ boundary (MSW); assert what renders.** The hook is the contract (logic lives in
 - **Never** `vi.mock('../trpc/react')`, a feature hook, or `react-toastify` —
   ESLint blocks all three. Assert toasts via a real `<ToastContainer />`.
 - **Never** `expect(spy).toHaveBeenCalledWith(...)` on the data layer — read the
-  DOM/hook state. Framework externals (`next/navigation`, `@acme/auth`) stay
-  mockable.
+  DOM/hook state. Framework externals (`next/navigation`) stay mockable;
+  `@acme/auth` ships no React, so no frontend test imports it.
 - **Reference:** `feedback` (setup + `feedback-buttons` + `use-feedback`);
   `ingest/documents-list` for the MSW-over-shallow-mock rewrite.

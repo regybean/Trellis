@@ -124,8 +124,9 @@ below follows from that.
 - **DON'T** `expect(spy).toHaveBeenCalledWith(...)` on a data-layer mock, or
   assert a handler-side flag flipped — read the outcome, not the mechanism.
 - **DON'T** `vi.mock('react-toastify')` — the toast renders in jsdom; assert it.
-- **Framework externals stay mockable:** `next/navigation`, `@acme/auth` — the
-  frontend's blessed mock list (mirrors ADR 0014). Prefer observable navigation
+- **Framework externals stay mockable:** `next/navigation` — the frontend's
+  blessed mock list (mirrors ADR 0014). `@acme/auth` is not on it: it ships no
+  React, so no frontend test imports it (ADR 0034). Prefer observable navigation
   (`<Link href>` in the DOM) over asserting an imperative `router.push`.
 
 ### Setup and config

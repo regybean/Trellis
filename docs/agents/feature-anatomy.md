@@ -141,8 +141,8 @@ tests/frontend/
   blocks all three). Assert toasts via a real `<ToastContainer />` in the DOM.
 - **Never** `expect(spy).toHaveBeenCalledWith(...)` on the data layer — read the
   outcome (DOM, returned hook state, cache), not the mechanism.
-- Framework externals (`next/navigation`, `@acme/auth`) stay mockable; prefer
-  observable navigation (`<Link href>` in the DOM) over asserting `router.push`.
+- Framework externals (`next/navigation`) stay mockable; prefer observable
+  navigation (`<Link href>` in the DOM) over asserting `router.push`.
 - **Reference:** `feedback` (setup + `feedback-buttons` + `use-feedback`).
 
 ### Test policy
