@@ -10,6 +10,14 @@ load-bearing choices behind the shared mechanism (`@acme/hooks`); the features
 that opt in (chat, feedback, and — since #216 — ingest) and the app-supplied scope wiring are separate
 tickets that compose it.
 
+> **Amended by [ADR 0036](0036-one-app-owned-query-client.md).** This ADR was
+> written when each feature owned a `QueryClient`, and said "attach the persister
+> to its `QueryClient`". Apps now mount a single `QueryClient`, and a feature
+> attaches its persister — with the `gcTime` and `staleTime: 0` that make it
+> correct — to the individual queries it persists, via
+> `usePersistedQueryOptions()`. Everything else below stands; the sentences that
+> assumed the per-feature client are corrected in place.
+
 ## Decision
 
 **Per-query persistence, not whole-client.** Built on TanStack Query's
@@ -29,8 +37,8 @@ per-Message queries), above the ~5MB Web Storage cap, and — with identity
 localStorage.
 
 **Opt-in per feature, per query.** Persistence is off by default. A feature turns
-it on by attaching the persister to its `QueryClient` and marking the specific
-queries to persist via query `meta` (`meta: persistMeta`). The persister's
+it on by attaching the persister to the specific queries to persist, along with
+the `meta` mark that gates it (`meta: persistMeta`). The persister's
 `filters` predicate (`query.meta?.persist === true`) is the gate — only marked,
 successful queries are ever written. Sensitive/volatile queries
 (credits/subscription, the `chat.stream` subscription, in-flight Turn state) are
@@ -59,7 +67,7 @@ simply never marked.
 > rendered a stale empty message pane and a sidebar missing the just-created
 > Conversation.
 >
-> The revalidation lever is **`staleTime: 0`** on chat's `QueryClient`, NOT
+> The revalidation lever is **`staleTime: 0`** on the persisted query, NOT
 > `refetchOnMount`. This is a subtle, load-bearing interaction with the persister
 > and was mis-diagnosed once (a `refetchOnMount: 'always'` default that did
 > nothing): on a cold open the persister _is_ the queryFn — it restores the
@@ -131,7 +139,7 @@ data). The accepted posture is **short-lived, scoped, clearable** rather than
 encrypted:
 
 - Short `maxAge` per feature (chat 7 days, feedback and ingest 24 hours) bounds how long a
-  snapshot lives; `gcTime >= maxAge` on the QueryClient.
+  snapshot lives; `gcTime >= maxAge` on the persisted query.
 - `scopeKey` buster prevents cross-account reads in the same browser.
 - App-driven logout-clear removes a departing user's data on shared machines.
 
@@ -177,15 +185,18 @@ accepted
   only reachable because chat and ingest set `staleTime: 0` (so the revalidation
   always fires) — a consumer that leaves `staleTime > 0` never hits the floating
   fetch.
-- `staleTime: 0` on chat's and ingest's `QueryClient`s means every one of their
-  queries revalidates on every mount (the cost of correct stale-while-revalidate
-  through the persister): more network chatter than a non-zero `staleTime`,
-  accepted on surfaces where freshness matters and the persister still gives the
-  instant paint. It is not optional for an opting-in feature — any
-  `staleTime > 0` silently converts stale-while-revalidate into serve-stale.
-- Opting a feature in is now a small, uniform step: attach `createQueryPersister`
-  to its `QueryClient`, mark queries with `persistMeta`, and expose
-  `clearPersistedCache` for the app's logout path.
+- `staleTime: 0` on every persisted query means it revalidates on every mount
+  (the cost of correct stale-while-revalidate through the persister): more
+  network chatter than a non-zero `staleTime`, accepted on surfaces where
+  freshness matters and the persister still gives the instant paint. It is not
+  optional for an opting-in query — any `staleTime > 0` silently converts
+  stale-while-revalidate into serve-stale, which is why
+  [ADR 0036](0036-one-app-owned-query-client.md) ships the two together in one
+  spread rather than leaving them two files apart.
+- Opting a feature in is now a small, uniform step: declare a `persister` in
+  `createFeatureClient`, spread `usePersistedQueryOptions()` into the queries
+  that should persist, and expose `clearPersistedCache` for the app's logout
+  path.
 - Server-driven cache invalidation, offline writes, and cross-tab sync are
   explicitly out of scope; the `chat.stream` subscription is the existing seam a
   future invalidation effort would extend.
