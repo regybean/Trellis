@@ -1,10 +1,10 @@
 'use client';
 
-import type { QueryClient, QueryPersister } from '@tanstack/react-query';
+import type { QueryPersister } from '@tanstack/react-query';
 import type { AnyRouter } from '@trpc/server';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   createTRPCClient,
   httpBatchStreamLink,
@@ -20,15 +20,21 @@ import SuperJSON from 'superjson';
 import {
   clearPersistedCache as clearFeatureStore,
   createQueryPersister,
+  persistMeta,
 } from './query-persister';
 
 // The client half of a feature's tRPC wiring, authored once. It mirrors the
 // server-side `createFeatureTRPC` in `@acme/trpc`: a single factory that owns
-// everything identical across features — the SSR `getQueryClient` singleton, the
-// `NODE_ENV==='test'` `httpLink` switch the MSW seam relies on (ADR 0018), and
-// the provider scaffold — and parameterises only what genuinely varies: the
-// router type, the `keyPrefix`, the terminal transport link, whether the feature
-// has a subscription, and the optional per-query persister (ADR 0025).
+// everything identical across features — the `NODE_ENV==='test'` `httpLink`
+// switch the MSW seam relies on (ADR 0018), the provider scaffold, and the
+// per-query persister wiring (ADR 0025) — and parameterises only what genuinely
+// varies: the router type, the `keyPrefix`, the terminal transport link, whether
+// the feature has a subscription, and its optional persistence config.
+//
+// It does NOT own a `QueryClient`. The app mounts exactly one (ADR 0036), so a
+// feature provider renders `TRPCProvider` against the client already in context.
+// What the per-feature clients used to carry — persister, `gcTime`, `staleTime` —
+// is now declared per query via `usePersistedQueryOptions`.
 //
 // It lives here, not in `@acme/trpc`: this factory ships React and a
 // `'use client'` connector, which ADR 0030's platform-purity invariant forbids a
@@ -56,19 +62,25 @@ interface PersisterConfig {
   /**
    * Composed into the persister `buster` (`appVersion:scopeKey`) so a deploy
    * that changes the data shape discards prior snapshots on restore. Chat passes
-   * `env.NEXT_PUBLIC_APP_VERSION`; feedback pins its own data-shape version.
+   * `env.NEXT_PUBLIC_APP_VERSION`; feedback and ingest pin their own data-shape
+   * version.
    */
   appVersion: string;
-  /** Max age of a persisted entry in ms (chat 7d, feedback 24h). */
-  maxAge?: number;
+  /**
+   * Max age of a persisted entry in ms (chat 7d, feedback and ingest 24h).
+   * Required, not defaulted: it is also the `gcTime` every persisted query gets,
+   * and the persister needs `gcTime >= maxAge` or an entry is garbage-collected
+   * in memory before its stored copy expires.
+   */
+  maxAge: number;
 }
 
 interface FeatureClientOptions {
   /**
    * The feature's identifier. Drives three things at once: the tRPC mount URL
    * (`/api/trpc/<keyPrefix>`), the TanStack-Query `keyPrefix` (namespaces query
-   * keys so co-mounted feature providers never collide), and the persister store
-   * name (`rq-<keyPrefix>`).
+   * keys so co-mounted features never collide in the app's one cache), and the
+   * persister store name (`rq-<keyPrefix>`).
    */
   keyPrefix: string;
   /**
@@ -77,12 +89,6 @@ interface FeatureClientOptions {
    * the MSW test seam (`'test'`) and the dev-only `loggerLink`.
    */
   nodeEnv: NodeEnv;
-  /**
-   * The feature's own `QueryClient` factory — `staleTime`, `dehydrate`, and
-   * `gcTime` differ per feature, so the factory can't own it. Receives the
-   * persister (or `undefined`) to attach.
-   */
-  createQueryClient: (persister?: QueryPersister) => QueryClient;
   /** Terminal (non-subscription) data link — see {@link Transport}. */
   transport: Transport;
   /**
@@ -94,23 +100,35 @@ interface FeatureClientOptions {
   subscriptions?: boolean;
   /**
    * Opt into the ADR 0025 per-query IndexedDB persister. Present ⇒ the provider's
-   * `scopeKey` prop wires a persister into the `QueryClient` (browser only, and
-   * only when IndexedDB exists). Absent ⇒ the feature is always network-only.
+   * `scopeKey` prop builds a persister that `usePersistedQueryOptions()` hands to
+   * the queries the feature marks (browser only, and only when IndexedDB exists).
+   * Absent ⇒ the feature is always network-only.
    */
   persister?: PersisterConfig;
 }
 
 /**
- * Build a feature's `'use client'` tRPC provider + hooks. Returns the provider
- * plus `useTRPC` / `useTRPCClient`, a `useFeatureQueryClient` that pins the
- * feature's own `QueryClient` (so a feature's queries never run on a foreign,
- * persister-less client when providers are nested — #82), and
- * `clearPersistedCache` for the app's logout path.
+ * The cache policy every persisted query carries, before the persister itself.
+ *
+ * `staleTime: 0` is load-bearing and belongs HERE rather than on a client
+ * default (ADR 0036). On a cold open the persister *is* the queryFn: it restores
+ * the snapshot, returns it, then schedules the background refetch only
+ * `if (query.isStale())` — a check that reads `staleTime` and ignores
+ * `refetchOnMount`. So any `staleTime > 0` serves a restored snapshot WITHOUT
+ * revalidating, silently turning stale-while-revalidate into serve-stale. Shipped
+ * in the same spread as the persister, the two cannot drift apart.
+ */
+const persistedQueryDefaults = { meta: persistMeta, staleTime: 0 };
+
+/**
+ * Build a feature's `'use client'` tRPC provider + hooks. Returns the provider,
+ * `useTRPC` / `useTRPCClient`, a `usePersistedQueryOptions` carrying the cache
+ * policy for the feature's persisted queries, and `clearPersistedCache` for the
+ * app's logout path.
  */
 export function createFeatureClient<TRouter extends AnyRouter>({
   keyPrefix,
   nodeEnv,
-  createQueryClient,
   transport,
   subscriptions = false,
   persister,
@@ -133,47 +151,51 @@ export function createFeatureClient<TRouter extends AnyRouter>({
         })
       : undefined;
 
-  let clientQueryClientSingleton: QueryClient | undefined;
-  const getQueryClient = (scopeKey: string | undefined) => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (globalThis.window == undefined) {
-      return createQueryClient(); // Server: always a fresh client, no persister.
-    }
-    const persisterFn = buildPersister(scopeKey);
-    // Tests: never reuse the singleton, or cache leaks across cases.
-    if (isTest) {
-      return createQueryClient(persisterFn);
-    }
-    // Browser: singleton so every mount shares one client.
-    clientQueryClientSingleton ??= createQueryClient(persisterFn);
-    return clientQueryClientSingleton;
-  };
-
   const { useTRPC, useTRPCClient, TRPCProvider } = createTRPCContext<
     TRouter,
     { keyPrefix: true }
   >();
 
-  // Pins the feature's own client so hooks can pass it explicitly to `useQuery`
-  // rather than binding to the nearest `QueryClientProvider` in context — apps
-  // nest several feature providers, and the persister lives on THIS client (#82).
-  const FeatureQueryClientContext = createContext<QueryClient | undefined>(
+  // The live persister for this mount, or `undefined` when the app opted out
+  // (no `scopeKey`) or storage is unavailable. Held in context rather than a
+  // module singleton because the scope it is keyed on arrives as a prop.
+  const FeaturePersisterContext = createContext<QueryPersister | undefined>(
     undefined,
   );
-  const useFeatureQueryClient = () => {
-    const client = useContext(FeatureQueryClientContext);
-    if (client === undefined) {
-      throw new Error(
-        'useFeatureQueryClient must be used within the feature TRPCReactProvider',
-      );
+
+  /**
+   * The full cache policy for one query this feature persists (ADR 0025) —
+   * `meta: persistMeta`, the persister, `gcTime` pinned to its `maxAge`, and the
+   * `staleTime: 0` that keeps the restore stale-while-revalidate rather than
+   * serve-stale. Spread it into the query's options:
+   *
+   * ```ts
+   * const persisted = usePersistedQueryOptions();
+   * useQuery(trpc.chat.get.queryOptions({ sessionId }, { retry: false, ...persisted }));
+   * ```
+   *
+   * Without a persister — no `scopeKey`, no IndexedDB, or a feature that never
+   * opted in — it degrades to the `meta` mark and `staleTime: 0`, both no-ops:
+   * the query is simply network-only, exactly as before.
+   */
+  const usePersistedQueryOptions = () => {
+    const queryPersister = useContext(FeaturePersisterContext);
+
+    if (queryPersister === undefined || persister === undefined) {
+      return persistedQueryDefaults;
     }
-    return client;
+
+    return {
+      ...persistedQueryDefaults,
+      persister: queryPersister,
+      gcTime: persister.maxAge,
+    };
   };
 
   /**
    * Empty this feature's persisted cache (`rq-<keyPrefix>`). App-driven: full
-   * apps call it — alongside `queryClient.clear()` — on the Clerk logout path so
-   * a shared machine never leaks one user's data to the next; slim apps have no
+   * apps call it — alongside `queryClient.clear()` — on the logout path so a
+   * shared machine never leaks one user's data to the next; slim apps have no
    * logout and never call it. Safe no-op if storage is unavailable.
    */
   const clearPersistedCache = () => clearFeatureStore(keyPrefix);
@@ -251,23 +273,29 @@ export function createFeatureClient<TRouter extends AnyRouter>({
   function TRPCReactProvider(
     props: Readonly<{ children: ReactNode; scopeKey?: string }>,
   ) {
-    const queryClient = getQueryClient(props.scopeKey);
+    // The app's one `QueryClient` (ADR 0036). Throws if no `QueryClientProvider`
+    // is mounted above — a feature is not mountable on its own, and that failure
+    // is deliberately loud where the old "binds to the wrong client" one was
+    // silent (#82).
+    const queryClient = useQueryClient();
+    // Both built once per mount: the persister is keyed on the `scopeKey` the
+    // app resolved on the server before first render, and the tRPC client holds
+    // its links.
+    const [queryPersister] = useState(() => buildPersister(props.scopeKey));
     const [trpcClient] = useState(() =>
       createTRPCClient<TRouter>({ links: buildLinks() }),
     );
 
     return (
-      <FeatureQueryClientContext.Provider value={queryClient}>
-        <QueryClientProvider client={queryClient}>
-          <TRPCProvider
-            trpcClient={trpcClient}
-            queryClient={queryClient}
-            keyPrefix={keyPrefix}
-          >
-            {props.children}
-          </TRPCProvider>
-        </QueryClientProvider>
-      </FeatureQueryClientContext.Provider>
+      <FeaturePersisterContext.Provider value={queryPersister}>
+        <TRPCProvider
+          trpcClient={trpcClient}
+          queryClient={queryClient}
+          keyPrefix={keyPrefix}
+        >
+          {props.children}
+        </TRPCProvider>
+      </FeaturePersisterContext.Provider>
     );
   }
 
@@ -275,7 +303,7 @@ export function createFeatureClient<TRouter extends AnyRouter>({
     TRPCReactProvider,
     useTRPC,
     useTRPCClient,
-    useFeatureQueryClient,
+    usePersistedQueryOptions,
     clearPersistedCache,
   };
 }
