@@ -50,9 +50,11 @@ Shared by both full apps deliberately, and #239 is why it is worth restating: th
 two migration PRs ran in parallel and each wrote its own copy of all three.
 _Resolving_ a session is framework-specific and app-owned (a TanStack Start
 server function vs. Next.js middleware plus a route handler); the mapping is
-**provider**-specific, and `primaryEmailAddress` has to agree exactly with
-`@acme/billing`'s augmentation of `InjectedUser` — two declarations of one merged
-member must match — so it is built once here.
+**provider**-specific and both full apps need the identical answer, so it is
+built once here. `toPrincipal` returns `@acme/trpc`'s exported `InjectedUser`
+directly — a plain `{ id, role?, email? }`. Before #250 it wrapped the email back
+into Clerk's nested primary-address object for billing to unwrap again, kept in
+step by two hand-synced global augmentations.
 
 All three are typed **structurally**, on the fields they read, not against
 `Session`: Better Auth types `getSession` as returning the core columns only, so

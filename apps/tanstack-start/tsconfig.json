@@ -7,6 +7,6 @@
       "~/*": ["./src/*"]
     }
   },
-  "include": [".", "../../packages/shared/auth/src/types/globals.d.ts"],
+  "include": ["."],
   "exclude": ["node_modules", ".nitro", ".output", ".tanstack"]
 }

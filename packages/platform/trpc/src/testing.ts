@@ -24,7 +24,12 @@ import type {
 } from '@acme/entitlements';
 import { isTierAtLeast } from '@acme/entitlements';
 
-import type { createTRPCContext, InjectedSession, Roles } from './index';
+import type {
+  createTRPCContext,
+  InjectedSession,
+  InjectedUser,
+  Roles,
+} from './index';
 
 /** The billing knobs a test varies per caller. */
 export interface TestEntitlementsOptions {
@@ -34,11 +39,8 @@ export interface TestEntitlementsOptions {
 
 /**
  * What `createTestContext` needs. The principal arrives whole rather than as
- * `userId` + `role`, because `InjectedUser` is an augmentable global: a feature
- * that adds a field to the seam (billing's primary email) is the only program
- * that can build a complete principal, and building it there is what keeps this
- * platform package free of any one feature's knowledge — and free of the
- * widening it would otherwise take to fake it.
+ * `userId` + `role`, so a feature whose procedures read a field beyond identity
+ * (billing reads `email`) sets it here instead of this package inventing one.
  */
 export interface TestContextOptions extends TestEntitlementsOptions {
   user: InjectedUser;

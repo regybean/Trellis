@@ -20,29 +20,32 @@ import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
 /** The role union `adminProcedure` gates on. Declared once, here. */
 export type Roles = 'admin' | 'user';
 
-declare global {
-  /**
-   * The injected principal — `ctx.session.user`. Open by design: the substrate
-   * reads only `id` (identity) and `role` (the `adminProcedure` gate), so the
-   * base declares exactly those, and consumers that need more *augment* it.
-   *
-   * The declaration lives in this module rather than a `global.d.ts` on
-   * purpose: `tsc` emits it into `dist/index.d.ts`, so every program that
-   * imports `@acme/trpc` inherits the base instead of restating it. Augmenting
-   * is then additive — `@acme/billing` contributes the primary email its Stripe
-   * customer lookup reads, `@acme/auth` contributes what the full apps map off
-   * a provider user — and no package has to keep a copy of the base in sync.
-   */
-  interface InjectedUser {
-    id: string;
-    role?: Roles;
-  }
+/**
+ * The injected principal — `ctx.session.user`. A concrete, exported interface,
+ * imported like any other type.
+ *
+ * It used to be an augmentable global, because the one field beyond `id`/`role`
+ * that anyone added was Clerk's nested primary-address object — a shape a
+ * platform package could not name without depending on Clerk's SDK. Clerk is
+ * gone; Better Auth stores `user.email: string`, and
+ * platform can name a string perfectly well. So the mechanism outlived its
+ * reason and was costing two hand-synced declarations, two app tsconfigs
+ * reaching across the workspace by relative path to load them, and no compiler
+ * check that any of it agreed (#250, ADR 0003 amendment).
+ *
+ * The substrate itself still reads only `id` (identity) and `role` (the
+ * `adminProcedure` gate). `email` is here because `@acme/billing` opens a Stripe
+ * customer against it, and optional because the slim apps inject a constant
+ * `{ id: 'local', role: 'admin' }` and drop billing entirely (ADR 0010).
+ */
+export interface InjectedUser {
+  id: string;
+  role?: Roles;
+  email?: string;
 }
 
 /**
  * The whole of the session the platform consumes: a principal, or nothing.
- * `user` is the augmentable `InjectedUser` global above, whose base carries the
- * only two fields the substrate reads — `id` and `role`.
  * `protectedProcedure` narrows it to a non-null `InjectedUser`.
  */
 export interface InjectedSession {
@@ -69,9 +72,9 @@ interface ContextOpts {
   origin?: string;
   /**
    * The resolved session, injected by the app adapter (`user: null` when signed
-   * out). `user` is typed via the augmentable `InjectedUser` global, so an app
-   * can sharpen it to its own principal shape (the full apps add the fields
-   * they map off their provider's user).
+   * out). Mapping a provider's user onto `InjectedUser` is the app's job — the
+   * full apps share `@acme/auth`'s `toPrincipal`, the slim apps inject a
+   * constant (ADR 0003 / 0010).
    */
   session: InjectedSession;
   /**

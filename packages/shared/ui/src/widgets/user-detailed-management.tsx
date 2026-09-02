@@ -34,11 +34,11 @@ export type UserManagementRole = 'user' | 'admin';
  * (ADR 0010). The edge runs the other way: `@acme/auth` names this type to
  * describe what its adapter returns.
  *
- * Every field is one Better Auth actually stores. Until #225 this carried an
- * `emailAddresses` array with a `primaryEmailAddressId` pointing into it and a
- * `lastSignInAt`, neither of which had a source behind it (ADR 0034): Better
- * Auth keeps exactly one email per user (it is the row's unique key) and records
- * no last-sign-in. Both are gone rather than faked.
+ * Every field is one Better Auth actually stores. Until #225 this carried a
+ * multi-address email shape and a `lastSignInAt`, neither of which had a source
+ * behind it (ADR 0034): Better Auth keeps exactly one email per user (it is the
+ * row's unique key) and records no last-sign-in. Both are gone rather than
+ * faked.
  *
  * `role` is optional because it is a nullable free-text column that Better Auth
  * omits from `getSession`'s static type; an absent value reads as the default,

@@ -60,14 +60,13 @@ export const accountRouter = createTRPCRouter({
     .input(CheckoutRequest)
     .mutation(async ({ input, ctx }) => {
       // Get user information from context
-      const { id: userId, primaryEmailAddress } = ctx.session.user;
-      const email = primaryEmailAddress?.emailAddress;
+      const { id: userId, email } = ctx.session.user;
 
       if (!email) {
         throw billingError(
           BillingErrorCode.NoEmail,
           'BAD_REQUEST',
-          'User does not have a primary email address',
+          'User has no email address to open a Stripe customer against',
         );
       }
 
@@ -103,14 +102,13 @@ export const accountRouter = createTRPCRouter({
 
   createDashboardSession: protectedProcedure.mutation(async ({ ctx }) => {
     // Get user information from context
-    const { id: userId, primaryEmailAddress } = ctx.session.user;
-    const email = primaryEmailAddress?.emailAddress;
+    const { id: userId, email } = ctx.session.user;
 
     if (!email) {
       throw billingError(
         BillingErrorCode.NoEmail,
         'BAD_REQUEST',
-        'User does not have a primary email address',
+        'User has no email address to open a Stripe customer against',
       );
     }
 

@@ -7,6 +7,7 @@
  * Redis DB.
  */
 
+import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { mastraMessages, mastraThreads } from '@acme/rag/schema';
 import { flushTestDb } from '@acme/redis/testing';
@@ -22,15 +23,16 @@ export type TestContextOptions = FeatureTestContextOptions;
 
 /**
  * Build the tRPC caller context. The one canonical builder lives in
- * `@acme/trpc/testing`; this wrapper supplies the `InjectedUser` chat's own
- * program declares — the platform base, `id` + `role`, and nothing more.
+ * `@acme/trpc/testing`; this wrapper turns chat's `userId`/`role` knobs into the
+ * `InjectedUser` principal it wants — identity and role, nothing more.
  */
 export function createTestContext({
   userId,
   role,
   ...entitlements
 }: TestContextOptions) {
-  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
+  const user: InjectedUser = { id: userId, role };
+  return createBaseTestContext({ user, ...entitlements });
 }
 
 /**
