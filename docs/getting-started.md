@@ -36,7 +36,7 @@ There is no default backend — `localstack` (dev/demo, against the always-on in
 
 ### Auth: Better Auth secret (required for the full apps)
 
-Auth is self-hosted — sessions are rows in your own Postgres, so there is no third-party account to create and no credential to obtain (ADR 0034, self-hosted Better Auth). The **full** apps (`nextjs`, `tanstack-start`) need one generated secret; the **slim** apps (`nextjs-slim`, `tanstack-slim`) need nothing at all — they inject a constant local principal ([ADR 0010](adr/0010-slim-no-auth-apps.md)), so you can skip this section if you only run those.
+Auth is self-hosted — sessions are rows in your own Postgres, so there is no third-party account to create and no credential to obtain ([ADR 0034 — self-hosted Better Auth](adr/0034-self-hosted-better-auth.md)). The **full** apps (`nextjs`, `tanstack-start`) need one generated secret; the **slim** apps (`nextjs-slim`, `tanstack-slim`) need nothing at all — they inject a constant local principal ([ADR 0010](adr/0010-slim-no-auth-apps.md)), so you can skip this section if you only run those.
 
 Generate a secret and set it in each full app's `.env`:
 
@@ -51,9 +51,9 @@ openssl rand -base64 32
 
 `BETTER_AUTH_URL` is authored config with a working development default (`http://localhost:3000` for `nextjs`, `:3001` for `tanstack-start`), so a local checkout needs no row. A deploy target overrides it with the externally reachable URL.
 
-Sign-up and sign-in are in-app at `/sign-up` and `/sign-in` — email and password, against your own handler.
+Sign-up and sign-in are in-app at `/sign-up` and `/sign-in` — email and password, against your own handler. That is the only method wired: no social provider, and no email transport, so nothing sends a password-reset or verification mail. In dev, a forgotten password means signing up again or editing the row.
 
-**Roles** — admin-only actions (e.g. uploading docs on the ingest/admin page) are gated on a `role` (`admin` | `user`, typed in [globals.d.ts](../packages/shared/auth/src/types/globals.d.ts)). `role` is a column on the user row, defaulting to `user`. Once you have one admin, promote others from the app's `/admin` page. Seeding that **first** admin is a database write by definition — the promote endpoint requires an existing admin to call it:
+**Roles** — admin-only actions (e.g. uploading docs on the ingest/admin page) are gated on a `role` (`admin` | `user` — the `Roles` union in [`@acme/trpc`](../packages/platform/trpc/src/index.ts)). `role` is a nullable column on the user row, not a token claim: signing up leaves it empty, which reads as an ordinary non-admin user. Once you have one admin, promote others from the app's `/admin` page. Seeding that **first** admin is a database write by definition — the promote endpoint requires an existing admin to call it:
 
 ```sql
 UPDATE auth."user" SET role = 'admin' WHERE email = 'you@example.com';
@@ -91,10 +91,14 @@ Brings up, via Docker Compose, the **union of services every app needs**: **Post
 pnpm db:push             # Drizzle → Postgres + pgvector (confirm prompts)
 ```
 
-This pushes the four app schemas — the dev database only. Tests need nothing from
-it: every backend suite starts its own throwaway Postgres and pushes into it
-([ADR 0034](adr/0034-backend-tests-always-self-provision.md)), so `pnpm test`
-needs a running container runtime and no `pnpm infra:up` or `pnpm db:push`.
+This pushes the four per-app schemas, plus the shared `auth` schema the two
+full apps put identity in
+([ADR 0035](adr/0035-auth-tables-in-a-dedicated-schema.md)) — the dev database
+only. Tests need nothing from it: every backend suite starts its own throwaway
+Postgres and pushes into it
+([ADR 0034 — self-provisioning backend tests](adr/0034-backend-tests-always-self-provision.md)),
+so `pnpm test` needs a running container runtime and no `pnpm infra:up` or
+`pnpm db:push`.
 
 If you exercise billing, also seed the dev products/plans:
 

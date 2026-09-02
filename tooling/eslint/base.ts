@@ -61,8 +61,9 @@ const banFeatureTrpc = {
 // Frontend test doctrine (ADR 0018): fake the data layer at the HTTP boundary
 // with MSW, never `vi.mock` a seam the feature owns. Banning the mocks forces
 // MSW and makes data-layer `toHaveBeenCalledWith(...)` assertions impossible
-// (the spy can't be created). Framework externals (next/navigation, @acme/auth)
-// stay mockable, mirroring the backend's blessed mock list (ADR 0014).
+// (the spy can't be created). Framework externals (next/navigation) stay
+// mockable, mirroring the backend's blessed mock list (ADR 0014). @acme/auth is
+// not one of them: it ships no React, so no frontend test imports it (ADR 0034).
 // `no-restricted-syntax` is flat-config replace (last match wins), so the
 // override re-declares the shared console ban to keep it in force.
 const banConsole = {
