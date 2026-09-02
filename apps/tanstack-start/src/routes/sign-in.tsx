@@ -7,7 +7,7 @@ import { authClient } from '~/lib/auth-client';
 
 /**
  * In-app sign-in. A plain route, not the catch-all `/sign-in/$` this replaces:
- * the splat existed so Clerk's prebuilt component could own sub-routes for SSO
+ * the splat existed to give a hosted provider's component sub-routes for SSO
  * callbacks, and with email/password against our own handler there are none
  * (ADR 0034).
  *
@@ -49,7 +49,7 @@ function SignInRoute() {
     // SPA transition would hand the already-mounted singletons a scope key they
     // no longer read, and the just-signed-in user would get no persistence
     // until their next hard load. A document load re-runs SSR with the session
-    // cookie in place, which is also what Clerk's redirect did.
+    // cookie in place.
     await navigate({ href: redirect ?? '/', reloadDocument: true });
     return null;
   };

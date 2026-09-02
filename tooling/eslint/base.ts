@@ -37,9 +37,8 @@ const banMastra = {
     'Mastra imports are contained to @acme/rag and @acme/chat (ADR 0002). Consume them through those packages.',
 };
 /**
- * The auth provider is contained the same way Clerk's framework SDKs were: an
- * app may reach for it (it owns session *resolution*), `@acme/auth` may (it owns
- * the instance), and nothing else may — features and the substrate read auth
+ * The auth provider is contained: an app may reach for it (it owns session
+ * *resolution*), `@acme/auth` may (it owns the instance), and nothing else may — features and the substrate read auth
  * only through the neutral tRPC principal and `@acme/hooks`' `useAuthStatus`.
  *
  * Without this the seam is convention-only: nothing would stop `@acme/chat`

@@ -59,8 +59,8 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --ignore-scripts
 
 # Build the project. Non-secret per-env values — Stripe plan IDs/publishable
-# key/manage URL (billingConfig) and the Clerk publishable key (authConfig) —
-# are config-as-code, baked into the client bundle via APP_ENV (ADR 0026), so
+# key/manage URL (billingConfig) and the auth routes (authConfig) — are
+# config-as-code, baked into the client bundle via APP_ENV (ADR 0026), so
 # there is no .env.<stage> file to load. No SKIP_ENV_VALIDATION needed: the app
 # build script sets IS_NEXT_BUILD, which shouldSkipEnvValidation() honours.
 COPY --from=prepare /app/out/full/ .

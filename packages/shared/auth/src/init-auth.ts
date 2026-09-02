@@ -67,7 +67,7 @@ function authOptions(options: InitAuthOptions) {
       // Adds `role`/`banned`/`banReason`/`banExpires` to `user` and
       // `impersonatedBy` to `session` (all declared in ./schemas/auth-schema),
       // plus the admin API the user-management widgets need. Roles live on the
-      // user row — there is no Better Auth equivalent of Clerk's JWT claims.
+      // user row, not in a token claim.
       admin(),
     ],
   };
@@ -85,10 +85,6 @@ function authOptions(options: InitAuthOptions) {
  * validated by `./env`, which is exactly what the `./env` export role is for —
  * threading it through the app would give the app a value it has no decision to
  * make about (contrast `baseUrl`, which is genuinely per-app).
- *
- * Nothing wires this yet: the apps still run on Clerk, and `./index.ts` still
- * exports the Clerk client barrel untouched. This lands the server half so the
- * migration in #218 has something to move onto.
  */
 export function initAuth(
   options: InitAuthOptions,

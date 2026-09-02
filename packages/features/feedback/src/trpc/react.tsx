@@ -41,8 +41,8 @@ export const useFeedbackQueryClient = client.useFeatureQueryClient;
 
 /**
  * Empty the feedback feature's persisted cache (`rq-feedback`). App-driven: the
- * full apps call this — alongside `queryClient.clear()` — on the Clerk logout
- * path so a shared machine never leaks one user's Rating state to the next. Slim
+ * full apps call this — alongside `queryClient.clear()` — on the logout path so
+ * a shared machine never leaks one user's Rating state to the next. Slim
  * apps have no logout and never call it. Safe no-op if storage is unavailable.
  */
 export const clearPersistedCache = client.clearPersistedCache;

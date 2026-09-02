@@ -8,7 +8,7 @@ import {
 } from '@acme/ingest';
 
 // The slim app's documents view. The full app routes "Documents" at `/admin`
-// via an app-owned `AdminDashboard` that fuses document management + Clerk user
+// via an app-owned `AdminDashboard` that fuses document management + user
 // management + Stripe testing. Slim drops all of that and renders the clean
 // `@acme/ingest` document UI directly.
 function DocumentsPage() {

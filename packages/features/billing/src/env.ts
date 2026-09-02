@@ -126,7 +126,7 @@ export const env = billingEnv();
 
 /**
  * The single env→`PlanIds` mapper (ADR 0033). Every edge that needs the
- * product→tier plan ids — the tRPC route, the Clerk context, the generation
+ * product→tier plan ids — the tRPC route, the tRPC context, the generation
  * workers, and `usePricing` — threads its values through here rather than each
  * hand-rolling `{ standardPlanId, proPlanId }` (a data clump). Adding a plan
  * touches this mapper alone. Shape matches `@acme/subscriptions`' `PlanIds`,

@@ -6,8 +6,9 @@ import { logTRPCError } from './error';
 /**
  * Framework-parametric tRPC route substrate. The fetch-adapter wiring, the
  * standard `logTRPCError` `onError` hook, and CORS/OPTIONS are the same for
- * every app — only the *context resolver* differs (Clerk for the full apps, a
- * constant local principal for the slim apps). That resolver stays app-owned
+ * every app — only the *context resolver* differs (a resolved session for the
+ * full apps, a constant local principal for the slim apps). That resolver stays
+ * app-owned
  * (ADR 0003 / ADR 0010); this module owns everything that isn't auth, so the
  * handler shape and error logging can't drift per-app (they did: one app
  * hand-rolled `console.error` and missed structured logging; another omitted
@@ -42,7 +43,7 @@ interface TRPCFetchHandlerOptions<TRouter extends AnyRouter, TContextInput> {
   createContext: (input: TContextInput) => Promise<unknown>;
   /**
    * App-owned context resolver: shape the neutral context input from the
-   * request (resolve Clerk, or inject a constant principal). This is the only
+   * request (resolve a session, or inject a constant principal). This is the only
    * per-app/per-framework piece — the auth seam stays in the app.
    */
   resolver: (req: Request) => TContextInput | Promise<TContextInput>;

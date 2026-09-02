@@ -172,7 +172,7 @@ export function createFeatureClient<TRouter extends AnyRouter>({
 
   /**
    * Empty this feature's persisted cache (`rq-<keyPrefix>`). App-driven: full
-   * apps call it — alongside `queryClient.clear()` — on the Clerk logout path so
+   * apps call it — alongside `queryClient.clear()` — on the logout path so
    * a shared machine never leaks one user's data to the next; slim apps have no
    * logout and never call it. Safe no-op if storage is unavailable.
    */

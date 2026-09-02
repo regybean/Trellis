@@ -5,12 +5,12 @@ import { getSessionCookie } from 'better-auth/cookies';
 /**
  * Routes a signed-out visitor may reach. Everything else bounces to `/sign-in`.
  *
- * Kept as the same list Clerk's `createRouteMatcher` held, minus the Clerk-only
- * `/api/trpc/clerk` mount and `/api/trpc/reviews.featured` — there is no
- * `reviews` router in this repo, and carrying a public exception for a route
- * that does not exist is a standing invitation to add one that does — plus
- * `/api/auth`, because Better Auth's own endpoints are self-gating and must stay
- * reachable while signed out, or signing in would require being signed in.
+ * Kept as the same list the previous route matcher held, minus its provider-only
+ * tRPC mount and `/api/trpc/reviews.featured` — there is no `reviews` router in
+ * this repo, and carrying a public exception for a route that does not exist is a
+ * standing invitation to add one that does — plus `/api/auth`, because Better
+ * Auth's own endpoints are self-gating and must stay reachable while signed out,
+ * or signing in would require being signed in.
  */
 /** Public routes with no sub-paths. */
 const PUBLIC_EXACT = new Set([
@@ -33,8 +33,8 @@ const PUBLIC_PREFIXES = [
   '/maturity-assessment',
 ];
 
-// Prefix matching on path *segments*, not Clerk's `'/sign-in(.*)'` patterns,
-// which also matched unrelated siblings like `/sign-integration`.
+// Prefix matching on path *segments*, not `'/sign-in(.*)'`-style patterns, which
+// also matched unrelated siblings like `/sign-integration`.
 const isPublicRoute = (pathname: string) =>
   PUBLIC_EXACT.has(pathname) ||
   PUBLIC_PREFIXES.some(
@@ -69,8 +69,8 @@ const isTrpcRoute = (pathname: string) =>
  * no such route exists.
  *
  * **tRPC is exempt, and that is a correctness fix, not a hole.** A redirect is
- * an answer for a *document* request — Clerk's `auth.protect()` distinguished
- * the two, and an unconditional `NextResponse.redirect()` does not. A signed-out
+ * an answer for a *document* request, and an unconditional
+ * `NextResponse.redirect()` does not distinguish the two. A signed-out
  * `fetch` to `/api/trpc/*` would get a 307 to an HTML page, which the tRPC
  * client cannot parse: the caller sees a JSON syntax error instead of the
  * `UNAUTHORIZED` envelope its error handling is written against. Letting the

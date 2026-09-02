@@ -23,7 +23,7 @@ function generateId(): string {
 }
 
 /**
- * Create a test user ID in Clerk format
+ * Create a test user ID
  */
 export function createTestUserId(suffix?: string): string {
   return `user_test_${suffix ?? generateId().slice(0, 8)}`;

@@ -4,7 +4,7 @@ import { env } from '~/env';
 
 /**
  * The app's Better Auth instance — the TanStack Start side of the app-owned auth
- * seam (ADR 0034, replacing the Clerk resolver of ADR 0003).
+ * seam (ADR 0003, ADR 0034).
  *
  * `initAuth` is a factory, not a module singleton, because `baseUrl` is app
  * knowledge: this app serves on 3001 and `apps/nextjs` on 3000, and a

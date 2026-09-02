@@ -13,9 +13,10 @@ import { authClient } from '~/lib/auth-client';
  * owns everything provider-specific: the Better Auth call and where a successful
  * sign-in lands.
  *
- * A plain `/sign-in` route, not the `[[...sign-in]]` catch-all Clerk's hosted
- * pages needed. `redirect` carries the route the middleware bounced the visitor
- * from, so they resume where they were — normalised by `toSameSitePath`, which
+ * A plain `/sign-in` route, not the `[[...sign-in]]` catch-all a hosted
+ * provider's pages needed. `redirect` carries the route the middleware bounced
+ * the visitor from, so they resume where they were — normalised by
+ * `toSameSitePath`, which
  * is shared with `apps/tanstack-start`: the parameter is attacker-controlled, so
  * `?redirect=https://evil.example` (or the protocol-relative `//evil.example`)
  * has to land on `/` rather than walk the visitor off-site at the exact moment

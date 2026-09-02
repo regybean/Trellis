@@ -12,14 +12,12 @@ import { auth } from '~/server/auth';
  * The caller's own admin-ness is **not** checked here: `auth.api.setRole` is
  * itself an admin-gated endpoint, so it resolves the caller's session from the
  * forwarded headers and rejects a non-admin. Re-checking first would be a
- * second, weaker copy of the same rule — the previous Clerk implementation
- * needed one because `clerkClient()` is unauthenticated backend access with no
- * such gate.
+ * second, weaker copy of the same rule.
  *
- * There is no separate `removeRole` any more. Better Auth has no "clear the
- * role" call — `role` is a column with a `defaultRole` of `user`, not Clerk's
- * nullable metadata bag — so demoting *is* setting `user`, and the two actions
- * were one call under two names (#225).
+ * There is no separate `removeRole`. Better Auth has no "clear the role" call —
+ * `role` is a column with a `defaultRole` of `user`, not a nullable metadata bag
+ * — so demoting *is* setting `user`, and the two actions were one call under two
+ * names (#225).
  *
  * The input is parsed rather than trusted: a server action is a public HTTP
  * endpoint, so `role` arrives as unvalidated client input even though the only

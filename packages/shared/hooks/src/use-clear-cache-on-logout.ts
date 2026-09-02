@@ -11,10 +11,10 @@ import { useQueryClient } from '@tanstack/react-query';
  *
  * Auth-agnostic by design: the caller passes a plain `isSignedIn` boolean, so
  * this stays in the substrate without coupling `@acme/hooks` to `@acme/auth`
- * (ADR 0010 — the slim, no-auth apps must not pull Clerk into the graph). The
- * *app* owns auth and feeds the transition in. Watching that transition is the
- * framework-neutral logout hook — Clerk's `UserButton` owns its own sign-out
- * button, so there is no onClick to attach.
+ * (ADR 0010 — the slim, no-auth apps must not pull an auth provider into the
+ * graph). The *app* owns auth and feeds the transition in. Watching the
+ * transition, rather than hanging off a sign-out button's `onClick`, is what
+ * keeps this hook framework- and provider-neutral.
  */
 export function useClearCacheOnLogout(
   isSignedIn: boolean,
