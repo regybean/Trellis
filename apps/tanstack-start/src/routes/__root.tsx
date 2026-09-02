@@ -20,6 +20,7 @@ import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
+import { ClerkAuthStatusProvider } from '../components/clerk-auth-status';
 import { ConsoleShell } from '../components/console-shell';
 import { PersistedFeatureProviders } from '../components/persisted-feature-providers';
 import { getAuthState } from '../lib/auth';
@@ -67,10 +68,14 @@ function RootComponent() {
 }
 
 /**
- * Provider nesting mirrors the Next.js app's root layout (Clerk → theme →
- * Billing/Chat/Ingest tRPC → tooltip), with two app-owned divergences: the
- * Clerk provider is the TanStack Start one, and the theme is locked dark to
+ * Provider nesting mirrors the Next.js app's root layout (auth → auth status →
+ * theme → Billing/Chat/Ingest tRPC → tooltip), with two app-owned divergences:
+ * the Clerk provider is the TanStack Start one, and the theme is locked dark to
  * match the developer-console shell. The feature providers are reused as-is.
+ *
+ * `ClerkAuthStatusProvider` sits directly inside `ClerkProvider` — it reads
+ * Clerk's `useAuth()` — and outside the billing providers, which consume the
+ * neutral status it publishes.
  */
 function RootDocument({ children }: { children: ReactNode }) {
   const { userId, localstripeMode } = Route.useRouteContext();
@@ -89,29 +94,31 @@ function RootDocument({ children }: { children: ReactNode }) {
           signUpForceRedirectUrl={clerk.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
           appearance={{ baseTheme: dark }}
         >
-          <NextThemeProvider
-            attribute="class"
-            forcedTheme="dark"
-            disableTransitionOnChange
-          >
-            <BillingConfigProvider
-              config={toBillingClientConfig(billingEnvValues)}
-              localstripeMode={localstripeMode}
+          <ClerkAuthStatusProvider>
+            <NextThemeProvider
+              attribute="class"
+              forcedTheme="dark"
+              disableTransitionOnChange
             >
-              <BillingTRPCReactProvider>
-                <PersistedFeatureProviders scopeKey={userId ?? undefined}>
-                  <IngestTRPCReactProvider>
-                    <NotificationsProvider>
-                      <TooltipProvider>
-                        <ConsoleShell>{children}</ConsoleShell>
-                        <ToastThemeClient />
-                      </TooltipProvider>
-                    </NotificationsProvider>
-                  </IngestTRPCReactProvider>
-                </PersistedFeatureProviders>
-              </BillingTRPCReactProvider>
-            </BillingConfigProvider>
-          </NextThemeProvider>
+              <BillingConfigProvider
+                config={toBillingClientConfig(billingEnvValues)}
+                localstripeMode={localstripeMode}
+              >
+                <BillingTRPCReactProvider>
+                  <PersistedFeatureProviders scopeKey={userId ?? undefined}>
+                    <IngestTRPCReactProvider>
+                      <NotificationsProvider>
+                        <TooltipProvider>
+                          <ConsoleShell>{children}</ConsoleShell>
+                          <ToastThemeClient />
+                        </TooltipProvider>
+                      </NotificationsProvider>
+                    </IngestTRPCReactProvider>
+                  </PersistedFeatureProviders>
+                </BillingTRPCReactProvider>
+              </BillingConfigProvider>
+            </NextThemeProvider>
+          </ClerkAuthStatusProvider>
         </ClerkProvider>
         <Scripts />
       </body>
