@@ -97,7 +97,7 @@ Mastra owns their DDL at runtime — see
 | `src/lib/trpc-context.ts`                               | The session resolver — injects the principal into the tRPC context                                   |
 | `src/lib/auth.ts`                                       | `getAuthState` server fn used by `beforeLoad` route guards                                           |
 | `src/lib/auth-redirect.ts`                              | `redirectToSignIn` — the guards' router-shaped throw (the _rule_ is `@acme/ui`'s `authSearchSchema`) |
-| `src/lib/admin.ts`                                      | `listUsers` / `setUserRole` / `removeUserRole` over the admin plugin                                 |
+| `src/lib/admin.ts`                                      | `listUsers` / `setUserRole` over the admin plugin (one role mutation: demoting is assigning `user`)  |
 | `src/lib/stripe.ts`                                     | `syncStripeOnSuccess` server fn                                                                      |
 | `src/server/app-schema.ts`                              | App-owned `pgSchema` (per-app isolation, named off `NEXT_PUBLIC_WEBAPP`)                             |
 | `src/server/db/schema.ts`                               | drizzle-kit entrypoint — re-exports `appSchema` + `messageFeedback`                                  |

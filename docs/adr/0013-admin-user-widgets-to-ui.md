@@ -104,10 +104,60 @@ Two consequences for the reasoning above:
   router. #239 records that decision without executing it, so that this ticket
   lands one shape rather than two.
 
+## Amendment — the costume comes off (#225)
+
+#239 left the widget wearing Clerk's shape and put the costume on in one
+adapter. #225 takes it off. `UserManagementUser` now names the Better Auth
+columns the widgets render — `id`, `name`, `email`, `emailVerified`, `image`,
+`createdAt`, `role` — and the two fields with no source behind them are **gone
+rather than faked**: the `emailAddresses` array with its `primaryEmailAddressId`
+(Better Auth keeps one email per user; it is the row's unique key) and
+`lastSignInAt` (the core schema records no such thing). If last-sign-in turns
+out to matter it is its own ticket, and its own tracking.
+
+`toManagementUser` becomes `toAdminUser`, and it survives the rename because one
+honest job is left: `role` is a nullable free-text column Better Auth omits from
+its static types, and the widget renders a closed union. That parse stays in
+`@acme/auth`, one copy beside the `Roles` union it answers to, rather than
+spread into each app.
+
+`createdAt` stays a `Date` rather than the epoch number the adapter used to
+produce. Both boundaries it crosses preserve one — Next.js RSC serialization, and
+TanStack Start's server functions via seroval — so converting was a cost paid for
+nothing.
+
+Two props collapsed to one typed callback:
+
+- **`removeRole` is gone.** `role` is a column with a `defaultRole` of `user`,
+  so demoting _is_ assigning `user`. The two props were one call under two
+  names, and the widget's third menu item ("Demote to User") did exactly what
+  "Make User" did.
+- **`(FormData) => Promise<void>` is gone**, as #239 said it must be. It is a
+  Next.js server-action signature in a framework-neutral package, and it made
+  the TanStack Start app manufacture a `FormData` purely so the widget could
+  hand the fields back. `setRole` now takes `{ userId, role }`.
+
+**What #239 predicted and this did not do:** #239 said #225 would replace the
+props "with hooks off an admin tRPC router". It didn't, because that turns out to
+contradict the constraint this ADR is mostly about. For the widget to call such
+hooks itself, the hooks must be reachable from `@acme/ui` — which means either an
+`@acme/auth` edge into a package the slim apps depend on (against ADR 0010, and
+against #225's own acceptance criteria) or moving the widgets back out of
+`@acme/ui` (reversing this ADR). The typed callback gets what #239 actually
+objected to — a framework-specific signature in a neutral package — at no such
+cost. An app is free to bind the callback to a tRPC mutation; nothing here stops
+it. Whether the admin surface should have a router of its own is a live question,
+and a separate one.
+
+`@acme/ui` still declares the shape itself and still has no `@acme/auth`
+dependency, so the slim graph stays auth-free.
+
 ## Status
 
 accepted — refines [ADR 0011](0011-remove-compositions-layer.md) for these two
-files only. Amended by #239 (the user shape is Better Auth's, adapted once).
+files only. Amended by #239 (the user shape is Better Auth's, adapted once) and
+#225 (the widgets render Better Auth's columns directly; the role mutation is
+one typed callback).
 
 ## Considered and rejected
 

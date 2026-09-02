@@ -42,7 +42,7 @@ Prefixed `auth*` so `user`/`session` don't collide in a consumer's imports.
 _Avoid_: "the auth schema" for the Drizzle module (it means the Postgres schema
 `authSchema`)
 
-**`readSessionRole(user)` / `toPrincipal(session)` / `toManagementUser(user)`**
+**`readSessionRole(user)` / `toPrincipal(session)` / `toAdminUser(user)`**
 (`@acme/auth/server`):
 The three provider→neutral mappings: the validated read of the role off a user
 row, the Better Auth → `InjectedUser` mapping for the tRPC context, and the
@@ -97,7 +97,7 @@ _Avoid_: "the auth URL is slice config"
   defines the columns and decides nothing about migration
   ([ADR 0021](../../../docs/adr/0021-test-schema-provisioning-db-push.md)).
 - **It type-imports `@acme/ui`**, for `UserManagementUser` — the row shape
-  `toManagementUser` returns. `shared` → `shared` is a legal edge and the import
+  `toAdminUser` returns. `shared` → `shared` is a legal edge and the import
   is erased at runtime; the direction is what matters, because the reverse
   (`@acme/ui` importing `@acme/auth`) would drag auth into the slim apps' graph
   ([ADR 0013](../../../docs/adr/0013-admin-user-widgets-to-ui.md)).

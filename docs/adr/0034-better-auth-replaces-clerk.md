@@ -77,6 +77,14 @@ the user button and the admin user-management widget all need authoring against
 `emailAddresses` array, `imageUrl`, `publicMetadata` and `lastSignInAt`. That UI
 work, not the auth wiring, is the schedule risk in #218.
 
+**How that landed (#225):** cheaper than feared, because the answer was
+subtraction. The widgets were cut back to the columns Better Auth actually
+stores rather than reproducing Clerk's shape, so `emailAddresses` /
+`primaryEmailAddressId` collapsed to the single `email` that is the row's unique
+key, and `lastSignInAt` was dropped rather than tracked — the core schema
+records none, and inventing it meant writing session-history tracking to fill a
+line of UI. See [ADR 0013](0013-admin-user-widgets-to-ui.md).
+
 Existing Clerk users have no migration path. For a template repo that is
 probably a non-issue, but any deployment with real users needs its own plan.
 
