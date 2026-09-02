@@ -27,19 +27,8 @@ function createCaller(opts: TestContextOptions) {
   return appRouter.createCaller(ctx);
 }
 
-const baseCredits = {
-  remaining: 100,
-  limit: 100,
-  resetAt: Date.now() + 86_400_000,
-};
-
 function callerFor(userId: string) {
-  return createCaller({
-    userId,
-    role: 'user',
-    tier: 'Basic',
-    credits: baseCredits,
-  });
+  return createCaller({ userId, role: 'user' });
 }
 
 describe('feedbackRouter', () => {
@@ -53,12 +42,7 @@ describe('feedbackRouter', () => {
   describe('middleware (tested once)', () => {
     it('rejects unauthenticated callers', async () => {
       const ctx = {
-        ...createTestContext({
-          userId: 'dummy',
-          role: 'user',
-          tier: 'Basic',
-          credits: baseCredits,
-        }),
+        ...createTestContext({ userId: 'dummy', role: 'user' }),
         session: { user: null },
       };
       const caller = appRouter.createCaller(ctx);

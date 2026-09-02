@@ -28,8 +28,6 @@ import { createTestContext } from '../../utils/test-context';
 const adminOpts: TestContextOptions = {
   userId: 'user-ingest-e2e',
   role: 'admin',
-  tier: 'Basic',
-  credits: { remaining: 250, limit: 250, resetAt: Date.now() },
 };
 
 const created: string[] = [];

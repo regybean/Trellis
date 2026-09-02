@@ -11,14 +11,18 @@ import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { mastraMessages, mastraThreads } from '@acme/rag/schema';
 import { flushTestDb } from '@acme/redis/testing';
-import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
+import {
+  createTestContext as createBaseTestContext,
+  createMockSession,
+} from '@acme/trpc/testing';
 
 import { messageFeedback } from '../../../api/schemas/feedback-schema';
 import { db } from '../../../api/trpc';
 
 /**
- * The knobs feedback's backend tests vary. Identical for every feature; only the
- * principal differs, which is why building it is the feature's job.
+ * The knobs feedback's backend tests vary: the principal, and nothing else.
+ * Feedback declares no context extension — it has no tier to gate on and no
+ * credit to spend — so it sets no tier or credit balance either (#256).
  */
 export type TestContextOptions = FeatureTestContextOptions;
 
@@ -27,13 +31,9 @@ export type TestContextOptions = FeatureTestContextOptions;
  * `@acme/trpc/testing`; this wrapper turns feedback's `userId`/`role` knobs into the
  * `InjectedUser` principal it wants — identity and role, nothing more.
  */
-export function createTestContext({
-  userId,
-  role,
-  ...entitlements
-}: TestContextOptions) {
+export function createTestContext({ userId, role }: TestContextOptions) {
   const user: InjectedUser = { id: userId, role };
-  return createBaseTestContext({ user, ...entitlements });
+  return createBaseTestContext({ session: createMockSession(user) });
 }
 
 /**

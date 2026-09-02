@@ -1761,9 +1761,6 @@ importers:
 
   packages/platform/trpc:
     dependencies:
-      '@acme/entitlements':
-        specifier: workspace:*
-        version: link:../entitlements
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger

@@ -3,13 +3,19 @@ import { createFeatureTRPCWithDb } from '@acme/trpc';
 
 /**
  * The feature's tRPC instance. Everything shared — context assembly, telemetry,
- * timing, `protectedProcedure` / `adminProcedure`, `rateLimit`, `requireTier` —
- * lives once in `@acme/trpc`; this file only names the database the feature owns
- * and re-exports the pieces its routers use.
+ * timing, `protectedProcedure` / `adminProcedure` — lives once in `@acme/trpc`;
+ * this file only names the database the feature owns and re-exports the pieces
+ * its routers use.
  *
- * The session and the entitlements provider are *injected* by the app at its
- * edge (ADR 0003 / ADR 0006), so nothing here imports an auth SDK or a billing
- * implementation. Procedures read the caller off `ctx.session.user`.
+ * The session is *injected* by the app at its edge (ADR 0003), so nothing here
+ * imports an auth SDK. Procedures read the caller off `ctx.session.user`.
+ *
+ * Anything else a procedure needs per request is this feature's **context
+ * extension** — a type it declares and hands to `createFeatureTRPCWithDb<db,
+ * MyContext>(_db)`, which the app then injects alongside the session. Billing is
+ * the worked example: `@acme/chat` and `@acme/billing` declare an
+ * `entitlements: EntitlementsProvider` extension because they meter and gate;
+ * `@acme/feedback` and `@acme/ingest` declare none (#256, ADR 0006).
  */
 const _db = createDb();
 

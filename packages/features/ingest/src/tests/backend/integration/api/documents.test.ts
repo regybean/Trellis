@@ -26,8 +26,6 @@ import { createTestContext } from '../../utils/test-context';
 const adminOpts: TestContextOptions = {
   userId: 'user_admin',
   role: 'admin',
-  tier: 'Basic',
-  credits: { remaining: 250, limit: 250, resetAt: Date.now() },
 };
 
 function createCaller(opts: TestContextOptions) {

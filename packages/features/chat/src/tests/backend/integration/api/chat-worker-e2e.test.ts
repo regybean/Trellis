@@ -18,8 +18,8 @@
 
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 
+import { createMockEntitlements } from '@acme/entitlements/testing';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
-import { createMockEntitlements } from '@acme/trpc/testing';
 
 import type { GenerationJob } from '../../../../api/services/chat-queue';
 import type { TestContextOptions } from '../../utils/test-context';

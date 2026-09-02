@@ -5,10 +5,11 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
+import type { InjectedSession } from '@acme/trpc';
 import { createAppQueryClient } from '@acme/hooks';
 
 import type { AppRouter } from '../api/root';
+import type { BillingContext } from '../api/trpc';
 import { appRouter } from '../api/root';
 import { createTRPCContext } from '../api/trpc';
 
@@ -21,10 +22,9 @@ import { createTRPCContext } from '../api/trpc';
  * `createServerTRPC`. See docs/adr/0003-framework-agnostic-auth-seam.md and
  * docs/adr/0006-entitlements-injection-seam.md.
  */
-export interface ServerTRPCOptions {
+export interface ServerTRPCOptions extends BillingContext {
   headers: Headers;
   session: InjectedSession;
-  entitlements: EntitlementsProvider;
 }
 
 // The RSC half's own client — a fresh one per request, from the same factory the

@@ -1,7 +1,6 @@
 {
   "name": "@acme/trpc",
   "dependencies": {
-    "@acme/entitlements": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@opentelemetry/api": "catalog:",

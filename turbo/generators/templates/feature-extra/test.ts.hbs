@@ -20,21 +20,8 @@ import { db } from '../../../api/trpc';
 import { createTestItem, createTestItems, createTestUserId } from '../utils/fixtures';
 import { cleanupTestData, createTestContext } from '../utils/test-context';
 
-const baseCredits = {
-  remaining: 100,
-  limit: 100,
-  resetAt: Date.now() + 86_400_000,
-};
-
 function caller(opts: Partial<TestContextOptions> & { userId: string }) {
-  return appRouter.createCaller(
-    createTestContext({
-      role: 'user',
-      tier: 'Basic',
-      credits: baseCredits,
-      ...opts,
-    }),
-  );
+  return appRouter.createCaller(createTestContext({ role: 'user', ...opts }));
 }
 
 describe('{{ camelCase name }}Router', () => {

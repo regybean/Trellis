@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
+import type { InjectedSession } from '@acme/trpc';
 import { createAppQueryClient } from '@acme/hooks';
 
 import type { AppRouter } from '../api/root';
@@ -13,19 +13,18 @@ import { appRouter } from '../api/root';
 import { createTRPCContext } from '../api/trpc';
 
 /**
- * Framework-neutral RSC server caller (reference scaffold — no app
- * imports it today). The session + billing seams: the
- * *app* resolves whoever is calling and chooses an entitlements provider at its
- * boundary, then injects both here. This feature depends on no auth SDK and no billing provider.
- * An app wires its own context resolver's session and `subscriptionsEntitlements` (or
- * `unlimitedEntitlements` for a no-billing build) into
- * `createServerTRPC`. See docs/adr/0003-framework-agnostic-auth-seam.md and
- * docs/adr/0006-entitlements-injection-seam.md.
+ * Framework-neutral RSC server caller (reference scaffold — no app imports it
+ * today). The session seam: the *app* resolves whoever is calling at its
+ * boundary and injects the result here. This feature depends on no auth SDK.
+ *
+ * There is no billing seam to wire, because ingest declares no tRPC context
+ * extension: no tier to gate on, no credit to spend, so it names no entitlements
+ * provider at all. `@acme/chat`'s equivalent does (#256, ADR 0006 amendment).
+ * See docs/adr/0003-framework-agnostic-auth-seam.md.
  */
 export interface ServerTRPCOptions {
   headers: Headers;
   session: InjectedSession;
-  entitlements: EntitlementsProvider;
 }
 
 // The RSC half's own client — a fresh one per request, from the same factory the
@@ -42,7 +41,6 @@ export function createServerTRPC(opts: ServerTRPCOptions) {
     return createTRPCContext({
       headers: heads,
       session: opts.session,
-      entitlements: opts.entitlements,
     });
   });
 

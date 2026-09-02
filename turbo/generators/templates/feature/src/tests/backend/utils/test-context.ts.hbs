@@ -2,15 +2,18 @@
  * Test context.
  *
  * The tRPC caller context comes from the one canonical builder
- * (`@acme/trpc/testing`) — it stubs the session (`ctx.session.user`) and the
- * entitlements provider, and nothing else: the db/redis clients are the REAL
- * ones, pointed at testcontainers. Telemetry is ambient (ADR 0023) — no span in
- * a caller test, so nothing to stub. This file owns only the data cleanup.
+ * (`@acme/trpc/testing`) — it stubs the session (`ctx.session.user`) and nothing
+ * else: the db/redis clients are the REAL ones, pointed at testcontainers.
+ * Telemetry is ambient (ADR 0023) — no span in a caller test, so nothing to
+ * stub. This file owns only the data cleanup.
  */
 import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { flushTestDb } from '@acme/redis/testing';
-import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
+import {
+  createMockSession,
+  createTestContext as createBaseTestContext,
+} from '@acme/trpc/testing';
 
 import { items } from '../../../api/schemas/item-schema';
 import { db } from '../../../api/trpc';
@@ -19,18 +22,18 @@ import { db } from '../../../api/trpc';
 export type TestContextOptions = FeatureTestContextOptions;
 
 /**
- * Build the tRPC caller context. The canonical builder takes the principal
- * whole — `InjectedUser` is a concrete type exported by `@acme/trpc`, so set
- * whatever fields this feature's procedures actually read (`@acme/billing` sets
- * `email`, which its Stripe customer lookup needs).
+ * Build the tRPC caller context. The canonical builder takes the session whole —
+ * `InjectedUser` is a concrete type exported by `@acme/trpc`, so set whatever
+ * fields this feature's procedures actually read (`@acme/billing` sets `email`,
+ * which its Stripe customer lookup needs).
+ *
+ * If `api/trpc.ts` declares a context extension, pass it here alongside the
+ * session — `@acme/chat`'s wrapper adds `entitlements: createMockEntitlements(…)`
+ * from `@acme/entitlements/testing` (#256).
  */
-export function createTestContext({
-  userId,
-  role,
-  ...entitlements
-}: TestContextOptions) {
+export function createTestContext({ userId, role }: TestContextOptions) {
   const user: InjectedUser = { id: userId, role };
-  return createBaseTestContext({ user, ...entitlements });
+  return createBaseTestContext({ session: createMockSession(user) });
 }
 
 /**

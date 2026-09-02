@@ -3,105 +3,48 @@
  *
  * Shipped as the `@acme/trpc/testing` export subpath so every feature builds its
  * tRPC caller context from the same place, typed against the REAL platform
- * contract (`EntitlementsProvider`, `Entitlements`, `SubscriptionCache`,
- * `SubscriptionTier`, `CreditBalance`) rather than the structural `as any` casts
- * a tooling package was forced into. Prod code never imports this subpath (it is
- * tree-shaken out); only `*.test.ts` and backend `setup.ts` files do.
+ * contract (`InjectedSession`, `InjectedUser`) rather than the structural
+ * `as any` casts a tooling package was forced into. Prod code never imports this
+ * subpath (it is tree-shaken out); only `*.test.ts` and backend `setup.ts` files
+ * do.
  *
  * Fidelity: `createTestContext` returns exactly the shape `createTRPCContext`
- * produces — session + entitlements provider, and nothing resolved eagerly
- * (#250). The tier and credit knobs still live on `TestContextOptions`, because
- * they are what the injected mock provider resolves *to*: a test sets the tier
- * it wants and the procedure under test reads it through the same
- * `ctx.entitlements.resolve()` production calls.
+ * produces, and takes the same context extension as a type parameter. A feature
+ * with a billing extension hands it `entitlements: createMockEntitlements(...)`
+ * from `@acme/entitlements/testing` — the tier and credit knobs live with the
+ * mock provider that resolves *to* them, not here, so a feature with no tiers
+ * (`feedback`, `ingest`) names none (#256).
  */
 import type {
-  CreditBalance,
-  Entitlements,
-  EntitlementsProvider,
-  SubscriptionCache,
-  SubscriptionTier,
-} from '@acme/entitlements';
-import { isTierAtLeast } from '@acme/entitlements';
-
-import type {
-  createTRPCContext,
+  ContextOpts,
   InjectedSession,
   InjectedUser,
   Roles,
 } from './index';
 
-/** The billing knobs a test varies per caller. */
-export interface TestEntitlementsOptions {
-  tier: SubscriptionTier;
-  credits: CreditBalance;
-}
-
 /**
- * What `createTestContext` needs. The principal arrives whole rather than as
- * `userId` + `role`, so a feature whose procedures read a field beyond identity
- * (billing reads `email`) sets it here instead of this package inventing one.
+ * What `createTestContext` needs beyond the feature's extension: the session, in
+ * exactly the shape the platform consumes it. The principal arrives whole rather
+ * than as `userId` + `role`, so a feature whose procedures read a field beyond
+ * identity (billing reads `email`) sets it here instead of this package
+ * inventing one.
+ *
+ * Nested under `session` rather than passed as a bare `user`, so that every key
+ * a test hands in is a key the real context has. That is what lets the extension
+ * merge straight through below without the builder having to pick the principal
+ * back out of it.
  */
-export interface TestContextOptions extends TestEntitlementsOptions {
-  user: InjectedUser;
-}
+export type TestContextOptions = Pick<ContextOpts, 'session'>;
 
 /**
  * The knobs a *feature's* own `createTestContext` wrapper exposes to its tests:
- * identity and role, plus the billing knobs. The wrapper turns `userId`/`role`
- * into the feature's own `InjectedUser` — see any feature's
- * `tests/backend/utils/test-context.ts`.
+ * identity and role. The wrapper turns `userId`/`role` into the feature's own
+ * `InjectedUser`, and adds whatever its context extension needs — see any
+ * feature's `tests/backend/utils/test-context.ts`.
  */
-export interface FeatureTestContextOptions extends TestEntitlementsOptions {
+export interface FeatureTestContextOptions {
   userId: string;
   role: Roles;
-}
-
-/**
- * The subscription a real `@acme/subscriptions` adapter would resolve for a
- * tier. `Basic` is the canonical no-billing `{ status: 'none' }`; paid tiers get
- * an active, Stripe-shaped record so billing's tier gate and `subscription.status`
- * reads run against a realistic shape.
- */
-function subscriptionForTier(tier: SubscriptionTier): SubscriptionCache {
-  if (tier === 'Basic') return { status: 'none' };
-  const periodStart = Math.floor(Date.now() / 1000);
-  return {
-    status: 'active',
-    subscriptionId: 'sub_test',
-    product: tier === 'Standard' ? 'prod_standard_test' : 'prod_pro_test',
-    priceId: tier === 'Standard' ? 'price_standard_test' : 'price_pro_test',
-    currentPeriodStart: periodStart,
-    currentPeriodEnd: periodStart + 86_400 * 30,
-    cancelAtPeriodEnd: false,
-    paymentMethod: null,
-  };
-}
-
-/** What the mock provider's `resolve()` answers with, for a given tier. */
-function resolveEntitlements(opts: TestEntitlementsOptions): Entitlements {
-  return {
-    subscription: subscriptionForTier(opts.tier),
-    tier: opts.tier,
-    credits: opts.credits,
-  };
-}
-
-/**
- * A mock `EntitlementsProvider`: `resolve` echoes the tier/credits with a
- * tier-faithful subscription, `consume` and `refund` are no-ops (no Redis —
- * the real Redis-backed ledger is covered in `@acme/subscriptions`), and
- * `isTierAtLeast` is the REAL ordering from `@acme/entitlements` so tier gates
- * behave exactly as in production.
- */
-export function createMockEntitlements(opts: TestEntitlementsOptions) {
-  const resolved = resolveEntitlements(opts);
-  return {
-    resolve: () => Promise.resolve(resolved),
-    consume: () => Promise.resolve(),
-    refund: () => Promise.resolve(),
-    isTierAtLeast,
-  } satisfies EntitlementsProvider;
 }
 
 /**
@@ -116,21 +59,32 @@ export function createMockSession(user: InjectedUser) {
 
 /**
  * Build a tRPC caller context for backend tests. Pass it straight to a feature's
- * `appRouter.createCaller(...)`. Stubs the session and injects the mock
- * entitlements provider; real DB/Redis come from the feature's own `db`/`redis`
+ * `appRouter.createCaller(...)`. Stubs the session and merges in the feature's
+ * context extension; real DB/Redis come from the feature's own `db`/`redis`
  * clients (validated against the running containers — never mocked). Telemetry
  * is ambient (ADR 0023) — there is no span in a caller test, so the ambient
  * helpers noop, and nothing needs stubbing here.
+ *
+ * `TExtension` mirrors `createTRPCContext`'s: the extension's fields arrive
+ * alongside `session` and are passed through untouched, so a test builds its
+ * context exactly the way an app adapter builds a real one.
+ *
+ * The return type is spelled out rather than inferred, which is the one place
+ * this file departs from the repo's usual "let it infer". An inferred `headers`
+ * resolves `Headers` against whichever lib the *consuming* package compiles
+ * with, and they don't all agree — `@acme/auth` reads a `Headers` whose
+ * iterators differ from `@acme/trpc`'s, and the context stops matching
+ * `createCaller`. Naming `ContextOpts` pins every base field to the declaration
+ * the router was built from.
  */
-export function createTestContext(
-  opts: TestContextOptions,
-): Awaited<ReturnType<typeof createTRPCContext>> {
+export function createTestContext<TExtension extends object = object>(
+  opts: TestContextOptions & TExtension,
+): ContextOpts & TExtension {
   return {
     headers: new Headers(),
     // A realistic app origin so procedures that build absolute redirect URLs
     // (billing checkout) resolve one, matching what an app edge would inject.
     origin: 'http://localhost:3000',
-    session: createMockSession(opts.user),
-    entitlements: createMockEntitlements(opts),
+    ...opts,
   };
 }
