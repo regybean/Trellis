@@ -15,23 +15,32 @@ import { SignUpForm } from '../../../../index';
 const validCredential = 'correct-horse';
 
 function Harness({
-  error,
-  pending,
+  onSubmit,
 }: {
-  error?: string | null;
-  pending?: boolean;
+  onSubmit?: (credentials: SignUpCredentials) => Promise<string | null>;
 }) {
   const [submitted, setSubmitted] = useState<SignUpCredentials | null>(null);
 
   return (
     <>
-      <SignUpForm onSubmit={setSubmitted} error={error} pending={pending} />
+      <SignUpForm
+        onSubmit={
+          onSubmit ??
+          ((credentials) => {
+            setSubmitted(credentials);
+            return Promise.resolve(null);
+          })
+        }
+      />
       {submitted && (
         <output data-testid="submitted">{JSON.stringify(submitted)}</output>
       )}
     </>
   );
 }
+
+/** A caller whose provider call never settles — the in-flight state. */
+const neverSettles = () => new Promise<string | null>(() => undefined);
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Name'), 'Ada Lovelace');
@@ -138,7 +147,11 @@ describe('SignUpForm', () => {
   });
 
   it('disables the submit control and shows progress while in flight', async () => {
-    render(<Harness pending />);
+    const user = userEvent.setup();
+    render(<Harness onSubmit={neverSettles} />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     const submit = await screen.findByRole('button', {
       name: /creating account/i,
@@ -148,8 +161,16 @@ describe('SignUpForm', () => {
     expect(submit).toHaveAttribute('aria-busy', 'true');
   });
 
-  it('renders a rejection passed by the caller', async () => {
-    render(<Harness error="That email is already registered" />);
+  it('renders a rejection returned by the caller', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        onSubmit={() => Promise.resolve('That email is already registered')}
+      />,
+    );
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(
       await screen.findByText('That email is already registered'),

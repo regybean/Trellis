@@ -15,7 +15,7 @@ export default mergeConfig(
       // contract: any module reachable from a test validates against these
       // real values rather than a mock (ADR 0014).
       env: { ...staticTestEnv },
-      include: ['src/tests/frontend/**/*.test.tsx'],
+      include: ['src/tests/frontend/**/*.test.{ts,tsx}'],
       setupFiles: ['./src/tests/frontend/setup.ts'],
     },
   }),

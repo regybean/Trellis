@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 
 import type { SignInCredentials } from '@acme/ui';
-import { SignInForm } from '@acme/ui';
+import { authSearchSchema, SignInForm } from '@acme/ui';
 
 import { authClient } from '~/lib/auth-client';
-import { authSearchSchema } from '~/lib/redirect-target';
 
 /**
  * In-app sign-in. A plain route, not the catch-all `/sign-in/$` this replaces:
@@ -14,9 +12,14 @@ import { authSearchSchema } from '~/lib/redirect-target';
  * (ADR 0034).
  *
  * The form is `@acme/ui`'s `SignInForm` — presentational and prop-driven, shared
- * with the Next.js app. This route owns the provider call, which is the whole
- * point of that split: `@acme/ui` needs no `@acme/auth` dependency, so the slim
- * apps' graph is unaffected (ADR 0010).
+ * with the Next.js app. This route owns the provider call and where a success
+ * lands, which is the whole point of that split: `@acme/ui` needs no
+ * `@acme/auth` dependency, so the slim apps' graph is unaffected (ADR 0010).
+ *
+ * `authSearchSchema` is that same shared module: it normalises `?redirect=` to a
+ * same-site path, so a visitor arriving with `?redirect=https://evil.example` or
+ * `?redirect=//evil.example` lands on `/` rather than being walked off-site the
+ * instant they authenticate.
  */
 export const Route = createFileRoute('/sign-in')({
   validateSearch: authSearchSchema,
@@ -26,24 +29,17 @@ export const Route = createFileRoute('/sign-in')({
 function SignInRoute() {
   const { redirect } = Route.useSearch();
   const navigate = useNavigate();
-  const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(false);
 
   const submit = async (credentials: SignInCredentials) => {
-    setError(null);
-    setPending(true);
-
     // Better Auth's client returns `{ data, error }` rather than throwing, so a
-    // rejected credential is an ordinary value to render — no try/catch.
-    const { error: failure } = await authClient.signIn.email(credentials);
+    // rejected credential is an ordinary value to hand back — no try/catch.
+    const { error } = await authClient.signIn.email(credentials);
 
-    if (failure) {
+    if (error) {
       // Deliberately not distinguishing "no such user" from "wrong password":
       // Better Auth returns one message for both, and echoing anything sharper
       // would turn the form into an account-enumeration oracle.
-      setError(failure.message ?? 'Could not sign in. Check your details.');
-      setPending(false);
-      return;
+      return error.message ?? 'Could not sign in. Check your details.';
     }
 
     // `reloadDocument` is load-bearing, not a shortcut. Each feature's
@@ -55,15 +51,12 @@ function SignInRoute() {
     // until their next hard load. A document load re-runs SSR with the session
     // cookie in place, which is also what Clerk's redirect did.
     await navigate({ href: redirect ?? '/', reloadDocument: true });
+    return null;
   };
 
   return (
     <div className="flex h-full items-center justify-center p-6">
-      <SignInForm
-        onSubmit={(credentials) => void submit(credentials)}
-        error={error}
-        pending={pending}
-      />
+      <SignInForm onSubmit={submit} />
     </div>
   );
 }

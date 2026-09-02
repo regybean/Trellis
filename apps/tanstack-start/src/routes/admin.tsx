@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { AdminDashboard } from '../components/admin/admin-dashboard';
 import { listUsers } from '../lib/admin';
 import { getAuthState } from '../lib/auth';
-import { redirectToSignIn } from '../lib/redirect-target';
+import { redirectToSignIn } from '../lib/auth-redirect';
 
 export const Route = createFileRoute('/admin')({
   validateSearch: z.object({ search: z.string().optional() }),

@@ -2,7 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import { ChatView } from '../components/chat-view';
 import { getAuthState } from '../lib/auth';
-import { redirectToSignIn } from '../lib/redirect-target';
+import { redirectToSignIn } from '../lib/auth-redirect';
 
 // ONE route for both the new-Conversation landing (`/chat-assistant`) and deep
 // links (`/chat-assistant/{sessionId}`), via an optional path segment. Keeping

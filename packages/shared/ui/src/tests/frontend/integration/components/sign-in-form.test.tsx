@@ -6,23 +6,30 @@ import { describe, expect, it } from 'vitest';
 import type { SignInCredentials } from '../../../../index';
 import { SignInForm } from '../../../../index';
 
-// `SignInForm` is presentational: validation, pending and error are its whole
-// contract, and all three are observable in the DOM (ADR 0018). The caller's
-// handler is exercised through a harness that renders what it received, so
-// nothing here asserts a mock call count.
+// `SignInForm` is presentational: validation, the in-flight state and the
+// rejection message are its whole contract, and all three are observable in the
+// DOM (ADR 0018). The caller's handler is exercised through a harness that
+// renders what it received, so nothing here asserts a mock call count.
 
+/** A caller whose provider call always succeeds. */
 function Harness({
-  error,
-  pending,
+  onSubmit,
 }: {
-  error?: string | null;
-  pending?: boolean;
+  onSubmit?: (credentials: SignInCredentials) => Promise<string | null>;
 }) {
   const [submitted, setSubmitted] = useState<SignInCredentials | null>(null);
 
   return (
     <>
-      <SignInForm onSubmit={setSubmitted} error={error} pending={pending} />
+      <SignInForm
+        onSubmit={
+          onSubmit ??
+          ((credentials) => {
+            setSubmitted(credentials);
+            return Promise.resolve(null);
+          })
+        }
+      />
       {submitted && (
         <output data-testid="submitted">
           {`${submitted.email}|${submitted.password}`}
@@ -32,17 +39,8 @@ function Harness({
   );
 }
 
-/** Submitting is rejected by the caller, which feeds `error` back in. */
-function RejectingHarness() {
-  const [error, setError] = useState<string | null>(null);
-
-  return (
-    <SignInForm
-      onSubmit={() => setError('Invalid email or password')}
-      error={error}
-    />
-  );
-}
+/** A caller whose provider call never settles — the in-flight state. */
+const neverSettles = () => new Promise<string | null>(() => undefined);
 
 describe('SignInForm', () => {
   it('rejects an invalid email at the field, and does not call the handler', async () => {
@@ -88,7 +86,12 @@ describe('SignInForm', () => {
   });
 
   it('disables the submit control and shows progress while in flight', async () => {
-    render(<Harness pending />);
+    const user = userEvent.setup();
+    render(<Harness onSubmit={neverSettles} />);
+
+    await user.type(screen.getByLabelText('Email'), 'ada@example.com');
+    await user.type(screen.getByLabelText('Password'), 'correct-horse');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
 
     const submit = await screen.findByRole('button', { name: /signing in/i });
 
@@ -101,7 +104,9 @@ describe('SignInForm', () => {
 
   it('renders a rejection without clearing the entered email', async () => {
     const user = userEvent.setup();
-    render(<RejectingHarness />);
+    render(
+      <Harness onSubmit={() => Promise.resolve('Invalid email or password')} />,
+    );
 
     await user.type(screen.getByLabelText('Email'), 'ada@example.com');
     await user.type(screen.getByLabelText('Password'), 'wrong-password');
@@ -111,6 +116,36 @@ describe('SignInForm', () => {
       await screen.findByText('Invalid email or password'),
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Email')).toHaveValue('ada@example.com');
+  });
+
+  it('clears a previous rejection when the next attempt starts', async () => {
+    const user = userEvent.setup();
+    // Rejects the first attempt, then hangs — so the message must be gone
+    // because the form cleared it, not because a success replaced it.
+    let attempts = 0;
+    const onSubmit = () => {
+      attempts += 1;
+      return attempts === 1
+        ? Promise.resolve('Invalid email or password')
+        : neverSettles();
+    };
+    render(<Harness onSubmit={onSubmit} />);
+
+    await user.type(screen.getByLabelText('Email'), 'ada@example.com');
+    await user.type(screen.getByLabelText('Password'), 'wrong-password');
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+    expect(
+      await screen.findByText('Invalid email or password'),
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(
+      await screen.findByRole('button', { name: /signing in/i }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByText('Invalid email or password'),
+    ).not.toBeInTheDocument();
   });
 
   it('links to the sign-up form', async () => {

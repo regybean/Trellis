@@ -72,19 +72,26 @@ export function firstErrorMessage(errors: readonly unknown[]) {
 }
 
 /**
- * The prop shape both auth forms share. The caller owns the provider call, so
- * it also owns the outcome: `error` renders until the caller clears it — reset
- * it when a fresh attempt starts, or the previous rejection stays on screen.
+ * The prop shape both auth forms share — one function, because the caller's only
+ * job is the provider call.
+ *
+ * It used to be three props (`onSubmit`, `error`, `pending`), which pushed a
+ * `useState` pair and an identical failure branch into every page that rendered
+ * a form: four copies across the two full apps, and four chances to leave a
+ * stale rejection on screen. The form already runs the submission through
+ * TanStack Form, so it knows when one is in flight and when one came back — it
+ * just had to be told the outcome (#239).
  */
 export interface AuthFormProps<Credentials> {
   /**
-   * Called with validated credentials. The form never talks to a provider, so
-   * `@acme/ui` needs no `@acme/auth` dependency (ADR 0010).
+   * Called with validated credentials. Resolve `null` when the attempt
+   * succeeded, or with the message to render when it did not — a rejected
+   * credential is an outcome, not an exception, which is also the shape Better
+   * Auth's client returns.
+   *
+   * The form never talks to a provider, so `@acme/ui` needs no `@acme/auth`
+   * dependency and the slim apps' graph is unaffected (ADR 0010).
    */
-  onSubmit: (credentials: Credentials) => void;
-  /** A rejected attempt, rendered above the submit control. Caller-cleared. */
-  error?: string | null;
-  /** Submission in flight: the submit control disables and shows progress. */
-  pending?: boolean;
+  onSubmit: (credentials: Credentials) => Promise<string | null>;
   className?: string;
 }
