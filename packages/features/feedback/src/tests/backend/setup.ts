@@ -13,25 +13,6 @@ import { afterEach, vi } from 'vitest';
 
 import { cleanupTestData } from './utils/test-context';
 
-// isTierAtLeast delegates to the real implementation from @acme/entitlements
-// so requireTier gates behave correctly under test.
-vi.mock('@acme/subscriptions', async () => {
-  const { isTierAtLeast } = await import('@acme/entitlements');
-  return {
-    credits: {
-      read: vi.fn().mockResolvedValue({
-        remaining: 100,
-        limit: 250,
-        resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-      }),
-      consume: vi.fn(() => Promise.resolve()),
-    },
-    getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
-    getSubscriptionType: vi.fn().mockReturnValue('Basic'),
-    isTierAtLeast: vi.fn().mockImplementation(isTierAtLeast),
-  };
-});
-
 // Allow importing server components in vitest.
 vi.mock('server-only', () => ({}));
 

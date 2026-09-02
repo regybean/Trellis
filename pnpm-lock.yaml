@@ -1240,9 +1240,6 @@ importers:
       '@acme/auth':
         specifier: workspace:*
         version: link:../../shared/auth
-      '@acme/entitlements':
-        specifier: workspace:*
-        version: link:../../platform/entitlements
       '@acme/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint
