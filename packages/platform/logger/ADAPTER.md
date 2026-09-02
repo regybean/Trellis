@@ -1,52 +1,25 @@
 # Mounting `@acme/logger`
 
-Nothing to mount. Import the `logger` singleton and call it. No provider, no
-route, no env, no infra — this is the shortest `ADAPTER.md` in the repo and that
-is the point of reading it.
+Nothing to mount. Import the logger and call it. Every other package in the
+graph logs through this one, so an app gets it whether or not it imports it
+itself.
 
-## Mounted by
+## What it gives you
 
-All four apps, plus every platform/shared/feature package that logs.
+- One structured logger, shared by your app and every package it mounts, so
+  output from a feature and output from your own code interleave in one format.
+- A module-level instance, so nothing has to be threaded through a context or
+  passed down a call chain.
 
-## Glue
+## Surface
 
-### Import and call — `apps/nextjs/src/app/api/health/route.ts`
+| Import         | What's in it        | Runs   |
+| -------------- | ------------------- | ------ |
+| `@acme/logger` | The `logger` object | either |
 
-```ts
-import { logger } from '@acme/logger';
+## Wiring
 
-logger.error(`Health check failed ${JSON.stringify(errorResponse)}`);
-```
-
-### Structured form — `apps/nextjs/worker.ts`
-
-```ts
-import { logger } from '@acme/logger';
-
-logger.info(
-  { queue: QUEUE_NAMES.GENERATION, app: 'nextjs' },
-  'generation worker: online',
-);
-```
-
-Both call sites are the whole integration surface. `logger` is a module-level
-`pino()` instance, so a consumer that wants a different sink swaps this package
-rather than passing an option through an app.
-
-### Where the output goes in dev
-
-`pnpm dev` mirrors each app's stdout to `logs/*.log` (see
-`docs/agents/dev-logs.md`). That is app tooling, not something this package
-configures.
-
-## Env
-
-Factory: none. `@acme/logger` reads no environment.
-
-## Infra
-
-None — no `acme.infra`.
-
-## Also mount
-
-Nothing. `@acme/logger` has no `@acme/*` dependencies (`pino` only).
+- None. `import { logger } from '@acme/logger'` and call it.
+- To send output somewhere else, replace this package. The instance is created
+  at module scope with no options seam, which is deliberate: a sink is a
+  deployment-wide decision, not something each app configures.

@@ -10,6 +10,13 @@ Contents — every doc in the repo, in reading order.
 | [Getting started](getting-started.md)          | Step-by-step first run: install → infra → env → db → run → verify.                                                                                                                                       |
 | [What you get with Trellis](whats-included.md) | Full inventory: features, shared primitives, platform, tooling, the dev flow, the complete command reference, and [what's malleable vs load-bearing](whats-included.md#whats-malleable-vs-load-bearing). |
 
+## Mounting a package into an app
+
+| Doc                           | What it covers                                                                                            |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------- |
+| [Mounting recipes](mounting/) | The wiring that is the same whichever package you mount: route, provider, schema, env, worker, UI, infra. |
+| `packages/*/*/ADAPTER.md`     | Per package: what it gives an app, its client/server surface, and what you wire.                          |
+
 ## Domain language
 
 | Doc                                 | What it covers                                                                        |

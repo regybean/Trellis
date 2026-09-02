@@ -1,119 +1,48 @@
 # Mounting `@acme/subscriptions`
 
-An app mounts this by building one `EntitlementsProvider` from it and injecting
-that same instance everywhere entitlements are read: the tRPC context seam and
-the worker. It is the Stripe/Redis-backed alternative to
-`unlimitedEntitlements` — the full apps mount this, the slim apps mount
-`@acme/entitlements` instead (ADR 0010).
+A real implementation of the entitlements seam, backed by a credit ledger in
+Redis and a plan mapping you supply. Mount this when you want metered features
+to actually meter.
 
-The provider takes its plan ids as an argument. This package does **not** read
-Stripe env; `@acme/billing`'s env owns those keys and the app threads them in.
+## What it gives you
 
-## Mounted by
+- `createSubscriptionsEntitlements` — an `EntitlementsProvider` built from your
+  plan ids, ready to inject into your route seam and your worker.
+- A credit ledger keyed per principal, with consume and refund, so a failed job
+  gives the credit back rather than silently keeping it.
+- Per-tier credit limits as configuration, so changing an allowance is a value
+  change and not a code change.
+- Customer-to-plan lookups, for app code that needs to show a plan without
+  going through a feature.
 
-- `apps/nextjs` — `src/server/trpc-route.ts`, `worker.ts`
-- `apps/tanstack-start` — `src/lib/trpc-context.ts`, `src/lib/stripe.ts`, `worker.ts`
+## Surface
 
-## Glue
+| Import                    | What's in it                           | Runs   |
+| ------------------------- | -------------------------------------- | ------ |
+| `@acme/subscriptions`     | The provider factory, credits, lookups | server |
+| `@acme/subscriptions/env` | This package's env factory             | either |
 
-### 1. Build the provider once — `apps/nextjs/src/server/trpc-route.ts`
+## Wiring
 
-```ts
-import { env as billingEnv, toPlanIds } from '@acme/billing/env';
-import { createSubscriptionsEntitlements } from '@acme/subscriptions';
-
-/**
- * The Stripe/Redis entitlements provider, closing over the plan ids billing's
- * own env resolves (ADR 0033) — the product→tier mapping needs them, and the
- * platform no longer reads them from `process.env`.
- */
-const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
-
-const resolveContext = async (req: Request) => ({
-  headers: req.headers,
-  req,
-  origin: new URL(req.url).origin,
-  session: await resolveSession(req),
-  entitlements,
-});
-```
-
-`apps/tanstack-start/src/lib/trpc-context.ts` is the same two lines on the other
-framework.
-
-### 2. The worker injects the same provider — `apps/nextjs/worker.ts`
-
-```ts
-// Inject the SAME provider this app's route handler injects into
-// `createTRPCContext` (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter,
-// built from the plan ids billing's own env resolves (ADR 0033), so a worker
-// error refunds the real Credit ledger.
-const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
-const worker = createWorker(
-  QUEUE_NAMES.GENERATION,
-  createChatGenerationProcessor(entitlements),
-);
-```
-
-This is the mistake to avoid: charge through the Stripe/Redis ledger in the route
-handler and refund through `unlimitedEntitlements` in the worker, and Credits
-leak on every failed Turn.
-
-### 3. Reading a customer mapping directly — `apps/tanstack-start/src/lib/stripe.ts`
-
-```ts
-import { localstripeMode, syncStripeDataToKV } from '@acme/billing/server';
-import { getStripeCustomerId } from '@acme/subscriptions';
-
-import { auth } from '~/lib/auth-server';
-
-export const syncStripeOnSuccess = createServerFn({ method: 'POST' }).handler(
-  async () => {
-    const session = await auth.api.getSession({ headers: getRequestHeaders() });
-    if (!session) {
-      throw redirect({ to: '/sign-in' });
-    }
-
-    const stripeCustomerId = await getStripeCustomerId(session.user.id);
-    if (!stripeCustomerId) {
-      throw redirect({ to: '/' });
-    }
-    …
-  },
-);
-```
-
-The identity Stripe is keyed on is the app's own principal id — the same id
-`protectedProcedure` gates on, because both come off the resolved session
-(ADR 0034).
-
-### 4. `import 'server-only'`
-
-`src/index.ts` starts with `import 'server-only'`, so every mount point above is
-a server file. A worker reaching it needs
-`tsx --conditions=react-server` (see `@acme/queue`'s `ADAPTER.md`).
+- Build the provider **once** and inject it into your route seam —
+  [trpc-route.md](../../../docs/mounting/trpc-route.md).
+- Inject the same one into your worker entrypoint. Two providers, or a no-op in
+  the worker, means refunds land somewhere nothing reads —
+  [worker.md](../../../docs/mounting/worker.md).
+- Supply the plan ids. They are per-deployment data, so this package takes them
+  as an argument rather than reading them; a billing package's env is the usual
+  source.
+- Compose the env factory and provide Redis —
+  [env.md](../../../docs/mounting/env.md),
+  [infra.md](../../../docs/mounting/infra.md).
 
 ## Env
 
-Factory: `src/env.ts`, exported as `@acme/subscriptions/env`.
-
-| Key             | Kind   | Notes                                                                                                                                                    |
-| --------------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `CREDIT_LIMITS` | config | authored `{ Basic: 250, Standard: 350, Pro: 1600 }`; a record, so it goes through `jsonEnv` and is overridden **whole** (`CREDIT_LIMITS='{"Basic":10}'`) |
-| `DEFAULT_LIMIT` | config | authored `250` — the unmapped-tier fallback                                                                                                              |
-
-No secrets. The Stripe plan ids live in `@acme/billing`'s env and arrive as an
-injected `PlanIds`, so this slice never reads them.
+Both keys are profile-authored config: the per-tier credit limits and the
+fallback limit for an unrecognised tier. Each is overridable by an environment
+variable of the same name, so retuning an allowance on a live deploy needs no
+rebuild. See `src/env.ts`.
 
 ## Infra
 
-`acme.infra: ["redis"]` → the `redis` profile in `deploy/compose.yaml`. The
-Credit ledger and the subscription cache are Redis keys, namespaced per app by
-`@acme/redis`'s `nsKey`.
-
-## Also mount
-
-`@acme/entitlements` (the interface this implements), `@acme/redis`,
-`@acme/logger`, `@acme/env`. Its `PlanIds` argument is normally produced by
-`@acme/billing`'s `toPlanIds`, so in practice this package is mounted alongside
-`@acme/billing`.
+`redis`. The credit ledger lives there; nothing prunes it.

@@ -1,100 +1,40 @@
 # Mounting `@acme/env`
 
-An app mounts this by writing its own `src/env.ts` — one `createEnv` call that
-`extends` every slice's env factory. `@acme/env` supplies the pieces that call
-needs (`resolveAppEnv`, `withProfiles`, `readEnv`, `jsonEnv`, `webappSchema`) and
-authors no keys of its own. There is no provider and no route.
+The toolkit every other package's `env.ts` is built from, and that your app's
+env composition uses. You mount it by writing that composition
+([env.md](../../../docs/mounting/env.md)).
 
-## Mounted by
+## What it gives you
 
-All four apps, each in `src/env.ts`.
+- `withProfiles` — layers per-deploy-target defaults onto an env schema through
+  a documented extension point, so no key needs a hand-written default and
+  nothing is forked or patched.
+- `resolveAppEnv` — resolves the deploy-target selector. Each package resolves
+  the same selector at its own edge, so profiles agree without a context object
+  being threaded anywhere.
+- `readEnv` — reads a key so that a profile value and an environment-variable
+  override both work, which is what makes every config key overridable.
+- `webappSchema` — the validator for your app's identity key, which becomes its
+  Postgres schema and Redis namespace.
+- `jsonEnv` — parses a structured value out of a single environment variable,
+  for config that is a shape rather than a scalar.
 
-## Glue
+## Surface
 
-### The app's one composition edge — `apps/nextjs/src/env.ts`
+| Import      | What's in it                                | Runs   |
+| ----------- | ------------------------------------------- | ------ |
+| `@acme/env` | The profile, selector and read-time helpers | either |
 
-```ts
-import { createEnv } from '@t3-oss/env-core';
-import { z } from 'zod/v4';
+## Wiring
 
-import { betterAuthEnv } from '@acme/auth/env';
-import { billingEnv } from '@acme/billing/env';
-import { chatEnv } from '@acme/chat/env';
-import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
-import { ingestEnv } from '@acme/ingest/env';
-
-export const appEnv = resolveAppEnv(process.env.APP_ENV);
-
-export const env = createEnv({
-  clientPrefix: 'NEXT_PUBLIC_',
-  extends: [chatEnv(), ingestEnv(), billingEnv(), betterAuthEnv()],
-  server: {
-    BETTER_AUTH_URL: z.url(),
-  },
-  client: {},
-  createFinalSchema: (shape) =>
-    withProfiles(shape, appEnv, {
-      default: { BETTER_AUTH_URL: 'http://localhost:3000' },
-    }),
-  runtimeEnv: {
-    BETTER_AUTH_URL: readEnv('BETTER_AUTH_URL'),
-  },
-});
-```
-
-`apps/nextjs-slim/src/env.ts` is the same shape with a shorter `extends` list
-(`[chatEnv(), ingestEnv()]`) and no keys of its own — composing an app is
-composing that list.
-
-Two constraints this file carries, both from ADR 0033: `skipValidation` is never
-passed, and `createFinalSchema` is written as an inline arrow so `shape`'s type
-flows in from the sibling `server`/`client` dictionaries (that is what makes a
-wrong profile literal a compile error).
-
-### `APP_ENV` must be inlined by the bundler — `apps/nextjs/next.config.js`
-
-```js
-const config = {
-  // Inline the deploy-target selector into both the server and
-  // client bundles so `resolveAppEnv(process.env.APP_ENV)` in env.ts resolves
-  // identically in each (ADR 0026 §5). Unset → '' → the `development` base.
-  env: { APP_ENV: process.env.APP_ENV ?? '' },
-};
-```
-
-Without it a slice that builds its env in the browser resolves a different
-profile server-side and client-side.
-
-### Boot-time validation — `apps/nextjs/next.config.js`
-
-```js
-const jiti = createJiti(import.meta.url);
-await jiti.import('./src/env');
-```
-
-Evaluating the composed env from the config is what makes a misconfigured app
-fail at build/boot rather than on the first request.
-
-### The `process.env` guard
-
-The app's `src/env.ts` is one of the few files exempt from the ESLint
-`no-restricted-properties` guard on `process.env`. Everywhere else, reads go
-through `readEnv` — except the bundler-inlined keys (`NEXT_PUBLIC_*`, `APP_ENV`,
-`NODE_ENV`), which stay written longhand because inlining is textual
-substitution and an index access is invisible to it.
-
-## Env
-
-Factory: none — this package is the mechanism, not a slice.
-Keys it reads directly: `APP_ENV` (via `resolveAppEnv`).
-Keys it declares a schema for and other slices reuse: `NEXT_PUBLIC_WEBAPP` (via
-`webappSchema` — a Postgres-identifier constraint, declared once because six
-slices declare the key).
-
-## Infra
-
-None — no `acme.infra`.
-
-## Also mount
-
-Nothing. `@acme/env` has no `@acme/*` dependencies.
+- Write your app's env composition and compose each mounted package's factory
+  into its `extends` list — [env.md](../../../docs/mounting/env.md).
+- Resolve the deploy-target selector once in that file and make sure your
+  bundler inlines it, or client-side code resolves a different profile than the
+  server does.
+- Run your composed env at boot so a missing secret fails at startup rather than
+  at the first request that reads it
+  ([ADR 0022](../../../docs/adr/0022-centralized-env-validation-policy.md)).
+- Read `process.env` nowhere else. This package exists so that the composition
+  is the single edge, and a scattered read bypasses validation, coercion and
+  profiles at once.

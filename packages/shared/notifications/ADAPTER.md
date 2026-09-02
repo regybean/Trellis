@@ -1,121 +1,54 @@
 # Mounting `@acme/notifications`
 
-Two things: one tRPC route and one provider. The provider is self-contained — it
-renders its own tRPC provider and a headless always-on tail inside it, so no page
-owns a subscription hook. The mount is byte-identical in all four apps: no
-persister, no `scopeKey`, no client principal (the server keys `userId` off the
-tRPC context).
+One delivery path from server-side work to a signed-in user's screen. Features
+publish; your app mounts the router and the provider that renders what arrives
+([ADR 0030](../../../docs/adr/0030-notifications-seam.md)).
 
-## Mounted by
+## What it gives you
 
-All four apps:
+- `publish` — the call a feature or a background job makes to notify a user,
+  with no knowledge of how it will be displayed.
+- A tRPC router and provider that stream notifications to the browser, so a job
+  that finishes minutes after the request can still reach the user who started
+  it.
+- A default toast renderer, plus a renderer map you override per notification
+  type when a toast is not what you want.
+- Delivery that survives a reload: notifications are queued per user rather than
+  pushed at a live connection only.
 
-- `apps/nextjs` — `src/app/api/trpc/notifications/[trpc]/route.ts`, `src/app/layout.tsx`
-- `apps/nextjs-slim` — same two paths
-- `apps/tanstack-start` — `src/routes/api/trpc/notifications.$.ts`, `src/routes/__root.tsx`
-- `apps/tanstack-slim` — same two paths
+## Surface
 
-## Glue
+| Import                       | What's in it                       | Runs   |
+| ---------------------------- | ---------------------------------- | ------ |
+| `@acme/notifications`        | The provider, renderers, dispatch  | client |
+| `@acme/notifications/server` | Router, context factory, `publish` | server |
+| `@acme/notifications/schema` | The notification shape             | client |
+| `@acme/notifications/env`    | This package's env factory         | either |
 
-### 1. The route — `apps/nextjs/src/app/api/trpc/notifications/[trpc]/route.ts`
+## Wiring
 
-```ts
-import { appRouter, createTRPCContext } from '@acme/notifications/server';
-
-import { createTRPCRouteHandlers } from '~/server/trpc-route';
-
-export const { GET, POST, OPTIONS } = createTRPCRouteHandlers({
-  endpoint: '/api/trpc/notifications',
-  router: appRouter,
-  createContext: createTRPCContext,
-});
-```
-
-TanStack Start — `apps/tanstack-start/src/routes/api/trpc/notifications.$.ts` —
-is the same, wrapped in `createFileRoute('/api/trpc/notifications/$')`.
-
-The `stream` procedure is an SSE subscription served over **GET** by the same
-fetch handler (`httpSubscriptionLink`), so there is nothing extra to wire — but a
-seam that only exposes POST will silently deliver no notifications.
-
-### 2. The provider — `apps/nextjs/src/app/layout.tsx`
-
-```tsx
-import { NotificationsProvider } from '@acme/notifications';
-
-<PersistedFeatureProviders scopeKey={userId ?? undefined}>
-  <NotificationsProvider>
-    <TooltipProvider>
-      <EditorialShell>
-        <ToastThemeClient />
-        {props.children}
-      </EditorialShell>
-    </TooltipProvider>
-  </NotificationsProvider>
-</PersistedFeatureProviders>;
-```
-
-Mount it once, adjacent to the feature tRPC providers. It renders no
-`<ToastContainer />` of its own — the app already mounts one via `@acme/ui`'s
-`ToastThemeClient`, and the default renderer toasts into that. Without a
-`ToastContainer` somewhere in the tree, notifications arrive and render nothing.
-
-It must sit **below** the app's `AuthStatusProvider`: the tail reads
-`useOptionalAuthStatus` and holds the subscription open only once the viewer is
-signed in, because `stream` is a `protectedProcedure`. Subscribing while signed
-out earns an `UNAUTHORIZED` that tRPC then retries — a burst of error logs for a
-denial that was never actionable. The slim apps mount no auth status provider at
-all, which is why the hook is the _optional_ one.
-
-### 3. Custom renderers (optional)
-
-```tsx
-<NotificationsProvider renderers={{ 'ingest.job-complete': MyRenderer }}>
-```
-
-An app-assembled `kind`→renderer registry. Optional: a plain-text kind needs no
-entry and falls through to `defaultToastRenderer`.
-
-### 4. Publishing, for a feature not an app
-
-```ts
-import { publish } from '@acme/notifications/server';
-```
-
-`@acme/ingest` calls this from its worker to fire one completion notification per
-job. A consuming feature imports `@acme/notifications/schema` (isomorphic —
-`notificationSchema`, `publishInputSchema`, the types) to build its own typed
-`publish` wrapper and its renderer's `data` parser; the server validates against
-the same shape.
-
-### 5. Delivery contract
-
-Best-effort (ADR 0030): a publish with no page open is never delivered. The
-stream carries a rolling TTL refreshed on every publish and no `MAXLEN`, so a
-stream with no reader simply expires. Don't wire anything that assumes an inbox
-— there is no consumer hook exported.
+- Mount the router at a path of your choosing —
+  [trpc-route.md](../../../docs/mounting/trpc-route.md).
+- Mount the provider in your provider tree, above anything that should be able
+  to raise a notification — [provider.md](../../../docs/mounting/provider.md).
+- Mount a toast container too, if you use the default renderer. Without one,
+  publishing succeeds and nothing appears —
+  [ui.md](../../../docs/mounting/ui.md).
+- Pass renderers only for the types you want to display differently. Anything
+  unmapped falls back to the default.
+- Compose the env factory and provide Redis —
+  [env.md](../../../docs/mounting/env.md),
+  [infra.md](../../../docs/mounting/infra.md).
+- Publishing is for features and jobs, not for your app's own UI. Client-side
+  feedback about a click is a toast, raised directly.
 
 ## Env
 
-Factory: `src/env.ts`, exported as `@acme/notifications/env`.
-
-| Key                | Kind     | Notes                                                                                            |
-| ------------------ | -------- | ------------------------------------------------------------------------------------------------ |
-| `NOTIFICATION_TTL` | config   | authored `3600` (seconds) — rolling, refreshed per publish                                       |
-| `POLL_MIN_MS`      | config   | authored `100` — reader idle backoff floor                                                       |
-| `POLL_MAX_MS`      | config   | authored `1000` — doubles up to this while the stream is empty, snaps back to MIN on a new entry |
-| `NODE_ENV`         | selector | shared                                                                                           |
-
-No secrets. All server-side — `publish` and the reader run on the backend.
+All four keys are profile-authored config: the notification retention window and
+the reader's poll backoff bounds, plus the environment selector. Each is
+overridable by an environment variable of the same name. See `src/env.ts`.
 
 ## Infra
 
-`acme.infra: ["redis"]` → the `redis` profile in `deploy/compose.yaml`. The
-per-user stream is a Redis stream, namespaced per app by `@acme/redis`'s `nsKey`.
-
-## Also mount
-
-`@acme/redis`, `@acme/trpc`, `@acme/hooks` (the auth-status seam and the query
-client), `@acme/logger`, `@acme/env`. The app must already have the tRPC
-route-handler seam from `@acme/trpc`'s `ADAPTER.md` and one QueryClient from
-`@acme/hooks`'s.
+`redis`. Notifications are queued there per user, which is what makes delivery
+survive a reload.

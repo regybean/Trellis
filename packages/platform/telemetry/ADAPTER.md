@@ -1,119 +1,51 @@
 # Mounting `@acme/telemetry`
 
-An app mounts this by calling `initTelemetry` at its **own server boundary**,
-before the rest of the server graph loads. The platform assumes no framework left
-an ambient span, so this init is app-owned and looks different on each framework
-(ADR 0005).
+Tracing. Your app initialises it once at process start; every mounted package
+then produces spans without being handed anything
+([ADR 0005](../../../docs/adr/0005-telemetry-init-seam.md)).
 
-## Mounted by
+## What it gives you
 
-- `apps/nextjs` — `src/instrumentation.ts`
-- `apps/nextjs-slim` — `src/instrumentation.ts`
-- `apps/tanstack-start` — `src/nitro/telemetry.ts`, registered in `vite.config.ts`
-- `apps/tanstack-slim` — `src/nitro/telemetry.ts`, registered in `vite.config.ts`
+- `initTelemetry` — one call that configures the exporter and instrumentation
+  for the whole process.
+- Automatic per-procedure spans on every tRPC procedure, so mounting a feature
+  gets you its traces with no per-feature wiring.
+- Database query instrumentation, so a slow procedure shows which query it
+  spent its time in.
+- The tracing API re-exported, for spans you want to add yourself.
+- `shutdownTelemetry`, so a short-lived process flushes before exiting.
 
-## Glue
+## Surface
 
-### Next.js — `apps/nextjs/src/instrumentation.ts`
+| Import                     | What's in it                             | Runs   |
+| -------------------------- | ---------------------------------------- | ------ |
+| `@acme/telemetry`          | `initTelemetry`, the tracing API, config | either |
+| `@acme/telemetry/server`   | Server-side span helpers                 | server |
+| `@acme/telemetry/register` | A side-effect module that initialises    | either |
+| `@acme/telemetry/env`      | This package's env factory               | either |
 
-```ts
-export async function register() {
-  // Only initialize telemetry on the Node.js runtime (not Edge)
-  if (process.env.NEXT_RUNTIME === 'nodejs') {
-    const { initTelemetry } = await import('@acme/telemetry');
-    const { env: telemetryEnv } = await import('@acme/telemetry/env');
+## Wiring
 
-    // The OTLP endpoint is authored config, overridable per deploy (ADR 0033);
-    // the per-app service name stays an app-owned literal (app identity, not
-    // shared config).
-    initTelemetry({
-      serviceName: 'trellis-nextjs',
-      serviceVersion: process.env.npm_package_version ?? '0.0.0',
-      otlpEndpoint: telemetryEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
-      debug: process.env.NODE_ENV === 'development',
-    });
-  }
-}
-```
-
-Next.js loads `instrumentation.ts` before any other code. The `NEXT_RUNTIME`
-guard matters — the Node SDK must not run on Edge.
-
-### TanStack Start — `apps/tanstack-start/src/nitro/telemetry.ts`
-
-```ts
-import { definePlugin } from 'nitro';
-
-import { initTelemetry } from '@acme/telemetry';
-import { env as telemetryEnv } from '@acme/telemetry/env';
-
-initTelemetry({
-  serviceName: 'trellis-tanstack-start',
-  serviceVersion: process.env.npm_package_version ?? '0.0.0',
-  otlpEndpoint: telemetryEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
-  debug: process.env.NODE_ENV === 'development',
-});
-
-export default definePlugin(() => {
-  // Bootstrap runs on import (above); nothing per-app-instance to do here.
-});
-```
-
-The work runs at **module load**, not inside the plugin body: Nitro invokes
-plugin functions synchronously and does not await them, so an async body could
-not block startup. Registering the file as a plugin is only the hook that gets it
-imported.
-
-Registered explicitly rather than by directory scan — `apps/tanstack-start/vite.config.ts`:
-
-```ts
-nitro({
-  plugins: [fileURLToPath(new URL('./src/nitro/telemetry.ts', import.meta.url))],
-}),
-```
-
-### The trade-off on the Nitro path
-
-Because the plugin loads _after_ the server graph, HTTP auto-instrumentation does
-not retroactively patch it: traces are rooted at the tRPC procedure span
-(`trpc.<path>`) rather than an HTTP parent. DB spans are unaffected (manual
-`instrumentDrizzleClient`). For HTTP-parent parity, preload instead:
-
-```bash
-NODE_OPTIONS="--import @acme/telemetry/register" <start command>
-```
-
-That is what the `./register` export is for — a generic preload that reads
-`OTEL_SERVICE_NAME` from env instead of taking a literal.
-
-### Service name is app-owned
-
-`serviceName` is a literal in the app, not a config row. It is app identity; the
-collector endpoint is the value that differs per deploy target, and that one is
-config.
+- Call `initTelemetry` from whatever your framework runs before anything else —
+  an instrumentation hook, a server plugin, or the top of your entry module.
+  Importing `./register` for its side effect does the same thing where you have
+  no hook to put a call in.
+- Do it in your worker entrypoint too, or background work produces no traces.
+- Pass the service name from your app. A shared package cannot know what your
+  service is called, so this is a parameter rather than something read from env
+  by the package.
+- Nothing to thread afterwards. Spans are ambient, so no context object is
+  passed to features
+  ([ADR 0023](../../../docs/adr/0023-ambient-telemetry-no-context-object.md)).
+- Compose the env factory — [env.md](../../../docs/mounting/env.md).
 
 ## Env
 
-Factory: `src/env.ts`, exported as `@acme/telemetry/env`.
-
-| Key                           | Kind   | Notes                                                                                                              |
-| ----------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| `OTEL_SERVICE_NAME`           | config | authored `trellis`; only the `./register` preload reads it — apps that call `initTelemetry` pass their own literal |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | config | authored `http://localhost:4318/v1/traces`; the key a real deploy overrides                                        |
-
-No secrets. Server-side only — telemetry runs pre-app.
+Both keys are profile-authored config: the service name and the collector
+endpoint, each overridable by an environment variable of the same name. See
+`src/env.ts`.
 
 ## Infra
 
-`acme.infra: ["jaeger"]` → the `jaeger` profile in `deploy/compose.yaml`
-(`jaegertracing/jaeger:latest`). Ports: `16686` (UI), `4318` (OTLP HTTP — what
-the authored endpoint points at), `4317` (OTLP gRPC).
-
-A consumer pointing at its own collector overrides
-`OTEL_EXPORTER_OTLP_ENDPOINT` and does not need this container at all.
-
-## Also mount
-
-`@acme/env`. `@acme/trpc` depends on this package for its procedure spans, so an
-app mounting tRPC gets the instrumentation whether or not it calls
-`initTelemetry` — without the init, the spans are created and dropped.
+`jaeger` — an OTLP trace collector. Point the endpoint at your own collector
+instead and you need no local service.
