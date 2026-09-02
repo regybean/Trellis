@@ -5,12 +5,12 @@ import {
   createTRPCFetchHandler,
 } from '@acme/trpc/handler';
 
-import { resolveClerkContext } from '~/lib/clerk-context';
+import { resolveAuthContext } from '~/lib/trpc-context';
 
 /**
  * App-owned tRPC route-handler seam for TanStack Start. The fetch-adapter
  * wiring, error logging and CORS live once in `@acme/trpc/handler`; this file
- * owns only the app-specific auth seam (`resolveClerkContext`) and the
+ * owns only the app-specific auth seam (`resolveAuthContext`) and the
  * framework shape. Feature route files keep only the `createFileRoute` path
  * literal (which the route-tree codegen statically requires) and a tiny "this
  * router at this endpoint" declaration.
@@ -20,7 +20,7 @@ import { resolveClerkContext } from '~/lib/clerk-context';
  * no extra wiring.
  */
 
-type ContextInput = Awaited<ReturnType<typeof resolveClerkContext>>;
+type ContextInput = Awaited<ReturnType<typeof resolveAuthContext>>;
 
 interface TRPCRouteOptions<TRouter extends AnyRouter> {
   /** The tRPC endpoint path, e.g. `/api/trpc/chat`. */
@@ -45,7 +45,7 @@ export function createTRPCServerHandlers<TRouter extends AnyRouter>({
     endpoint,
     router,
     createContext,
-    resolver: resolveClerkContext,
+    resolver: resolveAuthContext,
   });
 
   return {
