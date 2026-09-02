@@ -8,7 +8,8 @@ watch output.** The mechanism is [ADR 0028](../adr/0028-dev-and-compose-logs-mir
 this is the operational how-to.
 
 Glob **`logs/*.log`** — flat dir, no subdirs. `logs/` is gitignored and recreated
-by `dev.sh` on each `pnpm dev`, so it only exists after a dev run.
+by `dev.sh` on each `pnpm dev`, so a dev run (or a gate run, below) is what makes
+it exist.
 
 ## The two streams
 
@@ -65,6 +66,9 @@ Capture is coextensive with a `pnpm dev` session and nothing else:
 - **Only under `pnpm dev`.** Standalone `pnpm infra:up` never touches `logs/`;
   bare `turbo run dev` / `pnpm preview` / `pnpm build` / `pnpm test` produce no
   capture either.
-- So `logs/*.log` reflects dev/infra output only. For the uncaptured commands
+- So dev/infra _capture_ is dev-session-only. For the uncaptured commands
   (`preview` / `build` / `test`), run them yourself as normal — this convention
   doesn't cover them, and it doesn't ban `pnpm infra:up` for non-observation needs.
+- **One other writer.** `pnpm quality-gate` assembles `logs/quality-gate.log` here
+  too — same flat dir, same dated freshness header, written on every gate run
+  independent of `pnpm dev`. See [quality-gate.md](quality-gate.md).

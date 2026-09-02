@@ -134,7 +134,12 @@ overrides:
   # one line can't force an incompatible major onto another. ---
   fast-xml-parser: ">=5.10.1" # GHSA-8r6m-32jq-jx6q (@aws-sdk)
   "@grpc/grpc-js": ">=1.14.4" # GHSA-5375-pq7m-f5r2, GHSA-99f4-grh7-6pcq (@a2a-js/sdk)
-  fast-uri: ">=3.1.5 <4" # GHSA-v2hh-gcrm-f6hx, GHSA-7p8r-x3mc-p8w7; kept on 3.x (ajv peers ^3.0.1)
+  # fast-uri: the original two highs (GHSA-v2hh-gcrm-f6hx, GHSA-7p8r-x3mc-p8w7)
+  # were cleared by 3.1.5; four more landed on the same single path
+  # (chat>mastra>serve>ajv>fast-uri), all patched in 3.1.6 —
+  # GHSA-5jgf-p345-68v8, GHSA-f65p-4m7j-42xc, GHSA-fph4-wmhf-6fwf,
+  # GHSA-jqff-g426-hqxp. Still kept on 3.x (ajv peers ^3.0.1).
+  fast-uri: ">=3.1.6 <4"
   ip-address: ">=10.3.1" # GHSA-mwp4-54f8-5fhr (@modelcontextprotocol/sdk>express-rate-limit)
   # pdfjs-dist: officeparser hard-pins an exact version, and even its latest
   # (7.5.1) pins a still-vulnerable 6.1.200 — so bumping the parent alone can't

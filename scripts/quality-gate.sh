@@ -18,7 +18,7 @@
 # Because nothing mutates source, everything can overlap safely.
 #
 # Never fail-fast: every stage runs, each into its own log, concatenated in a
-# fixed order into .cache/quality-gate.log with a per-stage PASS/FAIL summary —
+# fixed order into logs/quality-gate.log with a per-stage PASS/FAIL summary —
 # so on failure an agent reads one file and sees exactly which stages failed.
 # The summary also reports total wall time and the turbo cache breakdown
 # (how many tasks were cached vs actually ran).
@@ -32,9 +32,13 @@ cd "$ROOT"
 
 SECONDS=0 # wall-clock stopwatch (bash builtin), reported in the summary.
 
-LOG=".cache/quality-gate.log"
+# The assembled log lands in the root logs/ dir — the agent-readable location
+# (ADR 0028 §1). .cache is claudeignored, so a gate log there is unreadable by
+# the agent that has to act on it. Per-stage scratch stays in .cache: it is
+# intermediate, and logs/ is a flat *.log dir by contract.
+LOG="logs/quality-gate.log"
 STAGE_DIR=".cache/quality-gate.d"
-mkdir -p "$STAGE_DIR"
+mkdir -p "$STAGE_DIR" logs
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
@@ -103,8 +107,10 @@ stage_status() {
   [ "$rc" = "0" ] && echo PASS || echo FAIL
 }
 
-# Assemble the single legible log in fixed order.
-: >"$LOG"
+# Assemble the single legible log in fixed order, behind the same dated
+# freshness header every logs/*.log file carries (ADR 0028 §1), so staleness
+# reads the same way here as for the dev-/infra- files.
+printf "# quality-gate started %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$LOG"
 failed=0
 for name in "${order[@]}"; do
   {

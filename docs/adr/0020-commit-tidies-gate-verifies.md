@@ -47,7 +47,7 @@ force a re-run to find the log:
 
 - `scripts/quality-gate.sh` runs every stage (never fail-fast), each into its own
   per-stage log, then concatenates them in a fixed order into
-  `.cache/quality-gate.log` and prints a per-stage PASS/FAIL summary. Per-stage
+  `logs/quality-gate.log` and prints a per-stage PASS/FAIL summary. Per-stage
   logs (not a shared tee) keep parallel output from interleaving. On failure the
   agent reads one file and sees exactly what failed.
 - Turbo `lint` / `typecheck` / `build` / `test` tasks set
