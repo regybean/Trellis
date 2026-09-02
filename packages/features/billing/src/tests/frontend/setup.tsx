@@ -6,6 +6,9 @@ import { ToastContainer } from 'react-toastify';
 import superjson from 'superjson';
 import { vi } from 'vitest';
 
+import type { AuthStatus } from '@acme/hooks';
+import { AuthStatusProvider } from '@acme/hooks';
+
 import type { AppRouter } from '../../api/root';
 import { BillingConfigProvider } from '../../config-context';
 import { TRPCReactProvider } from '../../trpc/react';
@@ -36,10 +39,39 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
 
-// Mock the neutral @acme/auth surface — allowed framework external (ADR 0018).
-vi.mock('@acme/auth', () => ({
-  useAuth: vi.fn(),
-}));
+/**
+ * The viewer's auth state, as the *app* would supply it through the seam
+ * (`AuthStatusProvider`). Nothing is mocked here: the seam is a plain context
+ * that the feature reads, so a test drives it by rendering the real provider —
+ * exactly how `apps/nextjs` and `apps/tanstack-start` drive it (ADR 0018: never
+ * mock a seam the feature owns).
+ *
+ * Read at wrapper-render time, so call `setAuth` before rendering.
+ */
+const SIGNED_OUT: AuthStatus = {
+  userId: null,
+  isSignedIn: false,
+  isLoaded: true,
+};
+
+let authStatus: AuthStatus = SIGNED_OUT;
+
+/** Set the auth status the next render sees. Defaults to loaded + signed out. */
+export const setAuth = (
+  opts: { loaded?: boolean; signedIn?: boolean } = {},
+) => {
+  const isSignedIn = opts.signedIn ?? false;
+  authStatus = {
+    isLoaded: opts.loaded ?? true,
+    isSignedIn,
+    userId: isSignedIn ? 'user_1' : null,
+  };
+};
+
+/** Restore the default signed-out status between tests. */
+export const resetAuth = () => {
+  authStatus = SIGNED_OUT;
+};
 
 /**
  * Build the providers every billing frontend test renders under: the feature's
@@ -53,15 +85,17 @@ vi.mock('@acme/auth', () => ({
 export const makeProviders =
   (opts?: { localstripeMode?: boolean }) =>
   ({ children }: { children: ReactNode }) => (
-    <TRPCReactProvider>
-      <BillingConfigProvider
-        config={testBillingConfig}
-        localstripeMode={opts?.localstripeMode ?? false}
-      >
-        {children}
-        <ToastContainer />
-      </BillingConfigProvider>
-    </TRPCReactProvider>
+    <AuthStatusProvider status={authStatus}>
+      <TRPCReactProvider>
+        <BillingConfigProvider
+          config={testBillingConfig}
+          localstripeMode={opts?.localstripeMode ?? false}
+        >
+          {children}
+          <ToastContainer />
+        </BillingConfigProvider>
+      </TRPCReactProvider>
+    </AuthStatusProvider>
   );
 
 /** The default (real-Stripe) providers wrapper. */

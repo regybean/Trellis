@@ -11,7 +11,6 @@
     "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
-    "@clerk/nextjs": "catalog:",
     "@opentelemetry/api": "catalog:",
     "@tanstack/react-query": "catalog:",
     "@trpc/client": "catalog:",

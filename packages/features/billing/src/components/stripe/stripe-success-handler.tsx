@@ -1,23 +1,22 @@
 import { redirect } from 'next/navigation';
-// Blessed Next-coupled adapter: this RSC is exported only via
-// @acme/billing/server-next (the app-facing Next surface), never the neutral
-// seam. See ADR 0003.
-// eslint-disable-next-line no-restricted-imports
-import { auth } from '@clerk/nextjs/server';
 import { Database, RefreshCw } from 'lucide-react';
 
 import { getStripeCustomerId } from '@acme/subscriptions';
 
 import { syncStripeDataToKV } from '../../utils/stripe';
 
-export async function StripeSuccessHandler() {
-  // Get the authenticated user
-  const { userId } = await auth();
-
-  if (!userId) {
-    redirect('/sign-in');
-  }
-
+/**
+ * Post-checkout RSC: syncs the buyer's Stripe data into Redis before the app
+ * routes them on. Blessed Next-coupled adapter — exported only via
+ * `@acme/billing/server-next` (the app-facing Next surface), never the neutral
+ * seam, because of the `next/navigation` redirect. See ADR 0003.
+ *
+ * The viewer's id arrives as a prop rather than being resolved here: auth
+ * resolution is app-owned (ADR 0003), and the two full apps are on different
+ * providers mid-migration (#218). A signed-out caller is the app's redirect to
+ * make, so `userId` is required.
+ */
+export async function StripeSuccessHandler({ userId }: { userId: string }) {
   // Get the stripe customer ID from Redis
   const stripeCustomerId = await getStripeCustomerId(userId);
 

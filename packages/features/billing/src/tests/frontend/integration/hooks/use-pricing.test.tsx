@@ -12,7 +12,6 @@
  * `false`, so the real checkout/portal branches run; a localstripe test opts in
  * with `makeProviders({ localstripeMode: true })`.
  */
-import type { Mock } from 'vitest';
 import { act, renderHook, screen, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import {
@@ -26,16 +25,21 @@ import {
   vi,
 } from 'vitest';
 
-import { useAuth } from '@acme/auth';
-
 import { usePricing } from '../../../../hooks/use-pricing';
-import { makeProviders, Providers, trpcMsw } from '../../setup';
+import {
+  makeProviders,
+  Providers,
+  resetAuth,
+  setAuth,
+  trpcMsw,
+} from '../../setup';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   vi.clearAllMocks();
+  resetAuth();
   vi.unstubAllGlobals();
 });
 afterAll(() => server.close());
@@ -58,15 +62,6 @@ beforeEach(() => {
     },
   });
 });
-
-const setAuth = (opts: { loaded?: boolean; signedIn?: boolean }) => {
-  (useAuth as Mock).mockReturnValue({
-    isLoaded: opts.loaded ?? true,
-    isSignedIn: opts.signedIn ?? false,
-    userId: opts.signedIn ? 'user_1' : null,
-    sessionId: opts.signedIn ? 'sess_1' : null,
-  });
-};
 
 const basicSub = () =>
   trpcMsw.account.getSubscriptionDetails.query(() => ({

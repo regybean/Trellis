@@ -2,18 +2,19 @@
 
 import { useQuery } from '@tanstack/react-query';
 
-import { useAuth } from '@acme/auth';
+import { useAuthStatus } from '@acme/hooks';
 
 import { useTRPC } from '../trpc/react';
 
 /**
  * Reads the viewer's Subscription details and Credit usage for the account
- * modal. Gated on Clerk being loaded + signed in. Keeps `NavUserSubscription`
+ * modal. Gated on the app-supplied auth status being loaded + signed in, so the
+ * queries never fire before the session resolves. Keeps `NavUserSubscription`
  * UI-only.
  */
 export function useSubscriptionDetails() {
   const trpc = useTRPC();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useAuthStatus();
 
   const subscription = useQuery(
     trpc.account.getSubscriptionDetails.queryOptions(undefined, {
