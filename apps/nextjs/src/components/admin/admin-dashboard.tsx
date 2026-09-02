@@ -1,11 +1,10 @@
 import 'server-only';
 
-import type { UserWithRole } from 'better-auth/plugins/admin';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Users } from 'lucide-react';
 
-import type { SerializableUser } from '@acme/auth';
+import { readSessionRole, toManagementUser } from '@acme/auth/server';
 import {
   RateLimitManagement,
   StripeTesting,
@@ -21,38 +20,11 @@ import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { removeRole, setRole } from '~/lib/admin';
 import { auth } from '~/server/auth';
-import { parseRole, readRole } from '~/server/session';
 import { SearchUsers } from './search-users';
 
 interface Props {
   searchParams?: {
     search?: string;
-  };
-}
-
-/**
- * Better Auth's user row → the `SerializableUser` shape `@acme/ui`'s
- * `UserManagement` and `@acme/billing`'s admin panels read.
- *
- * That shape is Clerk's, and it stays for now: reworking those widgets onto a
- * Better Auth-native user (and updating ADR 0013 with it) is a separate ticket,
- * so this adapter is what keeps the dashboard working with no Clerk dependency.
- *
- * Two fields have no equivalent and are mapped honestly rather than invented.
- * Better Auth keeps exactly one email per user, so `emailAddresses` is a single
- * entry which is also the primary — hence the shared id. And it records no
- * last-sign-in time on the user row (sessions carry that), so `lastSignInAt` is
- * null, which the widget already renders as "omit the line".
- */
-function toSerializableUser(user: UserWithRole): SerializableUser {
-  return {
-    id: user.id,
-    imageUrl: user.image ?? '',
-    primaryEmailAddressId: user.id,
-    emailAddresses: [{ id: user.id, emailAddress: user.email }],
-    publicMetadata: { role: parseRole(user.role) ?? undefined },
-    createdAt: user.createdAt.getTime(),
-    lastSignInAt: null,
   };
 }
 
@@ -67,9 +39,9 @@ export async function AdminDashboard({ searchParams }: Props) {
   // The authoritative admin gate for this page. Middleware cannot make this
   // call — the role is not in the session cookie and the Edge runtime has no
   // database — so the check lives here, where the session row is readable.
-  if (
-    readRole(await auth.api.getSession({ headers: requestHeaders })) !== 'admin'
-  ) {
+  const session = await auth.api.getSession({ headers: requestHeaders });
+
+  if (!session || readSessionRole(session.user) !== 'admin') {
     redirect('/');
   }
 
@@ -82,7 +54,7 @@ export async function AdminDashboard({ searchParams }: Props) {
     headers: requestHeaders,
   });
 
-  const serializableUsers = users.map((user) => toSerializableUser(user));
+  const managementUsers = users.map((user) => toManagementUser(user));
 
   return (
     <div className="mx-auto max-w-7xl px-4">
@@ -118,9 +90,9 @@ export async function AdminDashboard({ searchParams }: Props) {
             </CardContent>
           </Card>
 
-          {serializableUsers.length > 0 && (
+          {managementUsers.length > 0 && (
             <UserManagement
-              users={serializableUsers}
+              users={managementUsers}
               setRole={setRole}
               removeRole={removeRole}
               renderBillingPanels={(user) => (
@@ -135,7 +107,7 @@ export async function AdminDashboard({ searchParams }: Props) {
           {/* Stripe Testing Section */}
           <StripeTesting />
 
-          {query && serializableUsers.length === 0 && (
+          {query && managementUsers.length === 0 && (
             <Card className="border-border shadow-xs">
               <CardContent className="py-8 text-center">
                 <Users className="text-muted-foreground/50 mx-auto h-12 w-12" />

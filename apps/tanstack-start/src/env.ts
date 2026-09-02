@@ -1,7 +1,7 @@
 import { createEnv } from '@t3-oss/env-core';
 import { z } from 'zod/v4';
 
-import { authEnv } from '@acme/auth/env';
+import { betterAuthEnv } from '@acme/auth/env';
 import { billingEnv } from '@acme/billing/env';
 import { chatEnv } from '@acme/chat/env';
 import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
@@ -45,7 +45,7 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  */
 export const env = createEnv({
   clientPrefix: 'NEXT_PUBLIC_',
-  extends: [chatEnv(), ingestEnv(), billingEnv(), authEnv()],
+  extends: [chatEnv(), ingestEnv(), billingEnv(), betterAuthEnv()],
   server: {
     BETTER_AUTH_URL: z.url(),
   },

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { CreditCard } from 'lucide-react';
 
-import type { SerializableUser } from '@acme/auth';
+import type { UserManagementUser } from '@acme/ui';
 import {
   Button,
   Card,
@@ -28,7 +28,7 @@ import type { Tier } from '../../hooks/use-tier-admin';
 import { TIERS, useTierAdmin } from '../../hooks/use-tier-admin';
 
 interface TierManagementProps {
-  user: SerializableUser;
+  user: UserManagementUser;
 }
 
 export function TierManagement({ user }: TierManagementProps) {

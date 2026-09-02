@@ -1,5 +1,6 @@
 import type { AnyRouter } from '@trpc/server';
 
+import { toPrincipal } from '@acme/auth/server';
 import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
@@ -8,7 +9,6 @@ import {
 } from '@acme/trpc/handler';
 
 import { auth } from './auth';
-import { toInjectedPrincipal } from './session';
 
 /**
  * The Stripe/Redis entitlements provider, closing over the plan ids billing's
@@ -27,9 +27,12 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 
 /**
  * App-owned auth seam: resolve the Better Auth session here and map it onto the
- * platform's neutral `InjectedSession`. The principal carries only what the
- * substrate and the features read; the Better Auth session object itself never
- * reaches the context.
+ * platform's neutral `InjectedSession`. Resolution is app-owned; the mapping is
+ * not — `toPrincipal` is `@acme/auth/server`'s, shared with
+ * `apps/tanstack-start`, because it is provider-specific rather than
+ * framework-specific (ADR 0003). The principal carries only what the substrate
+ * and the features read; the Better Auth session object itself never reaches the
+ * context.
  *
  * The request's own headers are passed rather than `next/headers`, so the
  * resolution is tied to the request being served — this runs from a route
@@ -40,9 +43,7 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
  * authenticating immediately (ADR 0034).
  */
 const resolveSession = async (req: Request) => ({
-  user: toInjectedPrincipal(
-    await auth.api.getSession({ headers: req.headers }),
-  ),
+  user: toPrincipal(await auth.api.getSession({ headers: req.headers })),
 });
 
 /**

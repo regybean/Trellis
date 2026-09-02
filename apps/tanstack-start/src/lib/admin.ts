@@ -1,10 +1,8 @@
-import type { UserWithRole } from 'better-auth/plugins/admin';
 import { createServerFn } from '@tanstack/react-start';
 import { getRequestHeaders } from '@tanstack/react-start/server';
 import { z } from 'zod';
 
-import type { UserManagementUser } from '@acme/ui';
-import { readSessionRole } from '@acme/auth/server';
+import { toManagementUser } from '@acme/auth/server';
 
 import { auth } from '~/lib/auth-server';
 
@@ -23,34 +21,6 @@ import { auth } from '~/lib/auth-server';
  * `beforeLoad` still redirects non-admins, but that is a redirect, not the gate —
  * calling these server functions directly is refused here.
  */
-
-/**
- * Better Auth's user row, shaped for `@acme/ui`'s admin widgets.
- *
- * ⚠️ **This adapter is temporary and #225 deletes it.** `UserManagementUser` is
- * still Clerk's user shape — an `emailAddresses` array with a
- * `primaryEmailAddressId` pointing into it, `publicMetadata.role`,
- * `lastSignInAt` — because `apps/nextjs` renders the same widget and is still on
- * Clerk until #223 lands. #225 cuts the widget back to what Better Auth actually
- * stores, and this function collapses to a pass-through when it does.
- *
- * Two fields have no honest source and are marked as such rather than invented:
- * Better Auth stores one email per user (it is `user`'s unique key), so the
- * "array plus a pointer at the primary" is a single row wearing Clerk's shape;
- * and the core schema tracks no last-sign-in, so it is `null` rather than a
- * guess derived from the newest `session` row.
- */
-function toManagementUser(user: UserWithRole): UserManagementUser {
-  return {
-    id: user.id,
-    imageUrl: user.image ?? '',
-    primaryEmailAddressId: user.id,
-    emailAddresses: [{ id: user.id, emailAddress: user.email }],
-    publicMetadata: { role: readSessionRole(user) ?? undefined },
-    createdAt: user.createdAt.getTime(),
-    lastSignInAt: null,
-  };
-}
 
 export const listUsers = createServerFn({ method: 'GET' })
   .validator(z.object({ search: z.string().optional() }))

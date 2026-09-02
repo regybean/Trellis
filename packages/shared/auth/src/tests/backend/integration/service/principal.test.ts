@@ -1,0 +1,153 @@
+/**
+ * The provider→neutral mappings, against sessions a real Better Auth resolves.
+ *
+ * These three used to exist twice, once per app (#237 and #238 each wrote their
+ * own); #239 collapsed them here, so this is where a promote/demote is proved to
+ * reach `adminProcedure` — through one implementation, for both apps. Nothing is
+ * mocked: the role comes back on a session resolved from a real cookie against a
+ * real Postgres, which is the only way to exercise the gap this code exists to
+ * cross (Better Auth omits the admin plugin's columns from `getSession`'s static
+ * type, so the value is there and the type says otherwise).
+ */
+import { eq } from 'drizzle-orm';
+import { describe, expect, it } from 'vitest';
+
+import {
+  readSessionRole,
+  toManagementUser,
+  toPrincipal,
+} from '../../../../principal';
+import { authUser } from '../../../../schemas/auth-schema';
+import {
+  auth,
+  db,
+  signInAndGetHeaders,
+  signUp,
+  testEmail,
+} from '../../utils/fixtures';
+
+/** Sign up, seed to admin by direct write, and return a signed-in header set. */
+async function signedInAdmin() {
+  const email = testEmail('principal-admin');
+  const user = await signUp(email);
+  // Seeding the first admin is a database write by definition — `setRole`
+  // requires an existing admin to call it.
+  await db
+    .update(authUser)
+    .set({ role: 'admin' })
+    .where(eq(authUser.id, user.id));
+  return signInAndGetHeaders(email);
+}
+
+/** Sign up, sign in, and resolve the session the way a request handler would. */
+async function signedInSession(label: string) {
+  const email = testEmail(label);
+  const created = await signUp(email);
+  const headers = await signInAndGetHeaders(email);
+  const session = await auth.api.getSession({ headers });
+
+  if (!session) throw new Error(`no session resolved for ${email}`);
+
+  return { email, created, headers, session };
+}
+
+describe('readSessionRole', () => {
+  it('follows a promotion and a demotion on the resolved session', async () => {
+    const adminHeaders = await signedInAdmin();
+    const { created, headers } = await signedInSession('principal-member');
+
+    const currentRole = async () => {
+      const session = await auth.api.getSession({ headers });
+      return session ? readSessionRole(session.user) : null;
+    };
+
+    expect(await currentRole()).toBe('user');
+
+    await auth.api.setRole({
+      body: { userId: created.id, role: 'admin' },
+      headers: adminHeaders,
+    });
+    expect(await currentRole()).toBe('admin');
+
+    // Demotion is `setRole(…, 'user')`, not a clear: the column has a
+    // `defaultRole`, so plain membership *is* a role (ADR 0034).
+    await auth.api.setRole({
+      body: { userId: created.id, role: 'user' },
+      headers: adminHeaders,
+    });
+    expect(await currentRole()).toBe('user');
+  });
+
+  it('reads no role off a row whose column holds something unrecognised', async () => {
+    const { created, headers } = await signedInSession('principal-bogus');
+    await db
+      .update(authUser)
+      .set({ role: 'superuser' })
+      .where(eq(authUser.id, created.id));
+
+    const session = await auth.api.getSession({ headers });
+
+    // Fails closed rather than propagating a value `Roles` cannot mean.
+    expect(session && readSessionRole(session.user)).toBeNull();
+  });
+
+  it('rejects a resolved session where a user row is expected', async () => {
+    const { session } = await signedInSession('principal-shape');
+
+    // The bug this signature exists to stop: `{ session, user }` is not a user
+    // row, and passing it silently degraded every caller to non-admin back when
+    // the parameter was `unknown`. The assertion is the compile error itself —
+    // `@ts-expect-error` fails the typecheck if this line ever starts working.
+    // @ts-expect-error — a session is not a user row.
+    readSessionRole(session);
+
+    expect(readSessionRole(session.user)).toBe('user');
+  });
+});
+
+describe('toPrincipal', () => {
+  it('carries the id, the role and the email the substrate gates on', async () => {
+    const { email, created, session } = await signedInSession('principal-map');
+
+    expect(toPrincipal(session)).toEqual({
+      id: created.id,
+      role: 'user',
+      primaryEmailAddress: { emailAddress: email },
+    });
+  });
+
+  it('maps a signed-out caller to no principal', () => {
+    expect(toPrincipal(null)).toBeNull();
+  });
+});
+
+describe('toManagementUser', () => {
+  it('shapes a listed user for the admin widget', async () => {
+    const adminHeaders = await signedInAdmin();
+    const { email, created } = await signedInSession('principal-listed');
+
+    const { users } = await auth.api.listUsers({
+      query: {
+        searchField: 'email',
+        searchOperator: 'contains',
+        searchValue: email,
+      },
+      headers: adminHeaders,
+    });
+    const [listed] = users;
+
+    expect(listed?.id).toBe(created.id);
+    expect(listed && toManagementUser(listed)).toEqual({
+      id: created.id,
+      imageUrl: '',
+      // The two honest fabrications: Better Auth keeps one email per user, so
+      // the "array plus a pointer at the primary" reuses the user id; and the
+      // core schema records no last sign-in.
+      primaryEmailAddressId: created.id,
+      emailAddresses: [{ id: created.id, emailAddress: email }],
+      publicMetadata: { role: 'user' },
+      createdAt: created.createdAt.getTime(),
+      lastSignInAt: null,
+    });
+  });
+});
