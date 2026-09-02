@@ -16,7 +16,7 @@
  * (`feedback`, `ingest`) names none (#256).
  */
 import type {
-  ContextOpts,
+  BaseContext,
   InjectedSession,
   InjectedUser,
   Roles,
@@ -34,7 +34,7 @@ import type {
  * merge straight through below without the builder having to pick the principal
  * back out of it.
  */
-export type TestContextOptions = Pick<ContextOpts, 'session'>;
+export type TestContextOptions = Pick<BaseContext, 'session'>;
 
 /**
  * The knobs a *feature's* own `createTestContext` wrapper exposes to its tests:
@@ -74,12 +74,12 @@ export function createMockSession(user: InjectedUser) {
  * resolves `Headers` against whichever lib the *consuming* package compiles
  * with, and they don't all agree — `@acme/auth` reads a `Headers` whose
  * iterators differ from `@acme/trpc`'s, and the context stops matching
- * `createCaller`. Naming `ContextOpts` pins every base field to the declaration
+ * `createCaller`. Naming `BaseContext` pins every base field to the declaration
  * the router was built from.
  */
 export function createTestContext<TExtension extends object = object>(
   opts: TestContextOptions & TExtension,
-): ContextOpts & TExtension {
+): BaseContext & TExtension {
   return {
     headers: new Headers(),
     // A realistic app origin so procedures that build absolute redirect URLs

@@ -245,7 +245,7 @@ type-level residue. It was still enough to force the coupling on every consumer.
 - **`createTestContext` takes `session` rather than a bare `user`.** Every key a
   test passes is now a key the real context has, so the extension merges straight
   through instead of the builder picking the principal back out. It also keeps the
-  return type nameable as `ContextOpts & TExtension`, which turns out to matter: an
+  return type nameable as `BaseContext & TExtension`, which turns out to matter: an
   inferred `headers` resolves `Headers` against the _consuming_ package's lib, and
   they do not all agree. `@acme/auth` reads one whose iterators differ from
   `@acme/trpc`'s, and the context stops matching `createCaller`.

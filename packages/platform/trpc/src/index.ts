@@ -67,6 +67,12 @@ export interface InjectedSession {
  * `createFeatureTRPC` / `createFeatureTRPCWithDb`, which the substrate merges in
  * and never names.
  *
+ * One name for both roles, because they are one object: what the app adapter
+ * injects *is* the base half of `ctx`, since `createTRPCContext` passes it
+ * through untouched. It was briefly `ContextOpts` — two names for the same
+ * fields, disagreeing with `CONTEXT.md`, which has always called this the base
+ * context.
+ *
  * Billing used to be a field here. `entitlements: EntitlementsProvider` was
  * required on every context, so constructing one meant importing the billing
  * contract — in `@acme/feedback`, in `@acme/ingest`, in the slim apps, none of
@@ -74,7 +80,7 @@ export interface InjectedSession {
  * it since #250; the type was the last of the coupling. It is now `@acme/billing`
  * and `@acme/chat`'s extension (#256, ADR 0006 amendment).
  */
-export interface ContextOpts {
+export interface BaseContext {
   headers: Headers;
   req?: Request;
   res?: Response;
@@ -118,7 +124,7 @@ type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
  * is threaded here.
  */
 export function createTRPCContext<TExtension extends object = object>(
-  opts: ContextOpts & TExtension,
+  opts: BaseContext & TExtension,
 ) {
   return Promise.resolve({ ...opts });
 }
@@ -271,7 +277,7 @@ function requireAdmin(session: InjectedSession) {
  * type parameter.
  */
 function buildCore<TExtension extends object>() {
-  const t = initTRPC.context<ContextOpts & TExtension>().create({
+  const t = initTRPC.context<BaseContext & TExtension>().create({
     transformer: superjson,
     errorFormatter({ shape, error }) {
       return {

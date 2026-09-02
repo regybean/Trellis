@@ -14,7 +14,7 @@ _Avoid_: "the tRPC setup", "the router config"
 
 **Base context**:
 The neutral half of the request context every procedure receives — the request
-plus the app-injected `session`, passed through (`ContextOpts`). Assembling it
+plus the app-injected `session`, passed through (`BaseContext`). Assembling it
 does no I/O. There is no `telemetry` on the context: telemetry is ambient
 (ADR 0023). There is no billing on it either, resolved or otherwise (#250, #256).
 _Avoid_: "the request object", "the tRPC context object"
@@ -128,7 +128,7 @@ blocker that a threaded telemetry object once imposed, with no generic and no
 conditional-type explosion.
 
 **Generic in the extension, concrete in the base, every middleware inline**:
-`initTRPC.context<ContextOpts & TExtension>()` leaves tRPC's `ContextCallback`
+`initTRPC.context<BaseContext & TExtension>()` leaves tRPC's `ContextCallback`
 conditionals unresolved, and the `MiddlewareBuilder` a standalone `t.middleware(fn)`
 produces then stops being assignable to what `.use` wants. The two only agree once
 the context is concrete. Passed _inline_ to `.use`, the arrow is contextually typed
@@ -157,7 +157,7 @@ framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM ty
 boundary if constructed in the platform package.
 
 **`@acme/trpc/testing` is the one home for a test caller context**:
-`createTestContext` (+ `createMockSession`) lives here — beside the `ContextOpts`
+`createTestContext` (+ `createMockSession`) lives here — beside the `BaseContext`
 it must match — so every feature builds a caller from the real platform types, not
 the structural `as any` a tooling package below `platform` was forced into. It's a
 tree-shaken export subpath; prod never imports it. It takes the same **Context
