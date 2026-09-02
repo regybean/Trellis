@@ -124,3 +124,28 @@ means changing the dimension and
 data worth migrating. A dimension mismatch against an existing index must fail with
 an actionable error ("re-push the schema" / drop the index), never a raw pgvector
 error.
+
+**Every runtime entry is server-only, the root included**: this package has no
+client-safe runtime. `pgVector` / `postgresStore` / `memory` open a Postgres
+connection with credentials at import; the uploader and the ownership rule read
+through one. So `.`, `./server` and `./ownership-trpc` all carry
+`import 'server-only'`, and a stray import from a client component fails the
+build instead of shipping vector machinery to the browser. `.` being guarded is
+not a contradiction of [ADR 0015](../../../docs/adr/0015-package-exports-convention.md)'s
+role vocabulary: `.` is the _main_ entry, not the _client-safe_ entry. The two
+unguarded subpaths are exceptions with a stated reason — `./schema` (Drizzle
+mirrors, which drizzle-kit must load outside any bundler) and `./env`.
+
+The split between `.` and `./server` is by cost, not by safety: `.` is the
+long-lived primitives (vector store, memory storage, the ownership rule) and
+`./server` is the document pipeline (`uploadDoc`, `extractText`,
+`ensureVectorIndex`). Importing one must not construct the other — `@acme/ingest`
+uploads documents without instantiating Mastra `Memory`, so `memory` stays out of
+`./server` and `ensureVectorIndex` (which the pipeline and each app's boot both
+call) has its single home there.
+
+Server consumers that are not an RSC/SSR bundle have to say so: `server-only`
+resolves to a module that throws unless the `react-server` condition is set.
+Each app's `dev:worker` passes `tsx --conditions=react-server`; chat's `studio`
+script passes it through `NODE_OPTIONS` for `mastra dev`; backend suites
+`vi.mock('server-only', () => ({}))` in their setup file.
