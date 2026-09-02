@@ -70,6 +70,20 @@ The architecture is only as honest as the tooling that keeps it that way. A few 
 
 More in [**DX & tooling**](docs/whats-included.md#dx--developer-experience).
 
+## The bank — take the packages, keep the updates
+
+> **WIP.** The machinery exists and is tested. No consumer repo has completed a real sync yet, so treat everything below as unproven in the field.
+
+A repo that starts from Trellis normally starts by copying it, and from that moment every fix made on either side stays there. The bank is the alternative: a consumer repo pins a `bank/YYYY-MM-DD` tag in `bank.manifest.json`, and `pnpm bank:sync` rewrites a local `vendor/trellis` branch to hold Trellis filtered down to the paths it subscribes to. Because each sync parents on the last one, `git merge vendor/trellis` is an ordinary three-way merge: upstream changes replay, local edits survive, and conflicts appear only where both sides touched the same lines ([ADR 0037](docs/adr/0037-vendored-git-subset-three-way-merge.md)).
+
+Git is the point. It's the only distribution format that ships the **merge base** with the content. npm can only replace a package wholesale, which fails the moment a consumer needs to _delete_ something from one, and copy-and-own hands you the files with no update story at all.
+
+- **What's on offer** is [`bank.paths.json`](bank.paths.json): the selectable workspace packages, six bundles for content that can't be a package, and the exclusions with a reason each. Never an app, a README or a lockfile — those are consumer identity.
+- **Drift is consumer-side**, because Trellis can't see its consumers. `pnpm bank:sync --check` reports how far behind the pinned tag is and which vendored paths the consumer has modified, with distinct exit codes to gate CI on.
+- **Not built yet:** the `bank:contribute` back-flow path, and the setup wizard that assembles a manifest from `bank.paths.json`. No `bank/*` tag has been cut, so there is nothing to pin against today.
+
+The guide — set-up, syncing, resolving conflicts, reading a drift report — is [**docs/bank.md**](docs/bank.md).
+
 ## AI-native
 
 Trellis is built to be navigated and **extended** by coding agents as much as by humans.
@@ -113,6 +127,5 @@ Full index — [**docs/**](docs/). High-traffic:
 
 - [Getting started](docs/getting-started.md) — step-by-step first run.
 - [What you get with Trellis](docs/whats-included.md) — features, tooling, command reference, malleable vs load-bearing.
+- [The bank](docs/bank.md) — consuming Trellis packages in another repo.
 - [Agent workflow](docs/agents/) · [Architectural decisions](docs/adr/) · [CONTEXT-MAP](CONTEXT-MAP.md) · [Testing guide](docs/TESTING.md).
-  </content>
-  </invoke>
