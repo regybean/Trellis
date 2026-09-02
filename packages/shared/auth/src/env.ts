@@ -73,19 +73,58 @@ export function clerkWiringEnv() {
 }
 
 /**
- * The whole slice: the wiring above **plus** its secret (ADR 0033). Called lazily
- * and composed into an app's env graph via `extends: [authEnv(), …]` by the two
- * *full* apps only — the `*-slim` apps mount no auth, so they never demand the
- * secret (ADR 0010, composition axis).
+ * Better Auth's own secret, and nothing else — the env an app on the self-hosted
+ * provider needs (#223).
  *
- * `BETTER_AUTH_SECRET` and `CLERK_SECRET_KEY` are the keys no profile authors, so
- * they are the keys a deploy target must supply. Both are *validation-only*:
- * Better Auth and the Clerk SDK (`clerkClient()` / `auth()` /
- * `clerkMiddleware()`) each keep reading their own off `process.env` — passing
+ * Split out from `authEnv` below because the two full apps are on different
+ * providers during the #218 migration: `apps/nextjs` composes *this*, and so
+ * demands no Clerk key it will never use, while `apps/tanstack-start` still
+ * composes the Clerk-shaped `authEnv`. `initAuth` reads this one too, so
+ * standing up a Better Auth instance never requires a Clerk secret.
+ *
+ * *Validation-only*: Better Auth is handed the value explicitly by `initAuth`,
+ * but declaring it here is what makes a misconfigured app fail fast at boot
+ * rather than silently fall back to Better Auth's hardcoded development secret.
+ * Generate with `openssl rand -base64 32`.
+ */
+export function betterAuthEnv() {
+  return createEnv({
+    clientPrefix: 'NEXT_PUBLIC_',
+    client: {},
+    server: {
+      BETTER_AUTH_SECRET: z.string().nonempty(),
+      // The origin the auth routes are mounted on, which Better Auth builds
+      // callback URLs from and validates request origins against. Deliberately
+      // *not* profile-authored: it is per-app (each app binds its own `PORT`)
+      // and per-deploy, so there is no value a profile could hold that would be
+      // right for the next app — the same reason `PORT` and `NEXT_PUBLIC_WEBAPP`
+      // are plain `.env` rows. It must be the externally reachable origin, not
+      // the container's.
+      BETTER_AUTH_URL: z.url(),
+    },
+    createFinalSchema: secretsOnly(appEnv),
+    runtimeEnv: {
+      BETTER_AUTH_SECRET: readEnv('BETTER_AUTH_SECRET'),
+      BETTER_AUTH_URL: readEnv('BETTER_AUTH_URL'),
+    },
+    emptyStringAsUndefined: true,
+  });
+}
+
+/**
+ * The **Clerk** slice: the wiring above, its secret, and (through `extends`)
+ * Better Auth's. Called lazily and composed into an app's env graph via
+ * `extends: [authEnv(), …]` — since #223 that is `apps/tanstack-start` alone,
+ * the last app still on Clerk. `apps/nextjs` composes `betterAuthEnv()`
+ * instead, and the `*-slim` apps mount no auth at all, so they demand neither
+ * secret (ADR 0010, composition axis). This whole function retires with Clerk.
+ *
+ * `CLERK_SECRET_KEY` is a key no profile authors, so it is a key a deploy target
+ * must supply. It is *validation-only*: the Clerk SDK (`clerkClient()` /
+ * `auth()` / `clerkMiddleware()`) keeps reading it off `process.env` — passing
  * `secretKey` to Clerk middleware would flip it into Dynamic Keys mode (#94).
- * Declaring them forces a full app to fail fast at boot on a missing key instead
- * of on the first call with an opaque error, or (for Better Auth) on a silent
- * fallback to a hardcoded development secret.
+ * Declaring it forces a full app to fail fast at boot on a missing key instead
+ * of on the first call with an opaque error.
  *
  * Because the app composes this one call, the slice cannot ship its wiring with
  * its gated secret unvalidated — the failure the old two-mechanism split allowed
@@ -94,17 +133,12 @@ export function clerkWiringEnv() {
 export function authEnv() {
   return createEnv({
     clientPrefix: 'NEXT_PUBLIC_',
-    extends: [clerkWiringEnv()],
+    extends: [clerkWiringEnv(), betterAuthEnv()],
     client: {},
     server: {
-      // Signs session cookies and encrypts stored tokens. Better Auth would
-      // otherwise fall back to reading `BETTER_AUTH_SECRET` off `process.env`
-      // itself — and silently use a hardcoded development default when unset.
-      // Declaring it makes a full app fail fast at boot instead. Generate with
-      // `openssl rand -base64 32`.
-      BETTER_AUTH_SECRET: z.string().nonempty(),
-      // Clerk secret. Clerk is still the live auth provider (#218 migrates the
-      // apps); this row goes when it does.
+      // Clerk secret. Clerk is still this app's live auth provider (#218
+      // migrates the apps; `apps/nextjs` came off it in #223, leaving
+      // `apps/tanstack-start` as the only caller); this row goes when it does.
       //
       // This is *validation-only*: the Clerk SDK (`clerkClient()`/`auth()`/
       // `clerkMiddleware()`) keeps reading `CLERK_SECRET_KEY` implicitly from
@@ -116,7 +150,6 @@ export function authEnv() {
     },
     createFinalSchema: secretsOnly(appEnv),
     runtimeEnv: {
-      BETTER_AUTH_SECRET: readEnv('BETTER_AUTH_SECRET'),
       CLERK_SECRET_KEY: readEnv('CLERK_SECRET_KEY'),
     },
     emptyStringAsUndefined: true,

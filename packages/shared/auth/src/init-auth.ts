@@ -9,7 +9,7 @@ import { admin } from 'better-auth/plugins/admin';
 
 import { createDb } from '@acme/db';
 
-import { authEnv } from './env';
+import { betterAuthEnv } from './env';
 import { authTables } from './schemas/auth-schema';
 
 export interface InitAuthOptions {
@@ -35,7 +35,7 @@ export interface InitAuthOptions {
  * the one explicit return type below.
  */
 function authOptions(options: InitAuthOptions) {
-  const env = authEnv();
+  const env = betterAuthEnv();
 
   return {
     database: drizzleAdapter(createDb(), {

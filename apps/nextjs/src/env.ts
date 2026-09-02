@@ -1,6 +1,6 @@
 import { createEnv } from '@t3-oss/env-core';
 
-import { authEnv } from '@acme/auth/env';
+import { betterAuthEnv } from '@acme/auth/env';
 import { billingEnv } from '@acme/billing/env';
 import { chatEnv } from '@acme/chat/env';
 import { resolveAppEnv } from '@acme/env';
@@ -22,8 +22,8 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * in one `createEnv` call, so composing the app is composing one list.
  *
  * Each preset validates its own keys at boot (ADR 0022 two-axis validation) —
- * `authEnv()` the Clerk wiring and its secret (composed by the full apps only,
- * ADR 0010), `billingEnv()` the Stripe plan ids/connection and the two Stripe
+ * `betterAuthEnv()` the Better Auth signing secret (composed by the full apps
+ * only, ADR 0010), `billingEnv()` the Stripe plan ids/connection and the two Stripe
  * secrets, `chatEnv()` and `ingestEnv()` their slices' tunables plus ingest's AWS
  * credentials.
  *
@@ -40,7 +40,7 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  */
 export const env = createEnv({
   clientPrefix: 'NEXT_PUBLIC_',
-  extends: [chatEnv(), ingestEnv(), billingEnv(), authEnv()],
+  extends: [chatEnv(), ingestEnv(), billingEnv(), betterAuthEnv()],
   server: {},
   client: {},
   runtimeEnv: {},

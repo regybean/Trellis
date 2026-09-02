@@ -16,8 +16,8 @@ Postgres, admin plugin. A factory, not a module singleton: `baseUrl` differs per
 app (each runs on its own port) and a shared-layer package must not read app env.
 The **secret is not a parameter** — `BETTER_AUTH_SECRET` is slice-owned, declared
 and validated in `./env`.
-_Avoid_: "the auth client" (that is `createAuthClient`, app-owned, and does not
-exist yet), "the auth singleton"
+_Avoid_: "the auth client" (that is `createAuthClient`, app-owned — see
+`apps/nextjs/src/lib/auth-client.ts`), "the auth singleton"
 
 **`Auth` / `Session`** (`@acme/auth/server`):
 The instance type and `{ session, user }` as Better Auth resolves it. `Session`'s
@@ -42,21 +42,26 @@ row revokes the session immediately — the backend suite asserts it.
 _Avoid_: "session claims", "JWT claims" — Clerk vocabulary with no Better Auth
 equivalent. Role lives on the **user row** (`authUser.role`), not in a token.
 
-**`authEnv()`** (`@acme/auth/env`):
-The slice's one env call ([ADR 0033](../../../docs/adr/0033-one-env-factory-per-slice.md)):
-`clerkWiringEnv()` extended with the two secrets no profile authors —
-`BETTER_AUTH_SECRET` plus, for now, `CLERK_SECRET_KEY`. Built on
+**`betterAuthEnv()`** (`@acme/auth/env`):
+Better Auth's own two variables, and nothing else: `BETTER_AUTH_SECRET` (signs
+session cookies) and `BETTER_AUTH_URL` (the origin auth routes are served from).
+Neither is profile-authored — the secret because it is a secret, the URL because
+it is per-app (each app binds its own `PORT`) and per-deploy. `initAuth` reads
+this, so standing up an instance never requires a Clerk key. Built on
 `@t3-oss/env-core`, not `env-nextjs` — a shared-layer package must not carry a
-framework dependency. Composed only by the two _full_ apps; the `*-slim` apps
-mount no auth ([ADR 0010](../../../docs/adr/0010-slim-no-auth-apps.md)).
+framework dependency. Composed by `apps/nextjs`; the `*-slim` apps mount no auth
+([ADR 0010](../../../docs/adr/0010-slim-no-auth-apps.md)).
+
+**`authEnv()`** (`@acme/auth/env`):
+The **Clerk** composition, and the last of it: `clerkWiringEnv()` +
+`betterAuthEnv()` + `CLERK_SECRET_KEY`. Since #223 only `apps/tanstack-start`
+composes it — `apps/nextjs` moved to `betterAuthEnv()`. Retires with Clerk.
 
 **`clerkWiringEnv()`** (`@acme/auth/env`):
 Clerk's browser-safe wiring — the four route URLs and the publishable key,
 authored as profile defaults per deploy target and read without a secret in the
-call. `authEnv()` extends it; `apps/nextjs`'s Edge middleware calls it directly,
-because validating `CLERK_SECRET_KEY` in a runtime whose `process.env` is a
-build-time snapshot would 500 a correctly configured deploy. Goes with the Clerk
-half.
+call. `authEnv()` extends it, and `apps/tanstack-start` reads it directly for
+`<ClerkProvider>`. Goes with the Clerk half.
 
 ## Relationships
 

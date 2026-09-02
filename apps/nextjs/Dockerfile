@@ -59,10 +59,12 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm install --ignore-scripts
 
 # Build the project. Non-secret per-env values — Stripe plan IDs/publishable
-# key/manage URL (billingConfig) and the Clerk publishable key (authConfig) —
-# are config-as-code, baked into the client bundle via APP_ENV (ADR 0026), so
-# there is no .env.<stage> file to load. No SKIP_ENV_VALIDATION needed: the app
-# build script sets IS_NEXT_BUILD, which shouldSkipEnvValidation() honours.
+# key/manage URL (billingConfig) — are config-as-code, baked into the client
+# bundle via APP_ENV (ADR 0026), so there is no .env.<stage> file to load. Auth
+# contributes nothing here since #223: Better Auth's two variables
+# (BETTER_AUTH_SECRET, BETTER_AUTH_URL) are read on the server at runtime, not
+# baked into the bundle. No SKIP_ENV_VALIDATION needed: the app build script
+# sets IS_NEXT_BUILD, which shouldSkipEnvValidation() honours.
 COPY --from=prepare /app/out/full/ .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
   pnpm turbo build --filter=@acme/nextjs

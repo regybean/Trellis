@@ -2,10 +2,11 @@
 
 import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@acme/auth';
-import { Button, cn } from '@acme/ui';
+import { Button, cn, UserButton } from '@acme/ui';
+
+import { authClient } from '~/lib/auth-client';
 
 interface NavItem {
   title: string;
@@ -74,19 +75,7 @@ export function EditorialShell({ children }: { children: ReactNode }) {
               ))}
             </nav>
 
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <Button
-                  size="sm"
-                  className="rounded-none font-sans text-xs tracking-[0.18em] uppercase"
-                >
-                  Sign in
-                </Button>
-              </SignInButton>
-            </SignedOut>
+            <AuthControls />
           </div>
         </div>
 
@@ -113,5 +102,53 @@ export function EditorialShell({ children }: { children: ReactNode }) {
         &copy; MMXXVI Acme &mdash; set in Fraunces &amp; Hanken Grotesk
       </footer>
     </div>
+  );
+}
+
+/**
+ * The masthead's auth corner. Replaces Clerk's `<SignedIn>`/`<SignedOut>` pair,
+ * which Better Auth has no equivalent of — the session is read directly and the
+ * branch is written out.
+ *
+ * Renders nothing while the session is resolving: the alternative is a "Sign in"
+ * button that flips to an avatar a moment later on every load, which reads as a
+ * flicker rather than as information. `UserButton` is `@acme/ui`'s (#222), given
+ * this app's sign-out handler.
+ */
+function AuthControls() {
+  const { data: session, isPending } = authClient.useSession();
+  const router = useRouter();
+
+  if (isPending) return null;
+
+  if (!session) {
+    return (
+      <Button
+        asChild
+        size="sm"
+        className="rounded-none font-sans text-xs tracking-[0.18em] uppercase"
+      >
+        <Link href="/sign-in">Sign in</Link>
+      </Button>
+    );
+  }
+
+  const handleSignOut = async () => {
+    await authClient.signOut();
+    // Sign-out deletes the session row and clears the cookie; `refresh()` re-runs
+    // the Server Components so anything server-gated re-renders signed out,
+    // rather than showing stale content until the next navigation.
+    router.refresh();
+  };
+
+  return (
+    <UserButton
+      user={{
+        name: session.user.name,
+        email: session.user.email,
+        imageUrl: session.user.image,
+      }}
+      onSignOut={() => void handleSignOut()}
+    />
   );
 }

@@ -1,10 +1,8 @@
 import './styles.css';
 
 import type { Metadata, Viewport } from 'next';
-import { ClerkProvider } from '@clerk/nextjs';
-import { auth } from '@clerk/nextjs/server';
+import { headers } from 'next/headers';
 
-import { clerkWiringEnv } from '@acme/auth/env';
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
 import {
   env as billingEnvValues,
@@ -19,14 +17,11 @@ import { NotificationsProvider } from '@acme/notifications';
 // Toast container is rendered client-side to safely access localStorage
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
+import { BetterAuthStatusProvider } from '../components/pages/layout/better-auth-status';
 import { EditorialShell } from '../components/pages/layout/editorial-shell';
 import { PersistedFeatureProviders } from '../components/pages/layout/persisted-feature-providers';
 import { env } from '../env';
-
-// Clerk's browser-safe wiring comes from the owning slice's env, not the app's
-// composed `env`: t3-env's access guard is name-based, so an unprefixed key is
-// only readable through the call that declares it `shared` (ADR 0033 §6).
-const clerk = clerkWiringEnv();
+import { auth } from '../server/auth';
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -49,17 +44,21 @@ export const viewport: Viewport = {
 export default async function RootLayout(props: { children: React.ReactNode }) {
   // Server-resolved so the chat/feedback persisters have their scope on the first
   // render (see PersistedFeatureProviders). Signed out ⇒ undefined ⇒ network-only.
-  const { userId } = await auth();
+  // This is a real database read of the session row, so it is also what seeds the
+  // client seam below — the browser client would otherwise report "loading" on
+  // the first paint even for a signed-in visitor.
+  const session = await auth.api.getSession({ headers: await headers() });
+  const userId = session?.user.id ?? null;
 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
-        <ClerkProvider
-          publishableKey={clerk.CLERK_PUBLISHABLE_KEY}
-          signInUrl={clerk.CLERK_SIGN_IN_URL}
-          signUpUrl={clerk.CLERK_SIGN_UP_URL}
-          signInForceRedirectUrl={clerk.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
-          signUpForceRedirectUrl={clerk.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
+        <BetterAuthStatusProvider
+          initialStatus={{
+            userId,
+            isSignedIn: Boolean(session),
+            isLoaded: true,
+          }}
         >
           <NextThemeProvider
             attribute="class"
@@ -87,7 +86,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
               </BillingTRPCReactProvider>
             </BillingConfigProvider>
           </NextThemeProvider>
-        </ClerkProvider>
+        </BetterAuthStatusProvider>
       </body>
     </html>
   );
