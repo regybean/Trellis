@@ -54,9 +54,8 @@ export default [
       ],
     },
   },
-  // No `allowClerk` any more: this app owns its auth boundary through
-  // `@acme/auth`'s Better Auth instance (ADR 0034), so it imports no
-  // framework-specific Clerk server SDK and needs no exception to the ban.
-  // Mastra stays banned.
-  ...containmentOverride(),
+  // The app owns auth *resolution* (ADR 0003) — `createAuthClient`, the mounted
+  // handler, the guards — so it is one of the two blessed homes for a
+  // `better-auth` import. Mastra stays banned.
+  ...containmentOverride({ allowBetterAuth: true }),
 ];

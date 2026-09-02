@@ -64,9 +64,18 @@ export function ConsoleShell({
   // QueryClients and their IndexedDB persisters, which are keyed on the departing
   // user's id at mount (see PersistedFeatureProviders). `signOut` deletes the
   // `session` row and clears the cookie, so the reload lands signed out.
+  //
+  // The reload is in a `finally` because it has to happen either way. If
+  // `signOut` rejects — offline, or the row is already gone — skipping it would
+  // leave the browser sitting in a UI that still says "signed in", with stale
+  // per-user caches mounted, which is the worse of the two failures. Reloading
+  // re-resolves the session on the server and renders whatever is actually true.
   const signOut = async () => {
-    await authClient.signOut();
-    await navigate({ to: '/', reloadDocument: true });
+    try {
+      await authClient.signOut();
+    } finally {
+      await navigate({ to: '/', reloadDocument: true });
+    }
   };
 
   return (

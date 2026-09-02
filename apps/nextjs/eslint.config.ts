@@ -1,4 +1,8 @@
-import { baseConfig, restrictEnvAccess } from '@acme/eslint-config/base';
+import {
+  baseConfig,
+  containmentOverride,
+  restrictEnvAccess,
+} from '@acme/eslint-config/base';
 import { nextjsConfig } from '@acme/eslint-config/nextjs';
 import { reactConfig } from '@acme/eslint-config/react';
 import { securityConfig } from '@acme/eslint-config/security';
@@ -23,4 +27,8 @@ export default [
       'turbo/no-undeclared-env-vars': 'off',
     },
   },
+  // The app owns auth *resolution* (ADR 0003) — `createAuthClient`, the mounted
+  // handler, the middleware cookie check — so it is one of the two blessed homes
+  // for a `better-auth` import. Mastra stays banned.
+  ...containmentOverride({ allowBetterAuth: true }),
 ];

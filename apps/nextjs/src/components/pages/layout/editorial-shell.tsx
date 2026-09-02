@@ -134,11 +134,18 @@ function AuthControls() {
   }
 
   const handleSignOut = async () => {
-    await authClient.signOut();
     // Sign-out deletes the session row and clears the cookie; `refresh()` re-runs
     // the Server Components so anything server-gated re-renders signed out,
     // rather than showing stale content until the next navigation.
-    router.refresh();
+    //
+    // `finally`, because the refresh has to happen either way: if `signOut`
+    // rejects, leaving a signed-in-looking UI in place is the worse failure, and
+    // re-running the server render shows whatever is actually true.
+    try {
+      await authClient.signOut();
+    } finally {
+      router.refresh();
+    }
   };
 
   return (

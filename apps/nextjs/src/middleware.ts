@@ -6,9 +6,11 @@ import { getSessionCookie } from 'better-auth/cookies';
  * Routes a signed-out visitor may reach. Everything else bounces to `/sign-in`.
  *
  * Kept as the same list Clerk's `createRouteMatcher` held, minus the Clerk-only
- * `/api/trpc/clerk` mount, plus `/api/auth` — Better Auth's own endpoints are
- * self-gating and must stay reachable while signed out, or signing in would
- * require being signed in.
+ * `/api/trpc/clerk` mount and `/api/trpc/reviews.featured` — there is no
+ * `reviews` router in this repo, and carrying a public exception for a route
+ * that does not exist is a standing invitation to add one that does — plus
+ * `/api/auth`, because Better Auth's own endpoints are self-gating and must stay
+ * reachable while signed out, or signing in would require being signed in.
  */
 /** Public routes with no sub-paths. */
 const PUBLIC_EXACT = new Set([
@@ -16,7 +18,6 @@ const PUBLIC_EXACT = new Set([
   '/api/openapi',
   '/api/health',
   '/api/stripe',
-  '/api/trpc/reviews.featured',
   '/terms-of-service',
   '/privacy-policy',
 ]);
@@ -41,6 +42,13 @@ const isPublicRoute = (pathname: string) =>
   );
 
 /**
+ * The tRPC mounts. Not public — every procedure gates itself — but answered by
+ * tRPC rather than by a redirect. See the note on `middleware` below.
+ */
+const isTrpcRoute = (pathname: string) =>
+  pathname === '/api/trpc' || pathname.startsWith('/api/trpc/');
+
+/**
  * Optimistic sign-in gate.
  *
  * **This is a redirect, not an authorisation check.** `getSessionCookie` only
@@ -59,11 +67,24 @@ const isPublicRoute = (pathname: string) =>
  * matched here — the role is not in the cookie, so middleware could not decide
  * them without lying about it. `/docs` came out of the old admin list with it;
  * no such route exists.
+ *
+ * **tRPC is exempt, and that is a correctness fix, not a hole.** A redirect is
+ * an answer for a *document* request — Clerk's `auth.protect()` distinguished
+ * the two, and an unconditional `NextResponse.redirect()` does not. A signed-out
+ * `fetch` to `/api/trpc/*` would get a 307 to an HTML page, which the tRPC
+ * client cannot parse: the caller sees a JSON syntax error instead of the
+ * `UNAUTHORIZED` envelope its error handling is written against. Letting the
+ * request through costs nothing — `protectedProcedure` resolves the real session
+ * row and answers properly.
  */
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  if (isPublicRoute(pathname) || getSessionCookie(request)) {
+  if (
+    isPublicRoute(pathname) ||
+    isTrpcRoute(pathname) ||
+    getSessionCookie(request)
+  ) {
     return NextResponse.next();
   }
 
