@@ -7,6 +7,12 @@ import { chatAgent } from '../api/services/chat-agent';
 // Central Mastra instance registering the chat agent, knowledge-base vector
 // store and memory storage. Consumed by the root `mastra dev` / `mastra lint`
 // entrypoint for Studio; the runtime agent is used directly by the chat router.
+//
+// Runtime note: `@acme/rag` carries `import 'server-only'`, which throws outside
+// an RSC bundle — so the `studio` script runs `mastra dev` with
+// `--conditions=react-server` (via NODE_OPTIONS) to resolve it to its empty
+// stub, the same idiom each app's `dev:worker` uses for `@acme/chat/server`.
+// `mastra lint` only bundles this entry, so it needs no condition.
 export const mastra: Mastra = new Mastra({
   agents: { chat: chatAgent },
   vectors: { pgVector },
