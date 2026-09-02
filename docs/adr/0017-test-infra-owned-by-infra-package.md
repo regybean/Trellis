@@ -12,8 +12,8 @@ opposite of dev infra ([ADR 0009](0009-graph-derived-dev-infra.md)).
 ## Why not graph-derive it, like dev does
 
 ADR 0009 derives an app's dev infra from the union of `acme.infra` over its
-transitive closure — correct there, because a *running* app really touches
-everything its closure couples to. A *test suite* does not: it mocks stateful
+transitive closure — correct there, because a _running_ app really touches
+everything its closure couples to. A _test suite_ does not: it mocks stateful
 dependencies. `@acme/ingest` depends on `@acme/rag` (→ `postgres`) and `@acme/redis`
 (→ `redis`), so the closure says `{postgres, redis, localstack}` — yet the ingest
 suite mocks `@acme/rag/server` and S3 and needs **no** container at all.
@@ -21,7 +21,7 @@ suite mocks `@acme/rag/server` and S3 and needs **no** container at all.
 A suite's real-infra need is a function of its **mock boundary**, which lives in
 `setup.ts`, not in the dependency graph. So the graph over-includes for tests, and
 the env-prune rules of ADR 0009 are wrong here too (`staticTestEnv` sets
-`LLM_PROVIDER=ollama`, so the dev pruner would *keep* ollama, which tests always
+`LLM_PROVIDER=ollama`, so the dev pruner would _keep_ ollama, which tests always
 mock). Rather than invent a second derivation that guesses the mock boundary, the
 suite states its infra outright. The test-real vocabulary is tiny — in practice
 `postgres` and `redis` — so an explicit list is both clearer and honest.
@@ -41,8 +41,8 @@ redisContainer])`, wired via
   `@acme/test-utils` builds the container from it.
 - **`@acme/test-utils` owns only the mechanism.** `staticTestEnv`, env hydration,
   the `backendProject` preset, and the `runInfraSetup` engine. It no longer
-  encodes *which package needs what* (that's the suite's global-setup) or *how each
-  infra is built* (that's the owner's descriptor). This is what the package's own
+  encodes _which package needs what_ (that's the suite's global-setup) or _how each
+  infra is built_ (that's the owner's descriptor). This is what the package's own
   CONTEXT calls being "infra-only", finished.
 - **This resolves the layer boundary.** `@acme/test-utils` is `tooling` and cannot
   import `platform`; importing the descriptors in the suite's own global-setup
@@ -52,6 +52,12 @@ redisContainer])`, wired via
   `provides(...)` and publishes it as a single `infraEnv` record via
   `project.provide`; `hydrate-env` copies it into `process.env`. No per-key list
   to maintain.
+
+`localPort` has since left the descriptor contract: it named the host port to
+probe when a suite used the local compose stack instead of a container, and that
+path is gone — every suite now starts its own container on a random host port
+([ADR 0034](0034-backend-tests-always-self-provision.md)). A descriptor declares
+`containerPort` only.
 
 ## Status
 

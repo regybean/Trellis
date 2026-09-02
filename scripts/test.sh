@@ -1,31 +1,31 @@
 #!/usr/bin/env bash
-# Test entry wrapper. Reifies the "which infra" decision into `CI` *before*
-# `turbo run` computes its cache hash, so the two behavioural worlds
-# (primary checkout → compose; worktree/CI → testcontainers + skipValidation)
-# get distinct cache keys and can never replay across the boundary. See ADR 0019.
+# Test entry wrapper. Every root test script routes through here so the
+# concurrency cap below applies to every one-shot test run. See ADR 0034.
 #
-# A linked git worktree's `.git` is a file (gitlink); the primary checkout's is a
-# directory. In a worktree we force CI=true so tests self-provision isolated
-# testcontainers (no `pnpm infra:up`) and mirror CI on every axis. Real CI already
-# exports CI=true. pnpm runs root scripts from the repo root, so `.git` is relative.
+# `CI` is deliberately *not* set or read here: backend suites always
+# self-provision testcontainers, and ADR 0022's `VITEST` carve-out means `CI` no
+# longer changes env validation under vitest. So `CI` has no effect on test
+# results, is not in the test tasks' turbo hash, and local/worktree/CI runs share
+# one cache partition.
 set -euo pipefail
-
-if [ -f .git ]; then
-  export CI=true
-fi
 
 export NEXT_PUBLIC_WEBAPP="${NEXT_PUBLIC_WEBAPP:-nextjs}"
 
 task="${1:-test}"
 [ "$#" -gt 0 ] && shift
 
-# In CI/worktree, backend suites self-provision a Postgres (+Redis) testcontainer
-# each in their global-setup. Turbo's default fan-out (concurrency 10) would spin
-# up every feature's containers at once — enough Postgres instances to exhaust the
-# podman machine's memory/socket. Cap parallelism so containers come up in waves.
-# Local (compose-backed) runs share one Postgres and stay unbounded. Override the
-# cap with TEST_CONCURRENCY.
-if [ "${CI:-}" = "true" ]; then
-  exec turbo run "$task" --concurrency="${TEST_CONCURRENCY:-2}" "$@"
-fi
-exec turbo run "$task" "$@"
+# Watch tasks are `persistent: true` in turbo.json, and turbo refuses to start
+# more persistent tasks than its concurrency allows. They also start their
+# containers once and hold them, rather than in waves, so the cap buys nothing.
+# Run them uncapped.
+case "$task" in
+*:watch)
+  exec turbo run "$task" "$@"
+  ;;
+esac
+
+# Backend suites self-provision a Postgres (+Redis) testcontainer each in their
+# global-setup. Turbo's default fan-out (concurrency 10) would spin up every
+# feature's containers at once — enough Postgres instances to exhaust the podman
+# machine's memory/socket. Cap parallelism so containers come up in waves.
+exec turbo run "$task" --concurrency="${TEST_CONCURRENCY:-2}" "$@"

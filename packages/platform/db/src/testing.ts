@@ -27,12 +27,9 @@ export const postgresContainer: InfraDescriptor = {
   name: 'postgres',
   // Pinned to match the docker-compose `postgres` service (pgvector).
   image: 'pgvector/pgvector:pg17',
+  // Container-internal only. Testcontainers publishes it to a random host port,
+  // so a suite never contends with the dev stack's fixed port (see `development-profile.ts`).
   containerPort: 5432,
-  // Container-internal is always 5432; the *host* port compose publishes to is
-  // the authored profile value, which is not 5432 (see `env.ts`). Read from there
-  // rather than repeated as a literal — a local backend suite probes this port,
-  // so a drift between the two silently points tests at the wrong database.
-  localPort: DB_DEVELOPMENT_PROFILE.DB_PORT,
   containerEnv: {
     POSTGRES_USER: TEST_USER,
     POSTGRES_PASSWORD: TEST_SECRET,

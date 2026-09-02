@@ -86,8 +86,10 @@ Brings up, via Docker Compose, the **union of services every app needs**: **Post
 pnpm db:push             # Drizzle → Postgres + pgvector (confirm prompts)
 ```
 
-This pushes the four app schemas and the isolated `*_test` schemas backend suites
-use (so `pnpm test` / `pnpm quality-gate` find their tables locally).
+This pushes the four app schemas — the dev database only. Tests need nothing from
+it: every backend suite starts its own throwaway Postgres and pushes into it
+([ADR 0034](adr/0034-backend-tests-always-self-provision.md)), so `pnpm test`
+needs a running container runtime and no `pnpm infra:up` or `pnpm db:push`.
 
 If you exercise billing, also seed the dev products/plans:
 

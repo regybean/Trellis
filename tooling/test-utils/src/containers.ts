@@ -7,18 +7,23 @@
  * infra validates. This module holds no per-infra knowledge (no pinned image, no
  * credentials) — that lives with each owner. See docs/adr/0017.
  *
- * In CI a real container is started per descriptor; locally we assume a
- * docker-compose stack (`pnpm infra:up`) is already listening on the standard
- * port.
+ * A real container is started per descriptor on *every* run — primary checkout,
+ * worktree and CI alike. There is no compose path: testcontainers binds random
+ * host ports, so a suite never collides with, nor reads from, the dev stack. See
+ * docs/adr/0034.
  */
 
 /* eslint-disable no-restricted-syntax */
 
 import { spawn } from 'node:child_process';
-import { existsSync, statSync } from 'node:fs';
+import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { StartedTestContainer } from 'testcontainers';
-import { GenericContainer, Wait } from 'testcontainers';
+import {
+  GenericContainer,
+  getContainerRuntimeClient,
+  Wait,
+} from 'testcontainers';
 
 import type { InfraDescriptor } from './infra';
 
@@ -37,34 +42,36 @@ function findRepoRoot(start: string): string {
 }
 const REPO_ROOT = findRepoRoot(__dirname);
 
-/**
- * A linked git worktree's `.git` is a *file* (a `gitdir:` pointer); the primary
- * checkout's is a *directory*. This is the runtime counterpart to the `[ -f .git ]`
- * check in `scripts/test.sh`: it makes a direct per-package `vitest` run (which
- * bypasses the turbo wrapper, so `CI` is never injected) still self-provision
- * testcontainers in a worktree rather than colliding with the primary checkout's
- * shared compose stack. See ADR 0019. (Cache-safe: direct vitest bypasses turbo,
- * so there is no cache key to partition on this path.)
- */
-export function inLinkedWorktree(): boolean {
-  try {
-    return statSync(resolve(REPO_ROOT, '.git')).isFile();
-  } catch {
-    return false;
-  }
-}
-
 export interface StartedInfra {
   descriptor: InfraDescriptor;
-  /** Present only when a real testcontainer was started (CI path). */
-  container?: StartedTestContainer;
+  container: StartedTestContainer;
   /** Resolved `process.env` values this infra contributes for test workers. */
   env: Record<string, string>;
 }
 
 let startedInfra: StartedInfra[] = [];
 
-/** CI path: start a real container described by the descriptor. */
+/**
+ * Fail once, up front, when no container runtime is reachable.
+ *
+ * Without this, an unreachable runtime surfaces as one opaque connection error
+ * per descriptor per suite — nine-plus stack traces that name a socket rather
+ * than the fix. One probe before any container starts turns that into a single
+ * actionable message.
+ */
+async function assertContainerRuntime(): Promise<void> {
+  try {
+    await getContainerRuntimeClient();
+  } catch (cause) {
+    throw new Error(
+      'No container runtime is reachable, so backend tests cannot start their Postgres/Redis containers. ' +
+        'Start the podman machine (`podman machine start`), or point DOCKER_HOST at a running engine, then re-run.',
+      { cause },
+    );
+  }
+}
+
+/** Start a real container described by the descriptor. */
 async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
   let builder = new GenericContainer(descriptor.image).withExposedPorts(
     descriptor.containerPort,
@@ -97,40 +104,21 @@ async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
   return { descriptor, container, env };
 }
 
-/** Local path: resolve against a docker-compose service already listening. */
-function resolveLocal(descriptor: InfraDescriptor): StartedInfra {
-  return {
-    descriptor,
-    env: descriptor.provides(
-      'localhost',
-      descriptor.localPort ?? descriptor.containerPort,
-    ),
-  };
-}
-
-/**
- * Bring up the given infra and return the merged `process.env` contribution.
- * `useTestcontainers` picks the CI (real container) vs local (compose) path.
- */
+/** Bring up the given infra and return the merged `process.env` contribution. */
 export async function startInfra(
   descriptors: InfraDescriptor[],
-  { useTestcontainers }: { useTestcontainers: boolean },
 ): Promise<Record<string, string>> {
-  // A worktree run is always local — podman here. Its rootless machine can't
-  // bind-mount the docker socket that Ryuk (the testcontainers reaper) needs, so
-  // container startup dies with "operation not supported" mounting the podman
-  // socket. Disable Ryuk on that path; stopInfra() + the global teardown stop
-  // every container explicitly, so the reaper is only a crash-time safety net.
-  // Real CI (docker, `.git` is a dir → not a linked worktree) keeps Ryuk. Set
-  // in-process so it applies whether we arrived via turbo or a direct vitest run;
-  // an explicit outer value wins.
-  if (useTestcontainers && inLinkedWorktree()) {
-    process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
-  }
+  // Ryuk (the testcontainers reaper) is off by default on every run. A rootless
+  // podman machine — the macOS default — can't bind-mount the docker socket Ryuk
+  // needs, so startup dies with "operation not supported" and every backend run
+  // fails in global-setup. Cleanup doesn't depend on it: stopInfra() in the
+  // global teardown stops each container explicitly, and isolation comes from
+  // testcontainers' random host ports + generated names. An explicit outer value
+  // wins, so CI can opt back in.
+  process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
 
-  startedInfra = useTestcontainers
-    ? await Promise.all(descriptors.map(startOne))
-    : descriptors.map(resolveLocal);
+  await assertContainerRuntime();
+  startedInfra = await Promise.all(descriptors.map(startOne));
 
   const env: Record<string, string> = {};
   for (const started of startedInfra) {
@@ -139,11 +127,9 @@ export async function startInfra(
   return env;
 }
 
-/** Stop every real container started by `startInfra` (no-op for local). */
+/** Stop every container started by `startInfra`. */
 export async function stopInfra(): Promise<void> {
-  const running = startedInfra
-    .map((s) => s.container)
-    .filter((c): c is StartedTestContainer => c !== undefined);
+  const running = startedInfra.map((s) => s.container);
   await Promise.all(running.map((c) => c.stop()));
   startedInfra = [];
 }

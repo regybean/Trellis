@@ -29,11 +29,6 @@ export interface InfraDescriptor {
   image: string;
   /** Container-internal port to expose + map. */
   containerPort: number;
-  /**
-   * Port to probe when a local docker-compose stack is used instead (non-CI).
-   * Defaults to `containerPort` (the standard case — compose publishes it 1:1).
-   */
-  localPort?: number;
   /** Env vars set inside the container (e.g. Postgres credentials). */
   containerEnv?: Record<string, string>;
   /** Log line (a `RegExp` source string) signalling readiness. */
@@ -42,8 +37,8 @@ export interface InfraDescriptor {
   waitLogTimes?: number;
   bindMounts?: InfraBindMount[];
   /**
-   * Map the running (or local) container's host/port to the `process.env` keys
-   * this infra populates for test workers. A plain function — the per-suite
+   * Map the running container's host/port to the `process.env` keys this infra
+   * populates for test workers. A plain function — the per-suite
    * global-setup imports the descriptor as a live object, so no serialisation
    * is involved.
    */

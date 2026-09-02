@@ -19,7 +19,7 @@ Run `tidy` (auto-fix) first, then the gate **once**:
 
 ```bash
 pnpm tidy            # lint:fix + format:fix — mutates the tree
-pnpm quality-gate    # read-only verify: turbo(lint+format+typecheck+build+test)
+pnpm quality-gate    # read-only verify: build + turbo(lint+format+typecheck) + test
                      # + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 

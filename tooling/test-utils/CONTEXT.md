@@ -34,12 +34,21 @@ module — and therefore any `env.ts` — is imported_. This is what makes
 _Avoid_: "the env mock", "the env setup"
 
 **`runInfraSetup(descriptors)`** (`@acme/test-utils/setup`):
-Returns a Vitest `globalSetup` function that starts exactly the named infra
-(testcontainers in CI, an assumed compose stack locally), publishes the merged
-connection env as one `infraEnv` record, and tears the containers down. A suite
-calls it from a ~5-line per-suite `global-setup.ts` that imports its descriptors
-as live objects.
-_Avoid_: "the setup harness", "the container bootstrap"
+Returns a Vitest `globalSetup` function that starts exactly the named infra as
+throwaway testcontainers, publishes the merged connection env as one `infraEnv`
+record, and tears the containers down. A suite calls it from a ~5-line per-suite
+`global-setup.ts` that imports its descriptors as live objects. There is **one
+path** — a suite self-provisions on every run, everywhere (ADR 0034); the old
+"infra mode" / "local vs CI path" vocabulary is retired, and so are `localPort`,
+the port probe and `inLinkedWorktree()`.
+_Avoid_: "the setup harness", "the container bootstrap", "the testcontainers path"
+(there is no other), "test infra mode"
+
+**Compose stack**:
+The docker-compose services `pnpm infra:up` starts — **dev infra only**. Tests
+never reach it: testcontainers binds random host ports, so a suite can neither
+collide with nor read from it. Say "compose stack" about dev, never about tests.
+_Avoid_: using it as a test-infra term
 
 **`backendProject(...)`** (`@acme/test-utils/vitest`):
 The backend Vitest config preset. Folds the identical wiring — `staticTestEnv`
@@ -54,9 +63,10 @@ externals are all mocked and that touches no DB/Redis (e.g. `ingest`): env is
 still real, satisfied by `staticTestEnv` alone.
 
 **Infra descriptor** (`InfraDescriptor`, `@acme/test-utils/infra`):
-A plain object describing one test container — image, ports, container env, wait
-strategy, repo-relative bind mounts, and `provides(host, port)` (a function
-mapping the running container to the `process.env` keys this infra populates).
+A plain object describing one test container — image, `containerPort`, container
+env, wait strategy, repo-relative bind mounts, and `provides(host, port)` (a
+function mapping the running container to the `process.env` keys this infra
+populates).
 Owned by the infra package (`postgresContainer`, `redisContainer`) and consumed
 by the engine. A suite imports the descriptors it needs in its per-suite
 `global-setup.ts` and hands them to `runInfraSetup([...])` — as live objects, so

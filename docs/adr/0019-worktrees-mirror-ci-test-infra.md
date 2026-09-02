@@ -1,5 +1,11 @@
 # Test-infra mode follows `CI`; worktrees mirror CI; the Turbo cache is partitioned on `CI`
 
+> **Superseded by [ADR 0034](0034-backend-tests-always-self-provision.md).** The
+> compose path is gone — every backend suite self-provisions testcontainers on
+> every run, so there are no longer two behavioural worlds to partition. `CI` has
+> left the test tasks' hash, worktrees no longer force `CI=true`, and
+> `inLinkedWorktree()` is deleted. Kept for the reasoning that got us here.
+
 Backend tests branch on `process.env.CI` in two places — infra provisioning
 (`@acme/test-utils` global-setup: `CI` → throwaway testcontainers + fresh
 migrations; unset → probe an already-running compose stack, skip migrations) and
@@ -65,7 +71,7 @@ identical path.
 
 ## Status
 
-accepted
+superseded by [ADR 0034](0034-backend-tests-always-self-provision.md)
 
 ## Consequences
 

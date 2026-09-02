@@ -14,7 +14,7 @@ Either way the branch is `worktree-<feature-slug>`, based on clean `origin/HEAD`
 
 Either way a fresh worktree gets `pnpm install` → `postinstall`: deps installed,
 packages built, skill symlinks recreated, and the primary checkout's `.env`
-symlinked in ([ADR 0019](../adr/0019-worktrees-mirror-ci-test-infra.md)). So all
+symlinked in ([ADR 0022](../adr/0022-centralized-env-validation-policy.md)). So all
 tooling works with nothing to wire by hand — but the two paths trigger it
 differently:
 

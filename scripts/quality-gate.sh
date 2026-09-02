@@ -4,10 +4,17 @@
 # format:fix) before the gate, or let commit-time tidy (lefthook) handle format.
 #
 # Speed comes from two things (ADR 0020):
-#   1. The build-dependent, cacheable turbo tasks (lint, format, typecheck, test)
-#      run in ONE `turbo run … --continue` invocation, so turbo parallelizes them
-#      across packages AND task types, honours `^build`, and reuses its cache.
-#   2. The standalone read-only checks run as a parallel background group.
+#   1. The build-dependent, cacheable turbo tasks (lint, format, typecheck) run in
+#      ONE `turbo run … --continue` invocation, so turbo parallelizes them across
+#      packages AND task types, honours `^build`, and reuses its cache. `test` is
+#      the exception: it needs `scripts/test.sh`'s concurrency cap (ADR 0034),
+#      because every backend suite starts its own containers — and that cap must
+#      not throttle lint/format/typecheck. So it runs as its own stage, overlapping
+#      the batch. `build` — the `^build` prerequisite both of them share — is
+#      primed first, in the foreground: two concurrent `turbo run` invocations
+#      don't share task execution, so without the prime they each build the graph.
+#   2. The standalone read-only checks run as a parallel background group, started
+#      before the prime since none of them depend on `build`.
 # Because nothing mutates source, everything can overlap safely.
 #
 # Never fail-fast: every stage runs, each into its own log, concatenated in a
@@ -31,7 +38,7 @@ mkdir -p "$STAGE_DIR"
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
-order=(turbo check:exports boundaries lint:ws deps:lint test:policy gitleaks audit)
+order=(build turbo test check:exports boundaries lint:ws deps:lint test:policy gitleaks audit)
 
 # Dependency audit (ADR 0027). CI is the hard backstop; locally this stage
 # graceful-degrades on network failure (skip + warn, like gitleaks) so offline
@@ -53,19 +60,20 @@ run_audit() {
 # Launch a stage in the background: name + command. Output → per-stage log,
 # exit code → per-stage .rc file. No stage can abort another.
 launch() {
-  local name="$1"
-  shift
-  (
-    "$@" >"$STAGE_DIR/$name.log" 2>&1
-    echo $? >"$STAGE_DIR/$name.rc"
-  ) &
+  run_stage "$@" &
 }
 
-# The cacheable, build-dependent turbo tasks in ONE invocation so turbo builds a
-# single DAG and parallelises across packages and task types. --continue keeps
-# it running past a failed task. check:exports is verify-only, so it moves out of
-# the `lint` script (which prefixes it) and runs as its own parallel stage.
-launch turbo         pnpm turbo run lint format typecheck test --continue
+# Same, in the foreground — for a stage the later ones depend on.
+run_stage() {
+  local name="$1"
+  shift
+  "$@" >"$STAGE_DIR/$name.log" 2>&1
+  echo $? >"$STAGE_DIR/$name.rc"
+}
+
+# The standalone checks first — none of them depend on `build`, so they overlap
+# the prime below. check:exports is verify-only, so it moves out of the `lint`
+# script (which prefixes it) and runs as its own parallel stage.
 launch check:exports pnpm check:exports
 launch boundaries    pnpm boundaries
 launch lint:ws       pnpm lint:ws
@@ -73,6 +81,16 @@ launch deps:lint     pnpm deps:lint
 launch test:policy   pnpm test:policy
 launch gitleaks      pnpm gitleaks
 launch audit         run_audit
+
+# Prime the `^build` prerequisite once, in the foreground, so the two turbo-backed
+# stages below both hit the cache instead of racing to build the graph twice.
+run_stage build pnpm turbo run build
+
+# The cacheable, build-dependent turbo tasks in ONE invocation so turbo builds a
+# single DAG and parallelises across packages and task types. --continue keeps it
+# running past a failed task. `test` goes through its own wrapper for the cap.
+launch turbo pnpm turbo run lint format typecheck --continue
+launch test  pnpm test
 
 wait
 
@@ -104,12 +122,22 @@ for name in "${order[@]}"; do
 done
 
 # Turbo cache breakdown — the bulk of the work runs through turbo, which reports
-# "N cached, M total". The standalone stages aren't turbo-cached (they always
-# run). Parsed from the turbo stage log; skipped silently if absent.
-cache_line=$(grep -E 'cached,.*total' "$STAGE_DIR/turbo.log" 2>/dev/null | tail -1)
-if [ -n "$cache_line" ]; then
-  cached=$(echo "$cache_line" | grep -oE '[0-9]+ cached' | grep -oE '[0-9]+')
-  total=$(echo "$cache_line" | grep -oE '[0-9]+ total' | grep -oE '[0-9]+')
+# "N cached, M total". Summed across the three turbo-backed stages (the build
+# prime, the lint/format/typecheck batch and `test`); the standalone stages aren't
+# turbo-cached, they always run. Skipped silently if no log has the line.
+# Every capture is defaulted: an unparsed line must not turn `$(( ))` into a
+# syntax error and abort the summary after every stage has already run.
+cached=0
+total=0
+for name in build turbo test; do
+  cache_line=$(grep -E 'cached,.*total' "$STAGE_DIR/$name.log" 2>/dev/null | tail -1)
+  [ -n "$cache_line" ] || continue
+  n_cached=$(printf '%s' "$cache_line" | grep -oE '[0-9]+ cached' | grep -oE '^[0-9]+')
+  n_total=$(printf '%s' "$cache_line" | grep -oE '[0-9]+ total' | grep -oE '^[0-9]+')
+  cached=$((cached + ${n_cached:-0}))
+  total=$((total + ${n_total:-0}))
+done
+if [ "$total" -gt 0 ]; then
   printf '  cache:   %s/%s turbo tasks cached (%s ran)\n' \
     "$cached" "$total" "$((total - cached))"
 fi

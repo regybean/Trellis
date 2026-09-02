@@ -14,19 +14,18 @@ pnpm --filter @acme/chat test:backend:watch
 pnpm test                                # everything (turbo)
 ```
 
-Backend suites need Postgres + Redis. **On the primary checkout** they must
-already be running (`pnpm infra:up`) on the configured ports (5444 / 6379 —
-Postgres is deliberately off the default 5432 so a second project's database on
-this host can't shadow it); the
-global-setup checks the ports and fails loudly if they're down. **In CI**
-(`CI=true`) — **and in a git worktree**, which `scripts/test.sh` treats as CI —
-the same global-setup starts throwaway testcontainers and runs migrations, then
-tears them down; no `pnpm infra:up` needed. A worktree is forced onto the
-testcontainers path (rather than sharing the primary checkout's compose stack on
-the same host), and `CI` is part of the turbo cache hash for the test tasks so
-the two worlds never replay across the boundary — see
-[ADR 0019](adr/0019-worktrees-mirror-ci-test-infra.md). Infra-less suites (see
-`infra: false` below) need neither.
+Backend suites need Postgres + Redis, and they **always start their own**. The
+global-setup boots throwaway testcontainers, pushes the schema, and tears them
+down — identically everywhere: primary checkout, git worktree, CI. The only
+prerequisite is a reachable container runtime (`podman machine start`); if there
+isn't one, global-setup fails immediately with a message saying so.
+
+`pnpm infra:up` is **not** a test prerequisite — it's dev infra. Testcontainers
+binds random host ports, so a test run never touches the dev stack on 5444/6379
+and dev state can never affect a result. There is one behaviour and one turbo
+cache partition, so a local pass proves what a CI pass proves. See
+[ADR 0034](adr/0034-backend-tests-always-self-provision.md). Infra-less suites
+(see `infra: false` below) need no runtime at all.
 
 ## Test the contract, not the internals
 
@@ -154,7 +153,7 @@ Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
 | Dependency                | Approach                                                                                                                                                 |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `env.ts` (every package)  | **Real** — validated against `createEnv`, never mocked. Static values come from `staticTestEnv`; live DB/Redis details are hydrated from the containers. |
-| PostgreSQL / pgvector     | **Real** (testcontainers in CI, docker-compose locally).                                                                                                 |
+| PostgreSQL / pgvector     | **Real** — a throwaway testcontainer per suite, on every run.                                                                                            |
 | Redis                     | **Real** — same.                                                                                                                                         |
 | Clerk auth                | Stubbed via the test context (`@acme/trpc/testing`) — we don't test Clerk.                                                                               |
 | LLM / Bedrock, embeddings | Mocked — a true external. Behavioral fake (e.g. rag's fixed embed vector).                                                                               |
@@ -259,16 +258,15 @@ anywhere. Env is still real, satisfied by `staticTestEnv`.
 
 ## Provisioning app-owned tables (DDL)
 
-Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. On the
-testcontainer path, the global-setup provisions tables **once** by running
+Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. Every
+Postgres a suite starts is empty, so the global-setup provisions tables by running
 `drizzle-kit push --force` against the canonical full app (`apps/nextjs`) with
 `NEXT_PUBLIC_WEBAPP` set to the suite's isolated schema — the same declarative
 push dev uses (`pnpm db:push`), reading `schema.ts` directly (this repo has no
 migration SQL, so `migrate` provisions nothing). One push creates every
 push-managed table (the app re-exports each feature's schema) into that schema;
 suites add no provisioning of their own. `mastra_*` and pgvector tables are
-excluded by the push config's `tablesFilter` and created lazily at runtime. The
-local compose path skips this, assuming a dev `pnpm db:push` already ran. See
+excluded by the push config's `tablesFilter` and created lazily at runtime. See
 [ADR 0021](adr/0021-test-schema-provisioning-db-push.md).
 
 ## Mocking conventions
