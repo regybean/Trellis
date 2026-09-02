@@ -6,5 +6,4 @@ export const {
   createCallerFactory,
   protectedProcedure,
   adminProcedure,
-  rateLimit,
 } = createFeatureTRPC();

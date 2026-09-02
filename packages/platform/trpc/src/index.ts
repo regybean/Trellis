@@ -86,11 +86,6 @@ interface ContextOpts {
   entitlements: EntitlementsProvider;
 }
 
-export interface RateLimitOptions {
-  /** Number of credits to consume for this request */
-  credits?: number;
-}
-
 type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 
 /**
@@ -257,55 +252,6 @@ function buildCore() {
   const adminProcedure = publicProcedure.use(isAdmin);
 
   /**
-   * Token-bucket rate limiter. Reads `credits`/`tier` from the billing context
-   * and decrements the per-user, per-tier credit count in Redis.
-   */
-  const rateLimit = (opts: RateLimitOptions = {}) =>
-    t.middleware(async ({ next, ctx }) => {
-      const span = trace.getActiveSpan();
-      const creditsToConsume = opts.credits ?? 1;
-      const { session, credits, tier } = ctx;
-      const userId = session.user?.id ?? null;
-
-      span?.setAttributes({
-        'rateLimit.creditsToConsume': creditsToConsume,
-        'rateLimit.creditsRemaining': credits.remaining,
-        'rateLimit.tier': tier,
-        'rateLimit.userId': userId ?? 'none',
-      });
-
-      if (!userId) {
-        span?.addEvent('rateLimit.denied', {
-          reason: 'not_authenticated',
-        });
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'You must be logged in to access this resource.',
-        });
-      }
-
-      if (credits.remaining < creditsToConsume) {
-        span?.addEvent('rateLimit.exceeded', {
-          creditsToConsume,
-          creditsRemaining: credits.remaining,
-        });
-        throw new TRPCError({
-          code: 'TOO_MANY_REQUESTS',
-          message: 'You do not have enough credits to complete the request',
-        });
-      }
-
-      await ctx.entitlements.consume(userId, tier, creditsToConsume);
-
-      span?.addEvent('rateLimit.passed', {
-        creditsConsumed: creditsToConsume,
-        creditsAfter: credits.remaining - creditsToConsume,
-      });
-
-      return next();
-    });
-
-  /**
    * Hierarchical tier gate. Admits the request only if `ctx.tier` is at least
    * `minTier` in the tier ordering (`Basic < Standard < Pro`), so higher tiers
    * inherit lower-tier access. Reads the already-assembled billing context —
@@ -345,7 +291,6 @@ function buildCore() {
       publicProcedure,
       protectedProcedure,
       adminProcedure,
-      rateLimit,
       requireTier,
     },
   };
