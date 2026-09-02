@@ -12,6 +12,7 @@ import {
 // the client through the BillingConfigProvider seam so the client never proxies
 // billing mode through NODE_ENV.
 import { localstripeMode } from '@acme/billing/server';
+import { AppQueryClientProvider } from '@acme/hooks';
 import { NotificationsProvider } from '@acme/notifications';
 // Toast container is rendered client-side to safely access localStorage
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
@@ -63,18 +64,24 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
               config={toBillingClientConfig(billingEnvValues)}
               localstripeMode={localstripeMode}
             >
-              <BillingTRPCReactProvider>
-                <PersistedFeatureProviders scopeKey={userId ?? undefined}>
-                  <NotificationsProvider>
-                    <TooltipProvider>
-                      <EditorialShell>
-                        <ToastThemeClient />
-                        {props.children}
-                      </EditorialShell>
-                    </TooltipProvider>
-                  </NotificationsProvider>
-                </PersistedFeatureProviders>
-              </BillingTRPCReactProvider>
+              {/* The app's one QueryClient (ADR 0036). It sits above every
+                  feature provider because those render none of their own —
+                  their queries all live in this cache, namespaced by tRPC's
+                  keyPrefix. */}
+              <AppQueryClientProvider>
+                <BillingTRPCReactProvider>
+                  <PersistedFeatureProviders scopeKey={userId ?? undefined}>
+                    <NotificationsProvider>
+                      <TooltipProvider>
+                        <EditorialShell>
+                          <ToastThemeClient />
+                          {props.children}
+                        </EditorialShell>
+                      </TooltipProvider>
+                    </NotificationsProvider>
+                  </PersistedFeatureProviders>
+                </BillingTRPCReactProvider>
+              </AppQueryClientProvider>
             </BillingConfigProvider>
           </NextThemeProvider>
         </BetterAuthStatusProvider>

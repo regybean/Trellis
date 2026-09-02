@@ -22,6 +22,7 @@
     "@acme/db": "workspace:*",
     "@acme/entitlements": "workspace:*",
     "@acme/env": "workspace:*",
+    "@acme/hooks": "workspace:*",
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",

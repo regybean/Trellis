@@ -3,6 +3,7 @@ import './styles.css';
 import type { Metadata, Viewport } from 'next';
 
 import { ChatTRPCReactProvider } from '@acme/chat';
+import { AppQueryClientProvider } from '@acme/hooks';
 import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 // Toast container is rendered client-side to safely access localStorage
@@ -51,47 +52,51 @@ export default function RootLayout(props: { children: React.ReactNode }) {
               principal (ADR 0025). The load pain is data-load, not auth, so the
               instant-load win is identical to the full app; `buster` still
               discards on version change. */}
-          <ChatTRPCReactProvider scopeKey="anon">
-            <IngestTRPCReactProvider scopeKey="anon">
-              <NotificationsProvider>
-                <TooltipProvider>
-                  <SidebarProvider>
-                    <Sidebar />
-                    {/* `SidebarInset` alone is `min-w-0 flex-1` (a flex-row item —
-                      no height, not a column), so a `flex-1`/`h-full` page had no
-                      concrete height to resolve against and chat collapsed to
-                      content (#156). Make the inset a real full-height flex
-                      column — matching the `nextjs` `EditorialShell` root
-                      (`flex h-screen flex-col`); `svh` matches the provider's
-                      `min-h-svh`. Confined to the app-owned shell (ADR 0011). */}
-                    <SidebarInset className="flex h-svh flex-col overflow-hidden">
-                      {/* App-owned brutalist top bar: heavy ink underline, mono
-                        kicker, riso-pink issue stamp. Shell/chrome is
-                        app-owned (ADR 0011). */}
-                      <header className="bg-background border-border sticky top-0 z-30 flex items-center justify-between border-b-2 px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <SidebarTrigger className="border-border rounded-none border-2 shadow-[2px_2px_0_0_var(--border)]" />
-                          <span className="text-muted-foreground font-mono text-[10px] tracking-[0.28em] uppercase">
-                            Retrieval · Augmented · Generation
+          {/* The app's one QueryClient (ADR 0036) — the feature providers
+              below render none of their own. */}
+          <AppQueryClientProvider>
+            <ChatTRPCReactProvider scopeKey="anon">
+              <IngestTRPCReactProvider scopeKey="anon">
+                <NotificationsProvider>
+                  <TooltipProvider>
+                    <SidebarProvider>
+                      <Sidebar />
+                      {/* `SidebarInset` alone is `min-w-0 flex-1` (a flex-row item —
+                        no height, not a column), so a `flex-1`/`h-full` page had no
+                        concrete height to resolve against and chat collapsed to
+                        content (#156). Make the inset a real full-height flex
+                        column — matching the `nextjs` `EditorialShell` root
+                        (`flex h-screen flex-col`); `svh` matches the provider's
+                        `min-h-svh`. Confined to the app-owned shell (ADR 0011). */}
+                      <SidebarInset className="flex h-svh flex-col overflow-hidden">
+                        {/* App-owned brutalist top bar: heavy ink underline, mono
+                          kicker, riso-pink issue stamp. Shell/chrome is
+                          app-owned (ADR 0011). */}
+                        <header className="bg-background border-border sticky top-0 z-30 flex items-center justify-between border-b-2 px-4 py-3">
+                          <div className="flex items-center gap-3">
+                            <SidebarTrigger className="border-border rounded-none border-2 shadow-[2px_2px_0_0_var(--border)]" />
+                            <span className="text-muted-foreground font-mono text-[10px] tracking-[0.28em] uppercase">
+                              Retrieval · Augmented · Generation
+                            </span>
+                          </div>
+                          <span className="bg-primary text-primary-foreground hidden px-2 py-1 font-mono text-[10px] tracking-[0.22em] uppercase sm:inline-block">
+                            Slim Edition
                           </span>
-                        </div>
-                        <span className="bg-primary text-primary-foreground hidden px-2 py-1 font-mono text-[10px] tracking-[0.22em] uppercase sm:inline-block">
-                          Slim Edition
-                        </span>
-                      </header>
-                      {/* Height-bounded scroll region: chat's `h-full` fills it and
-                        scrolls internally; the documents page (`min-h-screen`)
-                        scrolls here instead of the (clipped) body. */}
-                      <main className="min-h-0 flex-1 overflow-y-auto">
-                        <ToastThemeClient />
-                        {props.children}
-                      </main>
-                    </SidebarInset>
-                  </SidebarProvider>
-                </TooltipProvider>
-              </NotificationsProvider>
-            </IngestTRPCReactProvider>
-          </ChatTRPCReactProvider>
+                        </header>
+                        {/* Height-bounded scroll region: chat's `h-full` fills it and
+                          scrolls internally; the documents page (`min-h-screen`)
+                          scrolls here instead of the (clipped) body. */}
+                        <main className="min-h-0 flex-1 overflow-y-auto">
+                          <ToastThemeClient />
+                          {props.children}
+                        </main>
+                      </SidebarInset>
+                    </SidebarProvider>
+                  </TooltipProvider>
+                </NotificationsProvider>
+              </IngestTRPCReactProvider>
+            </ChatTRPCReactProvider>
+          </AppQueryClientProvider>
         </NextThemeProvider>
       </body>
     </html>

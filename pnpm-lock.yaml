@@ -476,6 +476,9 @@ importers:
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -606,6 +609,9 @@ importers:
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest

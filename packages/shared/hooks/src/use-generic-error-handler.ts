@@ -1,3 +1,5 @@
+'use client';
+
 // packages/ui-shared/src/hooks/useGenericErrorHandler.ts
 import type { TRPCClientErrorLike } from '@trpc/client';
 import type { AnyRouter } from '@trpc/server';

@@ -108,6 +108,10 @@ Mastra owns their DDL at runtime — see
 
 - Each feature's `TRPCReactProvider` is mounted in `__root.tsx` and points to its
   `/api/trpc/{feature}` endpoint — same as `apps/nextjs`.
+- The app's **one** `QueryClient` is created in `src/router.tsx` and mounted by the
+  router's `Wrap`; the features render none of their own, so their queries now
+  reach `setupRouterSsrQueryIntegration` instead of being shadowed by a nested
+  client ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
 - Auth is resolved at the HTTP boundary by the session resolver and injected into
   `createTRPCContext`; features never resolve auth themselves
   ([ADR 0034](../../docs/adr/0034-better-auth-replaces-clerk.md),

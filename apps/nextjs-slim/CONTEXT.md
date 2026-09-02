@@ -48,6 +48,9 @@ for every feature mount.
 
 - Each feature's `TRPCReactProvider` wraps its page(s) and points to its
   `/api/trpc/{feature}` endpoint.
+- `AppQueryClientProvider` (root `layout.tsx`) mounts the app's **one**
+  `QueryClient`, above every feature provider — the features render none of their
+  own ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
 - No Clerk middleware, no `@acme/auth`, `@acme/billing`, or `@acme/subscriptions`.
 - `instrumentation.ts` initialises OpenTelemetry (`trellis-nextjs-slim`) at startup.
 - `db/schema.ts` exports only `appSchema` (no app-owned tables); `db:push` owns the
