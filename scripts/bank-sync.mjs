@@ -14,8 +14,20 @@
  * against a throwaway index file, so it is safe to run on a dirty branch. The
  * merge command is printed for the human to run.
  *
+ * `--check` writes nothing at all. It reports how far the pinned `ref` is behind
+ * the bank's default branch, which `include` paths moved in between, and which
+ * vendored paths this repo has modified since its last merge. The bank cannot
+ * see its consumers, so drift detection is consumer-side by construction — see
+ * docs/bank.md for the guide, and the exit codes below for gating CI on it.
+ *
  * Usage:
- *   node scripts/bank-sync.mjs   # or: pnpm bank:sync
+ *   node scripts/bank-sync.mjs             # or: pnpm bank:sync
+ *   node scripts/bank-sync.mjs --check     # or: pnpm bank:sync --check
+ *
+ * Exit codes (`--check`):
+ *   0  up to date — nothing unpulled
+ *   1  error — bad manifest, unreachable bank, unresolvable ref
+ *   2  behind — the bank has commits this repo has not taken
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync } from "node:fs";
@@ -28,6 +40,11 @@ const VENDOR_REF = `refs/heads/${VENDOR_BRANCH}`;
 /** Namespace the all-refs fallback fetch lands in, so it shadows nothing local. */
 const FETCH_NS = "refs/bank-sync";
 
+/** `--check` outcomes. Documented in docs/bank.md, so any CI can gate on them. */
+const EXIT_UP_TO_DATE = 0;
+const EXIT_ERROR = 1;
+const EXIT_BEHIND = 2;
+
 /**
  * Abort with a message on stderr. Nothing is written before the final
  * `update-ref`, so failing here always leaves the vendor branch as it was.
@@ -37,7 +54,7 @@ const FETCH_NS = "refs/bank-sync";
  */
 function fail(message) {
   console.error(`bank:sync: ${message}`);
-  process.exit(1);
+  process.exit(EXIT_ERROR);
 }
 
 /**
@@ -202,6 +219,27 @@ function fetchBank(upstream, ref) {
 }
 
 /**
+ * The bank's canonical branch. ADR 0037 makes that whatever `HEAD` points at
+ * upstream rather than a name hardcoded here. `HEAD` is itself a fetchable ref,
+ * so it is a safe fallback when the server sends no symref.
+ *
+ * @param {string} upstream
+ * @returns {string}
+ */
+function defaultBranch(upstream) {
+  const symref = gitOrNull(["ls-remote", "--symref", upstream, "HEAD"]);
+  const match = symref?.match(/^ref: refs\/heads\/(\S+)\s+HEAD$/m);
+  return match ? match[1] : "HEAD";
+}
+
+/**
+ * @param {string} path
+ * @param {string} prefix
+ */
+const under = (path, prefix) =>
+  path === prefix || path.startsWith(`${prefix}/`);
+
+/**
  * Build a tree holding exactly the `include` paths of `sha`.
  *
  * `ls-tree` gives one line per file (`<mode> <type> <sha>\t<path>`); the kept
@@ -212,12 +250,11 @@ function fetchBank(upstream, ref) {
  * @param {string} root
  * @param {string} sha
  * @param {string[]} include
+ * @param {{ quiet?: boolean }} [options] `--check` builds a tree only to compare
+ *   it, so it suppresses the unmatched-prefix warnings a sync should print.
  * @returns {string}
  */
-function buildFilteredTree(root, sha, include) {
-  const under = (/** @type {string} */ path, /** @type {string} */ entry) =>
-    path === entry || path.startsWith(`${entry}/`);
-
+function buildFilteredTree(root, sha, include, options = {}) {
   const entries = git(["ls-tree", "-r", "-z", sha], {
     cwd: root,
     maxBuffer: 256 * 1024 * 1024,
@@ -236,11 +273,12 @@ function buildFilteredTree(root, sha, include) {
       `nothing at ${sha.slice(0, 8)} matches "include" — the vendor branch would be empty`,
     );
 
-  for (const prefix of include)
-    if (!entries.some((entry) => under(entry.path, prefix)))
-      console.warn(
-        `bank:sync: warning — "include" entry ${prefix} matched nothing upstream`,
-      );
+  if (!options.quiet)
+    for (const prefix of include)
+      if (!entries.some((entry) => under(entry.path, prefix)))
+        console.warn(
+          `bank:sync: warning — "include" entry ${prefix} matched nothing upstream`,
+        );
 
   const indexDir = mkdtempSync(join(tmpdir(), "bank-sync-"));
   try {
@@ -258,12 +296,157 @@ function buildFilteredTree(root, sha, include) {
   }
 }
 
-function main() {
-  const root = gitOrNull(["rev-parse", "--show-toplevel"]);
-  if (!root) return fail("not inside a git repository");
-  process.chdir(root);
+/**
+ * NUL-separated `git diff` output, restricted to the subscribed paths.
+ *
+ * @param {string[]} args `git diff` arguments naming the two sides.
+ * @param {string[]} include
+ * @returns {string[]}
+ */
+function diffFields(args, include) {
+  return git(["diff", "-z", ...args, "--", ...include], {
+    maxBuffer: 64 * 1024 * 1024,
+  })
+    .split("\0")
+    .filter(Boolean);
+}
 
-  const manifest = readManifest(root);
+/**
+ * Roll changed files up to the `include` entries that own them. The question is
+ * which subscribed paths moved, and a package-level answer stays readable where
+ * nine months of file names does not.
+ *
+ * @param {string[]} files
+ * @param {string[]} include
+ * @returns {{ prefix: string, files: number }[]}
+ */
+function byIncludePath(files, include) {
+  return include
+    .map((prefix) => ({
+      prefix,
+      files: files.filter((file) => under(file, prefix)).length,
+    }))
+    .filter((entry) => entry.files > 0);
+}
+
+/**
+ * What this repo has changed in vendored paths since its last merge.
+ *
+ * The baseline is the merge base of `HEAD` and the vendor branch — the last
+ * vendor commit actually merged in. Diffing against the vendor branch tip
+ * instead would report every unmerged upstream change as a local modification.
+ *
+ * @param {string} vendor
+ * @param {string[]} include
+ * @returns {{ merged: false } | { merged: true, entries: { status: string, path: string }[] }}
+ */
+function localModifications(vendor, include) {
+  const base = gitOrNull(["merge-base", "HEAD", vendor]);
+  if (!base) return { merged: false };
+
+  // `--name-status -z` emits status and path as separate NUL-terminated fields.
+  const fields = diffFields(["--name-status", base, "HEAD"], include);
+  /** @type {{ status: string, path: string }[]} */
+  const entries = [];
+  for (let i = 0; i + 1 < fields.length; i += 2)
+    entries.push({ status: fields[i], path: fields[i + 1] });
+  return { merged: true, entries };
+}
+
+/**
+ * Report drift and exit. Writes nothing: it fetches into the object store and
+ * reads refs, and never touches `vendor/trellis`, the index or the working
+ * tree.
+ *
+ * @param {string} root
+ * @param {Manifest} manifest
+ * @returns {never}
+ */
+function runCheck(root, manifest) {
+  const pinned = fetchBank(manifest.upstream, manifest.ref);
+  const headRef = defaultBranch(manifest.upstream);
+  const head = fetchBank(manifest.upstream, headRef);
+
+  const behind = Number(git(["rev-list", "--count", `${pinned}..${head}`]));
+  const moved = behind
+    ? byIncludePath(
+        diffFields(["--name-only", pinned, head], manifest.include),
+        manifest.include,
+      )
+    : [];
+
+  const vendor = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
+  const vendorTree = vendor && gitOrNull(["rev-parse", `${vendor}^{tree}`]);
+  const unsynced =
+    vendorTree !==
+    buildFilteredTree(root, pinned, manifest.include, { quiet: true });
+  const local = vendor
+    ? localModifications(vendor, manifest.include)
+    : undefined;
+
+  const lines = [
+    `bank:     ${manifest.upstream}`,
+    `pinned:   ${manifest.ref} (${pinned.slice(0, 8)})`,
+    `bank tip: ${headRef} (${head.slice(0, 8)})`,
+    "",
+  ];
+
+  if (behind)
+    lines.push(
+      `Behind by ${behind} bank commit${behind === 1 ? "" : "s"}. "include" paths that changed in them:`,
+      ...moved.map(
+        (entry) =>
+          `  ${entry.prefix} (${entry.files} file${entry.files === 1 ? "" : "s"})`,
+      ),
+      "",
+      `To take them: point "ref" in ${MANIFEST} at the newest bank tag, then run pnpm bank:sync.`,
+      "",
+    );
+
+  if (unsynced)
+    lines.push(
+      vendor
+        ? `${VENDOR_BRANCH} does not hold the pinned ref — run pnpm bank:sync to rebuild it.`
+        : `${VENDOR_BRANCH} does not exist — this repo has never synced. Run pnpm bank:sync.`,
+      "",
+    );
+
+  if (local && !local.merged)
+    lines.push(
+      `${VENDOR_BRANCH} has never been merged, so local modifications cannot be reported yet.`,
+      "",
+    );
+
+  if (local?.merged && local.entries.length)
+    lines.push(
+      "Locally modified vendored paths:",
+      ...local.entries.map((entry) => `  ${entry.status}  ${entry.path}`),
+      "",
+      "Review these and consider contributing them back to the bank — anything generic",
+      "here is a fix every other consumer is currently missing.",
+      "",
+    );
+
+  const clean =
+    !behind && !unsynced && (!local || (local.merged && !local.entries.length));
+
+  if (clean)
+    console.log(
+      `Up to date with ${manifest.ref} (${pinned.slice(0, 8)}) — nothing unpulled, no locally modified vendored paths.`,
+    );
+  else console.log(lines.join("\n").trimEnd());
+
+  process.exit(behind || unsynced ? EXIT_BEHIND : EXIT_UP_TO_DATE);
+}
+
+/**
+ * Rewrite `vendor/trellis` to the filtered bank subset, then print the merge
+ * command for the human to run.
+ *
+ * @param {string} root
+ * @param {Manifest} manifest
+ */
+function runSync(root, manifest) {
   const bankSha = fetchBank(manifest.upstream, manifest.ref);
   const tree = buildFilteredTree(root, bankSha, manifest.include);
 
@@ -304,6 +487,23 @@ function main() {
       "",
     ].join("\n"),
   );
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const unknown = args.filter((arg) => arg !== "--check");
+  if (unknown.length)
+    return fail(
+      `unknown argument${unknown.length === 1 ? "" : "s"} ${unknown.join(" ")} — usage: bank:sync [--check]`,
+    );
+
+  const root = gitOrNull(["rev-parse", "--show-toplevel"]);
+  if (!root) return fail("not inside a git repository");
+  process.chdir(root);
+
+  const manifest = readManifest(root);
+  if (args.includes("--check")) runCheck(root, manifest);
+  else runSync(root, manifest);
 }
 
 main();
