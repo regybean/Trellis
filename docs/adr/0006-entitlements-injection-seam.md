@@ -234,7 +234,7 @@ type-level residue. It was still enough to force the coupling on every consumer.
   `@acme/feedback` and `@acme/ingest` declare nothing and name no billing type
   anywhere.
 - **`@acme/entitlements` leaves `@acme/trpc`'s dependencies**, and no file under
-  its `src/` imports it. That dependency edge is the one AIA deleted by hand; this
+  its `src/` imports it. That dependency edge is the one this change deleted by hand; this
   removes the reason it existed.
 - **The mock provider moves to `@acme/entitlements/testing`**, beside the contract
   it implements — the only package that can name the tier vocabulary without
