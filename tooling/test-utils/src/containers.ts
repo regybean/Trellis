@@ -16,7 +16,7 @@
 /* eslint-disable no-restricted-syntax */
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import type { StartedTestContainer } from 'testcontainers';
 import {
@@ -134,19 +134,52 @@ export async function stopInfra(): Promise<void> {
   startedInfra = [];
 }
 
-/** The full app whose aggregated Drizzle schema owns every push-managed table. */
-const CANONICAL_APP = 'nextjs';
+/**
+ * Directory of the app whose aggregated Drizzle schema owns every push-managed
+ * table.
+ *
+ * Discovered rather than named. This package is bank content (#254), so a
+ * hardcoded `apps/nextjs` makes backend tests unrunnable in any consumer whose
+ * app is called something else — `spawn` fails on a cwd that does not exist,
+ * and reports it as a missing `pnpm`. The marker is the push config itself:
+ * `drizzle.push.config.ts` is what the command below reads, so an app that has
+ * one can serve the push. `nextjs` still wins when present, which keeps
+ * Trellis's own behaviour byte-identical.
+ */
+function findPushApp(): string {
+  const apps = resolve(REPO_ROOT, 'apps');
+  const hasConfig = (name: string) =>
+    existsSync(resolve(apps, name, 'drizzle.push.config.ts'));
+
+  if (hasConfig('nextjs')) return resolve(apps, 'nextjs');
+
+  const candidates = existsSync(apps)
+    ? readdirSync(apps, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && hasConfig(entry.name))
+        .map((entry) => entry.name)
+        .sort()
+    : [];
+
+  const [first] = candidates;
+  if (!first)
+    throw new Error(
+      'pushDatabaseSchemas: no app under apps/* has a drizzle.push.config.ts — ' +
+        'backend tests need one app aggregating the push-managed schemas.',
+    );
+  return resolve(apps, first);
+}
 
 /**
  * Provision app-owned tables into a fresh testcontainer Postgres via
  * `drizzle-kit push --force`.
  *
- * Push (not migrate): this repo is push-based — `apps/nextjs/migrations` holds no
+ * Push (not migrate): this repo is push-based — an app's `migrations/` holds no
  * SQL, so `drizzle-kit migrate` creates nothing. `push` reads `schema.ts`
  * directly and force-syncs it, exactly like `pnpm db:push` in dev. See ADR 0021.
  *
- * The canonical app (`nextjs`) aggregates every feature's push-managed schema, so
- * one push creates all of them. `targetSchema` is the suite's isolated Postgres
+ * The push app (`findPushApp`, `nextjs` here) aggregates every feature's
+ * push-managed schema, so one push creates all of them. `targetSchema` is the
+ * suite's isolated Postgres
  * schema (`NEXT_PUBLIC_WEBAPP`) — the app's `pgSchema(NEXT_PUBLIC_WEBAPP)` tables
  * (and `CREATE SCHEMA`) land there. Mastra/pgvector tables are created lazily at
  * runtime and are excluded by the config's `tablesFilter`, so push never touches
@@ -177,7 +210,7 @@ export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
       ],
       {
         stdio: 'inherit',
-        cwd: resolve(REPO_ROOT, 'apps', CANONICAL_APP),
+        cwd: findPushApp(),
         env: { ...process.env, NEXT_PUBLIC_WEBAPP: targetSchema },
       },
     );
