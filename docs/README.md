@@ -78,3 +78,5 @@ System-wide decisions live in [`adr/`](adr/). Per-package ADRs live under each p
 | [0034 (tests)](adr/0034-backend-tests-always-self-provision.md)          | Backend tests always self-provision testcontainers; `CI` leaves the test cache hash.           |
 | [0035](adr/0035-auth-tables-in-a-dedicated-schema.md)                    | Auth tables live in a dedicated `auth` schema, outside the per-app one.                        |
 | [0036](adr/0036-one-app-owned-query-client.md)                           | One app-owned QueryClient; cache policy is declared per query, not per feature.                |
+| [0037](adr/0037-vendored-git-subset-three-way-merge.md)                  | Consumers take a vendored git subset and update it by three-way merge.                         |
+| [0038](adr/0038-acme-scope-is-a-distribution-constraint.md)              | The `@acme` scope is a distribution constraint, not placeholder naming.                        |
