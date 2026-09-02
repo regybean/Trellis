@@ -5,7 +5,7 @@ const UNLIMITED = Number.MAX_SAFE_INTEGER;
 
 /**
  * Entitlements for a deployment with no billing: every caller is the top tier
- * (`Pro`, so `requireTier` always admits) with effectively infinite credits and
+ * (`Pro`, so billing's tier gate always admits) with effectively infinite credits and
  * a no-op `consume` (nothing to decrement). Apps that drop `@acme/subscriptions`
  * — e.g. a single-user slim app — inject this. Pure: no Redis, no Stripe, no env.
  */

@@ -9,7 +9,7 @@ const TIER_RANK = new Map<SubscriptionTier, number>([
 /**
  * Tests the tier ordering `Basic < Standard < Pro`: `true` when `tier` is at
  * least `minTier`. The single source of truth for hierarchical tier-gating
- * (see `requireTier` in `@acme/trpc`); every `EntitlementsProvider` exposes it
+ * (see `requireTier` in `@acme/billing`); every `EntitlementsProvider` exposes it
  * as its `isTierAtLeast` method.
  */
 export function isTierAtLeast(

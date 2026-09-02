@@ -13,7 +13,7 @@ The named level of a Subscription — `Basic` | `Standard` | `Pro`. An ordered h
 _Avoid_: "level", "rank", "grade"
 
 **Credit**:
-A consumable unit that gates LLM requests. Each user has a credit balance per billing window. Consumed by the `rateLimit()` middleware. Replenishes at the start of each billing window.
+A consumable unit that gates LLM requests. Each user has a credit balance per billing window. Consumed inline by the procedure that spends it (`chat.send`), through `ctx.entitlements.consume`. Replenishes at the start of each billing window.
 _Avoid_: "token" (clashes with LLM vocabulary), "point", "quota unit"
 
 **Credit limit**:
@@ -40,7 +40,7 @@ The single signal for "are we talking to localstripe rather than real Stripe?". 
 - A **Subscription** is associated with a Stripe customer (looked up via `stripe:user:{userId}` Redis key)
 - **Tier** is derived from the Subscription's Stripe product ID
 - **Credit** balance is stored in Redis at `credits:{userId}:{tier}`, expiring at the end of the **Billing window**
-- Tier access is enforced by `requireTier(minTier)` (from `@acme/trpc`), composed onto `protectedProcedure` per procedure. `requireTier('Standard')` admits Standard or Pro (i.e. any paying customer); `requireTier('Pro')` admits Pro only
+- Tier access is enforced by `requireTier(minTier)`, this slice's own procedure builder (`src/api/trpc.ts`) on top of its `protectedProcedure`. `requireTier('Standard')` admits Standard or Pro (i.e. any paying customer); `requireTier('Pro')` admits Pro only
 - Admin procedures (`resetUserRateLimit`, `maxOutUserRateLimit`, `overrideUserRateLimitExpiry`) directly manipulate the Redis credit key
 - `setUserTier` (admin, localstripe dev only) cancels/creates a Stripe subscription directly to move a user between Tiers without Checkout
 
@@ -54,4 +54,4 @@ The single signal for "are we talking to localstripe rather than real Stripe?". 
 
 **Local dev runs on localstripe, not real Stripe**: In `localstripe` mode `getStripe()` retargets the SDK at a fake stateful Stripe server (the development profile's `STRIPE_CONNECTION`). That connection is projected once into the **localstripe mode** boolean (`stripe.mode === 'localstripe'`), the single value the rest of the slice reads. localstripe predates the Prices API, so it serves the legacy `plan` shape — `buildSubscriptionCache` reads `price ?? plan` (a shape-tolerant fallback, not mode-gated) and `syncStripeDataToKV` skips the unsupported expands in localstripe mode. The `setUserTier` dev grant is guarded on the same mode. Tiers are granted from the admin page (`setUserTier`) rather than Checkout, and the pricing CTA reads the provider-threaded mode to disable Checkout there. See [`docs/adr/0003-localstripe-dev-billing.md`](../../../docs/adr/0003-localstripe-dev-billing.md).
 
-**Tier-gating is hierarchical and decision-only**: Gates compare against a _minimum_ tier (`requireTier`), so higher tiers inherit lower-tier access. The gate reads the already-assembled Billing context and performs no Redis or Stripe I/O. The previous dev-only inline Stripe re-sync was removed from the gate: it ran _after_ the subscription was read into context, so it never affected the current request's decision (only the next one) while paying a Stripe round-trip on every gated request. Keeping the local `stripe:customer:*` cache fresh in dev is a separate concern (Stripe webhooks / manual sync), not the gate's job.
+**Tier-gating is hierarchical, and it lives here** (#250): Gates compare against a _minimum_ tier (`requireTier`), so higher tiers inherit lower-tier access. The gate used to be `@acme/trpc`'s, which meant `@acme/feedback` and `@acme/ingest` — neither of which has a tier — shipped a tier gate. Its only call sites were this slice's, so it moved to this slice. It resolves entitlements itself (one `ctx.entitlements.resolve`, no Stripe I/O) and injects the result, so the procedure it admits reads the same resolution the gate decided on. The previous dev-only inline Stripe re-sync was removed from the gate: it ran _after_ the subscription was read, so it never affected the current request's decision (only the next one) while paying a Stripe round-trip on every gated request. Keeping the local `stripe:customer:*` cache fresh in dev is a separate concern (Stripe webhooks / manual sync), not the gate's job.

@@ -190,3 +190,47 @@ What changed behaviourally: the role is a **column**, not a JWT claim, so a role
 change takes effect on the next request rather than on token refresh — sessions
 are database rows and the cookie cache is off
 ([ADR 0034](0034-self-hosted-better-auth.md)).
+
+## Amendment 3 — the principal is a concrete type (#250)
+
+Amendment 1 got the seam right and the mechanism wrong. `InjectedSession` is
+still the whole of what the platform consumes, `ctx.session` is still where the
+app injects it, and the base still lives in `@acme/trpc`'s `src/index.ts`. What
+goes is the `declare global` around it.
+
+The augmentation existed to carry one field: `primaryEmailAddress:
+{ emailAddress: string } | null`, which `@acme/billing` reads to open a Stripe
+customer. That is Clerk's nested API shape. Under Better Auth the email is
+`user.email: string`, so `toPrincipal` took a flat string and wrapped it back
+into the dead vendor's object and billing's account router unwrapped it again,
+between two packages we own.
+
+The layering constraint that motivated an augmentable global is real:
+`@acme/trpc` is platform and cannot import `@acme/auth` (shared). But it only
+bites for a type platform cannot _name_. Platform can name `email: string`
+perfectly well. It could never name Clerk's `User`, which is why the mechanism
+arrived. That reason is gone.
+
+- **`InjectedUser` is exported from `@acme/trpc` and imported like any other
+  type**: `{ id: string; role?: Roles; email?: string }`. `email` is optional
+  because the slim apps inject `{ id: 'local', role: 'admin' }` and drop billing
+  entirely ([ADR 0010](0010-slim-no-auth-apps.md)).
+- **Both augmentation files are deleted**, `@acme/billing`'s `src/global.d.ts`
+  and `@acme/auth`'s `src/types/globals.d.ts`, along with the comments in three
+  files warning that they had to be kept in agreement by hand, and the `| null`
+  branch billing defended against that Better Auth's unique-key email cannot
+  produce.
+- **Both full apps' tsconfigs stop reaching across the workspace by relative
+  path** to load the augmentation into their program.
+- **`@acme/auth`'s `.` entrypoint is gone with it.** It shipped the global and a
+  `Roles` re-export and nothing else, and nothing imported it. The package now
+  exports `./server`, `./schema` and `./env`, which is what it actually has.
+
+Why this is worth recording rather than treating as a tidy-up: amendment 1
+argued the base would never need restating because consumers _augment_ rather
+than redeclare. In practice features compile in isolation against `dist`, so an
+augmentation in a feature is not merging into the platform's base at all. It is a
+second declaration that only the app's program ever sees next to the first, and
+nothing checked that the two agreed. A concrete exported interface gets checked
+by the compiler at every import, which is what the original goal of "replacing
+the provider's session type cannot fan out" actually needed.

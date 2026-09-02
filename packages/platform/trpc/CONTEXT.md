@@ -1,8 +1,9 @@
 # Platform tRPC (`@acme/trpc`)
 
 The single source of the tRPC initialization and request-pipeline middleware that
-every feature reuses. It owns _how_ a request is authenticated, traced, timed and
-rate-limited — not _what_ any feature does with it.
+every feature reuses. It owns _how_ a request is authenticated, traced and timed
+— not _what_ any feature does with it. It gates on nothing billing-related; that
+moved to the feature that has tiers (ADR 0006 amendment, #250).
 
 ## Language
 
@@ -12,10 +13,10 @@ The per-feature tRPC instance (router, procedures, context) produced by one call
 _Avoid_: "the tRPC setup", "the router config"
 
 **Base context**:
-The request context every procedure receives — the app-injected `session`, the
-injected `entitlements` provider, and the billing context
-(`subscription`/`tier`/`credits`) resolved from it. There is no `telemetry` on the
-context: telemetry is ambient (ADR 0023).
+The request context every procedure receives — the app-injected `session` and the
+injected `entitlements` provider, passed through. Assembling it does no I/O.
+There is no `telemetry` on the context: telemetry is ambient (ADR 0023), and no
+resolved billing state either (#250).
 _Avoid_: "the request object", "the tRPC context object"
 
 **Entitlements provider**:
@@ -26,21 +27,24 @@ as `ctx.entitlements` — the billing seam. Required, with no implicit default
 substrate names no billing implementation — it depends only on the neutral contract.
 _Avoid_: "the billing service", "the subscription client"
 
-**Billing context**:
-The `subscription` / `tier` / `credits` triple, resolved once per request by calling
-`entitlements.resolve(ctx.session.user?.id ?? null)` on the injected
-**Entitlements provider** — never by importing a billing package into the
-substrate.
+**Entitlements resolution**:
+The `subscription` / `tier` / `credits` triple a procedure gets by calling
+`ctx.entitlements.resolve(userId)` on the injected **Entitlements provider** —
+never by importing a billing package into the substrate. Resolved by the
+procedures that read it (billing's tier gate and account router, chat's `send`
+and `reconcileTurn`), not by the substrate on every request: it costs 2-4 Redis
+round-trips, and most procedures never look at it.
+_Avoid_: "the billing context" — nothing assembles one up front.
 
 **Injected session**:
 The `InjectedSession` an app resolves at its edge and passes to
-`createTRPCContext` — `{ user: InjectedUser | null }`, where `InjectedUser` is the
-augmentable global whose base carries the only two fields the substrate reads,
-`id` and `role`. The base is declared in `src/index.ts`, so `tsc` emits it into
-`dist/index.d.ts` and every program that imports `@acme/trpc` inherits it —
-consumers _augment_ the interface, they never restate the base. No auth provider
-is named here; mapping a provider's session onto this shape is the app's job
-(ADR 0003).
+`createTRPCContext` — `{ user: InjectedUser | null }`. `InjectedUser` is a
+concrete exported interface, `{ id, role?, email? }`: the substrate reads `id`
+and `role`, and `email` is there because `@acme/billing` opens a Stripe customer
+against it (optional, since the slim apps inject a constant principal and drop
+billing — ADR 0010). It was an augmentable global until #250, which is worth
+knowing only because the field it carried named Clerk. No auth provider is named
+here; mapping a provider's session onto this shape is the app's job (ADR 0003).
 _Avoid_: "the auth object", "the provider session"
 
 **Protected procedure**:
@@ -50,16 +54,6 @@ and re-injects the narrowed session, so downstream `ctx.session.user` is non-nul
 **Admin procedure**:
 A procedure requiring `ctx.session.user.role === 'admin'` (`isAdmin`). An admin
 implies a principal, so this narrows `ctx.session.user` too.
-
-**Rate limit**:
-Token-bucket middleware (`rateLimit({ credits })`) that decrements a per-user,
-per-tier credit count in Redis.
-
-**Require tier**:
-Tier-gate middleware factory (`requireTier(minTier)`) that admits a request only if
-`ctx.tier` is at least `minTier` in the tier ordering. Reads from the already-assembled
-Billing context — no Redis or Stripe I/O. Composed onto a feature's `protectedProcedure`,
-exactly like `rateLimit`.
 
 **Context resolver**:
 The app-owned function that turns an HTTP `Request` into the neutral context input
@@ -83,24 +77,31 @@ policy; the trivial 204 `Response` is built at each app's `OPTIONS` seam.
 - `createFeatureTRPCWithDb` instruments the Drizzle client for OpenTelemetry and
   injects it as `ctx.db` (typed to the feature's schema `TDb`) via a middleware on
   every procedure
-- Every procedure receives the **Base context**, which always contains a **Billing context**
+- Every procedure receives the **Base context**
 - **Admin procedure** and **Protected procedure** build on the public procedure (telemetry + timing middleware)
 - The telemetry middleware creates and _activates_ the per-procedure span; the other
   middlewares emit their events through the active span read ambiently via
   `trace.getActiveSpan()`, not through `ctx` (ADR 0023)
-- **Rate limit** reads `credits`/`tier` from the **Billing context** and calls
-  `ctx.entitlements.consume` on the injected **Entitlements provider**
-- **Require tier** reads `tier` from the **Billing context** and delegates the ordering
-  comparison to `ctx.entitlements.isTierAtLeast` on the injected **Entitlements provider**
+- A procedure that meters or gates on billing performs its own **Entitlements
+  resolution** — `@acme/billing`'s `requireTier` and account router, `@acme/chat`'s
+  `send` and `reconcileTurn`. No middleware here does
 
 ## Design decisions
 
 **Billing is injected, not imported** (ADR 0006): `createTRPCContext` takes a required
-`entitlements` provider and resolves the billing context through it, rather than
-importing `@acme/subscriptions` (and its Stripe env) directly. This keeps the substrate
-— and therefore every feature that reuses it — free of a billing/Stripe dependency, so a
-no-billing app injects `unlimitedEntitlements` and drops Stripe from its graph. A missing
-provider is a type error, not a silent default (mirroring the auth seam).
+`entitlements` provider rather than importing `@acme/subscriptions` (and its Redis
+connections) directly. This keeps the substrate — and therefore every feature that
+reuses it — free of a billing dependency, so a no-billing app injects
+`unlimitedEntitlements` and gets unmetered chat rather than a Basic tier's 250
+credits against a Stripe account it does not have. A missing provider is a type
+error, not a silent default (mirroring the auth seam).
+
+**The substrate passes entitlements through and never reads them** (#250): it used
+to `await entitlements.resolve()` for every request, so a `feedback` mutation or a
+read-only chat query paid 2-4 Redis round-trips for state it never touched — and
+the one router that did read it re-resolved anyway. Selection is per deployment
+(the app picks the provider); resolution is per procedure (the four that spend,
+refund or report credits). Nothing in between needs to do either.
 
 **Telemetry is ambient** (ADR 0023): there is no `telemetry` on the context. The telemetry
 middleware is the sole span source — it creates and activates the per-procedure span, and
@@ -133,16 +134,16 @@ boundary if constructed in the platform package.
 live here — beside the `BaseContext` they must match — so every feature builds a caller
 from the real platform types, not the structural `as any` a tooling package below
 `platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
-The context is synchronous but its `subscription`/`tier`/`credits` are derived from the
-same mock `EntitlementsProvider.resolve` the real `createTRPCContext` would call, so a
-test context cannot drift from production. See [docs/TESTING.md](../../../docs/TESTING.md).
+The context carries exactly what production's carries — session + provider, nothing
+resolved — and the tier/credit knobs feed the mock provider a test's procedure
+resolves through, so a test context cannot drift from production. See
+[docs/TESTING.md](../../../docs/TESTING.md).
 
 **The feature supplies the principal, this package supplies everything else**:
 `createTestContext` takes `user: InjectedUser` whole rather than a `userId` +
-`role` it fakes a principal from. `InjectedUser` is an augmentable global, so
-only the _consuming_ program can build a complete one — a feature that adds a
-field (billing's primary email) is the only place that knows about it. Each
-feature's `tests/backend/utils/test-context.ts` wraps this builder and maps the
+`role` it fakes a principal from, because which fields matter is the feature's
+knowledge — billing's tests need an `email` for the Stripe customer lookup; the
+other three need identity and role. Each feature's
+`tests/backend/utils/test-context.ts` wraps this builder and maps the
 `FeatureTestContextOptions` its tests pass (`userId`, `role`, `tier`, `credits`)
-onto its own principal. That keeps this package free of any feature's knowledge,
-and free of the type widening it would otherwise take to invent the field here.
+onto its own principal.

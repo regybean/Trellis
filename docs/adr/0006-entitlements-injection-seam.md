@@ -15,6 +15,13 @@ demands `NEXT_PUBLIC_STRIPE_*_PLAN_ID` at import time. The coupling was visible
 in tests, which had to `vi.mock('@acme/subscriptions')` to construct a context
 at all.
 
+> **That env problem is fixed, and it is no longer why the seam exists.**
+> ADR 0033 moved the Stripe variables into `@acme/billing`'s env and made plan
+> ids an injected argument, so a direct import would no longer demand Stripe keys
+> of anyone. The seam still holds, for two different reasons. See the
+> [#250 amendment](#amendment-250--the-substrate-stops-reading-billing) before
+> concluding the decision has expired.
+
 Two decisions are load-bearing, mirroring the auth seam:
 
 1. **The platform depends on a neutral contract, not an implementation.** A new
@@ -137,3 +144,63 @@ is asserted only in `@acme/subscriptions` (a real-Redis service test that
 the control-plane contract it owns (the `refunded` result and the
 `chat:refunded:{turnId}` guard) and that the error→refund path crosses the
 injected provider.
+
+## Amendment (#250) — the substrate stops reading billing
+
+The seam holds and the injection point does not move: `createTRPCContext` still
+takes a required `entitlements` provider, and a deployment still chooses between
+`subscriptionsEntitlements` and `unlimitedEntitlements`. What changes is that
+`@acme/trpc` no longer _reads_ through it.
+
+- **`createTRPCContext` does no I/O.** It used to `await entitlements.resolve()`
+  before any procedure ran, so every tRPC call in both full apps paid 2-4 Redis
+  round-trips for a billing context most procedures never touched. That is every
+  `feedback` mutation, every `ingest` procedure, every read-only chat query. The
+  one router that did touch it re-resolved explicitly anyway. The context is now
+  `{ ...rest, session, entitlements }` and nothing more, and the four procedures
+  that spend, refund or report credits resolve where they read.
+- **`rateLimit` is deleted.** It was applied to zero procedures. Three features
+  re-exported it from their `api/trpc.ts` barrels and none called it. Chat meters
+  credits inline in `send`, which the #109 amendment above already records. The
+  middleware this ADR's original prose named as _the_ consume path had no
+  consumers left.
+- **`requireTier` moves to `@acme/billing`.** Its only call sites were billing's
+  two example procedures. `feedback` and `ingest` have no tiers, so the shared
+  substrate was shipping a tier gate to packages with nothing to gate. It is now
+  built on billing's own `protectedProcedure`, resolves entitlements itself, and
+  injects the result, so the procedure it admits reuses that resolution rather
+  than paying for a second one. The span attributes `subscription.status` and
+  `subscription.tier` moved with it.
+
+### Why the seam stays
+
+Not for the reason the opening gives. `@acme/subscriptions` today depends on
+`@acme/entitlements`, `@acme/env`, `@acme/logger`, `@acme/redis` and zod, with no
+Stripe SDK. Its `CREDIT_LIMITS` and `DEFAULT_LIMIT` both carry profile defaults,
+so a clean checkout needs no rows for it. Two live reasons remain, neither of
+them env:
+
+1. **Behaviour.** A slim app with a real provider would meter credits for real.
+   No Stripe subscription resolves to `{ status: 'none' }`, `getSubscriptionType`
+   maps that to `Basic`, and `Basic` is 250 credits a month. A single-user local
+   deployment would start refusing chat turns against a Stripe account that does
+   not exist. Metered or unlimited is a per-deployment decision, and the provider
+   is how a deployment makes it.
+2. **Connection cost.** `@acme/redis`'s client opens three connections at module
+   load. A direct import would hand `@acme/feedback` three Redis connections at
+   boot for code it never calls.
+
+### Selection is per deployment; resolution is per request
+
+The "considered and rejected" entry above turned down build-time provider
+injection on the grounds that billing is "app-swappable, not a feature-owned
+constant". That conflates two things. _Which_ provider a deployment uses **is** a
+constant per deployment. It is chosen once, at the app edge, exactly like `db`.
+What that provider _returns_ is per request. The rejection was right, because the
+provider still has to reach a per-request `ctx.entitlements` for procedures to
+resolve against. The reason given for it was wrong.
+
+Keeping the distinction straight is what makes this amendment coherent: the
+provider is injected once per request because that is where the request is, and
+resolution happens at the procedures that need it because that is where the read
+is. Nothing in between needs to do either.

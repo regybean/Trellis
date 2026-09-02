@@ -5,8 +5,12 @@ it, and the package's client barrel is gone. What remains is the **server** half
 — the instance and the mappings — plus the signing secret. See
 [ADR 0034](../../../docs/adr/0034-self-hosted-better-auth.md) for the
 replacement decision and
-[ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) (with its two
+[ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) (with its
 amendments) for the seam.
+
+Its surface is `./server`, `./schema` and `./env` — there is no `.` entrypoint.
+That one existed only to ship the `InjectedUser` global augmentation, which #250
+deleted; nothing imported it.
 
 The package ships **no React**. Better Auth ships no UI, so `@acme/ui` owns the forms,
 `@acme/hooks` owns the client status seam, and the app owns `createAuthClient`.

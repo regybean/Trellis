@@ -175,19 +175,20 @@ different from mocking `env` for _shape_ — the latter is what ADR 0014 forbids
 
 There is **one** canonical context builder, shipped from `@acme/trpc/testing` (a
 dedicated export subpath — prod code never imports it). It is typed against the
-real platform contract, and its `subscription`/`tier`/`credits` are derived from
-the same mock `EntitlementsProvider` the real `createTRPCContext` would resolve,
-so a test context can't drift from production.
+real platform contract and carries exactly what production's context carries: the
+session and the entitlements provider, with nothing resolved up front (#250). The
+`tier`/`credits` knobs feed the mock `EntitlementsProvider`, which is what a
+procedure under test resolves through — the same call it makes in production.
 
 The builder takes the principal (`user: InjectedUser`) whole, not a `userId` +
-`role` it fabricates one from. `InjectedUser` is an augmentable global, so only
-the consuming program can build a complete one — billing augments it with the
-primary email its Stripe customer lookup reads, and the platform must not know
-that. So each feature's `test-context.ts` wraps the builder and maps the four
-knobs its tests pass onto its own principal:
+`role` it fabricates one from, because which fields matter is the feature's
+knowledge: billing's tests set the `email` its Stripe customer lookup reads; the
+other three need identity and role. So each feature's `test-context.ts` wraps the
+builder and maps the four knobs its tests pass onto its own principal:
 
 ```typescript
 // src/tests/backend/utils/test-context.ts wraps it + owns feature cleanup:
+import type { InjectedUser } from "@acme/trpc";
 import {
   createTestContext as createBaseTestContext,
   type FeatureTestContextOptions,
@@ -200,7 +201,8 @@ export function createTestContext({
   role,
   ...entitlements
 }: TestContextOptions) {
-  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
+  const user: InjectedUser = { id: userId, role };
+  return createBaseTestContext({ user, ...entitlements });
 }
 
 // In a test:
