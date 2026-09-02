@@ -18,8 +18,8 @@ Postgres, admin plugin. A factory, not a module singleton: `baseUrl` differs per
 app (each runs on its own port) and a shared-layer package must not read app env.
 The **secret is not a parameter** — `BETTER_AUTH_SECRET` is slice-owned, declared
 and validated in `./env`.
-_Avoid_: "the auth client" (that is `createAuthClient`, app-owned, and does not
-exist yet), "the auth singleton"
+_Avoid_: "the auth client" (that is `createAuthClient`, app-owned — see
+`apps/tanstack-start/src/lib/auth-client.ts`), "the auth singleton"
 
 **`Auth` / `Session`** (`@acme/auth/server`):
 The instance type and `{ session, user }` as Better Auth resolves it. `Session`'s

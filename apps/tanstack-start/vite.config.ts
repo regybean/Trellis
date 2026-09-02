@@ -71,7 +71,9 @@ const publicEnvDefine = Object.fromEntries(
 
 export default defineConfig({
   // Expose the shared NEXT_PUBLIC_* env (reused from the Next.js app) to the
-  // client bundle so <ClerkProvider> can read the publishable key.
+  // client bundle — the feature slices' `shared` keys read it (see
+  // publicEnvDefine below). Nothing auth-related is in there: Better Auth's
+  // client is same-origin and its secret never leaves the server (ADR 0034).
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above), plus
   // the deploy-target selector so env.ts's
@@ -85,15 +87,16 @@ export default defineConfig({
   // first-pass crawl bundles them all. Otherwise they're discovered at runtime,
   // triggering a second optimize pass that rewrites .vite/deps with new chunk
   // hashes mid-reload — the previous chunks vanish and in-flight requests 404
-  // ("The file does not exist at .../chunk-XXX.js"). Clerk's tanstack-react-start
-  // re-exports clerk-react internals + @clerk/shared/* subpaths; TanStack Start
-  // pulls router-core subpaths + seroval — none seen until runtime.
+  // ("The file does not exist at .../chunk-XXX.js"). TanStack Start pulls
+  // router-core subpaths + seroval, none seen until runtime.
+  //
+  // Four `@clerk/*` entries used to sit here too, and they left with Clerk
+  // (ADR 0034) rather than being replaced: `@clerk/tanstack-react-start`
+  // re-exported clerk-react internals and `@clerk/shared/*` subpaths that the
+  // crawl could not see, whereas `better-auth/react` is a single entry point the
+  // client imports directly, so the first pass finds it.
   optimizeDeps: {
     include: [
-      '@clerk/clerk-react/internal',
-      '@clerk/shared/error',
-      '@clerk/shared/getEnvVariable',
-      '@clerk/shared/underscore',
       '@tanstack/router-core',
       '@tanstack/router-core/isServer',
       '@tanstack/router-core/ssr/client',
