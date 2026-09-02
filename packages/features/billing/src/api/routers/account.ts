@@ -137,9 +137,10 @@ export const accountRouter = createTRPCRouter({
     };
   }),
 
-  getSubscriptionDetails: protectedProcedure.query(({ ctx }) => {
-    const { subscription } = ctx;
-    const tier = ctx.tier;
+  getSubscriptionDetails: protectedProcedure.query(async ({ ctx }) => {
+    const { subscription, tier } = await ctx.entitlements.resolve(
+      ctx.session.user.id,
+    );
 
     if (subscription.status === 'none') {
       return {
@@ -160,8 +161,8 @@ export const accountRouter = createTRPCRouter({
     };
   }),
 
-  getCreditUsage: protectedProcedure.query(({ ctx }) => {
-    const { credits } = ctx;
+  getCreditUsage: protectedProcedure.query(async ({ ctx }) => {
+    const { credits } = await ctx.entitlements.resolve(ctx.session.user.id);
 
     return {
       remaining: credits.remaining,

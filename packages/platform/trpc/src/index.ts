@@ -75,10 +75,14 @@ interface ContextOpts {
    */
   session: InjectedSession;
   /**
-   * The billing policy — rate limiting + tier gating. Required, with no
-   * implicit default (mirroring the auth seam): a deployment must explicitly
-   * inject either the `@acme/subscriptions` adapter or, for a no-billing build,
-   * `unlimitedEntitlements` from `@acme/entitlements`.
+   * The billing policy. Required, with no implicit default (mirroring the auth
+   * seam): a deployment must explicitly inject either the `@acme/subscriptions`
+   * adapter or, for a no-billing build, `unlimitedEntitlements` from
+   * `@acme/entitlements`.
+   *
+   * Passed through to `ctx.entitlements` and never read here. Nothing in the
+   * substrate gates on billing, so nothing in the substrate resolves it; the
+   * procedures that *do* read entitlements resolve them themselves (#250).
    */
   entitlements: EntitlementsProvider;
 }
@@ -86,26 +90,26 @@ interface ContextOpts {
 type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 
 /**
- * Builds the base request context shared by every feature from the
- * app-injected session + entitlements provider: resolves the billing
- * context (subscription / tier / credits) through the provider. Telemetry is
- * ambient — the telemetry middleware owns the per-procedure span and everything
- * reads it from the active OTel context (ADR 0023), so nothing is threaded here.
+ * Builds the base request context shared by every feature: the app-injected
+ * session and entitlements provider, passed straight through.
+ *
+ * It does no I/O. It used to `await entitlements.resolve()` here, which cost
+ * every tRPC call in both full apps 2-4 Redis round-trips whether or not the
+ * procedure read the result — and the one router that did read it re-resolved
+ * anyway. A procedure that needs entitlements now resolves them where it uses
+ * them (#250, ADR 0006 amendment).
+ *
+ * Still returns a promise: the app adapters await it, and the shape a future
+ * context needs to assemble asynchronously shouldn't churn the resolver seam.
+ *
+ * Telemetry is ambient — the telemetry middleware owns the per-procedure span
+ * and everything reads it from the active OTel context (ADR 0023), so nothing
+ * is threaded here.
  */
-export async function createTRPCContext(opts: ContextOpts) {
+export function createTRPCContext(opts: ContextOpts) {
   const { session, entitlements, ...rest } = opts;
-  const { subscription, tier, credits } = await entitlements.resolve(
-    session.user?.id ?? null,
-  );
 
-  return {
-    ...rest,
-    session,
-    entitlements,
-    subscription,
-    credits,
-    tier,
-  };
+  return Promise.resolve({ ...rest, session, entitlements });
 }
 
 type BaseContext = Awaited<ReturnType<typeof createTRPCContext>>;

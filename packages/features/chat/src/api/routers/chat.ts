@@ -116,26 +116,27 @@ export const chatRouter = createTRPCRouter({
       const { id: userId } = ctx.session.user;
       const { conversationId, turnId, query } = input;
 
+      // `send` is the one chat procedure that spends credits, so it is the one
+      // that resolves entitlements — once, here, rather than on every tRPC call
+      // in the app (#250). Every read below is off this snapshot.
+      const { tier, credits } = await ctx.entitlements.resolve(userId);
+
       try {
         const outcome = await beginTurn({
           conversationId,
           turnId,
           userId,
-          tier: ctx.tier,
+          tier,
           query,
           conversationExists: ctx.conversation != null,
           consume: async () => {
-            if (ctx.credits.remaining < env.CREDITS_PER_TURN) {
+            if (credits.remaining < env.CREDITS_PER_TURN) {
               throw new TRPCError({
                 code: 'TOO_MANY_REQUESTS',
                 message: 'Insufficient credits',
               });
             }
-            await ctx.entitlements.consume(
-              userId,
-              ctx.tier,
-              env.CREDITS_PER_TURN,
-            );
+            await ctx.entitlements.consume(userId, tier, env.CREDITS_PER_TURN);
           },
         });
 
@@ -195,15 +196,20 @@ export const chatRouter = createTRPCRouter({
     .input(ReconcileTurnRequest)
     .mutation(async ({ ctx, input }) => {
       const { conversationId, turnId } = input;
+      const userId = ctx.session.user.id;
+      // The credit goes back at the caller's current tier — resolved here
+      // because this procedure is one of the two that touch the ledger, not
+      // because every request needs it (#250).
+      const { tier } = await ctx.entitlements.resolve(userId);
       const { refunded } = await reconcileTurn(
         (uid: string, creditTier: SubscriptionTier, amount: number) =>
           ctx.entitlements.refund(uid, creditTier, amount),
-        ctx.session.user.id,
-        ctx.tier,
+        userId,
+        tier,
         { conversationId, turnId },
       );
       logger.info(
-        { userId: ctx.session.user.id, conversationId, turnId, refunded },
+        { userId, conversationId, turnId, refunded },
         'chat.reconcileTurn: cleaned up',
       );
       return { refunded };
