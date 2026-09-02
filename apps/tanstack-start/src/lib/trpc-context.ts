@@ -12,10 +12,10 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 
 /**
  * App-owned auth seam: resolve the Better Auth session on the server and map it
- * onto the platform's neutral `InjectedSession`, alongside the Stripe/Redis-backed
- * entitlements provider. Each feature's `createTRPCContext` (re-exported from the
- * platform seam) consumes this — the feature packages never import an auth SDK or
- * a billing implementation themselves.
+ * onto the platform's neutral `InjectedSession`. This is the base context every
+ * mount receives; each feature's `createTRPCContext` (re-exported from the
+ * platform seam) consumes it — the feature packages never import an auth SDK
+ * themselves.
  *
  * The session comes from the request's own `Headers`, not from an ambient request
  * context: `auth.api.getSession` needs only the `Cookie` header, and the tRPC
@@ -39,6 +39,16 @@ export async function resolveAuthContext(req: Request) {
     // URLs from the authored paths (ADR 0033).
     origin: new URL(req.url).origin,
     session: { user: toPrincipal(session) },
-    entitlements,
   };
+}
+
+/**
+ * The base context plus the entitlements provider — the **context extension**
+ * `@acme/chat` and `@acme/billing` declare (#256, ADR 0006). Injected per mount
+ * rather than into every context, so the mounts that meter credits or gate tiers
+ * get a provider and the mounts that do neither (`feedback`, `ingest`,
+ * `notifications`) are handed nothing they cannot name.
+ */
+export async function resolveAuthContextWithEntitlements(req: Request) {
+  return { ...(await resolveAuthContext(req)), entitlements };
 }

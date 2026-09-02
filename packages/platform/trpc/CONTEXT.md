@@ -113,6 +113,10 @@ none of which has a tier or a credit. Nothing in the substrate had read it since
 #250, so the field bought nothing but the coupling. It is now a **Context
 extension**. Billing and chat declare the provider they resolve against, the other
 two declare nothing, and `@acme/entitlements` is not a dependency of this package.
+The apps inject to match, per mount rather than per app: each app's route seam
+binds one resolver per context shape it composes (`createTRPCRouteHandlers` vs
+`…WithEntitlements`), so a mount whose feature declares an extension its builder
+does not produce is a compile error.
 
 **The substrate passes entitlements through and never reads them** (#250): it used
 to `await entitlements.resolve()` for every request, so a `feedback` mutation or a

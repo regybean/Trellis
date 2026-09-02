@@ -16,7 +16,9 @@ and `fetchRequestHandler`. The TanStack Start analogue of the Next.js _route han
 
 **Session resolver** (`src/lib/trpc-context.ts`):
 The app-owned `resolveAuthContext` that turns a `Request` into the injected
-`{ session, entitlements, headers, req, origin }` the tRPC context expects. The
+`{ session, headers, req, origin }` the tRPC base context expects; its sibling
+`resolveAuthContextWithEntitlements` adds the entitlements provider for the chat
+and billing mounts, which declare it (#256). The
 per-app half of the auth seam — see
 [ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md) and
 [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md). It reads the

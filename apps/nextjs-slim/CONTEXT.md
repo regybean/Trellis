@@ -25,27 +25,29 @@ _Avoid_: "fake user", "mock auth".
 provider (top tier, infinite credits, no-op consume) injected in place of the
 Stripe/Redis-backed `subscriptionsEntitlements`. This app needs it because it
 mounts `@acme/chat`, which meters credits: "unmetered" is a choice the deployment
-has to make, not a default it can omit. `@acme/ingest` declares no entitlements on
-its context at all and ignores the one passed through (#256). See
-[ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md).
+has to make, not a default it can omit. It reaches only the chat mount —
+`@acme/ingest` declares no entitlements on its context and is handed none (#256).
+See [ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md).
 
 **Route handler**:
 A Next.js `route.ts` that bridges a feature's tRPC router to
-`/api/trpc/{feature}/[trpc]`. The shared `createTRPCRouteHandlers`
-(`src/server/trpc-route.ts`) injects the constant principal + unlimited entitlements
-for every feature mount.
+`/api/trpc/{feature}/[trpc]`. Two builders in `src/server/trpc-route.ts`, one per
+context shape this app composes: `createTRPCRouteHandlers` injects the constant
+principal, and `createTRPCRouteHandlersWithEntitlements` adds
+`unlimitedEntitlements` for the one mount whose feature declares it. A mount
+wired to the wrong one does not compile.
 
 ## Structure
 
-| Path                                      | Purpose                                                                        |
-| ----------------------------------------- | ------------------------------------------------------------------------------ |
-| `app/chat-assistant/`                     | Chat UI page — renders `ChatAssistant` from `@acme/chat`                       |
-| `app/documents/`                          | Documents page — renders `@acme/ingest` upload UI + list                       |
-| `app/api/trpc/chat/[trpc]/`               | Route handler for `@acme/chat` router                                          |
-| `app/api/trpc/ingest/[trpc]/`             | Route handler for `@acme/ingest` router                                        |
-| `app/api/health/`                         | Health check endpoint                                                          |
-| `src/server/trpc-route.ts`                | Shared route handler — injects the constant principal + unlimited entitlements |
-| `src/components/pages/layout/sidebar.tsx` | App-local minimal sidebar (app-owned shell, ADR 0011)                          |
+| Path                                      | Purpose                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------- |
+| `app/chat-assistant/`                     | Chat UI page — renders `ChatAssistant` from `@acme/chat`                  |
+| `app/documents/`                          | Documents page — renders `@acme/ingest` upload UI + list                  |
+| `app/api/trpc/chat/[trpc]/`               | Route handler for `@acme/chat` router                                     |
+| `app/api/trpc/ingest/[trpc]/`             | Route handler for `@acme/ingest` router                                   |
+| `app/api/health/`                         | Health check endpoint                                                     |
+| `src/server/trpc-route.ts`                | Two route-handler builders — constant principal, ± unlimited entitlements |
+| `src/components/pages/layout/sidebar.tsx` | App-local minimal sidebar (app-owned shell, ADR 0011)                     |
 
 ## Relationships
 

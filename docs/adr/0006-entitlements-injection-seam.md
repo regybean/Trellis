@@ -250,7 +250,21 @@ type-level residue. It was still enough to force the coupling on every consumer.
   they do not all agree. `@acme/auth` reads one whose iterators differ from
   `@acme/trpc`'s, and the context stops matching `createCaller`.
 
-No behaviour changes. The gate is the whole verification.
+- **The apps inject per mount, not per app.** Each app's route seam exports two
+  builders over one resolver each — `createTRPCRouteHandlers` (the base context)
+  and `createTRPCRouteHandlersWithEntitlements` (base + provider), named
+  `createTRPCServerHandlers*` in the TanStack apps. The chat and billing mounts
+  use the second; `feedback`, `ingest` and `notifications` use the first and are
+  handed no provider at all. One shared resolver used to inject `entitlements`
+  into every context, which meant the field arrived at features that could not
+  name it — passed through untyped, since the pass-through no longer rejects extra
+  keys. Binding the resolver at the builder makes the wiring load-bearing in both
+  directions: a mount whose feature declares an extension its builder does not
+  produce is a compile error (verified: pointing chat's mount at the plain builder
+  fails with TS2322).
+
+Behaviour is unchanged for every mount that reads entitlements. The three that
+never did stop receiving a provider they ignored.
 
 ### Two corrections to the spec this came from
 
@@ -269,10 +283,12 @@ mount `@acme/chat`, which meters credits, so they are choosing _unmetered_, whic
 is exactly the per-deployment decision the original decision above exists to make
 explicit.
 
-An app mounting only `feedback` and `ingest` would now inject nothing and import
-no billing package at all. Nobody has written that app, so the honest claim is
-narrower than "a no-billing app needs no billing types": what this buys today is
-that `@acme/ingest` and `@acme/feedback` name none, and the compiler enforces it.
+What is narrower than it sounds: an app mounting only `feedback`, `ingest` and
+`notifications` would now import no billing package at all, but nobody has written
+that app, so "a no-billing app needs no billing types" is untested end to end.
+What is demonstrated today is one step short of it — those three features name no
+billing type, none of the four apps hands them a provider, and the compiler
+enforces both halves.
 
 ### Why not a generic context, as the old comment said
 
