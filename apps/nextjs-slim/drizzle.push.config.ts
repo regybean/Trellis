@@ -11,8 +11,11 @@ import base from './drizzle.config';
 // them. With it, push leaves Mastra's tables untouched and manages app-owned
 // tables only. (It does NOT, and cannot, stop push from CREATEing tables you
 // declare in code — keep Mastra tables out of the schema for that.)
-// strict/verbose off so `db:push --force` runs fully non-interactive (used by
-// `pnpm dev`). push is dev-only; dev accepts data loss. Manual prod schema
+// strict/verbose off so `db:push --force` skips the data-loss confirmations (used
+// by `pnpm dev`). push is dev-only; dev accepts data loss. Note this is NOT fully
+// non-interactive: a renamed column still triggers drizzle-kit's "created or
+// renamed from another column?" prompt, which no flag suppresses — `scripts/dev.sh`
+// closes stdin so that aborts loudly rather than hanging. Manual prod schema
 // changes go through generate + migrate, not push.
 export default {
   ...base,

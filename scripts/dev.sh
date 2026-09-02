@@ -59,14 +59,21 @@ if [ -n "$profiles" ]; then
   esac
 
   # Schema push only matters when Postgres is in the set. `--if-present` skips apps
-  # with no db:push script (e.g. a future DB-less app). Non-interactive (--force +
-  # strict:false in drizzle.push.config.ts) — dev accepts data loss.
+  # with no db:push script (e.g. a future DB-less app). `--force` + strict:false in
+  # drizzle.push.config.ts suppress the data-loss confirmations — dev accepts data
+  # loss — but they do NOT cover everything: when a column is renamed in the schema
+  # drizzle-kit still asks "created or renamed from another column?", and that
+  # prompt has no flag. Stdin is therefore closed: push aborts with a visible error
+  # instead of hanging `pnpm dev` forever on a prompt nobody can see (the symptom
+  # was a stale `auth` schema and sign-in failing with `column "email_verified"
+  # does not exist`). Resolve a rename by running `pnpm --filter <app> db:push`
+  # yourself and answering it.
   if [ "$push" -eq 1 ] && [[ ",$profiles," == *,postgres,* ]]; then
     if [ -z "$app_names" ]; then
-      pnpm --recursive --if-present run db:push
+      pnpm --recursive --if-present run db:push </dev/null
     else
       while IFS= read -r app; do
-        [ -n "$app" ] && pnpm --filter "$app" --if-present run db:push
+        [ -n "$app" ] && pnpm --filter "$app" --if-present run db:push </dev/null
       done <<<"$app_names"
     fi
   fi

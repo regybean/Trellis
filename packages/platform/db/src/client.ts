@@ -1,5 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 
+import { DRIZZLE_CASING } from './casing';
 import { env } from './env';
 
 /**
@@ -18,6 +19,9 @@ export function createDb({
   database = env.DB_NAME,
 }: { database?: string } = {}) {
   return drizzle({
+    // Shared with every app's drizzle.config.ts so the DDL and the queries can
+    // never derive different identifiers. See ./casing.ts.
+    casing: DRIZZLE_CASING,
     connection: {
       host: env.DB_HOST,
       port: env.DB_PORT,
