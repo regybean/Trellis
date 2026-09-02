@@ -910,6 +910,9 @@ importers:
       '@acme/db':
         specifier: workspace:*
         version: link:../../platform/db
+      '@acme/entitlements':
+        specifier: workspace:*
+        version: link:../../platform/entitlements
       '@acme/env':
         specifier: workspace:*
         version: link:../../platform/env
@@ -980,9 +983,6 @@ importers:
         specifier: 'catalog:'
         version: 4.4.3
     devDependencies:
-      '@acme/entitlements':
-        specifier: workspace:*
-        version: link:../../platform/entitlements
       '@acme/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint

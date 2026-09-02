@@ -80,9 +80,11 @@ _Avoid_: "archive" as a verb/action — there is no archive action, only the tim
 ## Design decisions
 
 **Credits cross the `EntitlementsProvider` seam, both ways**: `chat.send`
-consumes a credit **inline** (not via a `rateLimit()` middleware) after ownership
+consumes a credit **inline** — there is no rate-limit middleware to use, and
+since #250 there is no eagerly-resolved billing state either, so `send` opens
+with its own `ctx.entitlements.resolve(userId)` — after ownership
 
-- In-flight lock but before enqueue — it guards on `ctx.credits.remaining` then
+- In-flight lock but before enqueue — it guards on the resolved `credits.remaining` then
   calls `ctx.entitlements.consume`, so exhausted credits produce a
   `TOO_MANY_REQUESTS` before any job is enqueued and a rejected request consumes
   none. Credits are **refunded** on a non-`done` terminal the user didn't choose:

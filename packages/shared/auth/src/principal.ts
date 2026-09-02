@@ -1,5 +1,6 @@
 import { z } from 'zod/v4';
 
+import type { InjectedUser } from '@acme/trpc';
 import type { UserManagementUser } from '@acme/ui';
 
 /**
@@ -13,10 +14,6 @@ import type { UserManagementUser } from '@acme/ui';
  * back into a neutral shape is **provider**-specific, and both full apps need
  * the identical answer (ADR 0003's amendment). #237 and #238 each wrote their
  * own copy of all three; #239 collapsed them to these.
- *
- * In particular `primaryEmailAddress` has to match `@acme/billing`'s
- * augmentation of `InjectedUser` exactly — two declarations of one merged member
- * must agree — so it is built once, here.
  *
  * The functions are typed **structurally**, on the fields they actually read,
  * rather than against `Session`. That is deliberate and not laziness: Better
@@ -88,15 +85,11 @@ export function toPrincipal(
 
   const { id, email } = session.user;
 
-  return {
-    id,
-    role: readSessionRole(session.user) ?? undefined,
-    // Better Auth's core schema has exactly one email per user (it is `user`'s
-    // unique key), so there is no primary to pick out of a list — and therefore
-    // never a signed-in caller with no address for billing's Stripe customer
-    // lookup to open against.
-    primaryEmailAddress: { emailAddress: email },
-  };
+  // Better Auth's core schema has exactly one email per user (it is `user`'s
+  // unique key), so there is no primary to pick out of a list — and therefore
+  // never a signed-in caller with no address for billing's Stripe customer
+  // lookup to open against.
+  return { id, role: readSessionRole(session.user) ?? undefined, email };
 }
 
 /** What `toAdminUser` reads off an admin-plugin user row. */

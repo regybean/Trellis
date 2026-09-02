@@ -60,14 +60,13 @@ export const accountRouter = createTRPCRouter({
     .input(CheckoutRequest)
     .mutation(async ({ input, ctx }) => {
       // Get user information from context
-      const { id: userId, primaryEmailAddress } = ctx.session.user;
-      const email = primaryEmailAddress?.emailAddress;
+      const { id: userId, email } = ctx.session.user;
 
       if (!email) {
         throw billingError(
           BillingErrorCode.NoEmail,
           'BAD_REQUEST',
-          'User does not have a primary email address',
+          'User has no email address to open a Stripe customer against',
         );
       }
 
@@ -103,14 +102,13 @@ export const accountRouter = createTRPCRouter({
 
   createDashboardSession: protectedProcedure.mutation(async ({ ctx }) => {
     // Get user information from context
-    const { id: userId, primaryEmailAddress } = ctx.session.user;
-    const email = primaryEmailAddress?.emailAddress;
+    const { id: userId, email } = ctx.session.user;
 
     if (!email) {
       throw billingError(
         BillingErrorCode.NoEmail,
         'BAD_REQUEST',
-        'User does not have a primary email address',
+        'User has no email address to open a Stripe customer against',
       );
     }
 
@@ -137,9 +135,10 @@ export const accountRouter = createTRPCRouter({
     };
   }),
 
-  getSubscriptionDetails: protectedProcedure.query(({ ctx }) => {
-    const { subscription } = ctx;
-    const tier = ctx.tier;
+  getSubscriptionDetails: protectedProcedure.query(async ({ ctx }) => {
+    const { subscription, tier } = await ctx.entitlements.resolve(
+      ctx.session.user.id,
+    );
 
     if (subscription.status === 'none') {
       return {
@@ -160,8 +159,8 @@ export const accountRouter = createTRPCRouter({
     };
   }),
 
-  getCreditUsage: protectedProcedure.query(({ ctx }) => {
-    const { credits } = ctx;
+  getCreditUsage: protectedProcedure.query(async ({ ctx }) => {
+    const { credits } = await ctx.entitlements.resolve(ctx.session.user.id);
 
     return {
       remaining: credits.remaining,
@@ -325,17 +324,15 @@ export const accountRouter = createTRPCRouter({
     }),
 
   // Example Standard-or-higher feature (Standard and Pro both pass)
-  standardFeature: protectedProcedure
-    .use(requireTier('Standard'))
-    .query(({ ctx }) => {
-      return {
-        message: 'This feature is available to standard subscribers!',
-        subscriptionInfo: ctx.subscription,
-      };
-    }),
+  standardFeature: requireTier('Standard').query(({ ctx }) => {
+    return {
+      message: 'This feature is available to standard subscribers!',
+      subscriptionInfo: ctx.subscription,
+    };
+  }),
 
   // Example Pro-only feature
-  proFeature: protectedProcedure.use(requireTier('Pro')).query(({ ctx }) => {
+  proFeature: requireTier('Pro').query(({ ctx }) => {
     return {
       message: 'This feature is available to pro subscribers!',
       subscriptionInfo: ctx.subscription,

@@ -46,8 +46,10 @@ unguarded path to a thread" actually true rather than just conventional.
 
 ## Consequences
 
-- Ownership is checked _before_ rate limiting on `stream` (`ownedConversationProcedure.use(rateLimit())`),
-  so a `FORBIDDEN`/`NOT_FOUND` request consumes no credits.
+- Ownership is checked _before_ the credit gate. There is no rate-limiting
+  middleware: chat meters credits inline in `send`, inside the `beginTurn` closure
+  the ownership builder has already admitted (ADR 0006 amendment), so a
+  `FORBIDDEN`/`NOT_FOUND` request consumes no credits.
 - `stream` and `create` run on `ownedConversationProcedure` and tolerate an absent
   thread (`ctx.conversation` is null): Mastra Memory stamps `resourceId = userId` on
   first write, so a caller can only ever create a Conversation they own.

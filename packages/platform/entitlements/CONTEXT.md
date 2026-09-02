@@ -51,7 +51,7 @@ _Avoid_: "subscription record", "billing data"
 
 **Unlimited provider**:
 `unlimitedEntitlements` — the no-billing implementation: every caller is the top
-tier (`Pro`, so `requireTier` always admits) with effectively infinite credits
+tier (`Pro`, so billing's tier gate always admits) with effectively infinite credits
 and a no-op `consume` **and** a no-op `refund` (a deployment that charged nothing
 refunds nothing). Pure; injected by deployments that drop `@acme/subscriptions`
 (e.g. a single-user slim app) — both into `createTRPCContext` and into the app's
@@ -60,10 +60,10 @@ _Avoid_: "free tier", "dev provider", a new `Unlimited` tier
 
 ## Relationships
 
-- `EntitlementsProvider.resolve(userId)` → `Entitlements` (`{ subscription, tier, credits }`)
+- `EntitlementsProvider.resolve(userId)` → `Entitlements` (`{ subscription, tier, credits }`), called by the procedures that read it, never by `@acme/trpc` (#250)
 - `EntitlementsProvider.consume(userId, tier, amount)` → decrements the **Credit balance** (called inline by `chat.send` after a guarded request)
 - `EntitlementsProvider.refund(userId, tier, amount)` → increments the **Credit balance** back (called by the chat Generation worker on `error` and by `chat.reconcileTurn` on orphan; the chat control plane owns the idempotency guard)
-- `EntitlementsProvider.isTierAtLeast(tier, minTier)` → tier-ordering test (the source of truth for `requireTier`)
+- `EntitlementsProvider.isTierAtLeast(tier, minTier)` → tier-ordering test, part of the contract every provider implements
 - `unlimitedEntitlements` → the no-billing `EntitlementsProvider`
 - `subscriptionsEntitlements` (in `@acme/subscriptions`) → the Stripe/Redis-backed `EntitlementsProvider`
 
@@ -81,6 +81,12 @@ a forgotten provider would silently grant every caller Pro, the billing
 equivalent of a silent unauthenticated context. The deployment must choose.
 
 **Top tier, not a new tier**: `unlimitedEntitlements` returns the existing `Pro`
-tier rather than introducing an `Unlimited` member, so `requireTier` admits
+tier rather than introducing an `Unlimited` member, so billing's tier gate admits
 every caller without a new enum rippling through the ordering, the Stripe
 adapter, and billing's UI.
+
+**Nothing in the substrate calls `resolve`** (#250): `@acme/trpc` names this
+contract, types `ctx.entitlements` with it, and passes the provider through
+without ever invoking it. The gate that used to live there (`requireTier`) is now
+`@acme/billing`'s, built on the same contract — which is the point of the
+contract being a package rather than a platform export.

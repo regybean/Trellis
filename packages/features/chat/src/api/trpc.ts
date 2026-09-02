@@ -16,7 +16,6 @@ export const {
   createCallerFactory,
   protectedProcedure,
   adminProcedure,
-  rateLimit,
 } = createFeatureTRPCWithDb(_db);
 
 const conversationInput = z.object({ sessionId: z.uuid() });

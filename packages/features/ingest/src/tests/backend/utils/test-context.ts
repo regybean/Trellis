@@ -6,6 +6,7 @@
  * DB for the per-user progress stream; `cleanupTestData` flushes it between tests.
  */
 
+import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { flushTestDb } from '@acme/redis/testing';
 import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
@@ -18,15 +19,16 @@ export type TestContextOptions = FeatureTestContextOptions;
 
 /**
  * Build the tRPC caller context. The one canonical builder lives in
- * `@acme/trpc/testing`; this wrapper supplies the `InjectedUser` ingest's own
- * program declares — the platform base, `id` + `role`, and nothing more.
+ * `@acme/trpc/testing`; this wrapper turns ingest's `userId`/`role` knobs into the
+ * `InjectedUser` principal it wants — identity and role, nothing more.
  */
 export function createTestContext({
   userId,
   role,
   ...entitlements
 }: TestContextOptions) {
-  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
+  const user: InjectedUser = { id: userId, role };
+  return createBaseTestContext({ user, ...entitlements });
 }
 
 /** Flush this suite's isolated Redis DB (the per-user progress streams). */

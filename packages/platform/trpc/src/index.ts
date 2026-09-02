@@ -5,10 +5,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import { z, ZodError } from 'zod/v4';
 
-import type {
-  EntitlementsProvider,
-  SubscriptionTier,
-} from '@acme/entitlements';
+import type { EntitlementsProvider } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 import { instrumentDrizzleClient } from '@acme/telemetry';
 import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
@@ -23,29 +20,32 @@ import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
 /** The role union `adminProcedure` gates on. Declared once, here. */
 export type Roles = 'admin' | 'user';
 
-declare global {
-  /**
-   * The injected principal — `ctx.session.user`. Open by design: the substrate
-   * reads only `id` (identity) and `role` (the `adminProcedure` gate), so the
-   * base declares exactly those, and consumers that need more *augment* it.
-   *
-   * The declaration lives in this module rather than a `global.d.ts` on
-   * purpose: `tsc` emits it into `dist/index.d.ts`, so every program that
-   * imports `@acme/trpc` inherits the base instead of restating it. Augmenting
-   * is then additive — `@acme/billing` contributes the primary email its Stripe
-   * customer lookup reads, `@acme/auth` contributes what the full apps map off
-   * a provider user — and no package has to keep a copy of the base in sync.
-   */
-  interface InjectedUser {
-    id: string;
-    role?: Roles;
-  }
+/**
+ * The injected principal — `ctx.session.user`. A concrete, exported interface,
+ * imported like any other type.
+ *
+ * It used to be an augmentable global, because the one field beyond `id`/`role`
+ * that anyone added was Clerk's nested primary-address object — a shape a
+ * platform package could not name without depending on Clerk's SDK. Clerk is
+ * gone; Better Auth stores `user.email: string`, and
+ * platform can name a string perfectly well. So the mechanism outlived its
+ * reason and was costing two hand-synced declarations, two app tsconfigs
+ * reaching across the workspace by relative path to load them, and no compiler
+ * check that any of it agreed (#250, ADR 0003 amendment).
+ *
+ * The substrate itself still reads only `id` (identity) and `role` (the
+ * `adminProcedure` gate). `email` is here because `@acme/billing` opens a Stripe
+ * customer against it, and optional because the slim apps inject a constant
+ * `{ id: 'local', role: 'admin' }` and drop billing entirely (ADR 0010).
+ */
+export interface InjectedUser {
+  id: string;
+  role?: Roles;
+  email?: string;
 }
 
 /**
  * The whole of the session the platform consumes: a principal, or nothing.
- * `user` is the augmentable `InjectedUser` global above, whose base carries the
- * only two fields the substrate reads — `id` and `role`.
  * `protectedProcedure` narrows it to a non-null `InjectedUser`.
  */
 export interface InjectedSession {
@@ -72,48 +72,47 @@ interface ContextOpts {
   origin?: string;
   /**
    * The resolved session, injected by the app adapter (`user: null` when signed
-   * out). `user` is typed via the augmentable `InjectedUser` global, so an app
-   * can sharpen it to its own principal shape (the full apps add the fields
-   * they map off their provider's user).
+   * out). Mapping a provider's user onto `InjectedUser` is the app's job — the
+   * full apps share `@acme/auth`'s `toPrincipal`, the slim apps inject a
+   * constant (ADR 0003 / 0010).
    */
   session: InjectedSession;
   /**
-   * The billing policy — rate limiting + tier gating. Required, with no
-   * implicit default (mirroring the auth seam): a deployment must explicitly
-   * inject either the `@acme/subscriptions` adapter or, for a no-billing build,
-   * `unlimitedEntitlements` from `@acme/entitlements`.
+   * The billing policy. Required, with no implicit default (mirroring the auth
+   * seam): a deployment must explicitly inject either the `@acme/subscriptions`
+   * adapter or, for a no-billing build, `unlimitedEntitlements` from
+   * `@acme/entitlements`.
+   *
+   * Passed through to `ctx.entitlements` and never read here. Nothing in the
+   * substrate gates on billing, so nothing in the substrate resolves it; the
+   * procedures that *do* read entitlements resolve them themselves (#250).
    */
   entitlements: EntitlementsProvider;
-}
-
-export interface RateLimitOptions {
-  /** Number of credits to consume for this request */
-  credits?: number;
 }
 
 type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
 
 /**
- * Builds the base request context shared by every feature from the
- * app-injected session + entitlements provider: resolves the billing
- * context (subscription / tier / credits) through the provider. Telemetry is
- * ambient — the telemetry middleware owns the per-procedure span and everything
- * reads it from the active OTel context (ADR 0023), so nothing is threaded here.
+ * Builds the base request context shared by every feature: the app-injected
+ * session and entitlements provider, passed straight through.
+ *
+ * It does no I/O. It used to `await entitlements.resolve()` here, which cost
+ * every tRPC call in both full apps 2-4 Redis round-trips whether or not the
+ * procedure read the result — and the one router that did read it re-resolved
+ * anyway. A procedure that needs entitlements now resolves them where it uses
+ * them (#250, ADR 0006 amendment).
+ *
+ * Still returns a promise: the app adapters await it, and the shape a future
+ * context needs to assemble asynchronously shouldn't churn the resolver seam.
+ *
+ * Telemetry is ambient — the telemetry middleware owns the per-procedure span
+ * and everything reads it from the active OTel context (ADR 0023), so nothing
+ * is threaded here.
  */
-export async function createTRPCContext(opts: ContextOpts) {
+export function createTRPCContext(opts: ContextOpts) {
   const { session, entitlements, ...rest } = opts;
-  const { subscription, tier, credits } = await entitlements.resolve(
-    session.user?.id ?? null,
-  );
 
-  return {
-    ...rest,
-    session,
-    entitlements,
-    subscription,
-    credits,
-    tier,
-  };
+  return Promise.resolve({ ...rest, session, entitlements });
 }
 
 type BaseContext = Awaited<ReturnType<typeof createTRPCContext>>;
@@ -256,86 +255,6 @@ function buildCore() {
   const protectedProcedure = publicProcedure.use(isAuthed);
   const adminProcedure = publicProcedure.use(isAdmin);
 
-  /**
-   * Token-bucket rate limiter. Reads `credits`/`tier` from the billing context
-   * and decrements the per-user, per-tier credit count in Redis.
-   */
-  const rateLimit = (opts: RateLimitOptions = {}) =>
-    t.middleware(async ({ next, ctx }) => {
-      const span = trace.getActiveSpan();
-      const creditsToConsume = opts.credits ?? 1;
-      const { session, credits, tier } = ctx;
-      const userId = session.user?.id ?? null;
-
-      span?.setAttributes({
-        'rateLimit.creditsToConsume': creditsToConsume,
-        'rateLimit.creditsRemaining': credits.remaining,
-        'rateLimit.tier': tier,
-        'rateLimit.userId': userId ?? 'none',
-      });
-
-      if (!userId) {
-        span?.addEvent('rateLimit.denied', {
-          reason: 'not_authenticated',
-        });
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'You must be logged in to access this resource.',
-        });
-      }
-
-      if (credits.remaining < creditsToConsume) {
-        span?.addEvent('rateLimit.exceeded', {
-          creditsToConsume,
-          creditsRemaining: credits.remaining,
-        });
-        throw new TRPCError({
-          code: 'TOO_MANY_REQUESTS',
-          message: 'You do not have enough credits to complete the request',
-        });
-      }
-
-      await ctx.entitlements.consume(userId, tier, creditsToConsume);
-
-      span?.addEvent('rateLimit.passed', {
-        creditsConsumed: creditsToConsume,
-        creditsAfter: credits.remaining - creditsToConsume,
-      });
-
-      return next();
-    });
-
-  /**
-   * Hierarchical tier gate. Admits the request only if `ctx.tier` is at least
-   * `minTier` in the tier ordering (`Basic < Standard < Pro`), so higher tiers
-   * inherit lower-tier access. Reads the already-assembled billing context —
-   * no Redis or Stripe I/O.
-   */
-  const requireTier = (minTier: SubscriptionTier) =>
-    t.middleware(({ next, ctx }) => {
-      const span = trace.getActiveSpan();
-      span?.setAttributes({
-        'subscription.status': ctx.subscription.status,
-        'subscription.tier': ctx.tier,
-      });
-
-      if (!ctx.entitlements.isTierAtLeast(ctx.tier, minTier)) {
-        span?.addEvent('subscription.check.denied', {
-          reason: 'insufficient_tier',
-          required: minTier,
-          actual: ctx.tier,
-        });
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: `This feature requires the ${minTier} tier or higher.`,
-        });
-      }
-
-      span?.addEvent('subscription.check.granted', { tier: ctx.tier });
-
-      return next();
-    });
-
   return {
     t,
     api: {
@@ -345,8 +264,6 @@ function buildCore() {
       publicProcedure,
       protectedProcedure,
       adminProcedure,
-      rateLimit,
-      requireTier,
     },
   };
 }

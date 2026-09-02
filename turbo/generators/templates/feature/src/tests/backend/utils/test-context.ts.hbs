@@ -7,6 +7,7 @@
  * ones, pointed at testcontainers. Telemetry is ambient (ADR 0023) — no span in
  * a caller test, so nothing to stub. This file owns only the data cleanup.
  */
+import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { flushTestDb } from '@acme/redis/testing';
 import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
@@ -19,17 +20,17 @@ export type TestContextOptions = FeatureTestContextOptions;
 
 /**
  * Build the tRPC caller context. The canonical builder takes the principal
- * whole, because `InjectedUser` is an augmentable global and only this program
- * can build a complete one. If this feature augments the seam with an extra
- * field (see `src/global.d.ts` in `@acme/billing` for the pattern), add it here
- * too — the compiler will tell you.
+ * whole — `InjectedUser` is a concrete type exported by `@acme/trpc`, so set
+ * whatever fields this feature's procedures actually read (`@acme/billing` sets
+ * `email`, which its Stripe customer lookup needs).
  */
 export function createTestContext({
   userId,
   role,
   ...entitlements
 }: TestContextOptions) {
-  return createBaseTestContext({ user: { id: userId, role }, ...entitlements });
+  const user: InjectedUser = { id: userId, role };
+  return createBaseTestContext({ user, ...entitlements });
 }
 
 /**

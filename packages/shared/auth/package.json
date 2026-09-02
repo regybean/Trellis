@@ -22,10 +22,6 @@
     "vitest": "catalog:"
   },
   "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./src/index.ts"
-    },
     "./server": {
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"

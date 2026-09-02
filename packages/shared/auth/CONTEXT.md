@@ -5,8 +5,12 @@ it, and the package's client barrel is gone. What remains is the **server** half
 — the instance and the mappings — plus the signing secret. See
 [ADR 0034](../../../docs/adr/0034-self-hosted-better-auth.md) for the
 replacement decision and
-[ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) (with its two
+[ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) (with its
 amendments) for the seam.
+
+Its surface is `./server`, `./schema` and `./env` — there is no `.` entrypoint.
+That one existed only to ship the `InjectedUser` global augmentation, which #250
+deleted; nothing imported it.
 
 The package ships **no React**. Better Auth ships no UI, so `@acme/ui` owns the forms,
 `@acme/hooks` owns the client status seam, and the app owns `createAuthClient`.
@@ -50,9 +54,11 @@ Shared by both full apps deliberately, and #239 is why it is worth restating: th
 two migration PRs ran in parallel and each wrote its own copy of all three.
 _Resolving_ a session is framework-specific and app-owned (a TanStack Start
 server function vs. Next.js middleware plus a route handler); the mapping is
-**provider**-specific, and `primaryEmailAddress` has to agree exactly with
-`@acme/billing`'s augmentation of `InjectedUser` — two declarations of one merged
-member must match — so it is built once here.
+**provider**-specific and both full apps need the identical answer, so it is
+built once here. `toPrincipal` returns `@acme/trpc`'s exported `InjectedUser`
+directly — a plain `{ id, role?, email? }`. Before #250 it wrapped the email back
+into Clerk's nested primary-address object for billing to unwrap again, kept in
+step by two hand-synced global augmentations.
 
 All three are typed **structurally**, on the fields they read, not against
 `Session`: Better Auth types `getSession` as returning the core columns only, so

@@ -9,12 +9,11 @@
  * tree-shaken out); only `*.test.ts` and backend `setup.ts` files do.
  *
  * Fidelity: `createTestContext` returns exactly the shape `createTRPCContext`
- * produces (`satisfies BaseContext`), and its `subscription`/`tier`/`credits`
- * are derived from the SAME `resolveEntitlements` the injected mock provider's
- * `resolve()` returns — so a test context can never drift from what the real
- * substrate would assemble for the same entitlements. It is deliberately
- * synchronous (the mock `resolve` is pure) so callers keep a plain
- * `createCaller(opts)` with no `await`.
+ * produces — session + entitlements provider, and nothing resolved eagerly
+ * (#250). The tier and credit knobs still live on `TestContextOptions`, because
+ * they are what the injected mock provider resolves *to*: a test sets the tier
+ * it wants and the procedure under test reads it through the same
+ * `ctx.entitlements.resolve()` production calls.
  */
 import type {
   CreditBalance,
@@ -25,7 +24,12 @@ import type {
 } from '@acme/entitlements';
 import { isTierAtLeast } from '@acme/entitlements';
 
-import type { createTRPCContext, InjectedSession, Roles } from './index';
+import type {
+  createTRPCContext,
+  InjectedSession,
+  InjectedUser,
+  Roles,
+} from './index';
 
 /** The billing knobs a test varies per caller. */
 export interface TestEntitlementsOptions {
@@ -35,11 +39,8 @@ export interface TestEntitlementsOptions {
 
 /**
  * What `createTestContext` needs. The principal arrives whole rather than as
- * `userId` + `role`, because `InjectedUser` is an augmentable global: a feature
- * that adds a field to the seam (billing's primary email) is the only program
- * that can build a complete principal, and building it there is what keeps this
- * platform package free of any one feature's knowledge — and free of the
- * widening it would otherwise take to fake it.
+ * `userId` + `role`, so a feature whose procedures read a field beyond identity
+ * (billing reads `email`) sets it here instead of this package inventing one.
  */
 export interface TestContextOptions extends TestEntitlementsOptions {
   user: InjectedUser;
@@ -59,8 +60,8 @@ export interface FeatureTestContextOptions extends TestEntitlementsOptions {
 /**
  * The subscription a real `@acme/subscriptions` adapter would resolve for a
  * tier. `Basic` is the canonical no-billing `{ status: 'none' }`; paid tiers get
- * an active, Stripe-shaped record so `requireTier` gating and
- * `subscription.status` reads run against a realistic shape.
+ * an active, Stripe-shaped record so billing's tier gate and `subscription.status`
+ * reads run against a realistic shape.
  */
 function subscriptionForTier(tier: SubscriptionTier): SubscriptionCache {
   if (tier === 'Basic') return { status: 'none' };
@@ -77,7 +78,7 @@ function subscriptionForTier(tier: SubscriptionTier): SubscriptionCache {
   };
 }
 
-/** The single derivation shared by the mock provider and the test context. */
+/** What the mock provider's `resolve()` answers with, for a given tier. */
 function resolveEntitlements(opts: TestEntitlementsOptions): Entitlements {
   return {
     subscription: subscriptionForTier(opts.tier),
@@ -90,8 +91,8 @@ function resolveEntitlements(opts: TestEntitlementsOptions): Entitlements {
  * A mock `EntitlementsProvider`: `resolve` echoes the tier/credits with a
  * tier-faithful subscription, `consume` and `refund` are no-ops (no Redis —
  * the real Redis-backed ledger is covered in `@acme/subscriptions`), and
- * `isTierAtLeast` is the REAL ordering from `@acme/entitlements` so `requireTier`
- * gates behave exactly as in production.
+ * `isTierAtLeast` is the REAL ordering from `@acme/entitlements` so tier gates
+ * behave exactly as in production.
  */
 export function createMockEntitlements(opts: TestEntitlementsOptions) {
   const resolved = resolveEntitlements(opts);
@@ -124,7 +125,6 @@ export function createMockSession(user: InjectedUser) {
 export function createTestContext(
   opts: TestContextOptions,
 ): Awaited<ReturnType<typeof createTRPCContext>> {
-  const { subscription, tier, credits } = resolveEntitlements(opts);
   return {
     headers: new Headers(),
     // A realistic app origin so procedures that build absolute redirect URLs
@@ -132,8 +132,5 @@ export function createTestContext(
     origin: 'http://localhost:3000',
     session: createMockSession(opts.user),
     entitlements: createMockEntitlements(opts),
-    subscription,
-    tier,
-    credits,
   };
 }

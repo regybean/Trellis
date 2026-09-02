@@ -6,6 +6,7 @@
  * has no feature tables — its state lives entirely in the isolated Redis DB.
  */
 
+import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { flushTestDb } from '@acme/redis/testing';
 import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
@@ -18,25 +19,22 @@ export type TestContextOptions = FeatureTestContextOptions;
 
 /**
  * Build the tRPC caller context. The one canonical builder lives in
- * `@acme/trpc/testing`; this wrapper supplies the `InjectedUser` billing's own
- * program declares — including the `primaryEmailAddress` billing augments the
- * seam with, which the account router opens a Stripe customer against. The
- * platform package knows nothing about that field; this is the only place that
- * has to.
+ * `@acme/trpc/testing`; this wrapper turns billing's `userId`/`role` knobs into
+ * the `InjectedUser` principal it wants — including the `email` the account
+ * router opens a Stripe customer against, which billing's tests are the only
+ * ones that need populated.
  */
 export function createTestContext({
   userId,
   role,
   ...entitlements
 }: TestContextOptions) {
-  return createBaseTestContext({
-    user: {
-      id: userId,
-      role,
-      primaryEmailAddress: { emailAddress: 'test@example.com' },
-    },
-    ...entitlements,
-  });
+  const user: InjectedUser = {
+    id: userId,
+    role,
+    email: 'test@example.com',
+  };
+  return createBaseTestContext({ user, ...entitlements });
 }
 
 /** Flush the isolated Redis DB between tests for isolation. */
