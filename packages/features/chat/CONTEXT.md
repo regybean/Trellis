@@ -79,6 +79,13 @@ _Avoid_: "archive" as a verb/action — there is no archive action, only the tim
 
 ## Design decisions
 
+**`ctx.entitlements` is chat's own context extension** (#256): the provider used
+to be a required field on every tRPC context, so `@acme/feedback` and
+`@acme/ingest` carried it too. Chat declares `ChatContext` and hands it to
+`createFeatureTRPCWithDb<db, ChatContext>(_db)`, because chat is one of the two
+slices that actually meters. The app still chooses which provider at its edge —
+nothing about the injection point moved (ADR 0006 amendment).
+
 **Credits cross the `EntitlementsProvider` seam, both ways**: `chat.send`
 consumes a credit **inline** — there is no rate-limit middleware to use, and
 since #250 there is no eagerly-resolved billing state either, so `send` opens

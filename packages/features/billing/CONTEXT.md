@@ -60,4 +60,12 @@ Deleting the 30s `staleTime` reads like a decision but is closer to a correction
 
 **Local dev runs on localstripe, not real Stripe**: In `localstripe` mode `getStripe()` retargets the SDK at a fake stateful Stripe server (the development profile's `STRIPE_CONNECTION`). That connection is projected once into the **localstripe mode** boolean (`stripe.mode === 'localstripe'`), the single value the rest of the slice reads. localstripe predates the Prices API, so it serves the legacy `plan` shape — `buildSubscriptionCache` reads `price ?? plan` (a shape-tolerant fallback, not mode-gated) and `syncStripeDataToKV` skips the unsupported expands in localstripe mode. The `setUserTier` dev grant is guarded on the same mode. Tiers are granted from the admin page (`setUserTier`) rather than Checkout, and the pricing CTA reads the provider-threaded mode to disable Checkout there. See [`docs/adr/0003-localstripe-dev-billing.md`](../../../docs/adr/0003-localstripe-dev-billing.md).
 
+**`ctx.entitlements` is billing's own context extension** (#256): the provider was
+a required field on every tRPC context until the substrate stopped reading it, at
+which point the field was buying nothing but a billing import in every feature and
+both slim apps. Billing declares `BillingContext` and hands it to
+`createFeatureTRPCWithDb<db, BillingContext>(_db)` — the slice whose whole job is
+billing is the one that should have to name it. The app still chooses which
+provider at its edge; the injection point did not move (ADR 0006 amendment).
+
 **Tier-gating is hierarchical, and it lives here** (#250): Gates compare against a _minimum_ tier (`requireTier`), so higher tiers inherit lower-tier access. The gate used to be `@acme/trpc`'s, which meant `@acme/feedback` and `@acme/ingest` — neither of which has a tier — shipped a tier gate. Its only call sites were this slice's, so it moved to this slice. It resolves entitlements itself (one `ctx.entitlements.resolve`, no Stripe I/O) and injects the result, so the procedure it admits reads the same resolution the gate decided on. The previous dev-only inline Stripe re-sync was removed from the gate: it ran _after_ the subscription was read, so it never affected the current request's decision (only the next one) while paying a Stripe round-trip on every gated request. Keeping the local `stripe:customer:*` cache fresh in dev is a separate concern (Stripe webhooks / manual sync), not the gate's job.

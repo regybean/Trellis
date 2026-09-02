@@ -24,7 +24,9 @@ _Avoid_: "fake user", "mock auth".
 A file route bridging a feature's tRPC router to `/api/trpc/{feature}/$` via
 `createFileRoute(...)({ server: { handlers } })` and `fetchRequestHandler`. The shared
 `createTRPCServerHandlers` (`src/lib/trpc-route.ts`) injects the constant principal +
-unlimited entitlements for every feature mount.
+unlimited entitlements for every feature mount. One resolver serves all of them;
+only `@acme/chat` declares entitlements on its context and reads them, and
+`@acme/ingest` ignores what it's handed (#256).
 
 **Telemetry bootstrap** (Nitro startup plugin, `src/nitro/telemetry.ts`):
 The app-owned hook that calls `initTelemetry()` (`trellis-tanstack-slim`) once at

@@ -23,7 +23,10 @@ _Avoid_: "fake user", "mock auth".
 **Unlimited entitlements**:
 `unlimitedEntitlements` from `@acme/entitlements` — the no-billing entitlements
 provider (top tier, infinite credits, no-op consume) injected in place of the
-Stripe/Redis-backed `subscriptionsEntitlements`. See
+Stripe/Redis-backed `subscriptionsEntitlements`. This app needs it because it
+mounts `@acme/chat`, which meters credits: "unmetered" is a choice the deployment
+has to make, not a default it can omit. `@acme/ingest` declares no entitlements on
+its context at all and ignores the one passed through (#256). See
 [ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md).
 
 **Route handler**:
