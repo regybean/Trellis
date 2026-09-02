@@ -12,7 +12,6 @@ import {
 // the client through the BillingConfigProvider seam so the client never proxies
 // billing mode through NODE_ENV.
 import { localstripeMode } from '@acme/billing/server';
-import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 // Toast container is rendered client-side to safely access localStorage
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
@@ -42,7 +41,7 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout(props: { children: React.ReactNode }) {
-  // Server-resolved so the chat/feedback persisters have their scope on the first
+  // Server-resolved so the chat/feedback/ingest persisters have their scope on the first
   // render (see PersistedFeatureProviders). Signed out ⇒ undefined ⇒ network-only.
   // This is a real database read of the session row, so it is also what seeds the
   // client seam below — the browser client would otherwise report "loading" on
@@ -66,16 +65,14 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
             >
               <BillingTRPCReactProvider>
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
-                  <IngestTRPCReactProvider>
-                    <NotificationsProvider>
-                      <TooltipProvider>
-                        <EditorialShell>
-                          <ToastThemeClient />
-                          {props.children}
-                        </EditorialShell>
-                      </TooltipProvider>
-                    </NotificationsProvider>
-                  </IngestTRPCReactProvider>
+                  <NotificationsProvider>
+                    <TooltipProvider>
+                      <EditorialShell>
+                        <ToastThemeClient />
+                        {props.children}
+                      </EditorialShell>
+                    </TooltipProvider>
+                  </NotificationsProvider>
                 </PersistedFeatureProviders>
               </BillingTRPCReactProvider>
             </BillingConfigProvider>

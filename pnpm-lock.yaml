@@ -1422,6 +1422,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      fake-indexeddb:
+        specifier: 'catalog:'
+        version: 6.2.5
+      idb-keyval:
+        specifier: 'catalog:'
+        version: 6.2.5
       msw:
         specifier: 'catalog:'
         version: 2.12.7(@types/node@24.10.4)(typescript@5.9.3)

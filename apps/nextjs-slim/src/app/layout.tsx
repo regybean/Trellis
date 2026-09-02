@@ -52,7 +52,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
               instant-load win is identical to the full app; `buster` still
               discards on version change. */}
           <ChatTRPCReactProvider scopeKey="anon">
-            <IngestTRPCReactProvider>
+            <IngestTRPCReactProvider scopeKey="anon">
               <NotificationsProvider>
                 <TooltipProvider>
                   <SidebarProvider>

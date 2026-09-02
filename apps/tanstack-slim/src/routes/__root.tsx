@@ -62,7 +62,7 @@ function RootDocument({ children }: { children: ReactNode }) {
           disableTransitionOnChange
         >
           <ChatTRPCReactProvider scopeKey="anon">
-            <IngestTRPCReactProvider>
+            <IngestTRPCReactProvider scopeKey="anon">
               <NotificationsProvider>
                 <TooltipProvider>
                   <ConsoleShell>{children}</ConsoleShell>

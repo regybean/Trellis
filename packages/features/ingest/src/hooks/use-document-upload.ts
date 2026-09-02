@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useReducer } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { useSubscription } from '@trpc/tanstack-react-query';
 import { toast } from 'react-toastify';
@@ -13,7 +13,7 @@ import {
   MAX_FILE_SIZE_BYTES,
   validateFiles,
 } from '../lib/upload-validation';
-import { useTRPC } from '../trpc/react';
+import { useIngestQueryClient, useTRPC } from '../trpc/react';
 import {
   deriveCompletedJobIds,
   deriveFiles,
@@ -59,7 +59,7 @@ const reasonMessage = (reason: unknown) =>
  */
 export function useDocumentUpload() {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
+  const queryClient = useIngestQueryClient();
   const handleGenericError = useGenericErrorHandler();
   const [state, dispatch] = useReducer(
     ingestProgressReducer,
@@ -89,8 +89,16 @@ export function useDocumentUpload() {
   // survive a refresh — without it a fresh mount tailed-from-now into a blank
   // panel. `retry: false` keeps a transient failure from thrashing (the tail still
   // delivers live stages; a missed seed self-heals via seed-on-unknown below).
+  //
+  // Deliberately NOT `persistMeta`-marked (ADR 0025 is opt-in per query): this is
+  // in-flight Upload state whose whole point is to be read fresh from the retained
+  // Stream. A persisted copy would re-seed the panel on a cold open with rows that
+  // finished hours ago and a `lastId` cursor the Stream has since expired past.
+  // Pinned to ingest's client (#82) so it shares the persister-bearing client the
+  // completion invalidation below writes to.
   const snapshot = useQuery(
     trpc.documents.progressSnapshot.queryOptions(undefined, { retry: false }),
+    queryClient,
   );
 
   // Seed the reducer when the snapshot lands. Folding an async query into the

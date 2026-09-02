@@ -42,6 +42,8 @@
     "@vitejs/plugin-react": "catalog:",
     "ai": "catalog:",
     "eslint": "catalog:",
+    "fake-indexeddb": "catalog:",
+    "idb-keyval": "catalog:",
     "msw": "catalog:",
     "msw-trpc": "catalog:",
     "prettier": "catalog:",

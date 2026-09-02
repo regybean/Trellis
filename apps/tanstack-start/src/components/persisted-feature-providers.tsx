@@ -6,11 +6,15 @@ import {
   FeedbackTRPCReactProvider,
 } from '@acme/feedback';
 import { useClearCacheOnLogout } from '@acme/hooks';
+import {
+  clearIngestPersistedCache,
+  IngestTRPCReactProvider,
+} from '@acme/ingest';
 
 /**
  * App adapter for the offline-read persistence seam (ADR 0025). The app — not the
  * feature — owns auth: it passes the signed-in user's id as `scopeKey` to the
- * chat + feedback providers. The id is *server-resolved* (`getAuthState()` in the
+ * chat + feedback + ingest providers. The id is *server-resolved* (`getAuthState()` in the
  * `__root` `beforeLoad`) so it's present on the very first render, before each
  * feature's QueryClient singleton is created — a client-side session read would
  * resolve too late and the singleton would attach no persister. `scopeKey` scopes
@@ -38,7 +42,13 @@ export function PersistedFeatureProviders({
           isSignedIn={Boolean(scopeKey)}
           clearStore={clearFeedbackPersistedCache}
         />
-        {children}
+        <IngestTRPCReactProvider scopeKey={scopeKey}>
+          <ClearCacheOnLogout
+            isSignedIn={Boolean(scopeKey)}
+            clearStore={clearIngestPersistedCache}
+          />
+          {children}
+        </IngestTRPCReactProvider>
       </FeedbackTRPCReactProvider>
     </ChatTRPCReactProvider>
   );

@@ -7,7 +7,7 @@ revisit most and the slowest to reappear. The fix is to persist the relevant
 TanStack Query cache to the browser and restore it instantly on cold open, then
 background-refetch when online (stale-while-revalidate). This ADR records the
 load-bearing choices behind the shared mechanism (`@acme/hooks`); the features
-that opt in (chat, feedback) and the app-supplied scope wiring are separate
+that opt in (chat, feedback, and — since #216 — ingest) and the app-supplied scope wiring are separate
 tickets that compose it.
 
 ## Decision
@@ -80,7 +80,7 @@ simply never marked.
 > revalidation must degrade silently. Re-verify the patch on any persister bump.
 
 **Per-feature storage key.** Each feature's cache lives in its own IndexedDB
-store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`), derived from the
+store, `rq-<keyPrefix>` (e.g. `rq-chat`, `rq-feedback`, `rq-ingest`), derived from the
 feature's existing `keyPrefix`. Mounting several features in one app never
 collides on a shared key.
 
@@ -130,7 +130,7 @@ encryption-at-rest in the browser buys little (the key would sit next to the
 data). The accepted posture is **short-lived, scoped, clearable** rather than
 encrypted:
 
-- Short `maxAge` per feature (chat 7 days, feedback 24 hours) bounds how long a
+- Short `maxAge` per feature (chat 7 days, feedback and ingest 24 hours) bounds how long a
   snapshot lives; `gcTime >= maxAge` on the QueryClient.
 - `scopeKey` buster prevents cross-account reads in the same browser.
 - App-driven logout-clear removes a departing user's data on shared machines.
@@ -174,12 +174,15 @@ accepted
 - A `pnpm patch` on the persister (`.catch()` on its background-revalidation
   fetch) is load-bearing and pinned to `5.90.2`: line offsets shift on a bump, so
   regenerate and re-verify the patch whenever the persister version moves. It is
-  only reachable because chat sets `staleTime: 0` (so the revalidation always
-  fires) — a consumer that leaves `staleTime > 0` never hits the floating fetch.
-- `staleTime: 0` on chat's `QueryClient` means every chat query revalidates on
-  every mount (the cost of correct stale-while-revalidate through the persister):
-  more network chatter than a non-zero `staleTime`, accepted for a chat surface
-  where freshness matters and the persister still gives the instant paint.
+  only reachable because chat and ingest set `staleTime: 0` (so the revalidation
+  always fires) — a consumer that leaves `staleTime > 0` never hits the floating
+  fetch.
+- `staleTime: 0` on chat's and ingest's `QueryClient`s means every one of their
+  queries revalidates on every mount (the cost of correct stale-while-revalidate
+  through the persister): more network chatter than a non-zero `staleTime`,
+  accepted on surfaces where freshness matters and the persister still gives the
+  instant paint. It is not optional for an opting-in feature — any
+  `staleTime > 0` silently converts stale-while-revalidate into serve-stale.
 - Opting a feature in is now a small, uniform step: attach `createQueryPersister`
   to its `QueryClient`, mark queries with `persistMeta`, and expose
   `clearPersistedCache` for the app's logout path.
