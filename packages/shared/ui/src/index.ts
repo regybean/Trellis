@@ -97,6 +97,7 @@ export { LoadingSpinner } from './widgets/loading-spinner';
 export { UserManagement } from './widgets/user-management';
 export {
   UserDetailedManagement,
+  type UserManagementRole,
   type UserManagementUser,
 } from './widgets/user-detailed-management';
 

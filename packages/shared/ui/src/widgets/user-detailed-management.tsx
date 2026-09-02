@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react';
 import {
+  BadgeCheck,
   Mail,
   MoreHorizontal,
   Shield,
@@ -18,35 +19,64 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 
+/** The roles the admin surface can assign. Mirrors `@acme/trpc`'s `Roles`. */
+export type UserManagementRole = 'user' | 'admin';
+
 /**
- * Minimal, UI-owned view of an admin-managed user. Structurally compatible with
- * `@acme/auth`'s `SerializableUser`, but declared here so `@acme/ui` (shared)
- * takes no dependency on the auth seam — keeping the slim apps' graph free of
- * `@acme/auth` (ADR 0010). Callers pass their own serializable user.
+ * A user as the admin widgets render it — Better Auth's own user row, minus the
+ * columns these widgets don't show.
+ *
+ * Declared here, rather than imported from `@acme/auth`, so `@acme/ui` (shared)
+ * takes no dependency on the auth seam and the slim apps' graph stays free of it
+ * (ADR 0010). The edge runs the other way: `@acme/auth` names this type to
+ * describe what its adapter returns.
+ *
+ * Every field is one Better Auth actually stores. Until #225 this was a
+ * structural twin of *Clerk's* user — an `emailAddresses` array with a
+ * `primaryEmailAddressId` pointing into it, `publicMetadata.role`, and a
+ * `lastSignInAt` — and two of those had no source behind them once Clerk was
+ * gone (ADR 0034): Better Auth keeps exactly one email per user (it is the row's
+ * unique key) and records no last-sign-in. Both are gone rather than faked.
+ *
+ * `role` is optional because it is a nullable free-text column that Better Auth
+ * omits from `getSession`'s static type; an absent value reads as the default,
+ * `user`. Narrowing that column to this union is `@acme/auth`'s job — this
+ * package states the union it renders and does not parse.
  */
 export interface UserManagementUser {
   id: string;
-  imageUrl: string;
-  primaryEmailAddressId: string | null;
-  emailAddresses: {
-    id: string;
-    emailAddress: string;
-  }[];
-  publicMetadata: {
-    role?: 'user' | 'admin';
-  };
-  createdAt: number;
-  lastSignInAt: number | null;
+  name: string;
+  email: string;
+  emailVerified: boolean;
+  image: string | null;
+  createdAt: Date;
+  role?: UserManagementRole;
 }
 
 interface UserDetailedManagementProps {
   user: UserManagementUser;
-  setRole: (formData: FormData) => Promise<void>;
-  removeRole: (formData: FormData) => Promise<void>;
+  /**
+   * Assign a role. One callback covers promotion and demotion because Better
+   * Auth has no "no role" state to return to — `role` is a column defaulting to
+   * `user`, not Clerk's nullable metadata bag — so demoting *is* assigning
+   * `user`. The old `removeRole` prop was a second name for this call.
+   *
+   * A plain typed callback, not the `(FormData) => Promise<void>` server-action
+   * signature this took until #225: that shape is Next.js's, and it forced the
+   * TanStack Start app to manufacture a `FormData` to satisfy a
+   * framework-neutral package. Each app binds this to whatever it uses.
+   *
+   * The return type admits a promise because an app may need to await its own
+   * follow-up work (TanStack Start invalidates the router after the mutation);
+   * this widget neither awaits nor renders anything from it.
+   */
+  setRole: (input: {
+    userId: string;
+    role: UserManagementRole;
+  }) => void | Promise<void>;
   /**
    * App-supplied billing panels (e.g. `@acme/billing`'s `RateLimitManagement` /
    * `TierManagement`). Injected via prop so `@acme/ui` stays free of the billing
@@ -56,36 +86,32 @@ interface UserDetailedManagementProps {
   billingPanels?: ReactNode;
 }
 
-const getRoleBadgeVariant = (role?: 'user' | 'admin') =>
+const getRoleBadgeVariant = (role: UserManagementRole) =>
   role === 'admin' ? 'default' : 'secondary';
 
-const getRoleIcon = (role?: 'user' | 'admin') =>
+const getRoleIcon = (role: UserManagementRole) =>
   role === 'admin' ? (
     <Shield className="text-foreground h-3 w-3" />
   ) : (
     <UserIcon className="text-foreground h-3 w-3" />
   );
 
-const getUserRole = (user: UserManagementUser): 'user' | 'admin' =>
-  user.publicMetadata.role ?? 'user';
-
-const getEmailInitials = (email: string): string => {
-  const parts = email.split('@')[0] ?? '';
-  return parts.slice(0, 2).toUpperCase();
+/**
+ * Initials for the avatar fallback. Prefers the display name Better Auth
+ * requires on every user row, and falls back to the email local part for a row
+ * whose name is blank.
+ */
+export const getUserInitials = (user: UserManagementUser): string => {
+  const source = user.name.trim() || (user.email.split('@')[0] ?? '');
+  return source.slice(0, 2).toUpperCase();
 };
 
 export function UserDetailedManagement({
   user,
   setRole,
-  removeRole,
   billingPanels,
 }: UserDetailedManagementProps) {
-  const primaryEmail =
-    user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? 'No email';
-
-  const emailInitials = getEmailInitials(primaryEmail);
-  const userRole = getUserRole(user);
+  const userRole = user.role ?? 'user';
 
   return (
     <div className="space-y-6">
@@ -100,34 +126,35 @@ export function UserDetailedManagement({
         <CardContent>
           <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16">
-              <AvatarImage
-                src={user.imageUrl || '/placeholder.svg'}
-                alt={primaryEmail}
-              />
+              <AvatarImage src={user.image ?? undefined} alt={user.name} />
               <AvatarFallback className="bg-primary text-on-primary text-lg">
-                {emailInitials}
+                {getUserInitials(user)}
               </AvatarFallback>
             </Avatar>
 
             <div className="space-y-2">
+              <h3 className="text-foreground text-lg font-medium">
+                {user.name}
+              </h3>
               <div className="flex items-center space-x-2">
                 <Mail className="text-muted-foreground h-4 w-4" />
-                <h3 className="text-foreground text-lg font-medium">
-                  {primaryEmail}
-                </h3>
+                <span className="text-foreground text-sm">{user.email}</span>
+                <Badge
+                  variant={user.emailVerified ? 'default' : 'secondary'}
+                  className="flex items-center space-x-1"
+                >
+                  <BadgeCheck className="text-foreground h-3 w-3" />
+                  <span className="text-foreground">
+                    {user.emailVerified ? 'Verified' : 'Unverified'}
+                  </span>
+                </Badge>
               </div>
               <p className="text-muted-foreground text-sm">
                 User ID: {user.id}
               </p>
               <p className="text-muted-foreground text-sm">
-                Created: {new Date(user.createdAt).toLocaleDateString()}
+                Created: {user.createdAt.toLocaleDateString()}
               </p>
-              {user.lastSignInAt && (
-                <p className="text-muted-foreground text-sm">
-                  Last Sign In:{' '}
-                  {new Date(user.lastSignInAt).toLocaleDateString()}
-                </p>
-              )}
             </div>
           </div>
         </CardContent>
@@ -135,7 +162,7 @@ export function UserDetailedManagement({
 
       {/* Management Actions */}
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* Clerk Role Management */}
+        {/* Role Management */}
         <Card className="border-border shadow-xs">
           <CardHeader>
             <CardTitle className="text-foreground flex items-center">
@@ -143,7 +170,7 @@ export function UserDetailedManagement({
               Role Management
             </CardTitle>
             <div className="text-muted-foreground text-sm">
-              User: {primaryEmail} (ID: {user.id})
+              User: {user.email} (ID: {user.id})
             </div>
           </CardHeader>
           <CardContent>
@@ -176,51 +203,23 @@ export function UserDetailedManagement({
                   className="border-border bg-background w-48 shadow-lg"
                   sideOffset={5}
                 >
-                  <form action={setRole}>
-                    <input type="hidden" value={user.id} name="id" />
-                    <input type="hidden" value="admin" name="role" />
-                    <DropdownMenuItem asChild>
-                      <button
-                        type="submit"
-                        className="text-foreground hover:bg-accent focus:bg-accent flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={userRole === 'admin'}
-                      >
-                        <Shield className="h-4 w-4" />
-                        <span>Make Admin</span>
-                      </button>
-                    </DropdownMenuItem>
-                  </form>
+                  <DropdownMenuItem
+                    disabled={userRole === 'admin'}
+                    onSelect={() => setRole({ userId: user.id, role: 'admin' })}
+                    className="text-foreground flex cursor-pointer items-center space-x-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    <span>Make Admin</span>
+                  </DropdownMenuItem>
 
-                  <form action={setRole}>
-                    <input type="hidden" value={user.id} name="id" />
-                    <input type="hidden" value="user" name="role" />
-                    <DropdownMenuItem asChild>
-                      <button
-                        type="submit"
-                        className="text-foreground hover:bg-accent focus:bg-accent flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={userRole === 'user'}
-                      >
-                        <UserIcon className="h-4 w-4" />
-                        <span>Make User</span>
-                      </button>
-                    </DropdownMenuItem>
-                  </form>
-
-                  <DropdownMenuSeparator className="bg-border" />
-
-                  <form action={removeRole}>
-                    <input type="hidden" value={user.id} name="id" />
-                    <DropdownMenuItem asChild>
-                      <button
-                        type="submit"
-                        className="text-error-text-red hover:bg-error-background-red focus:bg-error-background-red flex w-full cursor-pointer items-center space-x-2 px-2 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                        disabled={userRole === 'user'}
-                      >
-                        <UserIcon className="h-4 w-4" />
-                        <span>Demote to User</span>
-                      </button>
-                    </DropdownMenuItem>
-                  </form>
+                  <DropdownMenuItem
+                    disabled={userRole === 'user'}
+                    onSelect={() => setRole({ userId: user.id, role: 'user' })}
+                    className="text-foreground flex cursor-pointer items-center space-x-2"
+                  >
+                    <UserIcon className="h-4 w-4" />
+                    <span>Make User</span>
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

@@ -1,49 +1,44 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
+import { z } from 'zod';
 
 import { auth } from '~/server/auth';
 
-// `formData.get` is `string | File | null`; the role form only ever submits
-// text fields, so narrow to a string rather than blind-stringifying a File.
-const getField = (formData: FormData, key: string) => {
-  const value = formData.get(key);
-  return typeof value === 'string' ? value : '';
-};
-
 /**
- * Set a user's role through Better Auth's admin plugin (#223).
+ * The one role mutation the admin surface needs, as a Next.js server action.
  *
  * The caller's own admin-ness is **not** checked here: `auth.api.setRole` is
  * itself an admin-gated endpoint, so it resolves the caller's session from the
- * forwarded headers and rejects a non-admin. Re-checking first would be a second,
- * weaker copy of the same rule — the previous Clerk implementation needed one
- * because `clerkClient()` is unauthenticated backend access with no such gate.
+ * forwarded headers and rejects a non-admin. Re-checking first would be a
+ * second, weaker copy of the same rule — the previous Clerk implementation
+ * needed one because `clerkClient()` is unauthenticated backend access with no
+ * such gate.
  *
- * Role management as a *feature* — the admin widget rework — is a separate
- * ticket; this is the minimum that keeps the existing dashboard working with no
- * Clerk dependency.
+ * There is no separate `removeRole` any more. Better Auth has no "clear the
+ * role" call — `role` is a column with a `defaultRole` of `user`, not Clerk's
+ * nullable metadata bag — so demoting *is* setting `user`, and the two actions
+ * were one call under two names (#225).
+ *
+ * The input is parsed rather than trusted: a server action is a public HTTP
+ * endpoint, so `role` arrives as unvalidated client input even though the only
+ * caller in the app sends the union.
  */
-export async function setRole(formData: FormData) {
-  await auth.api.setRole({
-    body: {
-      userId: getField(formData, 'id'),
-      role: getField(formData, 'role') === 'admin' ? 'admin' : 'user',
-    },
-    headers: await headers(),
-  });
-}
+const setRoleInput = z.object({
+  userId: z.string().min(1),
+  role: z.enum(['admin', 'user']),
+});
 
-/**
- * Demote a user to the default role.
- *
- * Better Auth has no "clear the role" call — `role` is a column with a
- * `defaultRole` of `user`, not Clerk's nullable metadata bag — so removing admin
- * *is* setting `user`. Behaviour is unchanged: both end states are a non-admin.
- */
-export async function removeRole(formData: FormData) {
+export async function setRole(input: z.infer<typeof setRoleInput>) {
+  const { userId, role } = setRoleInput.parse(input);
+
   await auth.api.setRole({
-    body: { userId: getField(formData, 'id'), role: 'user' },
+    body: { userId, role },
     headers: await headers(),
   });
+
+  // The dashboard is an RSC that reads the user list on the server, so the new
+  // role only reaches the page if this render is discarded.
+  revalidatePath('/admin');
 }

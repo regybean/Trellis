@@ -15,7 +15,7 @@ import {
 } from '@acme/ingest';
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
-import { removeUserRole, setUserRole } from '../../lib/admin';
+import { setUserRole } from '../../lib/admin';
 import { SearchUsers } from './search-users';
 
 interface AdminDashboardProps {
@@ -25,19 +25,17 @@ interface AdminDashboardProps {
   onClear: () => void;
 }
 
-// `formData.get` is `string | File | null`; the role form only ever submits a
-// text id, so narrow to a string rather than blind-stringifying a File.
-const getId = (formData: FormData) => {
-  const id = formData.get('id');
-  return typeof id === 'string' ? id : '';
-};
-
 /**
  * App-owned admin shell — the framework-specific replacement for the Next.js
  * `AdminDashboard` RSC. It reuses the neutral presentational pieces
- * (`UserManagement`, `StripeTesting`, ingest documents) unchanged and supplies
- * TanStack Start server functions for the role mutations, adapting them to the
- * `(FormData) => Promise<void>` contract `UserManagement` expects.
+ * (`UserManagement`, `StripeTesting`, ingest documents) unchanged and binds the
+ * role mutation to a TanStack Start server function.
+ *
+ * The adapter that used to sit here is gone: `UserManagement` took
+ * `(FormData) => Promise<void>`, a Next.js server-action signature, so this
+ * component had to read fields back out of a `FormData` the widget had built for
+ * no one. It now takes a typed callback (#225), and the only per-app work left
+ * is invalidating the router so the loader re-reads the list.
  */
 export function AdminDashboard({
   users,
@@ -47,14 +45,8 @@ export function AdminDashboard({
 }: AdminDashboardProps) {
   const router = useRouter();
 
-  const setRole = async (formData: FormData) => {
-    const role = formData.get('role') === 'admin' ? 'admin' : 'user';
-    await setUserRole({ data: { id: getId(formData), role } });
-    await router.invalidate();
-  };
-
-  const removeRole = async (formData: FormData) => {
-    await removeUserRole({ data: { id: getId(formData) } });
+  const setRole = async (data: { userId: string; role: 'admin' | 'user' }) => {
+    await setUserRole({ data });
     await router.invalidate();
   };
 
@@ -98,7 +90,6 @@ export function AdminDashboard({
             <UserManagement
               users={users}
               setRole={setRole}
-              removeRole={removeRole}
               renderBillingPanels={(user) => (
                 <>
                   <RateLimitManagement user={user} />

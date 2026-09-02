@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { getRequestHeaders } from '@tanstack/react-start/server';
 import { z } from 'zod';
 
-import { toManagementUser } from '@acme/auth/server';
+import { toAdminUser } from '@acme/auth/server';
 
 import { auth } from '~/lib/auth-server';
 
@@ -39,29 +39,23 @@ export const listUsers = createServerFn({ method: 'GET' })
       headers: getRequestHeaders(),
     });
 
-    return users.map((user) => toManagementUser(user));
-  });
-
-export const setUserRole = createServerFn({ method: 'POST' })
-  .validator(z.object({ id: z.string(), role: z.enum(['admin', 'user']) }))
-  .handler(async ({ data }) => {
-    await auth.api.setRole({
-      body: { userId: data.id, role: data.role },
-      headers: getRequestHeaders(),
-    });
+    return users.map((user) => toAdminUser(user));
   });
 
 /**
- * Demote to `user`. There is no "no role" state to return to: Clerk's version
- * wrote `publicMetadata.role = null`, but Better Auth's admin plugin defaults a
- * new user's column to `'user'`, so plain membership *is* a role and clearing it
- * would put the row in a state nothing else in the system produces.
+ * Assign a role. One server function covers promotion and demotion: there is no
+ * "no role" state to return to — Clerk's version wrote
+ * `publicMetadata.role = null`, but Better Auth's admin plugin defaults a new
+ * user's column to `'user'`, so plain membership *is* a role and clearing it
+ * would put the row in a state nothing else in the system produces. The
+ * separate `removeUserRole` this file used to export was the same call under a
+ * second name (#225).
  */
-export const removeUserRole = createServerFn({ method: 'POST' })
-  .validator(z.object({ id: z.string() }))
+export const setUserRole = createServerFn({ method: 'POST' })
+  .validator(z.object({ userId: z.string(), role: z.enum(['admin', 'user']) }))
   .handler(async ({ data }) => {
     await auth.api.setRole({
-      body: { userId: data.id, role: 'user' },
+      body: { userId: data.userId, role: data.role },
       headers: getRequestHeaders(),
     });
   });

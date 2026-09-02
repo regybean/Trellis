@@ -14,7 +14,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   readSessionRole,
-  toManagementUser,
+  toAdminUser,
   toPrincipal,
 } from '../../../../principal';
 import { authUser } from '../../../../schemas/auth-schema';
@@ -121,7 +121,7 @@ describe('toPrincipal', () => {
   });
 });
 
-describe('toManagementUser', () => {
+describe('toAdminUser', () => {
   it('shapes a listed user for the admin widget', async () => {
     const adminHeaders = await signedInAdmin();
     const { email, created } = await signedInSession('principal-listed');
@@ -137,17 +137,40 @@ describe('toManagementUser', () => {
     const [listed] = users;
 
     expect(listed?.id).toBe(created.id);
-    expect(listed && toManagementUser(listed)).toEqual({
+    // Every field is one Better Auth stores. The Clerk-shaped fabrications the
+    // old `toManagementUser` produced — an `emailAddresses` array with a
+    // `primaryEmailAddressId` into it, and a `lastSignInAt` of `null` — are
+    // gone with the widget that wanted them (#225).
+    expect(listed && toAdminUser(listed)).toEqual({
       id: created.id,
-      imageUrl: '',
-      // The two honest fabrications: Better Auth keeps one email per user, so
-      // the "array plus a pointer at the primary" reuses the user id; and the
-      // core schema records no last sign-in.
-      primaryEmailAddressId: created.id,
-      emailAddresses: [{ id: created.id, emailAddress: email }],
-      publicMetadata: { role: 'user' },
-      createdAt: created.createdAt.getTime(),
-      lastSignInAt: null,
+      name: `Test ${email}`,
+      email,
+      emailVerified: false,
+      image: null,
+      createdAt: created.createdAt,
+      role: 'user',
     });
+  });
+
+  it('reports a promoted user as admin', async () => {
+    const adminHeaders = await signedInAdmin();
+    const { email, created } = await signedInSession('principal-promoted');
+
+    await auth.api.setRole({
+      body: { userId: created.id, role: 'admin' },
+      headers: adminHeaders,
+    });
+
+    const { users } = await auth.api.listUsers({
+      query: {
+        searchField: 'email',
+        searchOperator: 'contains',
+        searchValue: email,
+      },
+      headers: adminHeaders,
+    });
+    const [listed] = users;
+
+    expect(listed && toAdminUser(listed).role).toBe('admin');
   });
 });

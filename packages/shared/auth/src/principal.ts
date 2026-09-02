@@ -102,37 +102,44 @@ export function toPrincipal(
   };
 }
 
-/** What `toManagementUser` reads off an admin-plugin user row. */
+/** What `toAdminUser` reads off an admin-plugin user row. */
 interface ManageableUser extends RoleBearingUser {
+  name: string;
   email: string;
+  emailVerified: boolean;
   image?: string | null;
   createdAt: Date;
 }
 
 /**
- * A Better Auth user row, shaped for `@acme/ui`'s admin widgets.
+ * A Better Auth user row, as `@acme/ui`'s admin widgets consume it.
  *
- * ⚠️ **This adapter is a translation layer, and #225 deletes it.**
- * `UserManagementUser` is still Clerk's user shape — an `emailAddresses` array
- * with a `primaryEmailAddressId` pointing into it, `publicMetadata.role`,
- * `lastSignInAt` — because that is what the widget was written against
- * (ADR 0013). #225 cuts the widget back to what Better Auth actually stores, and
- * this function goes with it.
+ * This replaces `toManagementUser`, which was a *translation layer*: the widget
+ * was written against Clerk's user, so the adapter had to build an
+ * `emailAddresses` array with a `primaryEmailAddressId` pointing into it, a
+ * `publicMetadata.role`, and a `lastSignInAt` — and two of those had no source
+ * once Clerk was gone (ADR 0034), so they were fabricated in place. #225 cut the
+ * widget back to what Better Auth actually stores, which leaves this doing one
+ * honest job.
  *
- * Two fields have no honest source and are marked as such rather than invented:
- * Better Auth stores one email per user (it is `user`'s unique key), so the
- * "array plus a pointer at the primary" is a single row wearing Clerk's shape;
- * and the core schema tracks no last-sign-in, so it is `null` rather than a
- * guess derived from the newest `session` row.
+ * That job is the `role` column, and it is why the function still exists rather
+ * than the apps spreading the row straight into the widget. The column is
+ * nullable free text that Better Auth omits from its static types; the widget
+ * renders a closed `'user' | 'admin'` union. `readSessionRole` is the parse
+ * between the two, and it belongs here — one copy, next to the `Roles` union it
+ * answers to — not duplicated in each app.
+ *
+ * `image` widens to `string | null` because the widget distinguishes "no avatar"
+ * from an empty string, and `undefined` is not a state a database column has.
  */
-export function toManagementUser(user: ManageableUser): UserManagementUser {
+export function toAdminUser(user: ManageableUser): UserManagementUser {
   return {
     id: user.id,
-    imageUrl: user.image ?? '',
-    primaryEmailAddressId: user.id,
-    emailAddresses: [{ id: user.id, emailAddress: user.email }],
-    publicMetadata: { role: readSessionRole(user) ?? undefined },
-    createdAt: user.createdAt.getTime(),
-    lastSignInAt: null,
+    name: user.name,
+    email: user.email,
+    emailVerified: user.emailVerified,
+    image: user.image ?? null,
+    createdAt: user.createdAt,
+    role: readSessionRole(user) ?? undefined,
   };
 }
