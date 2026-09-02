@@ -41,7 +41,7 @@ augmentable global whose base carries the only two fields the substrate reads,
 consumers _augment_ the interface, they never restate the base. No auth provider
 is named here; mapping a provider's session onto this shape is the app's job
 (ADR 0003).
-_Avoid_: "the auth object", "the Clerk session"
+_Avoid_: "the auth object", "the provider session"
 
 **Protected procedure**:
 A procedure requiring a principal — `isAuthed` rejects a null `ctx.session.user`
@@ -64,8 +64,8 @@ exactly like `rateLimit`.
 **Context resolver**:
 The app-owned function that turns an HTTP `Request` into the neutral context input
 `createTRPCContext` expects, mapping its auth provider's session onto the
-**Injected session** (Clerk for the full apps; a constant local principal for the
-slim apps). The _only_ per-app/per-framework piece of the route seam — it stays
+**Injected session** (a resolved Better Auth session for the full apps; a constant
+local principal for the slim apps). The _only_ per-app/per-framework piece of the route seam — it stays
 in the app to keep framework + auth specifics out of the platform (ADR 0003 / 0010).
 _Avoid_: "the auth handler", "the context builder"
 

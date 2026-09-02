@@ -33,7 +33,7 @@ service test that owns the outcome.
 
 1. **Never mock `env` or in-repo infra** ([ADR 0014](../adr/0014-tests-validate-real-env.md)).
    Postgres, Redis, and every `env.ts` are real. Mock only true externals
-   (LLM/Bedrock, Stripe, S3) and stub Clerk via the context. Need a branch a
+   (LLM/Bedrock, Stripe, S3) and stub auth via the context. Need a branch a
    valid `env` can't produce? Configure the real env (`vi.stubEnv`), don't mock
    the env module.
 2. **One test context.** Build callers from `@acme/trpc/testing`'s

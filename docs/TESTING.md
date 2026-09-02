@@ -155,7 +155,7 @@ Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
 | `env.ts` (every package)  | **Real** — validated against `createEnv`, never mocked. Static values come from `staticTestEnv`; live DB/Redis details are hydrated from the containers. |
 | PostgreSQL / pgvector     | **Real** — a throwaway testcontainer per suite, on every run.                                                                                            |
 | Redis                     | **Real** — same.                                                                                                                                         |
-| Clerk auth                | Stubbed via the test context (`@acme/trpc/testing`) — we don't test Clerk.                                                                               |
+| Auth                      | Stubbed via the test context (`@acme/trpc/testing`) — we don't test the provider.                                                                        |
 | LLM / Bedrock, embeddings | Mocked — a true external. Behavioral fake (e.g. rag's fixed embed vector).                                                                               |
 | Stripe, S3                | Mocked — true externals.                                                                                                                                 |
 | OpenTelemetry             | Noop telemetry from the test context.                                                                                                                    |

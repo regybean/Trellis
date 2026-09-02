@@ -19,7 +19,7 @@ accepted
    transport needs _only the `AppRouter` type_ (erased at compile time) plus a URL —
    it never needs the router value. The server caller is what needs the real
    `appRouter` + `createTRPCContext`, and those transitively pull in `server-only`,
-   Clerk's server SDK, Redis and Drizzle. If the browser client resolved its router
+   the auth server SDK, Redis and Drizzle. If the browser client resolved its router
    by name from a shared runtime registry, that registry would drag the server router
    into the client bundle and `server-only` would throw at build. The existing
    relative-import duplication exists _precisely_ to keep the two sides apart.

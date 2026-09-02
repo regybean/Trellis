@@ -34,24 +34,29 @@ SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vaul
 
 There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
 
-### Auth: Clerk keys (required for the full apps)
+### Auth: Better Auth secret (required for the full apps)
 
-The **full** apps (`nextjs`, `tanstack-start`) require [Clerk](https://clerk.com) today — it's the one credential you can't stub locally (the framework is behind a seam, the provider isn't yet; see [README → known rough edges](../README.md#known-rough-edges)). The **slim** apps (`nextjs-slim`, `tanstack-slim`) need no Clerk keys at all — they inject a constant local principal ([ADR 0010](adr/0010-slim-no-auth-apps.md)), so you can skip this section if you only run those.
+Auth is self-hosted — sessions are rows in your own Postgres, so there is no third-party account to create and no credential to obtain (ADR 0034, self-hosted Better Auth). The **full** apps (`nextjs`, `tanstack-start`) need one generated secret; the **slim** apps (`nextjs-slim`, `tanstack-slim`) need nothing at all — they inject a constant local principal ([ADR 0010](adr/0010-slim-no-auth-apps.md)), so you can skip this section if you only run those.
 
-Create a free Clerk app, then set its two keys from the [API keys](https://dashboard.clerk.com/last-active?path=api-keys) page:
+Generate a secret and set it in each full app's `.env`:
 
-| Var                                 | Where                 | Value                                                          |
-| ----------------------------------- | --------------------- | -------------------------------------------------------------- |
-| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | both apps             | `pk_test_…` (Publishable key)                                  |
-| `CLERK_SECRET_KEY`                  | both apps             | `sk_test_…` (Secret key)                                       |
-| `CLERK_PUBLISHABLE_KEY`             | `tanstack-start` only | same `pk_test_…` — its server SDK doesn't read `NEXT_PUBLIC_*` |
+```bash
+openssl rand -base64 32
+```
 
-Set them per app in `apps/nextjs/.env` and `apps/tanstack-start/.env`. The `*_SIGN_IN_URL` / `*_SIGN_UP_URL` vars already have working defaults.
+| Var                  | Where     | Value                                                                         |
+| -------------------- | --------- | ----------------------------------------------------------------------------- |
+| `BETTER_AUTH_SECRET` | both apps | the generated value — signs session cookies and encrypts stored tokens        |
+| `BETTER_AUTH_URL`    | both apps | the origin the auth routes are served from; defaults to each app's local port |
 
-**Roles** — admin-only actions (e.g. uploading docs on the ingest/admin page) are gated on a `role` claim (`admin` | `user`, typed in [globals.d.ts](../packages/shared/auth/src/types/globals.d.ts)). To make yourself an admin, set this in the user's **public metadata** in the Clerk dashboard:
+`BETTER_AUTH_URL` is authored config with a working development default (`http://localhost:3000` for `nextjs`, `:3001` for `tanstack-start`), so a local checkout needs no row. A deploy target overrides it with the externally reachable URL.
 
-```json
-{ "role": "admin" }
+Sign-up and sign-in are in-app at `/sign-up` and `/sign-in` — email and password, against your own handler.
+
+**Roles** — admin-only actions (e.g. uploading docs on the ingest/admin page) are gated on a `role` (`admin` | `user`, typed in [globals.d.ts](../packages/shared/auth/src/types/globals.d.ts)). `role` is a column on the user row, defaulting to `user`. Once you have one admin, promote others from the app's `/admin` page. Seeding that **first** admin is a database write by definition — the promote endpoint requires an existing admin to call it:
+
+```sql
+UPDATE auth."user" SET role = 'admin' WHERE email = 'you@example.com';
 ```
 
 ### Choosing a model provider
