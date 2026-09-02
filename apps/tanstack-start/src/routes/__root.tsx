@@ -1,8 +1,6 @@
 /// <reference types="vite/client" />
 import type { QueryClient } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
-import { ClerkProvider } from '@clerk/tanstack-react-start';
-import { dark } from '@clerk/themes';
 import {
   createRootRouteWithContext,
   HeadContent,
@@ -10,7 +8,6 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 
-import { clerkWiringEnv } from '@acme/auth/env';
 import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
 import {
   env as billingEnvValues,
@@ -26,12 +23,6 @@ import { getAuthState } from '../lib/auth';
 import { getLocalstripeMode } from '../lib/stripe';
 import appCss from '../styles.css?url';
 
-// Clerk's browser-safe wiring comes from the owning slice's env, not the app's
-// composed `env`: t3-env's access guard is name-based, so an unprefixed key is
-// only readable through the call that declares it `shared` (ADR 0033 §6). This
-// route renders on both sides, which is exactly why the read goes here.
-const clerk = clerkWiringEnv();
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
     // Server-resolved so the chat/feedback persisters have their scope on the
@@ -40,11 +31,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // (ADR 0033) and threaded to the client through the BillingConfigProvider seam
     // below.
     beforeLoad: async () => {
-      const [{ userId }, localstripeMode] = await Promise.all([
+      const [{ userId, user }, localstripeMode] = await Promise.all([
         getAuthState(),
         getLocalstripeMode(),
       ]);
-      return { userId, localstripeMode };
+      return { userId, user, localstripeMode };
     },
     head: () => ({
       meta: [
@@ -67,13 +58,20 @@ function RootComponent() {
 }
 
 /**
- * Provider nesting mirrors the Next.js app's root layout (Clerk → theme →
- * Billing/Chat/Ingest tRPC → tooltip), with two app-owned divergences: the
- * Clerk provider is the TanStack Start one, and the theme is locked dark to
- * match the developer-console shell. The feature providers are reused as-is.
+ * Provider nesting mirrors the Next.js app's root layout (theme →
+ * Billing/Chat/Ingest tRPC → tooltip), with the theme locked dark to match the
+ * developer-console shell. The feature providers are reused as-is.
+ *
+ * There is **no auth provider**, which is the visible shape of ADR 0034: Clerk
+ * needed `<ClerkProvider>` wrapped around the whole tree so its prebuilt
+ * components could read context, and Better Auth's client is a plain module
+ * (`lib/auth-client.ts`) that any component imports directly. The signed-in
+ * principal reaches the shell as a prop off this route's server-resolved
+ * context instead of through a context provider — which also means it is present
+ * on the first paint rather than after a client-side session fetch.
  */
 function RootDocument({ children }: { children: ReactNode }) {
-  const { userId, localstripeMode } = Route.useRouteContext();
+  const { userId, user, localstripeMode } = Route.useRouteContext();
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
@@ -81,38 +79,29 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body className="bg-background text-foreground min-h-screen font-sans antialiased">
-        <ClerkProvider
-          publishableKey={clerk.CLERK_PUBLISHABLE_KEY}
-          signInUrl={clerk.CLERK_SIGN_IN_URL}
-          signUpUrl={clerk.CLERK_SIGN_UP_URL}
-          signInForceRedirectUrl={clerk.CLERK_SIGN_IN_FORCE_REDIRECT_URL}
-          signUpForceRedirectUrl={clerk.CLERK_SIGN_UP_FORCE_REDIRECT_URL}
-          appearance={{ baseTheme: dark }}
+        <NextThemeProvider
+          attribute="class"
+          forcedTheme="dark"
+          disableTransitionOnChange
         >
-          <NextThemeProvider
-            attribute="class"
-            forcedTheme="dark"
-            disableTransitionOnChange
+          <BillingConfigProvider
+            config={toBillingClientConfig(billingEnvValues)}
+            localstripeMode={localstripeMode}
           >
-            <BillingConfigProvider
-              config={toBillingClientConfig(billingEnvValues)}
-              localstripeMode={localstripeMode}
-            >
-              <BillingTRPCReactProvider>
-                <PersistedFeatureProviders scopeKey={userId ?? undefined}>
-                  <IngestTRPCReactProvider>
-                    <NotificationsProvider>
-                      <TooltipProvider>
-                        <ConsoleShell>{children}</ConsoleShell>
-                        <ToastThemeClient />
-                      </TooltipProvider>
-                    </NotificationsProvider>
-                  </IngestTRPCReactProvider>
-                </PersistedFeatureProviders>
-              </BillingTRPCReactProvider>
-            </BillingConfigProvider>
-          </NextThemeProvider>
-        </ClerkProvider>
+            <BillingTRPCReactProvider>
+              <PersistedFeatureProviders scopeKey={userId ?? undefined}>
+                <IngestTRPCReactProvider>
+                  <NotificationsProvider>
+                    <TooltipProvider>
+                      <ConsoleShell user={user}>{children}</ConsoleShell>
+                      <ToastThemeClient />
+                    </TooltipProvider>
+                  </NotificationsProvider>
+                </IngestTRPCReactProvider>
+              </PersistedFeatureProviders>
+            </BillingTRPCReactProvider>
+          </BillingConfigProvider>
+        </NextThemeProvider>
         <Scripts />
       </body>
     </html>
