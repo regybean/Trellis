@@ -84,19 +84,10 @@ have to inject each app's `NEXT_PUBLIC_WEBAPP` by hand.
 makes `@acme/chat/server`'s `import 'server-only'` resolve to the empty stub
 rather than the guard that throws outside an RSC bundle.
 
-### Queue names are constants, not strings
+### Queue names come from `QUEUE_NAMES`, never a literal
 
-```ts
-export const QUEUE_NAMES = {
-  GENERATION: 'generation',
-  INGEST: 'ingest',
-} as const;
-```
-
-Producer (`createQueue`, inside the feature) and consumer (`createWorker`, in
-your `worker.ts`) must agree — BullMQ identifies a queue by name, so mismatched
-literals route silently to the wrong queue. Both take `QueueName`, so a typo is
-a compile error.
+`createWorker` takes `QueueName`, so a typo in your `worker.ts` is a compile
+error rather than a worker silently draining nothing.
 
 ## Env
 
@@ -113,10 +104,9 @@ enqueue (`QUEUE_REMOVE_ON_COMPLETE` / `QUEUE_REMOVE_ON_FAIL` in `@acme/chat` and
 `@acme/ingest`). The connection comes from `@acme/redis`'s `REDIS_URL`, parsed
 here rather than declared as a queue env row.
 
-`NEXT_PUBLIC_WEBAPP` is the isolation mechanism: app `nextjs` owns
-`nextjs:generation:*` and `tanstack_slim` owns `tanstack_slim:generation:*`. All
-apps share one Redis, so an unset value has every worker draining every app's
-jobs.
+`NEXT_PUBLIC_WEBAPP` is the isolation mechanism — set it, and set it distinctly
+per app, or every app's worker drains the same list on the shared Redis. The
+`CONTEXT.md` here has the rationale.
 
 ## Infra
 
