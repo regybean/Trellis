@@ -77,9 +77,8 @@ alongside the app:
 "dev:worker": { "cache": false, "persistent": true }
 ```
 
-The per-app env is the
-reason: a shared container would have to inject each app's `NEXT_PUBLIC_WEBAPP`
-by hand.
+The per-app env is the reason for one process per app: a shared container would
+have to inject each app's `NEXT_PUBLIC_WEBAPP` by hand.
 
 `--conditions=react-server` is load-bearing, not a flag someone left behind: it
 makes `@acme/chat/server`'s `import 'server-only'` resolve to the empty stub
