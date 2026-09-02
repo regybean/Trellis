@@ -19,11 +19,9 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
  *
  * The session comes from the request's own `Headers`, not from an ambient request
  * context: `auth.api.getSession` needs only the `Cookie` header, and the tRPC
- * fetch handler already holds the `Request`. That is a real simplification over
- * the Clerk resolver this replaces, which required `clerkMiddleware()` to have
- * populated the Start request context before `auth()` would work — so there is no
- * longer any request middleware for auth at all, and this resolver behaves
- * identically wherever it is called from.
+ * fetch handler already holds the `Request`. So there is no request middleware
+ * for auth at all, and this resolver behaves identically wherever it is called
+ * from.
  *
  * Resolving the session is the framework-specific half; the provider-specific
  * mapping onto the neutral principal is `@acme/auth`'s `toPrincipal`, shared with

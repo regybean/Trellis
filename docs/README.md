@@ -41,7 +41,7 @@ System-wide decisions live in [`adr/`](adr/). Per-package ADRs live under each p
 | ------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
 | [0001](adr/0001-pluggable-secrets-sync.md)              | Pluggable secrets sync with `.env.example` as the contract.                                    |
 | [0002](adr/0002-mastra-rag-and-memory.md)               | Mastra owns RAG + Memory; Drizzle mirrors are query-only read models.                          |
-| [0003 (auth)](adr/0003-framework-agnostic-auth-seam.md) | Auth is injected into the tRPC context; the app owns the Clerk resolver.                       |
+| [0003 (auth)](adr/0003-framework-agnostic-auth-seam.md) | Auth is injected into the tRPC context; the app owns the session resolver.                     |
 | [0003 (models)](adr/0003-multi-provider-models.md)      | Multi-provider models behind a single `@acme/models` package.                                  |
 | [0004](adr/0004-localstripe-dev-billing.md)             | localstripe for dependency-free local-dev billing.                                             |
 | [0005](adr/0005-telemetry-init-seam.md)                 | Telemetry is initialised per-app at the server boundary; the platform assumes no ambient span. |

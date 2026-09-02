@@ -77,12 +77,9 @@ interface ResolvedSession {
  * Map a resolved Better Auth session onto the platform's neutral
  * `InjectedUser`, or `null` when there is no session.
  *
- * Supersedes `toInjectedPrincipal` (the Clerk mapping), and is simpler than it
- * in a way worth naming: Clerk needed a second round trip to fetch the `User`
- * because identity lived in the session token and the profile lived in the API,
- * so the mapping took two arguments and had to stay useful when the user fetch
- * came back empty. Better Auth resolves `{ session, user }` from one database
- * read, so the row the session points at is always there.
+ * One argument, and no absent-user case to handle: Better Auth resolves
+ * `{ session, user }` from a single database read, so the row the session points
+ * at is always there.
  */
 export function toPrincipal(
   session: ResolvedSession | null,
@@ -95,9 +92,9 @@ export function toPrincipal(
     id,
     role: readSessionRole(session.user) ?? undefined,
     // Better Auth's core schema has exactly one email per user (it is `user`'s
-    // unique key), so there is no primary to pick out of a list the way Clerk's
-    // `emailAddresses` array required — and therefore never a signed-in caller
-    // with no address for billing's Stripe customer lookup to open against.
+    // unique key), so there is no primary to pick out of a list — and therefore
+    // never a signed-in caller with no address for billing's Stripe customer
+    // lookup to open against.
     primaryEmailAddress: { emailAddress: email },
   };
 }
@@ -114,13 +111,9 @@ interface ManageableUser extends RoleBearingUser {
 /**
  * A Better Auth user row, as `@acme/ui`'s admin widgets consume it.
  *
- * This replaces `toManagementUser`, which was a *translation layer*: the widget
- * was written against Clerk's user, so the adapter had to build an
- * `emailAddresses` array with a `primaryEmailAddressId` pointing into it, a
- * `publicMetadata.role`, and a `lastSignInAt` — and two of those had no source
- * once Clerk was gone (ADR 0034), so they were fabricated in place. #225 cut the
- * widget back to what Better Auth actually stores, which leaves this doing one
- * honest job.
+ * Not a translation layer. #225 cut the widget back to exactly what Better Auth
+ * stores, so nothing here has to fabricate a field to satisfy a shape the
+ * provider has no source for (ADR 0034). That leaves this doing one honest job.
  *
  * That job is the `role` column, and it is why the function still exists rather
  * than the apps spreading the row straight into the widget. The column is

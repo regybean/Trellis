@@ -40,7 +40,7 @@ function RootComponent() {
 
 /**
  * Provider nesting mirrors the Next.js slim app's root layout (theme →
- * Chat/Ingest tRPC → tooltip). No Clerk, no billing/feedback providers — the
+ * Chat/Ingest tRPC → tooltip). No auth, no billing/feedback providers — the
  * slim app injects a constant principal at the tRPC route seam instead. The
  * theme is locked dark to match the developer-console shell.
  *

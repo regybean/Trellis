@@ -8,12 +8,10 @@ import { createCsrfMiddleware, createStart } from '@tanstack/react-start';
  * POST, the Better Auth catch-all (`/api/auth/$`) does its own origin check
  * against `baseURL`/`trustedOrigins`, and the tRPC routes carry their own auth.
  *
- * Global Start instance. Auth registers **no** request middleware here, which is
- * the substantive change from the Clerk wiring this replaces: `clerkMiddleware()`
- * had to populate the Start request context before `auth()` or `clerkClient()`
- * would work anywhere, so auth was ambient. Better Auth resolves a session from
- * the request's own `Cookie` header (`lib/auth.ts`, `lib/trpc-context.ts`), so
- * there is nothing to install and no ordering to get right.
+ * Global Start instance. Auth registers **no** request middleware here: Better
+ * Auth resolves a session from the request's own `Cookie` header (`lib/auth.ts`,
+ * `lib/trpc-context.ts`), so there is nothing to install and no ordering to get
+ * right — auth is never ambient (ADR 0034).
  */
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === 'serverFn',

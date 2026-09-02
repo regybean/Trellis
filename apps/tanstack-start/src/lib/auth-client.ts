@@ -1,10 +1,8 @@
 import { createAuthClient } from 'better-auth/react';
 
 /**
- * App-owned Better Auth React client. Under Clerk this was `<ClerkProvider>` plus
- * a set of prebuilt components re-exported from `@acme/auth`; Better Auth ships
- * no UI, so the app owns the client and `@acme/ui` owns the presentation
- * (ADR 0034).
+ * App-owned Better Auth React client. Better Auth ships no UI, so the app owns
+ * the client and `@acme/ui` owns the presentation (ADR 0034).
  *
  * **No `baseURL`.** The client is same-origin: it appends Better Auth's default
  * `/api/auth` base path to the origin it was loaded from, which is the one thing

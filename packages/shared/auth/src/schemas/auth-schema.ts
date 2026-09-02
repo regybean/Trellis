@@ -58,10 +58,9 @@ export const authUser = authSchema.table('user', (t) => ({
 }));
 
 /**
- * Sessions are rows, not stateless cookies — the substantive behavioural change
- * from Clerk. `token` is the opaque value the session cookie carries; deleting
- * the row revokes the session on the next request. `impersonatedBy` is the admin
- * plugin's.
+ * Sessions are rows, not stateless cookies (ADR 0034). `token` is the opaque
+ * value the session cookie carries; deleting the row revokes the session on the
+ * next request. `impersonatedBy` is the admin plugin's.
  */
 export const authSession = authSchema.table('session', (t) => ({
   id: t.text('id').primaryKey(),

@@ -34,7 +34,7 @@ declare global {
    * imports `@acme/trpc` inherits the base instead of restating it. Augmenting
    * is then additive — `@acme/billing` contributes the primary email its Stripe
    * customer lookup reads, `@acme/auth` contributes what the full apps map off
-   * a Clerk `User` — and no package has to keep a copy of the base in sync.
+   * a provider user — and no package has to keep a copy of the base in sync.
    */
   interface InjectedUser {
     id: string;

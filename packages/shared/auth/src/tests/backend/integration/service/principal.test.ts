@@ -140,10 +140,10 @@ describe('toAdminUser', () => {
     const [listed] = users;
 
     expect(listed?.id).toBe(created.id);
-    // Every field is one Better Auth stores. The Clerk-shaped fabrications the
-    // old `toManagementUser` produced — an `emailAddresses` array with a
-    // `primaryEmailAddressId` into it, and a `lastSignInAt` of `null` — are
-    // gone with the widget that wanted them (#225).
+    // Every field is one Better Auth stores. The fabricated fields the old
+    // adapter produced — an `emailAddresses` array with a `primaryEmailAddressId`
+    // into it, and a `lastSignInAt` of `null` — are gone with the widget that
+    // wanted them (#225).
     expect(listed && toAdminUser(listed)).toEqual({
       id: created.id,
       name: `Test ${email}`,

@@ -59,11 +59,8 @@ export const staticTestEnv = {
   // for scrypt/HMAC to work. `BETTER_AUTH_URL` is only ever used to build
   // callback URLs and check request origins, and the suite calls the API
   // directly rather than over HTTP, so any well-formed origin will do.
-  // `CLERK_SECRET_KEY` is validation-only — Clerk is never contacted — and goes
-  // when #218 finishes retiring the Clerk half.
   BETTER_AUTH_SECRET: 'test-better-auth-secret-0123456789abcdef',
   BETTER_AUTH_URL: 'http://localhost:3000',
-  CLERK_SECRET_KEY: 'sk_test_123',
 } satisfies Record<string, string>;
 
 interface BackendProjectOptions {

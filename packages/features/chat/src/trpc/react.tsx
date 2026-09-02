@@ -44,7 +44,7 @@ export const useChatQueryClient = client.useFeatureQueryClient;
 
 /**
  * Empty chat's persisted cache (`rq-chat`). App-driven: the full apps call this
- * — alongside `queryClient.clear()` — on the Clerk logout path so a shared
+ * — alongside `queryClient.clear()` — on the logout path so a shared
  * machine never leaks one user's Conversations to the next; slim apps have no
  * logout and never call it. Safe no-op degradation on storage failure.
  */

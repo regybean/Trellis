@@ -17,9 +17,9 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * `configExtends([...])` in `src/config.ts`. The same preset list the slim Next.js
  * app composes, so both slim apps validate the identical runtime surface.
  *
- * This app strips Clerk and billing (ADR 0010), so it composes only chat +
+ * This app strips auth and billing (ADR 0010), so it composes only chat +
  * ingest — and because a secret's requiredness follows what the app assembles, it
- * never demands the Clerk or Stripe secrets. `skipValidation` is not passed here
+ * never demands the auth or Stripe secrets. `skipValidation` is not passed here
  * or anywhere (ADR 0033 §3).
  */
 export const env = createEnv({

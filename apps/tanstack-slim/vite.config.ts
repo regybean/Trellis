@@ -71,7 +71,7 @@ const publicEnvDefine = Object.fromEntries(
 
 export default defineConfig({
   // Expose the shared NEXT_PUBLIC_* env (reused from the Next.js app) to the
-  // client bundle so <ClerkProvider> can read the publishable key.
+  // client bundle.
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above), plus
   // the deploy-target selector so env.ts's
@@ -86,8 +86,7 @@ export default defineConfig({
   // triggering a second optimize pass that rewrites .vite/deps with new chunk
   // hashes mid-reload — the previous chunks vanish and in-flight requests 404
   // ("The file does not exist at .../chunk-XXX.js"). TanStack Start pulls
-  // router-core subpaths + seroval, none seen until runtime. (This is the
-  // no-auth/no-billing subset, so unlike tanstack-start it has no Clerk deps.)
+  // router-core subpaths + seroval, none seen until runtime.
   optimizeDeps: {
     include: [
       '@tanstack/router-core',

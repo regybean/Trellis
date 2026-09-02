@@ -6,7 +6,7 @@
  * - Focus on BUSINESS LOGIC with real Redis scenarios
  * - Test with "zero, one, many" pattern for data
  * - Use real Redis via testcontainers or docker-compose
- * - Mock only external services (Stripe, Clerk, Otel)
+ * - Mock only external services (Stripe, Otel)
  */
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */

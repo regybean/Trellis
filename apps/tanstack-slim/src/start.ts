@@ -11,7 +11,7 @@ const csrfMiddleware = createCsrfMiddleware({
 });
 
 /**
- * Global Start instance. The slim app strips Clerk, so no auth middleware is
+ * Global Start instance. The slim app strips auth, so no auth middleware is
  * registered here — the tRPC route seam injects a constant local principal
  * instead (see `src/lib/trpc-route.ts`). Only the CSRF guard remains.
  */

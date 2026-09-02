@@ -106,9 +106,8 @@ export function EditorialShell({ children }: { children: ReactNode }) {
 }
 
 /**
- * The masthead's auth corner. Replaces Clerk's `<SignedIn>`/`<SignedOut>` pair,
- * which Better Auth has no equivalent of — the session is read directly and the
- * branch is written out.
+ * The masthead's auth corner. Better Auth ships no signed-in/signed-out
+ * components, so the session is read directly and the branch is written out.
  *
  * Renders nothing while the session is resolving: the alternative is a "Sign in"
  * button that flips to an avatar a moment later on every load, which reads as a

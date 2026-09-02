@@ -26,9 +26,9 @@ export const getLocalstripeMode = createServerFn({ method: 'GET' }).handler(
  *
  * The principal Stripe is keyed on is Better Auth's user id — the same id
  * `protectedProcedure` gates on, because both come off the resolved session
- * (ADR 0034). Under Clerk this was Clerk's `userId`, so an existing deployment's
- * `stripeCustomerId` mappings in Redis are keyed on identities that no longer
- * exist; that is the migration cost ADR 0034 names, not a bug here.
+ * (ADR 0034). A deployment predating that ADR has `stripeCustomerId` mappings in
+ * Redis keyed on identities that no longer exist; that is the migration cost
+ * ADR 0034 names, not a bug here.
  */
 export const syncStripeOnSuccess = createServerFn({ method: 'POST' }).handler(
   async () => {

@@ -7,13 +7,13 @@ import { auth } from '~/lib/auth-server';
 
 /**
  * Server-resolved auth state for the route guards — the TanStack Start
- * equivalent of the Next.js app's `clerkMiddleware` public/admin route matchers,
- * now reading a Better Auth session instead (ADR 0034).
+ * equivalent of the Next.js app's middleware public/admin route matchers,
+ * reading a Better Auth session (ADR 0034).
  *
  * `getRequestHeaders()` exposes the in-flight request's headers, so the HttpOnly
  * session cookie reaches `auth.api.getSession` on the initial SSR load and on
- * client navigations alike. Under Clerk this read went through a request context
- * that `clerkMiddleware()` had to populate first; nothing has to run before this.
+ * client navigations alike. Nothing has to run before this — there is no request
+ * context to populate first.
  *
  * **What it returns, and what it deliberately does not.** Callers get the three
  * things the app actually renders — the id, the role, and the display fields the

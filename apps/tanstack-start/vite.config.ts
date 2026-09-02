@@ -90,11 +90,8 @@ export default defineConfig({
   // ("The file does not exist at .../chunk-XXX.js"). TanStack Start pulls
   // router-core subpaths + seroval, none seen until runtime.
   //
-  // Four `@clerk/*` entries used to sit here too, and they left with Clerk
-  // (ADR 0034) rather than being replaced: `@clerk/tanstack-react-start`
-  // re-exported clerk-react internals and `@clerk/shared/*` subpaths that the
-  // crawl could not see, whereas `better-auth/react` is a single entry point the
-  // client imports directly, so the first pass finds it.
+  // The auth provider needs no entry here: `better-auth/react` is a single entry
+  // point the client imports directly, so the first pass finds it (ADR 0034).
   optimizeDeps: {
     include: [
       '@tanstack/router-core',

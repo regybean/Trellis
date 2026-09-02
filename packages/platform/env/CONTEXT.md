@@ -47,7 +47,7 @@ that make that one call work. See
   like any other input; relaxes the keys with **no** profile value — the secrets —
   when `shouldSkipEnvValidation()` says this run cannot supply one.
 - `secretsOnly(appEnv)` — `withProfiles` with an empty profile, for a call whose
-  shape is all secrets (`@acme/auth`'s `CLERK_SECRET_KEY`, `@acme/models`'
+  shape is all secrets (`@acme/auth`'s `BETTER_AUTH_SECRET`, `@acme/models`'
   per-provider credential groups). Names why the profile is empty: these keys are
   credentials by construction, not config someone forgot to author.
 - `resolveAppEnv(raw)` — turns `process.env.APP_ENV` into a validated `AppEnv`.
@@ -150,7 +150,7 @@ t3-env's access guard is **name-based**: a key is server-only if it lacks the
 
 - `server` — server-only. Reading it in browser code throws.
 - `shared` — browser-safe, readable both sides. Where a browser-safe _authored_
-  value goes (Clerk's route URLs + publishable key, billing's plan ids, the models
+  value goes (billing's plan ids, the models
   provider selection), because `client` keys must carry the `NEXT_PUBLIC_` prefix
   — a prefix that would be a lie on a value never read from the environment.
 - `client` — actual `NEXT_PUBLIC_*` variables.
@@ -161,18 +161,12 @@ read goes to the owning slice's env (`@acme/auth/env`), not the app's composed
 exists it stays the client's source (`useBillingConfig()`), so the browser sees
 the values the server threaded across the RSC/Flight boundary.
 
-## The two bent cases
+## The one bent case
 
-One call per slice is the rule; two slices split theirs, because something other
-than the config/secret line forces a subset to be demandable on its own. Both
-still route every call through `withProfiles` (ADR 0033 §6a).
+One call per slice is the rule; one slice splits its own, because something other
+than the config/secret line forces a subset to be demandable on its own. It still
+routes every call through `withProfiles` (ADR 0033 §6a).
 
-- **`@acme/auth`, by runtime.** Two calls: `clerkWiringEnv()` (the five
-  browser-safe authored keys, no secret) and `authEnv()` (which `extends` it and
-  adds `CLERK_SECRET_KEY`). `apps/nextjs`'s `middleware.ts` runs in the Edge
-  runtime, where `process.env` is a build-time snapshot, so a call that declared
-  the secret would demand a value an edge worker cannot have. `<ClerkProvider>`
-  reads the same subset.
 - **`@acme/models`, by conditional secrets.** Three calls: `env` (the two authored
   provider selections) plus one `secretsOnly` group per provider's credentials,
   demanded by `validateModelSecrets()` only when that provider is the resolved

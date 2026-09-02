@@ -188,7 +188,7 @@ export function withProfiles<TShape extends EnvShape>(
  * ```
  *
  * It is `withProfiles(shape, appEnv, { default: {} })`, which is the shape every
- * secrets-gate call reaches for (`@acme/auth`'s `CLERK_SECRET_KEY`,
+ * secrets-gate call reaches for (`@acme/auth`'s `BETTER_AUTH_SECRET`,
  * `@acme/models`' per-provider credential groups). Naming it says *why* the
  * profile is empty — these keys are credentials by construction, not config
  * someone forgot to author — and keeps the empty `default: {}` from reading like
