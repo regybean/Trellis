@@ -13,7 +13,6 @@ import {
   env as billingEnvValues,
   toBillingClientConfig,
 } from '@acme/billing/env';
-import { IngestTRPCReactProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
@@ -26,7 +25,7 @@ import appCss from '../styles.css?url';
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   {
-    // Server-resolved so the chat/feedback persisters have their scope on the
+    // Server-resolved so the chat/feedback/ingest persisters have their scope on the
     // first render (see PersistedFeatureProviders). Signed out ⇒ userId null ⇒
     // network-only. localstripeMode is server-derived from the Stripe connection
     // (ADR 0033) and threaded to the client through the BillingConfigProvider seam
@@ -98,14 +97,12 @@ function RootDocument({ children }: { children: ReactNode }) {
             >
               <BillingTRPCReactProvider>
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
-                  <IngestTRPCReactProvider>
-                    <NotificationsProvider>
-                      <TooltipProvider>
-                        <ConsoleShell user={user}>{children}</ConsoleShell>
-                        <ToastThemeClient />
-                      </TooltipProvider>
-                    </NotificationsProvider>
-                  </IngestTRPCReactProvider>
+                  <NotificationsProvider>
+                    <TooltipProvider>
+                      <ConsoleShell user={user}>{children}</ConsoleShell>
+                      <ToastThemeClient />
+                    </TooltipProvider>
+                  </NotificationsProvider>
                 </PersistedFeatureProviders>
               </BillingTRPCReactProvider>
             </BillingConfigProvider>
