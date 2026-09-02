@@ -11,7 +11,7 @@ import { beforeEach } from 'vitest';
 import { AppQueryClientProvider } from '@acme/hooks';
 
 import type { AppRouter } from '../../api/root';
-import { TRPCReactProvider } from '../../trpc/react';
+import { TRPCProvider } from '../../trpc/react';
 // jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
 import '@acme/test-utils/jsdom';
 
@@ -47,7 +47,7 @@ export const Providers = ({
   scopeKey?: string;
 }) => (
   <AppQueryClientProvider>
-    <TRPCReactProvider scopeKey={scopeKey}>{children}</TRPCReactProvider>
+    <TRPCProvider scopeKey={scopeKey}>{children}</TRPCProvider>
   </AppQueryClientProvider>
 );
 

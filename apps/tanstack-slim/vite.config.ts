@@ -54,7 +54,7 @@ const stubServerOnly = (): Plugin => {
 // bundle; Vite does not (it exposes vars via `import.meta.env`), so in the client
 // those reads are `undefined` and the schemas throw on import — billing's
 // NEXT_PUBLIC_STRIPE_* (client) and chat/ingest's NEXT_PUBLIC_WEBAPP (shared).
-// Every feature TRPCReactProvider imports its `env`, so the throw crashes the
+// Every feature TRPCProvider imports its `env`, so the throw crashes the
 // whole __root tree and silently kills hydration (inputs/buttons stay in their
 // initial disabled state). Mirror Next's inlining here so the shared packages
 // can stay framework-neutral on `process.env`: replace each public

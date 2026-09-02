@@ -2,9 +2,9 @@ import './styles.css';
 
 import type { Metadata, Viewport } from 'next';
 
-import { ChatTRPCReactProvider } from '@acme/chat';
+import { ChatTRPCProvider } from '@acme/chat';
 import { AppQueryClientProvider } from '@acme/hooks';
-import { IngestTRPCReactProvider } from '@acme/ingest';
+import { IngestTRPCProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 // Toast container is rendered client-side to safely access localStorage
 import {
@@ -55,8 +55,8 @@ export default function RootLayout(props: { children: React.ReactNode }) {
           {/* The app's one QueryClient (ADR 0036) — the feature providers
               below render none of their own. */}
           <AppQueryClientProvider>
-            <ChatTRPCReactProvider scopeKey="anon">
-              <IngestTRPCReactProvider scopeKey="anon">
+            <ChatTRPCProvider scopeKey="anon">
+              <IngestTRPCProvider scopeKey="anon">
                 <NotificationsProvider>
                   <TooltipProvider>
                     <SidebarProvider>
@@ -94,8 +94,8 @@ export default function RootLayout(props: { children: React.ReactNode }) {
                     </SidebarProvider>
                   </TooltipProvider>
                 </NotificationsProvider>
-              </IngestTRPCReactProvider>
-            </ChatTRPCReactProvider>
+              </IngestTRPCProvider>
+            </ChatTRPCProvider>
           </AppQueryClientProvider>
         </NextThemeProvider>
       </body>

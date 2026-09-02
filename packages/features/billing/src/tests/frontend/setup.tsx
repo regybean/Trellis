@@ -16,7 +16,7 @@ import {
 
 import type { AppRouter } from '../../api/root';
 import { BillingConfigProvider } from '../../config-context';
-import { TRPCReactProvider } from '../../trpc/react';
+import { TRPCProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
 // jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
@@ -90,7 +90,7 @@ export const makeProviders =
   ({ children }: { children: ReactNode }) => (
     <AuthStatusProvider status={authStatus}>
       <AppQueryClientProvider>
-        <TRPCReactProvider>
+        <TRPCProvider>
           <BillingConfigProvider
             config={testBillingConfig}
             localstripeMode={opts?.localstripeMode ?? false}
@@ -98,7 +98,7 @@ export const makeProviders =
             {children}
             <ToastContainer />
           </BillingConfigProvider>
-        </TRPCReactProvider>
+        </TRPCProvider>
       </AppQueryClientProvider>
     </AuthStatusProvider>
   );

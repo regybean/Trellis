@@ -4,8 +4,10 @@ import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
 
+import { AppQueryClientProvider } from '@acme/hooks';
+
 import type { AppRouter } from '../../api/root';
-import { TRPCReactProvider } from '../../trpc/react';
+import { TRPCProvider } from '../../trpc/react';
 
 // jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
 import '@acme/test-utils/jsdom';
@@ -20,9 +22,15 @@ import '@acme/test-utils/jsdom';
  * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
  * the `renderHook` wrapper for `integration/hooks` tests. If the feature toasts,
  * render a real `<ToastContainer />` here so tests assert the message in the DOM.
+ *
+ * `AppQueryClientProvider` is the app's single `QueryClient` (ADR 0036): the
+ * feature's own provider renders none, so a test has to mount one exactly as an
+ * app does. It builds its client in `useState`, so each render is a cold cache.
  */
 export const Providers = ({ children }: { children: ReactNode }) => (
-  <TRPCReactProvider>{children}</TRPCReactProvider>
+  <AppQueryClientProvider>
+    <TRPCProvider>{children}</TRPCProvider>
+  </AppQueryClientProvider>
 );
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */

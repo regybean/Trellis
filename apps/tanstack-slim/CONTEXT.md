@@ -63,7 +63,7 @@ DDL at runtime — see [ADR 0002](../../docs/adr/0002-mastra-rag-and-memory.md).
 
 ## Relationships
 
-- Each feature's `TRPCReactProvider` is mounted in `__root.tsx` and points to its
+- Each feature's `TRPCProvider` is mounted in `__root.tsx` and points to its
   `/api/trpc/{feature}` endpoint.
 - The app's **one** `QueryClient` is created in `src/router.tsx` and mounted by the
   router's `Wrap`. The feature providers above are tRPC providers — they render no

@@ -12,7 +12,7 @@ import { routeTree } from './routeTree.gen';
  * also the client handed to the TanStack Start SSR query integration, so
  * server-rendered query state hydrates on the client.
  *
- * That combination is new. The feature `TRPCReactProvider`s mounted in `__root`
+ * That combination is new. The feature `TRPCProvider`s mounted in `__root`
  * used to nest a QueryClient each, which **shadowed** this one: feature queries
  * could never participate in the SSR integration, whatever it was wired to. They
  * render no client of their own now, so nothing shadows it. Nothing prefetches a

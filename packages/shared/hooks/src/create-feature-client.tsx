@@ -121,7 +121,9 @@ interface FeatureClientOptions {
 const persistedQueryDefaults = { meta: persistMeta, staleTime: 0 };
 
 /**
- * Build a feature's `'use client'` tRPC provider + hooks. Returns the provider,
+ * Build a feature's `'use client'` tRPC provider + hooks. Returns the provider
+ * (`FeatureTRPCProvider` — it is a tRPC provider, NOT a `QueryClientProvider`;
+ * the app owns the one of those, ADR 0036),
  * `useTRPC` / `useTRPCClient`, a `usePersistedQueryOptions` carrying the cache
  * policy for the feature's persisted queries, and `clearPersistedCache` for the
  * app's logout path.
@@ -270,7 +272,7 @@ export function createFeatureClient<TRouter extends AnyRouter>({
     ];
   };
 
-  function TRPCReactProvider(
+  function FeatureTRPCProvider(
     props: Readonly<{ children: ReactNode; scopeKey?: string }>,
   ) {
     // The app's one `QueryClient` (ADR 0036). Throws if no `QueryClientProvider`
@@ -300,7 +302,7 @@ export function createFeatureClient<TRouter extends AnyRouter>({
   }
 
   return {
-    TRPCReactProvider,
+    FeatureTRPCProvider,
     useTRPC,
     useTRPCClient,
     usePersistedQueryOptions,

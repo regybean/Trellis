@@ -34,7 +34,7 @@ const client = createFeatureClient<AppRouter>({
 // is built from statically-named export declarations, and a destructuring
 // pattern isn't one — the provider silently resolves to `undefined` in an app
 // build ("Element type is invalid" when prerendering). Keep the explicit form.
-export const TRPCReactProvider = client.TRPCReactProvider;
+export const TRPCProvider = client.FeatureTRPCProvider;
 export const useTRPC = client.useTRPC;
 export const useTRPCClient = client.useTRPCClient;
 

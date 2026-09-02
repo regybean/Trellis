@@ -147,7 +147,7 @@ enforced by `scripts/check-exports.mjs` (hard-fails `pnpm lint`).
 1. Run `pnpm turbo gen` and select the feature generator
 2. Define tRPC context in `src/api/trpc.ts` with db clients
 3. Create routers in `src/api/routers/` and aggregate in `src/api/root.ts`
-4. Export components, hooks, and TRPCReactProvider from `src/index.ts`
+4. Export components, hooks, and TRPCProvider from `src/index.ts`
 5. Create React provider in `src/trpc/react.tsx`
 6. Add API route in app at `src/app/api/trpc/<name>/[trpc]/route.ts`
 

@@ -2,16 +2,13 @@
 
 import type { ReactNode } from 'react';
 
-import { ChatTRPCReactProvider, clearChatPersistedCache } from '@acme/chat';
+import { ChatTRPCProvider, clearChatPersistedCache } from '@acme/chat';
 import {
   clearPersistedCache as clearFeedbackPersistedCache,
-  FeedbackTRPCReactProvider,
+  FeedbackTRPCProvider,
 } from '@acme/feedback';
 import { useAuthStatus, useClearCacheOnLogout } from '@acme/hooks';
-import {
-  clearIngestPersistedCache,
-  IngestTRPCReactProvider,
-} from '@acme/ingest';
+import { clearIngestPersistedCache, IngestTRPCProvider } from '@acme/ingest';
 
 /**
  * Every persisted store this app mounts. Module-level so its identity is stable
@@ -51,14 +48,14 @@ export function PersistedFeatureProviders({
   children: ReactNode;
 }) {
   return (
-    <ChatTRPCReactProvider scopeKey={scopeKey}>
-      <FeedbackTRPCReactProvider scopeKey={scopeKey}>
-        <IngestTRPCReactProvider scopeKey={scopeKey}>
+    <ChatTRPCProvider scopeKey={scopeKey}>
+      <FeedbackTRPCProvider scopeKey={scopeKey}>
+        <IngestTRPCProvider scopeKey={scopeKey}>
           <ClearCacheOnLogout />
           {children}
-        </IngestTRPCReactProvider>
-      </FeedbackTRPCReactProvider>
-    </ChatTRPCReactProvider>
+        </IngestTRPCProvider>
+      </FeedbackTRPCProvider>
+    </ChatTRPCProvider>
   );
 }
 

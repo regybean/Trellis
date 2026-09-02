@@ -46,7 +46,7 @@ for every feature mount.
 
 ## Relationships
 
-- Each feature's `TRPCReactProvider` wraps its page(s) and points to its
+- Each feature's `TRPCProvider` wraps its page(s) and points to its
   `/api/trpc/{feature}` endpoint.
 - `AppQueryClientProvider` (root `layout.tsx`) mounts the app's **one**
   `QueryClient`, above every feature provider. The feature providers above are

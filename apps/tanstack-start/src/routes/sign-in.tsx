@@ -43,7 +43,7 @@ function SignInRoute() {
     }
 
     // `reloadDocument` is load-bearing, not a shortcut. Each feature's
-    // `TRPCReactProvider` builds its IndexedDB persister once, at mount, keyed
+    // `TRPCProvider` builds its IndexedDB persister once, at mount, keyed
     // on the signed-in id that `__root`'s `beforeLoad` resolves on the *server*
     // (see PersistedFeatureProviders): an SPA transition would hand the
     // already-mounted providers a scope key they no longer read, and the

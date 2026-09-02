@@ -12,7 +12,7 @@ import { beforeEach } from 'vitest';
 import { AppQueryClientProvider } from '@acme/hooks';
 
 import type { AppRouter } from '../../api/root';
-import { TRPCReactProvider } from '../../trpc/react';
+import { TRPCProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
 // jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
@@ -43,10 +43,10 @@ beforeEach(() => {
  */
 export const Providers = ({ children }: { children: ReactNode }) => (
   <AppQueryClientProvider>
-    <TRPCReactProvider>
+    <TRPCProvider>
       {children}
       <ToastContainer />
-    </TRPCReactProvider>
+    </TRPCProvider>
   </AppQueryClientProvider>
 );
 
@@ -66,10 +66,10 @@ export const ScopedProviders =
   (scopeKey: string) =>
   ({ children }: { children: ReactNode }) => (
     <AppQueryClientProvider>
-      <TRPCReactProvider scopeKey={scopeKey}>
+      <TRPCProvider scopeKey={scopeKey}>
         {children}
         <ToastContainer />
-      </TRPCReactProvider>
+      </TRPCProvider>
     </AppQueryClientProvider>
   );
 

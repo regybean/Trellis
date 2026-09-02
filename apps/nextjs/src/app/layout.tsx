@@ -3,7 +3,7 @@ import './styles.css';
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 
-import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
+import { BillingConfigProvider, BillingTRPCProvider } from '@acme/billing';
 import {
   env as billingEnvValues,
   toBillingClientConfig,
@@ -69,7 +69,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
                   their queries all live in this cache, namespaced by tRPC's
                   keyPrefix. */}
               <AppQueryClientProvider>
-                <BillingTRPCReactProvider>
+                <BillingTRPCProvider>
                   <PersistedFeatureProviders scopeKey={userId ?? undefined}>
                     <NotificationsProvider>
                       <TooltipProvider>
@@ -80,7 +80,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
                       </TooltipProvider>
                     </NotificationsProvider>
                   </PersistedFeatureProviders>
-                </BillingTRPCReactProvider>
+                </BillingTRPCProvider>
               </AppQueryClientProvider>
             </BillingConfigProvider>
           </NextThemeProvider>

@@ -6,5 +6,5 @@ export { IngestProgress } from './components/ingest-progress';
 export { IngestUploadProvider } from './hooks/ingest-upload-context';
 export {
   clearIngestPersistedCache,
-  TRPCReactProvider as IngestTRPCReactProvider,
+  TRPCProvider as IngestTRPCProvider,
 } from './trpc/react';

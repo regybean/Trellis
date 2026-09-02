@@ -144,6 +144,21 @@ amended in place:
   of the persisted-query fragment, so it applies to exactly the queries that need
   it and cannot be separated from the persister.
 
+### The provider is renamed, because the old name meant both
+
+`TRPCReactProvider` (the create-t3-app name) used to render a `QueryClientProvider`
+_and_ a `TRPCProvider`, so "provider" honestly covered both. It now renders only the
+tRPC half, and a layout full of `*TRPCReactProvider`s reads like a stack of query
+clients that this ADR claims to have deleted — the first question anyone asks on
+seeing the diff.
+
+So the factory returns `FeatureTRPCProvider`, and each package exports
+`<Feature>TRPCProvider`: `ChatTRPCProvider`, `IngestTRPCProvider`,
+`FeedbackTRPCProvider`, `BillingTRPCProvider`. That converges all five on the name
+`@acme/notifications` already used. What each still carries is genuinely per-feature
+and does not collapse: its own tRPC client and endpoint (`/api/trpc/<keyPrefix>`),
+its transport links, its `keyPrefix`, and its persister scope.
+
 ## Considered and rejected
 
 - **Keep the per-feature clients, keep pinning.** The status quo. It works only

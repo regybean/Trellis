@@ -26,5 +26,5 @@ const client = createFeatureClient<AppRouter>({
 // One binding at a time, NOT `export const { … } = client` — see chat's note:
 // a `'use client'` module's exports must be statically named or Next's
 // client-reference manifest misses them and the provider resolves to undefined.
-export const TRPCReactProvider = client.TRPCReactProvider;
+export const TRPCProvider = client.FeatureTRPCProvider;
 export const useTRPC = client.useTRPC;

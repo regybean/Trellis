@@ -105,10 +105,10 @@ Mastra owns their DDL at runtime — see
 
 ## Relationships
 
-- Each feature's `TRPCReactProvider` is mounted in `__root.tsx` and points to its
+- Each feature's `TRPCProvider` is mounted in `__root.tsx` and points to its
   `/api/trpc/{feature}` endpoint — same as `apps/nextjs`.
 - The app's **one** `QueryClient` is created in `src/router.tsx` and mounted by the
-  router's `Wrap`. The `*TRPCReactProvider`s above are tRPC providers despite the
+  router's `Wrap`. The `*TRPCProvider`s above are tRPC providers despite the
   name — they render no `QueryClientProvider` of their own and read this one from
   context, so their queries now reach `setupRouterSsrQueryIntegration` instead of
   being shadowed by a nested client

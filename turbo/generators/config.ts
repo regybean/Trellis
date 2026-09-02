@@ -90,9 +90,11 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
   }
   if (o.react) {
     Object.assign(dependencies, {
+      // `@acme/hooks` ships `createFeatureClient` (the whole client half of the
+      // tRPC wiring) and `createAppQueryClient` — see src/trpc/react.tsx.
+      "@acme/hooks": "workspace:*",
       "@acme/ui": "workspace:*",
       "@tanstack/react-query": "catalog:",
-      "@trpc/client": "catalog:",
       "@trpc/tanstack-react-query": "catalog:",
       "lucide-react": "catalog:",
       react: "catalog:",
@@ -303,7 +305,6 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
         actions.push(
           add("src/trpc/react.tsx", t("src/trpc/react.tsx.hbs")),
           add("src/trpc/server.tsx", t("src/trpc/server.tsx.hbs")),
-          add("src/trpc/query-client.ts", t("src/trpc/query-client.ts.hbs")),
           add(`src/components/${name}-list.tsx`, x("component.tsx.hbs")),
           add(`src/hooks/use-${name}.ts`, x("hook.ts.hbs")),
         );

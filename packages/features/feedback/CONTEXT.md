@@ -73,7 +73,7 @@ per-Message query is written under its own hash, lazily and asynchronously, so m
 Messages never rewrite a whole-cache blob or jank the main thread. `forMessage` is the
 only persisted query — the `submit`/`remove` mutations never are.
 
-**Persistence is opt-in and auth-agnostic**: `FeedbackTRPCReactProvider` accepts an
+**Persistence is opt-in and auth-agnostic**: `FeedbackTRPCProvider` accepts an
 app-supplied `scopeKey` (the signed-in user id via the `@acme/auth` seam in full apps,
 `'anon'` in slim apps — the feature never imports an auth SDK). Absent a `scopeKey`, or where
 IndexedDB is unavailable, the feature runs network-only exactly as before; persistence

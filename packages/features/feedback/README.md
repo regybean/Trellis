@@ -74,5 +74,5 @@ renderWithProviders(<FeedbackList />);
    export { handler as GET, handler as POST };
    ```
 
-3. Wrap the relevant tree with `FeedbackTRPCReactProvider` (from `@acme/feedback`).
+3. Wrap the relevant tree with `FeedbackTRPCProvider` (from `@acme/feedback`).
 4. Register the schema for migrations (drizzle config `schema` glob), then `pnpm db:push`.

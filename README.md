@@ -18,7 +18,7 @@ packages/features/chat/src/
 
 Three properties fall out of that, and they're the whole point:
 
-1. **Apps mount features, they don't fork them.** An app wires the server adapter for a router, renders its `TRPCReactProvider`, and drops in its components. A bespoke client build — _no billing, no auth_, or an _extra feature_ nobody else has — is **a new app importing a different subset**, not a fork. Shared slices stay shared; only the app's dependency list and glue change.
+1. **Apps mount features, they don't fork them.** An app wires the server adapter for a router, renders its `TRPCProvider`, and drops in its components. A bespoke client build — _no billing, no auth_, or an _extra feature_ nobody else has — is **a new app importing a different subset**, not a fork. Shared slices stay shared; only the app's dependency list and glue change.
 
 2. **The same slice runs on any React framework.** The client layer is [`@trpc/tanstack-react-query`](https://trpc.io/docs/client/tanstack-react-query) + `@tanstack/react-query` with SSE streaming — **no `next` imports**. The server layer is a plain tRPC router. The only framework-specific piece is the _adapter_ (how the router mounts, how the client URL resolves), and it lives in the **app**, not the feature.
 

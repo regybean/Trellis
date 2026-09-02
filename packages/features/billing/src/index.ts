@@ -5,10 +5,7 @@ export {
 } from './config-context';
 export { SubscriptionCancellation } from './components/stripe/stripe-cancellation';
 export { StripeTesting } from './components/stripe/stripe-testing';
-export {
-  useTRPC,
-  TRPCReactProvider as BillingTRPCReactProvider,
-} from './trpc/react';
+export { useTRPC, TRPCProvider as BillingTRPCProvider } from './trpc/react';
 export { RateLimitManagement } from './components/admin/rate-limit-management';
 export { TierManagement } from './components/admin/tier-management';
 export { PricingPage } from './components/pricing';

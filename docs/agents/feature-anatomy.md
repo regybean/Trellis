@@ -33,9 +33,8 @@ packages/features/<name>/
     components/           # presentational UI only — MUST NOT import trpc or call hooks' data layer directly
     hooks/use-*.ts        # data access + business logic (the FRONTEND contract)
     trpc/
-      react.tsx           # client provider + useTRPC(); plain httpLink under NODE_ENV==='test'
+      react.tsx           # tRPC provider + useTRPC(); plain httpLink under NODE_ENV==='test'
       server.tsx          # RSC / server-side caller
-      query-client.ts     # shared QueryClient factory
     index.ts              # public client entry
     index-server.ts       # ./server entry (server-only surface)
     index-schema.ts       # ./schema entry (drizzle/zod for app migrations)
