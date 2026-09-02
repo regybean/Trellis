@@ -26,6 +26,7 @@ describe('toSameSitePath', () => {
     // against the current scheme and leaves the site.
     ['a protocol-relative URL', '//evil.example'],
     ['a scheme-relative URL with a path', '//evil.example/admin'],
+    // eslint-disable-next-line sonarjs/code-eval -- a fixture string, never evaluated
     ['a javascript: URL', 'javascript:alert(1)'],
     ['a bare relative path', 'admin'],
     ['an empty string', ''],
@@ -34,8 +35,12 @@ describe('toSameSitePath', () => {
   });
 
   it('sends a missing or non-string parameter home', () => {
+    // `useSearchParams().get()` returns null for an absent key; the array is
+    // what a repeated `?redirect=` would produce on a router that collects them.
+    const absent: unknown = undefined;
+
     expect(toSameSitePath(null)).toBe('/');
-    expect(toSameSitePath(undefined)).toBe('/');
+    expect(toSameSitePath(absent)).toBe('/');
     expect(toSameSitePath(['/admin'])).toBe('/');
   });
 });

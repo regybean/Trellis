@@ -70,10 +70,44 @@ the billing/auth coupling stays at the app seam where 0011 wants it.
 - Both apps' `AdminDashboard` now import `UserManagement` from `@acme/ui` and pass
   `renderBillingPanels`.
 
+## Amendment — the shape is Clerk's, and now nothing produces it (#239)
+
+`UserManagementUser` was authored as a structural twin of Clerk's user: an
+`emailAddresses` array with a `primaryEmailAddressId` pointing into it,
+`publicMetadata.role`, and `lastSignInAt`. Under Clerk that was a faithful
+picture of the data; under Better Auth ([ADR 0034](0034-better-auth-replaces-clerk.md))
+it is a costume. Better Auth keeps exactly **one** email per user (it is the
+row's unique key) and records **no** last-sign-in on the user row, so two of
+those fields have no honest source.
+
+The widget is unchanged, and that is deliberate — reshaping it is #225. What
+changed is where the costume is put on: one adapter, `toManagementUser` in
+`@acme/auth/server`, marks both fabrications in place (`primaryEmailAddressId`
+reuses the user id; `lastSignInAt` is `null`, which the widget already renders as
+"omit the line"). Before #239 that adapter existed twice, once per app, under two
+names.
+
+Two consequences for the reasoning above:
+
+- **`SerializableUser` is gone**, so the "structurally-identical type to avoid a
+  package edge" trade no longer has two sides. `UserManagementUser` is the single
+  declaration, and `@acme/billing`'s admin panels now name it directly.
+  `@acme/ui` still declares it and still takes no auth dependency; the edge runs
+  the other way — `@acme/auth` type-imports `@acme/ui` to name what its adapter
+  returns.
+- **The `FormData` prop survives on borrowed time.** `UserManagement` still takes
+  `setRole: (formData: FormData) => Promise<void>`, a Next.js server-action
+  signature in a framework-neutral package, which forces the TanStack Start app
+  to manufacture a `FormData` to satisfy it. Nothing in the admin surface needs a
+  server function — `auth.api.*` takes plain `Headers` and `adminProcedure`
+  already exists — so #225 replaces both props with hooks off an admin tRPC
+  router. #239 records that decision without executing it, so that this ticket
+  lands one shape rather than two.
+
 ## Status
 
 accepted — refines [ADR 0011](0011-remove-compositions-layer.md) for these two
-files only.
+files only. Amended by #239 (the user shape is Better Auth's, adapted once).
 
 ## Considered and rejected
 

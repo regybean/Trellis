@@ -60,10 +60,12 @@ let authStatus: AuthStatus = SIGNED_OUT;
 export const setAuth = (
   opts: { loaded?: boolean; signedIn?: boolean } = {},
 ) => {
-  authStatus =
-    opts.loaded === false
-      ? loadingAuthStatus
-      : resolvedAuthStatus(opts.signedIn ? 'user_1' : null);
+  if (opts.loaded === false) {
+    authStatus = loadingAuthStatus;
+    return;
+  }
+
+  authStatus = resolvedAuthStatus(opts.signedIn ? 'user_1' : null);
 };
 
 /** Restore the default signed-out status between tests. */

@@ -2,10 +2,10 @@
  * PricingPage — integration/components (ADR 0018).
  *
  * The real tRPC client + real usePricing hook run through a real QueryClient
- * with the network faked at the HTTP boundary via MSW (trpcMsw). @acme/auth is
- * mocked (allowed framework external). We assert rendered DOM states and
- * observable outcomes (button text, disabled, toast text) — never spy on
- * mutations or mock trpc/react.
+ * with the network faked at the HTTP boundary via MSW (trpcMsw). The viewer's
+ * auth state comes from the real `AuthStatusProvider` via `setAuth`, not a mock.
+ * We assert rendered DOM states and observable outcomes (button text, disabled,
+ * toast text) — never spy on mutations or mock trpc/react.
  */
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

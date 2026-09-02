@@ -26,7 +26,9 @@ export default function SignUpPage() {
     if (error) {
       // The common case here is a duplicate email; Better Auth's message is
       // already user-facing, so it is shown rather than replaced.
-      return error.message ?? 'Could not create your account. Please try again.';
+      return (
+        error.message ?? 'Could not create your account. Please try again.'
+      );
     }
 
     router.replace(redirectTo);

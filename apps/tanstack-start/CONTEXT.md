@@ -21,6 +21,9 @@ per-app half of the auth seam — see
 [ADR 0034](../../docs/adr/0034-better-auth-replaces-clerk.md) and
 [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md). It reads the
 session off the request's own `Cookie` header, so nothing has to run before it.
+It hands the resolved session to `@acme/auth/server`'s `toPrincipal` rather than
+mapping it here: resolution is app-owned, the mapping is provider-owned and
+shared with `apps/nextjs` (#239).
 _Avoid_: "auth middleware" — there is none. The Clerk wiring needed
 `clerkMiddleware()` registered in `src/start.ts` to make `auth()` work at all;
 `src/start.ts` now registers only the CSRF guard.
@@ -73,33 +76,33 @@ Mastra owns their DDL at runtime — see
 
 ## Structure
 
-| Path                                                    | Purpose                                                                   |
-| ------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `src/start.ts`                                          | `createStart()` registering the CSRF guard — auth needs no middleware     |
-| `src/router.tsx`                                        | Router + `setupRouterSsrQueryIntegration` (SSR react-query hydration)     |
-| `src/routes/__root.tsx`                                 | theme (forced dark) → feature providers → console shell; no auth provider |
-| `src/routes/index.tsx`                                  | App-owned console landing home                                            |
-| `src/routes/chat-assistant.tsx`                         | Chat UI page — renders `ChatAssistant` from `@acme/chat` (auth-guarded)   |
-| `src/routes/admin.tsx`                                  | Admin dashboard — role-guarded `beforeLoad`, loader via `src/lib/admin`   |
-| `src/routes/pricing.tsx`                                | Pricing page — renders `PricingPage` from `@acme/billing`                 |
-| `src/routes/stripe.success.tsx`                         | Post-checkout redirect — loader runs `syncStripeOnSuccess`                |
-| `src/routes/sign-in.tsx`, `sign-up.tsx`                 | In-app auth pages — `@acme/ui` forms over `authClient`                    |
-| `src/routes/privacy-policy.tsx`, `terms-of-service.tsx` | Static legal pages                                                        |
-| `src/routes/api/auth.$.ts`                              | Better Auth catch-all — mounts `auth.handler`                             |
-| `src/routes/api/trpc/{billing,chat,ingest}.$.ts`        | Server route handlers per feature router                                  |
-| `src/routes/api/stripe.ts`                              | Stripe webhook receiver                                                   |
-| `src/routes/api/health.ts`                              | Health check endpoint                                                     |
-| `src/lib/auth-server.ts`                                | The app's Better Auth instance (`initAuth`)                               |
-| `src/lib/auth-client.ts`                                | `createAuthClient()` — same-origin, no `baseURL`, no plugins              |
-| `src/lib/trpc-context.ts`                               | The session resolver — injects the principal into the tRPC context        |
-| `src/lib/auth.ts`                                       | `getAuthState` server fn used by `beforeLoad` route guards                |
-| `src/lib/redirect-target.ts`                            | Same-site normalisation of the post-auth `?redirect=` search param        |
-| `src/lib/admin.ts`                                      | `listUsers` / `setUserRole` / `removeUserRole` over the admin plugin      |
-| `src/lib/stripe.ts`                                     | `syncStripeOnSuccess` server fn                                           |
-| `src/server/app-schema.ts`                              | App-owned `pgSchema` (per-app isolation, named off `NEXT_PUBLIC_WEBAPP`)  |
-| `src/server/db/schema.ts`                               | drizzle-kit entrypoint — re-exports `appSchema` + `messageFeedback`       |
-| `drizzle.config.ts`, `drizzle.push.config.ts`           | drizzle-kit configs (generate/migrate; push excludes `mastra_*`)          |
-| `src/components/`                                       | App-local shell + framework-coupled glue (console shell, admin, stripe)   |
+| Path                                                    | Purpose                                                                                              |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `src/start.ts`                                          | `createStart()` registering the CSRF guard — auth needs no middleware                                |
+| `src/router.tsx`                                        | Router + `setupRouterSsrQueryIntegration` (SSR react-query hydration)                                |
+| `src/routes/__root.tsx`                                 | theme (forced dark) → feature providers → console shell; no auth provider                            |
+| `src/routes/index.tsx`                                  | App-owned console landing home                                                                       |
+| `src/routes/chat-assistant.tsx`                         | Chat UI page — renders `ChatAssistant` from `@acme/chat` (auth-guarded)                              |
+| `src/routes/admin.tsx`                                  | Admin dashboard — role-guarded `beforeLoad`, loader via `src/lib/admin`                              |
+| `src/routes/pricing.tsx`                                | Pricing page — renders `PricingPage` from `@acme/billing`                                            |
+| `src/routes/stripe.success.tsx`                         | Post-checkout redirect — loader runs `syncStripeOnSuccess`                                           |
+| `src/routes/sign-in.tsx`, `sign-up.tsx`                 | In-app auth pages — `@acme/ui` forms over `authClient`                                               |
+| `src/routes/privacy-policy.tsx`, `terms-of-service.tsx` | Static legal pages                                                                                   |
+| `src/routes/api/auth.$.ts`                              | Better Auth catch-all — mounts `auth.handler`                                                        |
+| `src/routes/api/trpc/{billing,chat,ingest}.$.ts`        | Server route handlers per feature router                                                             |
+| `src/routes/api/stripe.ts`                              | Stripe webhook receiver                                                                              |
+| `src/routes/api/health.ts`                              | Health check endpoint                                                                                |
+| `src/lib/auth-server.ts`                                | The app's Better Auth instance (`initAuth`)                                                          |
+| `src/lib/auth-client.ts`                                | `createAuthClient()` — same-origin, no `baseURL`, no plugins                                         |
+| `src/lib/trpc-context.ts`                               | The session resolver — injects the principal into the tRPC context                                   |
+| `src/lib/auth.ts`                                       | `getAuthState` server fn used by `beforeLoad` route guards                                           |
+| `src/lib/auth-redirect.ts`                              | `redirectToSignIn` — the guards' router-shaped throw (the _rule_ is `@acme/ui`'s `authSearchSchema`) |
+| `src/lib/admin.ts`                                      | `listUsers` / `setUserRole` / `removeUserRole` over the admin plugin                                 |
+| `src/lib/stripe.ts`                                     | `syncStripeOnSuccess` server fn                                                                      |
+| `src/server/app-schema.ts`                              | App-owned `pgSchema` (per-app isolation, named off `NEXT_PUBLIC_WEBAPP`)                             |
+| `src/server/db/schema.ts`                               | drizzle-kit entrypoint — re-exports `appSchema` + `messageFeedback`                                  |
+| `drizzle.config.ts`, `drizzle.push.config.ts`           | drizzle-kit configs (generate/migrate; push excludes `mastra_*`)                                     |
+| `src/components/`                                       | App-local shell + framework-coupled glue (console shell, admin, stripe)                              |
 
 ## Relationships
 

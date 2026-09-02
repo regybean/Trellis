@@ -39,8 +39,19 @@ function Harness({
   );
 }
 
-/** A caller whose provider call never settles — the in-flight state. */
-const neverSettles = () => new Promise<string | null>(() => undefined);
+/**
+ * A submit the test drives by hand: it stays in flight until `settlePending`
+ * releases it, which is what makes both the in-flight and the returned-to-rest
+ * assertions deterministic without a timer.
+ */
+const pendingSubmits: ((message: string | null) => void)[] = [];
+const neverSettles = () =>
+  new Promise<string | null>((resolve) => {
+    pendingSubmits.push(resolve);
+  });
+const settlePending = (message: string | null) => {
+  for (const resolve of pendingSubmits.splice(0)) resolve(message);
+};
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Name'), 'Ada Lovelace');
@@ -159,6 +170,12 @@ describe('SignUpForm', () => {
 
     expect(submit).toBeDisabled();
     expect(submit).toHaveAttribute('aria-busy', 'true');
+
+    // And it comes back: a settled attempt must not leave the control stuck.
+    settlePending(null);
+    expect(
+      await screen.findByRole('button', { name: 'Create account' }),
+    ).toBeEnabled();
   });
 
   it('renders a rejection returned by the caller', async () => {
