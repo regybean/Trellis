@@ -2,10 +2,10 @@
  * Offline read of the Documents pane (#216, ADR 0025).
  *
  * The behaviour under test at the rendered-DOM seam (ADR 0018): `documents.list`
- * paints from IndexedDB on a cold `QueryClient` instead of the "Loading
- * documents…" skeleton. Ingest's client revalidates on every mount
+ * paints from IndexedDB on a cold cache instead of the "Loading
+ * documents…" skeleton. `documents.list` revalidates on every mount
  * (`staleTime: 0` — the lever that makes the persister's post-restore refetch
- * fire; `refetchOnMount` does NOT, see query-client.ts), so the guarantee is
+ * fire; `refetchOnMount` does NOT, see trpc/react.tsx), so the guarantee is
  * stale-while-revalidate: the restored snapshot renders instantly AND a failed
  * background revalidation must never blank it (nor throw an unhandled rejection
  * — the persister is patched to `.catch()` it, and vitest fails the run if that

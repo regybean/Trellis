@@ -1,12 +1,12 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
+import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { SelectFolder } from '../api/schemas/folder-schema';
-import { useChatQueryClient, useTRPC } from '../trpc/react';
+import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
 
 // Data access for the Conversation History sidebar. Components stay UI-focused
 // and delegate here (see CLAUDE.md). All list-mutating actions are optimistic —
@@ -15,21 +15,17 @@ import { useChatQueryClient, useTRPC } from '../trpc/react';
 // server stays lazy (e.g. folder delete leaves dangling thread metadata).
 export function useConversations() {
   const trpc = useTRPC();
-  const queryClient = useChatQueryClient();
+  const queryClient = useQueryClient();
   const handleError = useGenericErrorHandler();
+  const persisted = usePersistedQueryOptions();
 
   // Conversation History persists for offline read (ADR 0025); Folders do not
-  // (only `chat.list` and `chat.get` are marked — a dangling folderId simply
-  // falls back to its Date Bucket). Both are pinned to chat's own QueryClient
-  // (#82) so they run on the persister-bearing client, not a nested foreign one.
+  // (a dangling folderId simply falls back to its Date Bucket), which is why
+  // only the first spreads `persisted`.
   const conversationsQuery = useQuery(
-    trpc.chat.list.queryOptions(undefined, { meta: persistMeta }),
-    queryClient,
+    trpc.chat.list.queryOptions(undefined, persisted),
   );
-  const foldersQuery = useQuery(
-    trpc.chat.folders.list.queryOptions(),
-    queryClient,
-  );
+  const foldersQuery = useQuery(trpc.chat.folders.list.queryOptions());
 
   const listKey = trpc.chat.list.queryKey();
   const foldersKey = trpc.chat.folders.list.queryKey();

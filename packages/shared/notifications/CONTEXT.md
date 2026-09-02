@@ -17,6 +17,11 @@ notification kind with zero change here.
 client'` React connectors.
 - `.` (client) — the `<NotificationsProvider>` an app mounts, plus
   `dispatchNotification` + `defaultToastRenderer` for assembling a `renderers` map.
+  It needs the app's `QueryClientProvider` above it ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md))
+  and renders none of its own. Subscription-only means it has no queries, so there
+  is no `staleTime`, no persister, and nothing it would have configured on a
+  `QueryClient` — the client it used to mint existed purely to satisfy
+  `TRPCProvider`.
 
 ## Language
 

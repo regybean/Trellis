@@ -1,16 +1,20 @@
 // hooks/use-chat.ts
 import { useRef, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useSubscription } from '@trpc/tanstack-react-query';
 import { toast } from 'react-toastify';
 
-import { persistMeta, useGenericErrorHandler } from '@acme/hooks';
+import { useGenericErrorHandler } from '@acme/hooks';
 
 import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { Message } from '../api/schemas/message-schema';
 import type { CacheIntent, TurnEvent } from './chat-turn-reducer';
 import { MAX_MESSAGE_LENGTH } from '../api/schemas/chat-schema';
-import { useChatQueryClient, useTRPC, useTRPCClient } from '../trpc/react';
+import {
+  usePersistedQueryOptions,
+  useTRPC,
+  useTRPCClient,
+} from '../trpc/react';
 import {
   deriveMessages,
   ERROR_TEXT,
@@ -38,9 +42,12 @@ export function useChat(
   // orphan paths must read authoritative history WITHOUT the fetch writing the
   // chat.get cache, or it would clobber the assistant bubble mid-stream.
   const trpcClient = useTRPCClient();
-  // Pin to chat's own QueryClient (the persister-bearing one), not the nearest
-  // provider in context — see useChatQueryClient / #82.
-  const queryClient = useChatQueryClient();
+  // The app's one QueryClient (ADR 0036) — chat's keys live in it under the
+  // `chat` keyPrefix, so there is nothing to pin.
+  const queryClient = useQueryClient();
+  // Cache policy for the queries chat persists: the persister, its `gcTime`, the
+  // `persistMeta` mark, and `staleTime: 0` — see trpc/react.
+  const persisted = usePersistedQueryOptions();
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
   // The Turn state machine (#132). All phase/ownership decisions live in the pure
@@ -62,15 +69,11 @@ export function useChat(
   // Stream appends deltas into the same entry — there is no separate sticky copy
   // to reconcile. The Turn's finished Messages are already in this cache, so the
   // persister keeps a current snapshot for the next cold open. The cache is
-  // revalidated on every mount (`staleTime: 0` on chat's QueryClient makes the
+  // revalidated on every mount (the `staleTime: 0` in `persisted` makes the
   // persister's post-restore refetch always fire) so a stale persisted snapshot
-  // never survives a refresh — see query-client.ts.
+  // never survives a refresh — see trpc/react.
   const historyQuery = useQuery(
-    trpc.chat.get.queryOptions(
-      { sessionId },
-      { retry: false, meta: persistMeta },
-    ),
-    queryClient,
+    trpc.chat.get.queryOptions({ sessionId }, { retry: false, ...persisted }),
   );
 
   // Resume-after-refresh probe: is a Turn already generating for this
@@ -80,7 +83,6 @@ export function useChat(
   // a stale in-flight signal across Conversations.
   const inflightQuery = useQuery(
     trpc.chat.inflightTurn.queryOptions({ conversationId: sessionId }),
-    queryClient,
   );
   const resumedTurnId = inflightQuery.data?.turnId ?? null;
 

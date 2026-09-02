@@ -2,9 +2,9 @@
  * Offline read of Conversation History + Messages (#84, ADR 0025).
  *
  * The behaviour under test at the existing hook seam (ADR 0018): a persisted
- * query paints from IndexedDB on a cold `QueryClient`. Chat's client revalidates
+ * query paints from IndexedDB on a cold cache. Chat’s persisted queries revalidate
  * on every mount (`staleTime: 0` — the lever that makes the persister's
- * post-restore refetch fire; `refetchOnMount` does NOT, see query-client.ts), so
+ * post-restore refetch fire; `refetchOnMount` does NOT, see trpc/react.tsx), so
  * the guarantee is stale-while-revalidate: the restored snapshot renders
  * instantly AND a failed background revalidation must never blank it (nor throw
  * an unhandled rejection — the persister is patched to `.catch()` it). Each case

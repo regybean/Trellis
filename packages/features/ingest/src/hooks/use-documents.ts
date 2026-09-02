@@ -1,11 +1,9 @@
 'use client';
 
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
-import { persistMeta } from '@acme/hooks';
-
-import { useIngestQueryClient, useTRPC } from '../trpc/react';
+import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
 
 /**
  * Data access for the Documents list: the indexed knowledge base and Document
@@ -14,15 +12,13 @@ import { useIngestQueryClient, useTRPC } from '../trpc/react';
  */
 export function useDocuments() {
   const trpc = useTRPC();
-  const queryClient = useIngestQueryClient();
+  const queryClient = useQueryClient();
+  const persisted = usePersistedQueryOptions();
 
   // The Documents pane persists for offline read (ADR 0025) — it is the query
-  // that buys the paint on a surface operators revisit constantly. Pinned to
-  // ingest's own QueryClient (#82) so it runs on the persister-bearing client,
-  // not a nested foreign one.
+  // that buys the paint on a surface operators revisit constantly.
   const documentsQuery = useQuery(
-    trpc.documents.list.queryOptions(undefined, { meta: persistMeta }),
-    queryClient,
+    trpc.documents.list.queryOptions(undefined, persisted),
   );
 
   const deleteDocument = useMutation(

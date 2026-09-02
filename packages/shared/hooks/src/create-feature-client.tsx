@@ -1,6 +1,5 @@
 'use client';
 
-import type { QueryPersister } from '@tanstack/react-query';
 import type { AnyRouter } from '@trpc/server';
 import type { ReactNode } from 'react';
 import { createContext, useContext, useState } from 'react';
@@ -17,6 +16,7 @@ import {
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import SuperJSON from 'superjson';
 
+import type { FeatureQueryPersister } from './query-persister';
 import {
   clearPersistedCache as clearFeatureStore,
   createQueryPersister,
@@ -159,9 +159,9 @@ export function createFeatureClient<TRouter extends AnyRouter>({
   // The live persister for this mount, or `undefined` when the app opted out
   // (no `scopeKey`) or storage is unavailable. Held in context rather than a
   // module singleton because the scope it is keyed on arrives as a prop.
-  const FeaturePersisterContext = createContext<QueryPersister | undefined>(
-    undefined,
-  );
+  const FeaturePersisterContext = createContext<
+    FeatureQueryPersister | undefined
+  >(undefined);
 
   /**
    * The full cache policy for one query this feature persists (ADR 0025) —

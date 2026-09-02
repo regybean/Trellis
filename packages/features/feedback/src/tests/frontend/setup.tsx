@@ -2,12 +2,13 @@ import 'fake-indexeddb/auto';
 
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { IDBFactory } from 'fake-indexeddb';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
 import { beforeEach } from 'vitest';
+
+import { AppQueryClientProvider } from '@acme/hooks';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
@@ -30,13 +31,13 @@ beforeEach(() => {
  * the `renderHook` wrapper for `integration/hooks` tests. A `scopeKey` opts
  * persistence on (offline-read tests); omitted, the feature runs network-only.
  *
- * A *foreign* `QueryClientProvider` is nested inside feedback's provider to
- * mirror how apps mount several feature providers (feedback lives inside chat's
- * message list, itself inside chat's provider). react-query's `useQuery` binds
- * to the nearest client in context, so unless feedback's hook pins its own
- * client (#82) its `forMessage` query would run on this persister-less foreign
- * client and never persist. Keeping it makes the offline-restore case a
- * regression guard for that pinning.
+ * The app's single QueryClient wraps it (ADR 0036): feedback's provider renders
+ * none of its own, so a test has to mount one exactly as an app does.
+ * `AppQueryClientProvider` builds its client in `useState`, so each mount is a
+ * genuine cold cache. This used to nest a second, persister-less client inside
+ * feedback's provider as a regression guard for the pinning #82 needed — there
+ * is nothing left to guard now `forMessage` carries its persister in its own
+ * options.
  */
 export const Providers = ({
   children,
@@ -45,11 +46,9 @@ export const Providers = ({
   children: ReactNode;
   scopeKey?: string;
 }) => (
-  <TRPCReactProvider scopeKey={scopeKey}>
-    <QueryClientProvider client={new QueryClient()}>
-      {children}
-    </QueryClientProvider>
-  </TRPCReactProvider>
+  <AppQueryClientProvider>
+    <TRPCReactProvider scopeKey={scopeKey}>{children}</TRPCReactProvider>
+  </AppQueryClientProvider>
 );
 
 /** Render a component wrapped in the feature's tRPC + React Query providers. */

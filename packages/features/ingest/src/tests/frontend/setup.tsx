@@ -2,13 +2,14 @@ import 'fake-indexeddb/auto';
 
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { IDBFactory } from 'fake-indexeddb';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import { ToastContainer } from 'react-toastify';
 import superjson from 'superjson';
 import { beforeEach } from 'vitest';
+
+import { AppQueryClientProvider } from '@acme/hooks';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCReactProvider } from '../../trpc/react';
@@ -30,15 +31,23 @@ beforeEach(() => {
 // tRPC client, a feature hook, or react-toastify (ADR 0018).
 
 /**
- * Providers every ingest frontend test renders under: the feature's tRPC +
- * React Query provider, plus a real `<ToastContainer />` so success/error
- * toasts are asserted as DOM text (ADR 0018), not via a mocked `toast`.
+ * Providers every ingest frontend test renders under: the app's single
+ * QueryClient (ADR 0036 — a feature provider renders none of its own, so a test
+ * has to mount one exactly as an app does), the feature's tRPC provider, plus a
+ * real `<ToastContainer />` so success/error toasts are asserted as DOM text
+ * (ADR 0018), not via a mocked `toast`.
+ *
+ * `AppQueryClientProvider` builds its client in `useState`, so each `render` /
+ * `renderHook` gets its own — a fresh mount is a genuine cold cache and nothing
+ * leaks between cases.
  */
 export const Providers = ({ children }: { children: ReactNode }) => (
-  <TRPCReactProvider>
-    {children}
-    <ToastContainer />
-  </TRPCReactProvider>
+  <AppQueryClientProvider>
+    <TRPCReactProvider>
+      {children}
+      <ToastContainer />
+    </TRPCReactProvider>
+  </AppQueryClientProvider>
 );
 
 /**
@@ -47,22 +56,21 @@ export const Providers = ({ children }: { children: ReactNode }) => (
  * persisted cache; the default `Providers` passes no `scopeKey`, so persistence
  * stays off for every other test (network-only, unchanged).
  *
- * A *foreign* `QueryClientProvider` is nested between ingest's provider and the
- * component to mirror how apps mount several feature providers (chat → feedback
- * → ingest). react-query's `useQuery` binds to the nearest client in context, so
- * unless ingest's hooks pin their own client (#82) their queries would run on
- * this persister-less foreign client and never persist. Keeping it here makes
- * the offline-restore cases a regression guard for that pinning.
+ * This used to nest a second, persister-less `QueryClientProvider` between
+ * ingest's provider and the component, as a regression guard for the pinning that
+ * #82 needed. There is nothing left to guard: `documents.list` carries its
+ * persister in its own options now, and a nested client would be a bug in the
+ * test rather than a hazard the feature has to survive.
  */
 export const ScopedProviders =
   (scopeKey: string) =>
   ({ children }: { children: ReactNode }) => (
-    <TRPCReactProvider scopeKey={scopeKey}>
-      <QueryClientProvider client={new QueryClient()}>
+    <AppQueryClientProvider>
+      <TRPCReactProvider scopeKey={scopeKey}>
         {children}
         <ToastContainer />
-      </QueryClientProvider>
-    </TRPCReactProvider>
+      </TRPCReactProvider>
+    </AppQueryClientProvider>
   );
 
 /** Render a component wrapped in the feature's providers + ToastContainer. */
