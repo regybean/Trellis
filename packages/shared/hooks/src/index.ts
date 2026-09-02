@@ -5,6 +5,7 @@ export {
   loadingAuthStatus,
   resolvedAuthStatus,
   useAuthStatus,
+  useOptionalAuthStatus,
   type AuthStatus,
 } from './auth-status';
 export {

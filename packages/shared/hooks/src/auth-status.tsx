@@ -83,7 +83,7 @@ export function AuthStatusProvider({
  * CTAs never light up — a bug that looks exactly like "the user is logged out".
  */
 export function useAuthStatus() {
-  const status = useContext(AuthStatusContext);
+  const status = useOptionalAuthStatus();
 
   if (!status) {
     throw new Error(
@@ -92,4 +92,25 @@ export function useAuthStatus() {
   }
 
   return status;
+}
+
+/**
+ * Read the viewer's auth state, or `null` when no `AuthStatusProvider` is
+ * mounted.
+ *
+ * For the one case `useAuthStatus`'s throw gets wrong: a feature that the
+ * **no-auth apps also mount**. The slim apps deliberately have no auth provider
+ * (ADR 0010) and inject a synthetic session server-side instead (`LOCAL_SESSION`
+ * in their `trpc-route`), so for them "no provider" does not mean "signed out",
+ * it means "always authorized". A feature mounted in all four apps cannot use
+ * the throwing hook, and cannot treat the absent provider as signed-out either
+ * without going dark in slim.
+ *
+ * So `null` here means "this app does not do auth", NOT "signed out" — that is
+ * `{ isLoaded: true, isSignedIn: false }`. Callers must keep the two apart.
+ * Prefer `useAuthStatus` anywhere the provider is guaranteed: its throw is what
+ * catches an app that forgot to mount it.
+ */
+export function useOptionalAuthStatus() {
+  return useContext(AuthStatusContext);
 }

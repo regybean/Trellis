@@ -34,6 +34,17 @@ must not pull a provider into the slim apps' graph (ADR 0010).
 _Avoid_: "the session" (features never see one — a session is a database row on
 the server)
 
+**`useOptionalAuthStatus`**:
+The same read, returning `null` instead of throwing when no provider is mounted.
+For features the **no-auth apps also mount**: the slim apps have no provider by
+design (ADR 0010) and inject a synthetic session server-side, so for them
+"no provider" means _always authorized_, not _signed out_. `@acme/notifications`
+is the case that forced it — its tail is mounted in all four apps and gates the
+subscription on this. Keep the two apart: `null` is "this app does not do auth",
+whereas signed-out is `{ isLoaded: true, isSignedIn: false }`. Prefer
+`useAuthStatus` wherever the provider is guaranteed, since its throw is what
+catches an app that forgot to mount one.
+
 **`createAppQueryClient` / `AppQueryClientProvider`**:
 The app's single `QueryClient` and, for the Next.js apps, the provider that
 mounts it at the root of `layout.tsx` ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md)).

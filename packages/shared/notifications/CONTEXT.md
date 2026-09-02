@@ -23,6 +23,14 @@ client'` React connectors.
   `QueryClient` — the client it used to mint existed purely to satisfy
   `TRPCProvider`.
 
+  The mount stays identical in all four apps, but the tail is **not**
+  unconditional: `stream` is a `protectedProcedure`, so it waits for a resolved
+  signed-in session read through `useOptionalAuthStatus` (`@acme/hooks`).
+  Subscribing while signed out only earned a retried UNAUTHORIZED and a burst of
+  error-level server logs on pages like `/sign-in`. An app with no
+  `AuthStatusProvider` at all is the slim case (ADR 0010) and stays enabled,
+  since those apps inject a synthetic session server-side.
+
 ## Language
 
 **Notification**:
