@@ -1,10 +1,38 @@
 # Hooks (`@acme/hooks`)
 
 Small, runtime-agnostic React/TanStack-Query helpers shared across features.
-No domain knowledge, no auth, no framework specifics — a feature or app composes
-these; they never reach back up.
+No domain knowledge, no framework specifics, and **no auth provider** — a feature
+or app composes these; they never reach back up.
+
+"No auth provider" is narrower than the "no auth" this charter used to claim, and
+the distinction is the point: the package now ships the _client_ half of the auth
+seam (`AuthStatusProvider` / `useAuthStatus`), which is a plain React context
+carrying three fields. It knows nothing about Clerk, Better Auth or sessions —
+the app resolves those and feeds the result in. That is what keeps the slim,
+no-auth apps' graph free of a provider (ADR 0010) while letting `@acme/billing`
+gate its viewer-scoped queries on something.
 
 ## Language
+
+**`AuthStatus` / `AuthStatusProvider` / `useAuthStatus`**:
+The viewer's auth state as a feature is allowed to see it — an opaque `userId`
+and the two booleans `isSignedIn` / `isLoaded` — and the context that carries it.
+A **union of the three reachable states**, not three independent fields, so
+`{ userId: null, isSignedIn: true }` is not representable and `userId` narrows to
+a `string` on the signed-in branch. Build one with `loadingAuthStatus` /
+`resolvedAuthStatus(userId)`. `isLoaded` is separate from `isSignedIn` because
+"not resolved yet" and "signed out" drive different UI: a query gated on
+`isSignedIn` alone fires and 401s on the first client render.
+
+The _app_ owns resolution (ADR 0003) and mounts the provider — both full apps map
+Better Auth's `useSession`, seeded from the id their server render already
+resolved. `useAuthStatus` **throws** without a provider rather than defaulting to
+signed-out: the silent version of that bug is a feature whose queries never
+enable, which looks exactly like a logged-out user. Lives here rather than in
+`@acme/auth` because that package ships no React (ADR 0034), and the substrate
+must not pull a provider into the slim apps' graph (ADR 0010).
+_Avoid_: "the session" (features never see one — a session is a database row on
+the server)
 
 **`createFeatureClient`**:
 The client half of a feature's tRPC wiring, authored once — the mirror of
@@ -62,8 +90,9 @@ Rationale, storage/security tradeoffs, and the pinned experimental API live in
 [ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md).
 
 **The mechanism lives here, the policy lives in the feature/app.** `@acme/hooks`
-knows nothing about which queries are sensitive, who the user is, or when logout
-happens. Features choose what to mark (`persistMeta`) and how long to keep it
+knows nothing about which queries are sensitive, which provider authenticated the
+viewer, or when logout happens — `AuthStatus` is the shape of that ignorance, not
+an exception to it. Features choose what to mark (`persistMeta`) and how long to keep it
 (`maxAge`); apps supply `scopeKey` and drive `clearPersistedCache`. This keeps
 the helper runtime- and auth-agnostic, so it composes in both the full and slim
 app families.

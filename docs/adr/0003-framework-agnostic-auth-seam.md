@@ -150,3 +150,43 @@ Consequence: swapping Clerk for another provider is a change to `@acme/auth`
 plus the two full apps. The slim apps show the floor — a constant
 `{ user: { id: 'local', role: 'admin' } }` with no provider behind it
 ([ADR 0010](0010-slim-no-auth-apps.md)).
+
+## Amendment 2 — the same split, under Better Auth (#239)
+
+The amendment above claimed the mapping is _provider_-specific, not
+_framework_-specific, so both full apps share it. Migrating the two apps
+falsified that claim before restoring it: #237 and #238 ran in parallel off the
+same base, and each wrote its own copy of the same three functions — a role
+parse, a principal mapping and a Better Auth user → admin-widget adapter — one
+of them app-local in `apps/nextjs/src/server/session.ts`. Two implementations of
+one provider mapping is exactly the fan-out this ADR exists to prevent.
+
+#239 collapses them. The line held is unchanged; only the provider moved:
+
+- **`@acme/auth/server`** holds `readSessionRole`, `toPrincipal` and
+  `toManagementUser`. All three are typed **structurally**, on the fields they
+  read, because Better Auth types `getSession` as returning the core user columns
+  only — the admin plugin's `role` is a runtime fact with no static promise
+  behind it, which is why it is parsed rather than read. `readSessionRole` takes
+  a user *row*, not `unknown`: the first version accepted anything, so passing a
+  resolved `{ session, user }` compiled, failed its parse silently, and degraded
+  every caller to non-admin.
+- **The two full apps** resolve the session — Next.js middleware plus a route
+  handler, a TanStack Start server function — and hand the result to those three.
+  They also own `initAuth({ baseUrl })`, the mounted `/api/auth` handler,
+  `createAuthClient`, and the guards.
+- **The client half is new, and it is not here.** Clerk shipped hooks, so
+  features read `useAuth()` out of `@acme/auth`. Better Auth's client is
+  app-owned, so the neutral `AuthStatus` context lives in `@acme/hooks`
+  (`AuthStatusProvider` / `useAuthStatus`) and each app maps its own
+  `useSession` onto it. `@acme/auth` therefore ships no React at all — which is
+  what keeps a provider out of the slim apps' graph
+  ([ADR 0010](0010-slim-no-auth-apps.md)).
+- **The seam is now enforced, not just described.** `banClerkServer` became
+  `banBetterAuth` in `tooling/eslint/base.ts`: a runtime `better-auth` import
+  fails lint everywhere except the two full apps and `@acme/auth`.
+
+What changed behaviourally: the role is a **column**, not a JWT claim, so a role
+change takes effect on the next request rather than on token refresh — sessions
+are database rows and the cookie cache is off
+([ADR 0034](0034-better-auth-replaces-clerk.md)).

@@ -8,7 +8,6 @@
  * query re-reads fresh data after invalidation — rather than spying on
  * invalidateQueries. Network faked at the HTTP boundary (MSW).
  */
-import type { Mock } from 'vitest';
 import { useQuery } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
@@ -23,27 +22,21 @@ import {
   vi,
 } from 'vitest';
 
-import { useAuth } from '@acme/auth';
-
 import { useBillingSync } from '../../../../hooks/use-billing-sync';
 import { useTRPC } from '../../../../trpc/react';
-import { Providers, trpcMsw } from '../../setup';
+import { Providers, resetAuth, setAuth, trpcMsw } from '../../setup';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   vi.clearAllMocks();
+  resetAuth();
 });
 afterAll(() => server.close());
 
 beforeEach(() => {
-  (useAuth as Mock).mockReturnValue({
-    isLoaded: true,
-    isSignedIn: true,
-    userId: 'user_1',
-    sessionId: 'sess_1',
-  });
+  setAuth({ signedIn: true });
 });
 
 describe('useBillingSync', () => {

@@ -51,14 +51,18 @@ export const staticTestEnv = {
   // testcontainer's real value arrives per-run from hydrate-env; this keeps an
   // infra-less suite that merely *imports* `@acme/db/env` from failing validation.
   DB_PASSWORD: 'password123',
-  // @acme/auth's two secrets — no profile authors either, and the auth suite
-  // calls `authEnv()` through `initAuth`, so both have to be here.
+  // @acme/auth's env — no profile authors any of these, and the auth suite
+  // calls `betterAuthEnv()` through `initAuth`, so they have to be here.
   //
   // `BETTER_AUTH_SECRET` is a real value, not a mock: the suite runs the genuine
   // sign-up/sign-in flow against Postgres, so the secret has to be long enough
-  // for scrypt/HMAC to work. `CLERK_SECRET_KEY` is validation-only — Clerk is
-  // never contacted — and goes when #218 finishes retiring the Clerk half.
+  // for scrypt/HMAC to work. `BETTER_AUTH_URL` is only ever used to build
+  // callback URLs and check request origins, and the suite calls the API
+  // directly rather than over HTTP, so any well-formed origin will do.
+  // `CLERK_SECRET_KEY` is validation-only — Clerk is never contacted — and goes
+  // when #218 finishes retiring the Clerk half.
   BETTER_AUTH_SECRET: 'test-better-auth-secret-0123456789abcdef',
+  BETTER_AUTH_URL: 'http://localhost:3000',
   CLERK_SECRET_KEY: 'sk_test_123',
 } satisfies Record<string, string>;
 

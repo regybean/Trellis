@@ -1,31 +1,17 @@
-'use client';
-
-export const name = 'auth';
-
 /**
- * Framework-neutral Clerk *client* surface. The *app* owns `<ClerkProvider>`
- * (Next.js via `@clerk/nextjs`, TanStack Start via
- * `@clerk/tanstack-react-start`); features and apps import auth UI + hooks from
- * here, never from a framework-specific Clerk SDK. This keeps the vertical
- * slices portable across apps.
+ * The neutral, framework-free surface of the auth seam — and after ADR 0034 it
+ * is only the global `InjectedUser`/`Roles` declarations that `@acme/trpc` and
+ * the features merge into.
  *
- * The `'use client'` directive is load-bearing: it stops the Next RSC graph
- * from evaluating `@clerk/clerk-react` → `@clerk/shared` → `swr`, which under
- * the `react-server` export condition has no default export and breaks the
- * build. Backend code lives in `@acme/auth/server` (no client boundary).
- * See docs/adr/0003-framework-agnostic-auth-seam.md.
+ * There is nothing else to export because Better Auth ships no UI. Under Clerk
+ * this barrel re-exported nine prebuilt components and hooks from
+ * `@clerk/clerk-react` behind a `'use client'` directive, which is what made
+ * `@acme/auth` a React package. Now the *app* owns the client
+ * (`createAuthClient`), `@acme/ui` owns the presentation, and `@acme/hooks` owns
+ * the client-side status seam — so this package ships no React at all, and the
+ * slim apps' graph never sees an auth provider (ADR 0010).
+ *
+ * Server code lives in `@acme/auth/server`, the Drizzle tables in
+ * `@acme/auth/schema`, and the signing secret in `@acme/auth/env`.
  */
-export {
-  SignedIn,
-  SignedOut,
-  SignIn,
-  SignInButton,
-  SignUp,
-  SignUpButton,
-  UserButton,
-  useAuth,
-  useUser,
-} from '@clerk/clerk-react';
-
-export type { SerializableUser } from './types/admin';
 export type * from './types/globals';

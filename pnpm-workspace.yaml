@@ -152,6 +152,10 @@ overrides:
   lodash: ">=4.18.0" # GHSA-r5fr-rjxr-66jc (mastra CLI>archiver)
   tmp: ">=0.2.6" # GHSA-ph9p-34f9-6g65 (testcontainers)
   flatted: ">=3.4.2" # GHSA-rf6f-7fwh-wjgh (eslint>file-entry-cache)
+  # browserslist: one line in tree, under @vitejs/plugin-react>@babel/core, so
+  # build-time only. Unrelated to the auth migration that surfaced it — the
+  # advisories were published after #158 drove the high/critical count to zero.
+  browserslist: ">=4.28.7" # GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g
   sharp: ">=0.35.0" # GHSA-f88m-g3jw-g9cj (next optional dep)
   undici: ">=6.27.0" # GHSA-vxpw-j846-p89q +chain (testcontainers, test-only)
   # postcss forced tree-wide: next pins 8.4.31 and the apps declare 8.5.6.

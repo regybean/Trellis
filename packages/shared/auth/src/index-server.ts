@@ -1,14 +1,19 @@
 /**
  * Backend auth surface — no `'use client'` boundary, so it can *run* on the
- * server. Holds `initAuth` (the app's Better Auth instance), and, until the apps
- * migrate off Clerk (#218), `transformUserForClient` (maps a backend Clerk `User`
- * to the serializable shape sent to client components) and `readRole` (the
- * validated read of the role claim off a resolved session). Kept out of the
- * `'use client'` barrel in `./index.ts` so it executes server-side instead of
- * becoming a client reference. See docs/adr/0003-framework-agnostic-auth-seam.md.
+ * server.
+ *
+ * Two things live here, and the split between them is the seam: `initAuth`
+ * builds *the app's* Better Auth instance, and `./principal` turns whatever that
+ * instance resolves into the neutral shapes the rest of the repo consumes —
+ * `toPrincipal` for `@acme/trpc`'s `InjectedUser`, `readSessionRole` for the
+ * role, `toManagementUser` for `@acme/ui`'s admin widget. Resolving a session
+ * stays app-owned (Next.js middleware vs. a TanStack Start server function);
+ * the mappings are provider-specific and shared by both full apps.
+ *
+ * See docs/adr/0034-better-auth-replaces-clerk.md and
+ * docs/adr/0003-framework-agnostic-auth-seam.md.
  */
 export { initAuth } from './init-auth';
 export type { Auth, InitAuthOptions, Session } from './init-auth';
 
-export * from './session';
-export * from './types/admin';
+export * from './principal';

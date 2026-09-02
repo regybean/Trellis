@@ -2,12 +2,11 @@
  * PricingPage — integration/components (ADR 0018).
  *
  * The real tRPC client + real usePricing hook run through a real QueryClient
- * with the network faked at the HTTP boundary via MSW (trpcMsw). @acme/auth is
- * mocked (allowed framework external). We assert rendered DOM states and
- * observable outcomes (button text, disabled, toast text) — never spy on
- * mutations or mock trpc/react.
+ * with the network faked at the HTTP boundary via MSW (trpcMsw). The viewer's
+ * auth state comes from the real `AuthStatusProvider` via `setAuth`, not a mock.
+ * We assert rendered DOM states and observable outcomes (button text, disabled,
+ * toast text) — never spy on mutations or mock trpc/react.
  */
-import type { Mock } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
@@ -24,27 +23,17 @@ import {
 
 import '@testing-library/jest-dom';
 
-import { useAuth } from '@acme/auth';
-
 import { PricingPage } from '../../../../components/pricing';
-import { renderWithProviders, trpcMsw } from '../../setup';
+import { renderWithProviders, resetAuth, setAuth, trpcMsw } from '../../setup';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   vi.clearAllMocks();
+  resetAuth();
 });
 afterAll(() => server.close());
-
-const setAuth = (opts: { loaded?: boolean; signedIn?: boolean }) => {
-  (useAuth as Mock).mockReturnValue({
-    isLoaded: opts.loaded ?? true,
-    isSignedIn: opts.signedIn ?? false,
-    userId: opts.signedIn ? 'user_1' : null,
-    sessionId: opts.signedIn ? 'sess_1' : null,
-  });
-};
 
 const basicSubscription = () =>
   trpcMsw.account.getSubscriptionDetails.query(() => ({

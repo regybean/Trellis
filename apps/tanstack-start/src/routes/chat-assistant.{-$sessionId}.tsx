@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import { ChatView } from '../components/chat-view';
 import { getAuthState } from '../lib/auth';
+import { redirectToSignIn } from '../lib/auth-redirect';
 
 // ONE route for both the new-Conversation landing (`/chat-assistant`) and deep
 // links (`/chat-assistant/{sessionId}`), via an optional path segment. Keeping
@@ -14,14 +15,14 @@ import { getAuthState } from '../lib/auth';
 // no remount and no torn SSE stream. Mirrors the Next.js optional catch-all
 // `[[...sessionId]]`.
 export const Route = createFileRoute('/chat-assistant/{-$sessionId}')({
+  // The gate runs before the component mounts, so a signed-out visitor never
+  // renders `ChatView` and no chat tRPC request is ever issued — the guard is
+  // where "no request fires while unauthenticated" is actually enforced, not the
+  // provider mounting in `__root`.
   beforeLoad: async ({ location }) => {
     const { userId } = await getAuthState();
     if (!userId) {
-      throw redirect({
-        to: '/sign-in/$',
-        params: { _splat: '' },
-        search: { redirect_url: location.href },
-      });
+      throw redirect(redirectToSignIn(location.href));
     }
   },
   component: ChatRoute,

@@ -1,14 +1,14 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
-import { dark } from '@clerk/themes';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { FileText, MessageSquare, SquareTerminal, Tag } from 'lucide-react';
 
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@acme/auth';
+import type { UserButtonUser } from '@acme/ui';
 import { NavUserSubscription, useBillingConfig } from '@acme/billing';
-import { Button, StripeIcon } from '@acme/ui';
+import { Button, DropdownMenuItem, StripeIcon, UserButton } from '@acme/ui';
 
+import { authClient } from '../lib/auth-client';
 import { StatusBar } from './status-bar';
 
 const ProfileIcon = () => (
@@ -39,13 +39,44 @@ const navItems: NavItem[] = [
  * App-owned layout chrome: a fixed left rail + top bar in a dark, dense,
  * monospace "developer console" style. Shell/chrome is always app-owned
  * (ADR 0011); the feature components rendered inside `children` are untouched.
+ *
+ * `user` is the signed-in principal or `null`, resolved on the server by
+ * `__root`'s `beforeLoad` and passed down as a prop. Under Clerk this was
+ * `<SignedIn>` / `<SignedOut>` reading provider context, which meant the rail
+ * rendered its signed-out state first and swapped once Clerk hydrated; a
+ * server-resolved prop paints the right one immediately (ADR 0034).
  */
-export function ConsoleShell({ children }: { children: ReactNode }) {
+export function ConsoleShell({
+  user,
+  children,
+}: {
+  user: UserButtonUser | null;
+  children: ReactNode;
+}) {
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  const navigate = useNavigate();
   // The billing-portal URL comes through the provider the root route mounts, not
   // from this app's composed `env`: the values the browser sees are the ones the
-  // server threaded across the RSC/Flight boundary (ADR 0033 §6).
+  // server threaded across the SSR boundary (ADR 0033 §6).
   const billing = useBillingConfig();
+
+  // A document load, not an SPA transition: signing out has to drop the feature
+  // QueryClients and their IndexedDB persisters, which are keyed on the departing
+  // user's id at mount (see PersistedFeatureProviders). `signOut` deletes the
+  // `session` row and clears the cookie, so the reload lands signed out.
+  //
+  // The reload is in a `finally` because it has to happen either way. If
+  // `signOut` rejects — offline, or the row is already gone — skipping it would
+  // leave the browser sitting in a UI that still says "signed in", with stale
+  // per-user caches mounted, which is the worse of the two failures. Reloading
+  // re-resolves the session on the server and renders whatever is actually true.
+  const signOut = async () => {
+    try {
+      await authClient.signOut();
+    } finally {
+      await navigate({ to: '/', reloadDocument: true });
+    }
+  };
 
   return (
     <div className="flex h-screen w-full overflow-hidden">
@@ -76,43 +107,34 @@ export function ConsoleShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-border border-t p-3">
-          <SignedIn>
+          {user ? (
             <UserButton
-              appearance={{
-                baseTheme: dark,
-                elements: {
-                  avatarBox: 'h-8 w-8',
-                  userButtonPopoverCard: 'shadow-lg',
-                  userButtonPopoverActionButton: 'text-sm',
-                  userButtonPopoverActionButtonIcon: 'w-4 h-4',
-                  userButtonPopoverActionButtonText: 'text-sm',
-                  userButtonPopoverFooter: 'hidden',
-                },
-              }}
-            >
-              <UserButton.MenuItems>
-                <UserButton.Action
-                  label="View Subscription Details"
-                  labelIcon={<ProfileIcon />}
-                  onClick={() => setSubscriptionModalOpen(true)}
-                />
-                <UserButton.Action
-                  label="Manage Billing"
-                  labelIcon={<StripeIcon />}
-                  onClick={() =>
-                    window.open(billing.STRIPE_MANAGE_BILLING_URL, '_blank')
-                  }
-                />
-              </UserButton.MenuItems>
-            </UserButton>
-          </SignedIn>
-          <SignedOut>
-            <SignInButton mode="modal">
-              <Button size="sm" className="w-full font-mono text-xs">
-                sign in
-              </Button>
-            </SignInButton>
-          </SignedOut>
+              user={user}
+              onSignOut={() => void signOut()}
+              menuItems={
+                <>
+                  <DropdownMenuItem
+                    onSelect={() => setSubscriptionModalOpen(true)}
+                  >
+                    <ProfileIcon />
+                    View Subscription Details
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() =>
+                      window.open(billing.STRIPE_MANAGE_BILLING_URL, '_blank')
+                    }
+                  >
+                    <StripeIcon />
+                    Manage Billing
+                  </DropdownMenuItem>
+                </>
+              }
+            />
+          ) : (
+            <Button asChild size="sm" className="w-full font-mono text-xs">
+              <Link to="/sign-in">sign in</Link>
+            </Button>
+          )}
         </div>
       </aside>
 

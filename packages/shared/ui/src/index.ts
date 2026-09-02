@@ -102,7 +102,7 @@ export {
 
 // Auth forms and the signed-in menu. Presentational and prop-driven, so the
 // package takes no `@acme/auth` dependency (ADR 0010) — the caller owns the
-// provider call and passes `error` / `pending` back in.
+// provider call and resolves it with a message or `null`.
 export { SignInForm } from './widgets/sign-in-form';
 export { SignUpForm } from './widgets/sign-up-form';
 export { UserButton, type UserButtonUser } from './widgets/user-button';
@@ -115,6 +115,8 @@ export {
   type SignInCredentials,
   type SignUpCredentials,
 } from './lib/auth-credentials';
+// The same-site rule for `?redirect=`, shared by both apps' post-auth landing.
+export { authSearchSchema, toSameSitePath } from './lib/auth-redirect';
 
 export { ToastThemeClient } from './providers/toast-theme-client';
 // The theme wrapper module owns the `next-themes` dependency — it exports the

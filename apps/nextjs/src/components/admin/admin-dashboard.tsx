@@ -1,10 +1,10 @@
 import 'server-only';
 
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { auth, clerkClient } from '@clerk/nextjs/server';
 import { Users } from 'lucide-react';
 
-import { readRole, transformUserForClient } from '@acme/auth/server';
+import { readSessionRole, toManagementUser } from '@acme/auth/server';
 import {
   RateLimitManagement,
   StripeTesting,
@@ -19,6 +19,7 @@ import {
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { removeRole, setRole } from '~/lib/admin';
+import { auth } from '~/server/auth';
 import { SearchUsers } from './search-users';
 
 interface Props {
@@ -33,19 +34,27 @@ interface Props {
  * `'use server'` role mutations from `~/lib/admin`. See ADR 0011.
  */
 export async function AdminDashboard({ searchParams }: Props) {
-  if (readRole(await auth()) !== 'admin') {
+  const requestHeaders = await headers();
+
+  // The authoritative admin gate for this page. Middleware cannot make this
+  // call — the role is not in the session cookie and the Edge runtime has no
+  // database — so the check lives here, where the session row is readable.
+  const session = await auth.api.getSession({ headers: requestHeaders });
+
+  if (!session || readSessionRole(session.user) !== 'admin') {
     redirect('/');
   }
 
   const query = searchParams?.search;
 
-  const client = await clerkClient();
-  const { data: users } = query
-    ? await client.users.getUserList({ query })
-    : await client.users.getUserList();
+  const { users } = await auth.api.listUsers({
+    query: query
+      ? { searchField: 'email', searchOperator: 'contains', searchValue: query }
+      : {},
+    headers: requestHeaders,
+  });
 
-  // Transform users to serializable format for client components
-  const serializableUsers = users.map((user) => transformUserForClient(user));
+  const managementUsers = users.map((user) => toManagementUser(user));
 
   return (
     <div className="mx-auto max-w-7xl px-4">
@@ -81,9 +90,9 @@ export async function AdminDashboard({ searchParams }: Props) {
             </CardContent>
           </Card>
 
-          {serializableUsers.length > 0 && (
+          {managementUsers.length > 0 && (
             <UserManagement
-              users={serializableUsers}
+              users={managementUsers}
               setRole={setRole}
               removeRole={removeRole}
               renderBillingPanels={(user) => (
@@ -98,7 +107,7 @@ export async function AdminDashboard({ searchParams }: Props) {
           {/* Stripe Testing Section */}
           <StripeTesting />
 
-          {query && serializableUsers.length === 0 && (
+          {query && managementUsers.length === 0 && (
             <Card className="border-border shadow-xs">
               <CardContent className="py-8 text-center">
                 <Users className="text-muted-foreground/50 mx-auto h-12 w-12" />

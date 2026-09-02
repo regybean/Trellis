@@ -4,12 +4,10 @@
     "@acme/db": "workspace:*",
     "@acme/env": "workspace:*",
     "@acme/trpc": "workspace:*",
-    "@clerk/backend": "catalog:",
-    "@clerk/clerk-react": "catalog:",
+    "@acme/ui": "workspace:*",
     "@t3-oss/env-core": "catalog:",
     "better-auth": "catalog:",
     "drizzle-orm": "catalog:",
-    "react": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

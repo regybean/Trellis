@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { AlertTriangle, Clock, RotateCcw, Timer } from 'lucide-react';
 
-import type { SerializableUser } from '@acme/auth';
+import type { UserManagementUser } from '@acme/ui';
 import {
   Button,
   Card,
@@ -26,7 +26,7 @@ import { RateLimitStatusDisplay } from './rate-limit-status-display';
 import { SubscriptionDetailsDisplay } from './subscription-details-display';
 
 interface RateLimitManagementProps {
-  user: SerializableUser;
+  user: UserManagementUser;
 }
 
 const getStatusColor = (remaining: number, limit: number) => {

@@ -4,7 +4,7 @@ import React from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { toast } from 'react-toastify';
 
-import { useAuth } from '@acme/auth';
+import { useAuthStatus } from '@acme/hooks';
 
 import type { PricingPlan } from '../data/pricing-data';
 import type { ButtonState } from '../lib/plan-selection';
@@ -39,7 +39,7 @@ export interface PricingCard {
  */
 export function usePricing() {
   const trpc = useTRPC();
-  const { isSignedIn, isLoaded } = useAuth();
+  const { isSignedIn, isLoaded } = useAuthStatus();
   const config = useBillingConfig();
   // localstripe has no Checkout Sessions API — the pricing CTAs can't create a
   // checkout. Tiers are granted from the admin page (account.setUserTier)

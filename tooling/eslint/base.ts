@@ -14,17 +14,18 @@ import tseslint from 'typescript-eslint';
  * package-relative — they cannot key off a package's location in the tree.
  * The model is therefore "restrictive default + per-package exception":
  *
- *   - `defaultContainment` (below) bans Mastra + framework-specific Clerk in
- *     every package, plus direct tRPC in feature components. It is spread at
+ *   - `defaultContainment` (below) bans Mastra + Better Auth in every package,
+ *     plus direct tRPC in feature components. It is spread at
  *     the tail of both `baseConfig` and `restrictEnvAccess` so it is the last
  *     `no-restricted-imports` config for any file (flat config *replaces*, not
  *     merges, rule options — last match wins). Both carry it so the result is
  *     stable no matter which is composed last; packages that omit
  *     `restrictEnvAccess` (telemetry, ui) are still covered via `baseConfig`.
  *
- *   - The blessed exceptions (@acme/auth + apps for Clerk; @acme/rag +
- *     @acme/chat for Mastra) spread `containmentOverride(...)` at the very end
- *     of their own eslint.config, overriding the default for their files.
+ *   - The blessed exceptions (@acme/auth + the full apps for Better Auth;
+ *     @acme/rag + @acme/chat for Mastra) spread `containmentOverride(...)` at
+ *     the very end of their own eslint.config, overriding the default for their
+ *     files.
  *
  * Note: on files the default matches, `restrictEnvAccess`'s narrow
  * `import { env } from 'process'` ban is superseded — the real env guard
@@ -35,11 +36,22 @@ const banMastra = {
   message:
     'Mastra imports are contained to @acme/rag and @acme/chat (ADR 0002). Consume them through those packages.',
 };
-const banClerkServer = {
-  group: ['@clerk/nextjs/server', '@clerk/tanstack-react-start/server'],
+/**
+ * The auth provider is contained the same way Clerk's framework SDKs were: an
+ * app may reach for it (it owns session *resolution*), `@acme/auth` may (it owns
+ * the instance), and nothing else may — features and the substrate read auth
+ * only through the neutral tRPC principal and `@acme/hooks`' `useAuthStatus`.
+ *
+ * Without this the seam is convention-only: nothing would stop `@acme/chat`
+ * importing `better-auth/plugins/admin` tomorrow, and the slim, no-auth apps
+ * would silently acquire a provider in their graph (ADR 0010). `allowTypeImports`
+ * because a type is erased — it couples the source, not the bundle.
+ */
+const banBetterAuth = {
+  group: ['better-auth', 'better-auth/*'],
   allowTypeImports: true,
   message:
-    'Framework-specific Clerk server imports belong in apps or @acme/auth (ADR 0003). Inject auth through the neutral tRPC seam.',
+    'better-auth imports belong in apps or @acme/auth (ADR 0003, ADR 0034). Read the principal off the tRPC context, or the client status off @acme/hooks.',
 };
 const banFeatureTrpc = {
   group: ['**/trpc/react', '**/trpc/server', '@trpc/*'],
@@ -96,7 +108,7 @@ const defaultContainment = defineConfig(
   {
     files: ['**/*.{ts,tsx}'],
     rules: {
-      'no-restricted-imports': banImports([banMastra, banClerkServer]),
+      'no-restricted-imports': banImports([banMastra, banBetterAuth]),
     },
   },
   // Slice contract: feature components stay UI-only (no tRPC, no vendors).
@@ -107,7 +119,7 @@ const defaultContainment = defineConfig(
       'no-restricted-imports': banImports([
         banFeatureTrpc,
         banMastra,
-        banClerkServer,
+        banBetterAuth,
       ]),
     },
   },
@@ -116,17 +128,17 @@ const defaultContainment = defineConfig(
 /**
  * Per-package exception to the containment default. Spread this at the *end* of
  * a package's eslint.config (after `restrictEnvAccess`) so it wins. Pass
- * `allowMastra`/`allowClerk` for the blessed vendor homes; `feature: true`
+ * `allowMastra`/`allowBetterAuth` for the blessed vendor homes; `feature: true`
  * re-asserts the component tRPC ban when a feature also relaxes a vendor.
  */
 export function containmentOverride({
   allowMastra = false,
-  allowClerk = false,
+  allowBetterAuth = false,
   feature = false,
 } = {}) {
   const patterns: ImportPattern[] = [
     ...(allowMastra ? [] : [banMastra]),
-    ...(allowClerk ? [] : [banClerkServer]),
+    ...(allowBetterAuth ? [] : [banBetterAuth]),
   ];
   return defineConfig(
     {

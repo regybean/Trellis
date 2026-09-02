@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 
 import type { AuthFormProps, SignInCredentials } from '../lib/auth-credentials';
@@ -23,20 +24,26 @@ interface SignInFormProps extends AuthFormProps<SignInCredentials> {
 
 export function SignInForm({
   onSubmit,
-  error,
-  pending = false,
   signUpHref = '/sign-up',
   className,
 }: SignInFormProps) {
+  // The rejected attempt, which only this component ever sees: it is set from
+  // the caller's own resolution and cleared when a fresh attempt starts, so a
+  // previous rejection cannot outlive it (#239).
+  const [error, setError] = useState<string | null>(null);
+
   // TanStack Form takes the zod schema directly as a Standard Schema validator
   // — no resolver package, and the messages stay zod's. `noValidate` hands
   // validation to it rather than the browser, so those messages are the ones
-  // that render and they are assertable in the DOM.
+  // that render and they are assertable in the DOM. Awaiting the caller inside
+  // `onSubmit` is also what makes `isSubmitting` cover the provider call, so
+  // "in flight" needs no second piece of state.
   const form = useForm({
     defaultValues: { email: '', password: '' },
     validators: { onSubmit: signInSchema },
-    onSubmit: ({ value }) => {
-      onSubmit(value);
+    onSubmit: async ({ value }) => {
+      setError(null);
+      setError(await onSubmit(value));
     },
   });
 
@@ -94,11 +101,15 @@ export function SignInForm({
               </Alert>
             )}
 
-            <AuthSubmitButton
-              pending={pending}
-              label="Sign in"
-              pendingLabel="Signing in…"
-            />
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(pending) => (
+                <AuthSubmitButton
+                  pending={pending}
+                  label="Sign in"
+                  pendingLabel="Signing in…"
+                />
+              )}
+            </form.Subscribe>
           </FieldGroup>
         </form>
       </CardContent>

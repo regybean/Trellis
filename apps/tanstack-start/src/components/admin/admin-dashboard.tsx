@@ -1,7 +1,7 @@
 import { useRouter } from '@tanstack/react-router';
 import { Users } from 'lucide-react';
 
-import type { SerializableUser } from '@acme/auth';
+import type { UserManagementUser } from '@acme/ui';
 import {
   RateLimitManagement,
   StripeTesting,
@@ -19,7 +19,7 @@ import { removeUserRole, setUserRole } from '../../lib/admin';
 import { SearchUsers } from './search-users';
 
 interface AdminDashboardProps {
-  users: SerializableUser[];
+  users: UserManagementUser[];
   currentSearch: string;
   onSearch: (query: string) => void;
   onClear: () => void;

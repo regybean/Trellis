@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useForm } from '@tanstack/react-form';
 
 import type { AuthFormProps, SignUpCredentials } from '../lib/auth-credentials';
@@ -28,11 +29,13 @@ interface SignUpFormProps extends AuthFormProps<SignUpCredentials> {
 
 export function SignUpForm({
   onSubmit,
-  error,
-  pending = false,
   signInHref = '/sign-in',
   className,
 }: SignUpFormProps) {
+  // See `SignInForm`: the rejection and the in-flight flag are the form's, not
+  // the caller's (#239).
+  const [error, setError] = useState<string | null>(null);
+
   // The form validates against `signUpFormSchema` (the rendered fields), then
   // re-parses through `signUpSchema` to build the payload. That second parse is
   // what applies the name's `trim()` and drops `confirmPassword` — the form-only
@@ -42,8 +45,9 @@ export function SignUpForm({
   const form = useForm({
     defaultValues: { name: '', email: '', password: '', confirmPassword: '' },
     validators: { onSubmit: signUpFormSchema },
-    onSubmit: ({ value }) => {
-      onSubmit(signUpSchema.parse(value));
+    onSubmit: async ({ value }) => {
+      setError(null);
+      setError(await onSubmit(signUpSchema.parse(value)));
     },
   });
 
@@ -133,11 +137,15 @@ export function SignUpForm({
               </Alert>
             )}
 
-            <AuthSubmitButton
-              pending={pending}
-              label="Create account"
-              pendingLabel="Creating account…"
-            />
+            <form.Subscribe selector={(state) => state.isSubmitting}>
+              {(pending) => (
+                <AuthSubmitButton
+                  pending={pending}
+                  label="Create account"
+                  pendingLabel="Creating account…"
+                />
+              )}
+            </form.Subscribe>
           </FieldGroup>
         </form>
       </CardContent>

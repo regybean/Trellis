@@ -54,6 +54,8 @@ export default [
       ],
     },
   },
-  // The app owns the Clerk auth boundary (ADR 0003); Mastra stays banned.
-  ...containmentOverride({ allowClerk: true }),
+  // The app owns auth *resolution* (ADR 0003) — `createAuthClient`, the mounted
+  // handler, the guards — so it is one of the two blessed homes for a
+  // `better-auth` import. Mastra stays banned.
+  ...containmentOverride({ allowBetterAuth: true }),
 ];

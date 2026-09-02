@@ -15,23 +15,43 @@ import { SignUpForm } from '../../../../index';
 const validCredential = 'correct-horse';
 
 function Harness({
-  error,
-  pending,
+  onSubmit,
 }: {
-  error?: string | null;
-  pending?: boolean;
+  onSubmit?: (credentials: SignUpCredentials) => Promise<string | null>;
 }) {
   const [submitted, setSubmitted] = useState<SignUpCredentials | null>(null);
 
   return (
     <>
-      <SignUpForm onSubmit={setSubmitted} error={error} pending={pending} />
+      <SignUpForm
+        onSubmit={
+          onSubmit ??
+          ((credentials) => {
+            setSubmitted(credentials);
+            return Promise.resolve(null);
+          })
+        }
+      />
       {submitted && (
         <output data-testid="submitted">{JSON.stringify(submitted)}</output>
       )}
     </>
   );
 }
+
+/**
+ * A submit the test drives by hand: it stays in flight until `settlePending`
+ * releases it, which is what makes both the in-flight and the returned-to-rest
+ * assertions deterministic without a timer.
+ */
+const pendingSubmits: ((message: string | null) => void)[] = [];
+const neverSettles = () =>
+  new Promise<string | null>((resolve) => {
+    pendingSubmits.push(resolve);
+  });
+const settlePending = (message: string | null) => {
+  for (const resolve of pendingSubmits.splice(0)) resolve(message);
+};
 
 async function fillValidForm(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText('Name'), 'Ada Lovelace');
@@ -138,7 +158,11 @@ describe('SignUpForm', () => {
   });
 
   it('disables the submit control and shows progress while in flight', async () => {
-    render(<Harness pending />);
+    const user = userEvent.setup();
+    render(<Harness onSubmit={neverSettles} />);
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     const submit = await screen.findByRole('button', {
       name: /creating account/i,
@@ -146,10 +170,24 @@ describe('SignUpForm', () => {
 
     expect(submit).toBeDisabled();
     expect(submit).toHaveAttribute('aria-busy', 'true');
+
+    // And it comes back: a settled attempt must not leave the control stuck.
+    settlePending(null);
+    expect(
+      await screen.findByRole('button', { name: 'Create account' }),
+    ).toBeEnabled();
   });
 
-  it('renders a rejection passed by the caller', async () => {
-    render(<Harness error="That email is already registered" />);
+  it('renders a rejection returned by the caller', async () => {
+    const user = userEvent.setup();
+    render(
+      <Harness
+        onSubmit={() => Promise.resolve('That email is already registered')}
+      />,
+    );
+
+    await fillValidForm(user);
+    await user.click(screen.getByRole('button', { name: 'Create account' }));
 
     expect(
       await screen.findByText('That email is already registered'),

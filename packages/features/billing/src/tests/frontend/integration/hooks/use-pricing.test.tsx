@@ -5,14 +5,14 @@
  * Subscription (via the pure plan-selection tree), and route plan selection —
  * signed-out to sign-in, Basic subscribers to Checkout, paid subscribers to the
  * Billing portal. Drive the real hook through a real QueryClient with the
- * network faked at the HTTP boundary (MSW); @acme/auth is the blessed framework
- * external. Assert returned card state + observable toast/navigation outcomes,
+ * network faked at the HTTP boundary (MSW); the viewer's auth state comes from
+ * the real `AuthStatusProvider` via `setAuth`, not a mock.
+ * Assert returned card state + observable toast/navigation outcomes,
  * never spy on mutations. `localstripeMode` arrives through the
  * `BillingConfigProvider` seam (never `NODE_ENV`): the default providers thread
  * `false`, so the real checkout/portal branches run; a localstripe test opts in
  * with `makeProviders({ localstripeMode: true })`.
  */
-import type { Mock } from 'vitest';
 import { act, renderHook, screen, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import {
@@ -26,16 +26,21 @@ import {
   vi,
 } from 'vitest';
 
-import { useAuth } from '@acme/auth';
-
 import { usePricing } from '../../../../hooks/use-pricing';
-import { makeProviders, Providers, trpcMsw } from '../../setup';
+import {
+  makeProviders,
+  Providers,
+  resetAuth,
+  setAuth,
+  trpcMsw,
+} from '../../setup';
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => {
   server.resetHandlers();
   vi.clearAllMocks();
+  resetAuth();
   vi.unstubAllGlobals();
 });
 afterAll(() => server.close());
@@ -58,15 +63,6 @@ beforeEach(() => {
     },
   });
 });
-
-const setAuth = (opts: { loaded?: boolean; signedIn?: boolean }) => {
-  (useAuth as Mock).mockReturnValue({
-    isLoaded: opts.loaded ?? true,
-    isSignedIn: opts.signedIn ?? false,
-    userId: opts.signedIn ? 'user_1' : null,
-    sessionId: opts.signedIn ? 'sess_1' : null,
-  });
-};
 
 const basicSub = () =>
   trpcMsw.account.getSubscriptionDetails.query(() => ({

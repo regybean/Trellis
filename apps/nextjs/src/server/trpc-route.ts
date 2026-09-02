@@ -1,13 +1,14 @@
 import type { AnyRouter } from '@trpc/server';
-import { auth, currentUser } from '@clerk/nextjs/server';
 
-import { toInjectedPrincipal } from '@acme/auth/server';
+import { toPrincipal } from '@acme/auth/server';
 import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
   corsPreflightHeaders,
   createTRPCFetchHandler,
 } from '@acme/trpc/handler';
+
+import { auth } from './auth';
 
 /**
  * The Stripe/Redis entitlements provider, closing over the plan ids billing's
@@ -19,22 +20,31 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error
  * logging and CORS live once in `@acme/trpc/handler`; this file owns only the
- * app-specific auth seam — resolving Clerk and shaping the neutral context input
- * the feature `createTRPCContext` expects. The feature packages never import a
- * framework Clerk SDK or a billing implementation themselves (ADR 0003).
+ * app-specific auth seam — resolving the session and shaping the neutral context
+ * input the feature `createTRPCContext` expects. The feature packages never
+ * import an auth SDK or a billing implementation themselves (ADR 0003).
  */
 
 /**
- * App-owned auth seam: resolve Clerk here — the framework-specific half — and
- * let `@acme/auth` do the provider-specific mapping onto the platform's neutral
- * `InjectedSession`. The principal carries only what the substrate and the
- * features read; the Clerk `User` instance itself never reaches the context.
+ * App-owned auth seam: resolve the Better Auth session here and map it onto the
+ * platform's neutral `InjectedSession`. Resolution is app-owned; the mapping is
+ * not — `toPrincipal` is `@acme/auth/server`'s, shared with
+ * `apps/tanstack-start`, because it is provider-specific rather than
+ * framework-specific (ADR 0003). The principal carries only what the substrate
+ * and the features read; the Better Auth session object itself never reaches the
+ * context.
+ *
+ * The request's own headers are passed rather than `next/headers`, so the
+ * resolution is tied to the request being served — this runs from a route
+ * handler, where the two are the same, and being explicit keeps it that way.
+ *
+ * This is a database read of the session row on every call, by design: sessions
+ * are stateful and the cookie cache is off, so a revoked session stops
+ * authenticating immediately (ADR 0034).
  */
-const resolveSession = async () => {
-  const [session, user] = await Promise.all([auth(), currentUser()]);
-
-  return { user: toInjectedPrincipal(session, user) };
-};
+const resolveSession = async (req: Request) => ({
+  user: toPrincipal(await auth.api.getSession({ headers: req.headers })),
+});
 
 /**
  * Shape the neutral context input the feature `createTRPCContext` expects.
@@ -46,7 +56,7 @@ const resolveContext = async (req: Request) => ({
   headers: req.headers,
   req,
   origin: new URL(req.url).origin,
-  session: await resolveSession(),
+  session: await resolveSession(req),
   entitlements,
 });
 

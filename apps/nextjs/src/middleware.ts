@@ -1,81 +1,103 @@
+import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
+import { getSessionCookie } from 'better-auth/cookies';
 
-import { clerkWiringEnv } from '@acme/auth/env';
-import { readRole } from '@acme/auth/server';
-
-// The Clerk publishable key is authored config (ADR 0033), so clerkMiddleware is
-// given it explicitly rather than reading it from env. We resolve the *wiring*
-// subset here — NOT `~/env`, and not `authEnv()` — deliberately: this file runs in
-// the **Edge** runtime, where importing the app env would execute the full
-// feature-env graph and validate server vars (DB/Redis/secrets) that do not exist
-// there, and even `authEnv()` would demand `CLERK_SECRET_KEY` from a
-// `process.env` that is a build-time snapshot. `clerkWiringEnv()` demands nothing
-// an edge worker cannot have; `APP_ENV` (the build-inlined selector, next.config
-// `env`) resolves the profile inside it.
-//
-// Only `publishableKey` is passed: passing `secretKey` too would trigger Clerk's
-// Dynamic Keys mode and require CLERK_ENCRYPTION_KEY, so the secret stays in env.
-const { CLERK_PUBLISHABLE_KEY } = clerkWiringEnv();
-
-const isPublicRoute = createRouteMatcher([
+/**
+ * Routes a signed-out visitor may reach. Everything else bounces to `/sign-in`.
+ *
+ * Kept as the same list Clerk's `createRouteMatcher` held, minus the Clerk-only
+ * `/api/trpc/clerk` mount and `/api/trpc/reviews.featured` — there is no
+ * `reviews` router in this repo, and carrying a public exception for a route
+ * that does not exist is a standing invitation to add one that does — plus
+ * `/api/auth`, because Better Auth's own endpoints are self-gating and must stay
+ * reachable while signed out, or signing in would require being signed in.
+ */
+/** Public routes with no sub-paths. */
+const PUBLIC_EXACT = new Set([
   '/',
-  '/sign-in(.*)',
-  '/sign-up(.*)',
-  '/learn(.*)',
-  '/roadmap(.*)',
-  '/pricing(.*)',
   '/api/openapi',
   '/api/health',
-  '/api/trpc/clerk(.*)',
   '/api/stripe',
-  '/api/trpc/reviews.featured',
-  '/maturity-assessment(.*)',
   '/terms-of-service',
   '/privacy-policy',
 ]);
-const isAdminRoute = createRouteMatcher([
-  '/admin(.*)',
-  '/docs(.*)',
-  '/api/trpc/reviews.feature',
-  '/api/trpc/reviews.unfeature',
-  '/api/trpc/reviews.delete',
-  '/api/trpc/bugs.list',
-  '/api/trpc/bugs.delete',
-]);
+
+/** Public route trees: the path itself and anything beneath it. */
+const PUBLIC_PREFIXES = [
+  '/sign-in',
+  '/sign-up',
+  '/learn',
+  '/roadmap',
+  '/pricing',
+  '/api/auth',
+  '/maturity-assessment',
+];
+
+// Prefix matching on path *segments*, not Clerk's `'/sign-in(.*)'` patterns,
+// which also matched unrelated siblings like `/sign-integration`.
+const isPublicRoute = (pathname: string) =>
+  PUBLIC_EXACT.has(pathname) ||
+  PUBLIC_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
 
 /**
- * Middleware function that protects non-public routes using Clerk authentication.
- *
- * @param auth - The Clerk authentication object
- * @param request - The incoming HTTP request
- * @returns A Promise that resolves after authentication check
- *
- * @example
- * // This middleware automatically checks if the route is public (sign-in)
- * // If not public, it requires authentication
+ * The tRPC mounts. Not public — every procedure gates itself — but answered by
+ * tRPC rather than by a redirect. See the note on `middleware` below.
  */
+const isTrpcRoute = (pathname: string) =>
+  pathname === '/api/trpc' || pathname.startsWith('/api/trpc/');
 
-// In future we might want to add some middleware for stripe subscriptions,
-// however at the moment we don't have any pages that require a subscription
-export default clerkMiddleware(
-  async (auth, request) => {
-    // if not sign in then protect the route
-    if (!isPublicRoute(request)) {
-      await auth.protect();
-    }
-    // an admin route stays admin-only; the role comes off the session token,
-    // read through the auth seam (short-circuited, so non-admin routes never
-    // resolve the session here)
-    if (isAdminRoute(request) && readRole(await auth()) !== 'admin') {
-      const url = new URL('/', request.url);
-      return NextResponse.redirect(url);
-    }
+/**
+ * Optimistic sign-in gate.
+ *
+ * **This is a redirect, not an authorisation check.** `getSessionCookie` only
+ * tests that a session cookie is *present* — it does not validate the token, so
+ * anyone can forge one and get past this. That is Better Auth's documented
+ * recommendation for Next.js middleware, and the reason is structural: sessions
+ * here are database rows with the cookie cache deliberately off (ADR 0034), and
+ * middleware runs on the Edge runtime, which has no database. Validating here
+ * would mean either a per-request HTTP hop to our own `/api/auth/get-session`,
+ * or Node-runtime middleware — experimental before Next 16, and this app is on
+ * 15.5. So the cheap check buys the redirect and nothing else.
+ *
+ * The real gates are unchanged and all server-side: every tRPC call resolves the
+ * session row through `protectedProcedure` / `adminProcedure`, and `/admin`
+ * re-checks the role in the page itself. Admin routes are therefore *not*
+ * matched here — the role is not in the cookie, so middleware could not decide
+ * them without lying about it. `/docs` came out of the old admin list with it;
+ * no such route exists.
+ *
+ * **tRPC is exempt, and that is a correctness fix, not a hole.** A redirect is
+ * an answer for a *document* request — Clerk's `auth.protect()` distinguished
+ * the two, and an unconditional `NextResponse.redirect()` does not. A signed-out
+ * `fetch` to `/api/trpc/*` would get a 307 to an HTML page, which the tRPC
+ * client cannot parse: the caller sees a JSON syntax error instead of the
+ * `UNAUTHORIZED` envelope its error handling is written against. Letting the
+ * request through costs nothing — `protectedProcedure` resolves the real session
+ * row and answers properly.
+ */
+export default function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl;
 
+  if (
+    isPublicRoute(pathname) ||
+    isTrpcRoute(pathname) ||
+    getSessionCookie(request)
+  ) {
     return NextResponse.next();
-  },
-  { publishableKey: CLERK_PUBLISHABLE_KEY },
-);
+  }
+
+  // Carry the attempted route so sign-in can resume it rather than dumping the
+  // visitor on the home page.
+  const signInUrl = new URL('/sign-in', request.url);
+  signInUrl.searchParams.set(
+    'redirect',
+    `${pathname}${request.nextUrl.search}`,
+  );
+
+  return NextResponse.redirect(signInUrl);
+}
 
 /**
  * Configuration object for Next.js middleware matching patterns.

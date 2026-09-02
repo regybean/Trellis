@@ -10,16 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsOfServiceRouteImport } from './routes/terms-of-service'
+import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
 import { Route as PricingRouteImport } from './routes/pricing'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StripeSuccessRouteImport } from './routes/stripe.success'
-import { Route as SignUpSplatRouteImport } from './routes/sign-up.$'
-import { Route as SignInSplatRouteImport } from './routes/sign-in.$'
 import { Route as ChatAssistantChar123SessionIdChar125RouteImport } from './routes/chat-assistant.{-$sessionId}'
 import { Route as ApiStripeRouteImport } from './routes/api/stripe'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as ApiTrpcNotificationsSplatRouteImport } from './routes/api/trpc/notifications.$'
 import { Route as ApiTrpcIngestSplatRouteImport } from './routes/api/trpc/ingest.$'
 import { Route as ApiTrpcFeedbackSplatRouteImport } from './routes/api/trpc/feedback.$'
@@ -29,6 +30,16 @@ import { Route as ApiTrpcBillingSplatRouteImport } from './routes/api/trpc/billi
 const TermsOfServiceRoute = TermsOfServiceRouteImport.update({
   id: '/terms-of-service',
   path: '/terms-of-service',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignUpRoute = SignUpRouteImport.update({
+  id: '/sign-up',
+  path: '/sign-up',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SignInRoute = SignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
@@ -56,16 +67,6 @@ const StripeSuccessRoute = StripeSuccessRouteImport.update({
   path: '/stripe/success',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SignUpSplatRoute = SignUpSplatRouteImport.update({
-  id: '/sign-up/$',
-  path: '/sign-up/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignInSplatRoute = SignInSplatRouteImport.update({
-  id: '/sign-in/$',
-  path: '/sign-in/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ChatAssistantChar123SessionIdChar125Route =
   ChatAssistantChar123SessionIdChar125RouteImport.update({
     id: '/chat-assistant/{-$sessionId}',
@@ -80,6 +81,11 @@ const ApiStripeRoute = ApiStripeRouteImport.update({
 const ApiHealthRoute = ApiHealthRouteImport.update({
   id: '/api/health',
   path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTrpcNotificationsSplatRoute =
@@ -114,13 +120,14 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/pricing': typeof PricingRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/api/health': typeof ApiHealthRoute
   '/api/stripe': typeof ApiStripeRoute
   '/chat-assistant/{-$sessionId}': typeof ChatAssistantChar123SessionIdChar125Route
-  '/sign-in/$': typeof SignInSplatRoute
-  '/sign-up/$': typeof SignUpSplatRoute
   '/stripe/success': typeof StripeSuccessRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/billing/$': typeof ApiTrpcBillingSplatRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
@@ -132,13 +139,14 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/pricing': typeof PricingRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/api/health': typeof ApiHealthRoute
   '/api/stripe': typeof ApiStripeRoute
   '/chat-assistant/{-$sessionId}': typeof ChatAssistantChar123SessionIdChar125Route
-  '/sign-in/$': typeof SignInSplatRoute
-  '/sign-up/$': typeof SignUpSplatRoute
   '/stripe/success': typeof StripeSuccessRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/billing/$': typeof ApiTrpcBillingSplatRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
@@ -151,13 +159,14 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/pricing': typeof PricingRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/sign-in': typeof SignInRoute
+  '/sign-up': typeof SignUpRoute
   '/terms-of-service': typeof TermsOfServiceRoute
   '/api/health': typeof ApiHealthRoute
   '/api/stripe': typeof ApiStripeRoute
   '/chat-assistant/{-$sessionId}': typeof ChatAssistantChar123SessionIdChar125Route
-  '/sign-in/$': typeof SignInSplatRoute
-  '/sign-up/$': typeof SignUpSplatRoute
   '/stripe/success': typeof StripeSuccessRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/trpc/billing/$': typeof ApiTrpcBillingSplatRoute
   '/api/trpc/chat/$': typeof ApiTrpcChatSplatRoute
   '/api/trpc/feedback/$': typeof ApiTrpcFeedbackSplatRoute
@@ -171,13 +180,14 @@ export interface FileRouteTypes {
     | '/admin'
     | '/pricing'
     | '/privacy-policy'
+    | '/sign-in'
+    | '/sign-up'
     | '/terms-of-service'
     | '/api/health'
     | '/api/stripe'
     | '/chat-assistant/{-$sessionId}'
-    | '/sign-in/$'
-    | '/sign-up/$'
     | '/stripe/success'
+    | '/api/auth/$'
     | '/api/trpc/billing/$'
     | '/api/trpc/chat/$'
     | '/api/trpc/feedback/$'
@@ -189,13 +199,14 @@ export interface FileRouteTypes {
     | '/admin'
     | '/pricing'
     | '/privacy-policy'
+    | '/sign-in'
+    | '/sign-up'
     | '/terms-of-service'
     | '/api/health'
     | '/api/stripe'
     | '/chat-assistant/{-$sessionId}'
-    | '/sign-in/$'
-    | '/sign-up/$'
     | '/stripe/success'
+    | '/api/auth/$'
     | '/api/trpc/billing/$'
     | '/api/trpc/chat/$'
     | '/api/trpc/feedback/$'
@@ -207,13 +218,14 @@ export interface FileRouteTypes {
     | '/admin'
     | '/pricing'
     | '/privacy-policy'
+    | '/sign-in'
+    | '/sign-up'
     | '/terms-of-service'
     | '/api/health'
     | '/api/stripe'
     | '/chat-assistant/{-$sessionId}'
-    | '/sign-in/$'
-    | '/sign-up/$'
     | '/stripe/success'
+    | '/api/auth/$'
     | '/api/trpc/billing/$'
     | '/api/trpc/chat/$'
     | '/api/trpc/feedback/$'
@@ -226,13 +238,14 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   PricingRoute: typeof PricingRoute
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  SignInRoute: typeof SignInRoute
+  SignUpRoute: typeof SignUpRoute
   TermsOfServiceRoute: typeof TermsOfServiceRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiStripeRoute: typeof ApiStripeRoute
   ChatAssistantChar123SessionIdChar125Route: typeof ChatAssistantChar123SessionIdChar125Route
-  SignInSplatRoute: typeof SignInSplatRoute
-  SignUpSplatRoute: typeof SignUpSplatRoute
   StripeSuccessRoute: typeof StripeSuccessRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiTrpcBillingSplatRoute: typeof ApiTrpcBillingSplatRoute
   ApiTrpcChatSplatRoute: typeof ApiTrpcChatSplatRoute
   ApiTrpcFeedbackSplatRoute: typeof ApiTrpcFeedbackSplatRoute
@@ -247,6 +260,20 @@ declare module '@tanstack/react-router' {
       path: '/terms-of-service'
       fullPath: '/terms-of-service'
       preLoaderRoute: typeof TermsOfServiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-up': {
+      id: '/sign-up'
+      path: '/sign-up'
+      fullPath: '/sign-up'
+      preLoaderRoute: typeof SignUpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sign-in': {
+      id: '/sign-in'
+      path: '/sign-in'
+      fullPath: '/sign-in'
+      preLoaderRoute: typeof SignInRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy-policy': {
@@ -284,20 +311,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StripeSuccessRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/sign-up/$': {
-      id: '/sign-up/$'
-      path: '/sign-up/$'
-      fullPath: '/sign-up/$'
-      preLoaderRoute: typeof SignUpSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in/$': {
-      id: '/sign-in/$'
-      path: '/sign-in/$'
-      fullPath: '/sign-in/$'
-      preLoaderRoute: typeof SignInSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/chat-assistant/{-$sessionId}': {
       id: '/chat-assistant/{-$sessionId}'
       path: '/chat-assistant/{-$sessionId}'
@@ -317,6 +330,13 @@ declare module '@tanstack/react-router' {
       path: '/api/health'
       fullPath: '/api/health'
       preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/trpc/notifications/$': {
@@ -362,14 +382,15 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   PricingRoute: PricingRoute,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
+  SignInRoute: SignInRoute,
+  SignUpRoute: SignUpRoute,
   TermsOfServiceRoute: TermsOfServiceRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiStripeRoute: ApiStripeRoute,
   ChatAssistantChar123SessionIdChar125Route:
     ChatAssistantChar123SessionIdChar125Route,
-  SignInSplatRoute: SignInSplatRoute,
-  SignUpSplatRoute: SignUpSplatRoute,
   StripeSuccessRoute: StripeSuccessRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiTrpcBillingSplatRoute: ApiTrpcBillingSplatRoute,
   ApiTrpcChatSplatRoute: ApiTrpcChatSplatRoute,
   ApiTrpcFeedbackSplatRoute: ApiTrpcFeedbackSplatRoute,
