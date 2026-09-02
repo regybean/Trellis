@@ -21,7 +21,7 @@ src/
   env.ts                    # the slice env: one createEnv call, APP_ENV profiles (ADR 0033)
   components/feedback-list.tsx # sample UI (presentational)
   hooks/use-feedback.ts        # data-access hook (tRPC + React Query)
-  trpc/                     # client (react.tsx), RSC (server.tsx), query-client
+  trpc/                     # client (react.tsx), RSC (server.tsx)
   index.ts | index-server.ts | index-schema.ts   # public entrypoints
   tests/backend/            # setup, global-setup (testcontainers), utils, router tests
   tests/frontend/           # renderWithProviders + trpcMsw + component tests
@@ -74,5 +74,5 @@ renderWithProviders(<FeedbackList />);
    export { handler as GET, handler as POST };
    ```
 
-3. Wrap the relevant tree with `FeedbackTRPCReactProvider` (from `@acme/feedback`).
+3. Wrap the relevant tree with `FeedbackTRPCProvider` (from `@acme/feedback`).
 4. Register the schema for migrations (drizzle config `schema` glob), then `pnpm db:push`.

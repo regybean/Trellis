@@ -6,11 +6,11 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
 import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
+import { createAppQueryClient } from '@acme/hooks';
 
 import type { AppRouter } from '../api/root';
 import { appRouter } from '../api/root';
 import { createTRPCContext } from '../api/trpc';
-import { createQueryClient } from './query-client';
 
 /**
  * Framework-neutral RSC server caller (reference scaffold — no app
@@ -28,7 +28,11 @@ export interface ServerTRPCOptions {
   entitlements: EntitlementsProvider;
 }
 
-const getQueryClient = cache(createQueryClient);
+// The RSC half's own client — a fresh one per request, from the same factory the
+// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
+// no React context to read one from, and its cache is dehydrated into the
+// response rather than shared.
+const getQueryClient = cache(createAppQueryClient);
 
 export function createServerTRPC(opts: ServerTRPCOptions) {
   const createContext = cache(async () => {

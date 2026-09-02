@@ -4,6 +4,6 @@ export { ChatAssistant } from './components/chat-assistant';
 export { ConversationView } from './components/conversation-view';
 export {
   clearChatPersistedCache,
-  TRPCReactProvider as ChatTRPCReactProvider,
+  TRPCProvider as ChatTRPCProvider,
 } from './trpc/react';
 export type { Message as ChatMessage } from './api/schemas/message-schema';

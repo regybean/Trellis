@@ -20,7 +20,7 @@ src/
   env.ts                    # the slice env: one createEnv call, APP_ENV profiles (ADR 0033)
 {{/if}}{{#if react}}  components/{{ kebabCase name }}-list.tsx # sample UI (presentational)
   hooks/use-{{ kebabCase name }}.ts        # data-access hook (tRPC + React Query)
-  trpc/                     # client (react.tsx), RSC (server.tsx), query-client
+  trpc/                     # client (react.tsx), RSC (server.tsx)
 {{/if}}  index.ts{{#if api}} | index-server.ts | index-schema.ts{{/if}}   # public entrypoints
 {{#if backendTests}}  tests/backend/            # setup, global-setup (testcontainers), utils, router tests
 {{/if}}{{#if frontendTests}}  tests/frontend/           # setup (renderWithProviders + trpcMsw), then per ADR 0018:
@@ -85,7 +85,7 @@ const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Provi
    export { handler as GET, handler as POST };
    ```
 {{#if react}}
-3. Wrap the relevant tree with `{{ pascalCase name }}TRPCReactProvider` (from `@acme/{{ kebabCase name }}`).
+3. Wrap the relevant tree with `{{ pascalCase name }}TRPCProvider` (from `@acme/{{ kebabCase name }}`).
 {{/if}}
 4. Register the schema for migrations (drizzle config `schema` glob), then `pnpm db:push`.
 {{/if}}

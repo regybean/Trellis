@@ -22,6 +22,7 @@
     "@acme/db": "workspace:*",
     "@acme/entitlements": "workspace:*",
     "@acme/env": "workspace:*",
+    "@acme/hooks": "workspace:*",
     "@acme/ingest": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/models": "workspace:*",
@@ -47,7 +48,6 @@
     "postgres": "catalog:",
     "react": "catalog:react19",
     "react-dom": "catalog:react19",
-    "superjson": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

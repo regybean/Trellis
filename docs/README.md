@@ -77,3 +77,4 @@ System-wide decisions live in [`adr/`](adr/). Per-package ADRs live under each p
 | [0034 (auth)](adr/0034-self-hosted-better-auth.md)                       | Auth is self-hosted Better Auth, with sessions as rows in Postgres.                            |
 | [0034 (tests)](adr/0034-backend-tests-always-self-provision.md)          | Backend tests always self-provision testcontainers; `CI` leaves the test cache hash.           |
 | [0035](adr/0035-auth-tables-in-a-dedicated-schema.md)                    | Auth tables live in a dedicated `auth` schema, outside the per-app one.                        |
+| [0036](adr/0036-one-app-owned-query-client.md)                           | One app-owned QueryClient; cache policy is declared per query, not per feature.                |

@@ -73,7 +73,7 @@ per-Message query is written under its own hash, lazily and asynchronously, so m
 Messages never rewrite a whole-cache blob or jank the main thread. `forMessage` is the
 only persisted query — the `submit`/`remove` mutations never are.
 
-**Persistence is opt-in and auth-agnostic**: `FeedbackTRPCReactProvider` accepts an
+**Persistence is opt-in and auth-agnostic**: `FeedbackTRPCProvider` accepts an
 app-supplied `scopeKey` (the signed-in user id via the `@acme/auth` seam in full apps,
 `'anon'` in slim apps — the feature never imports an auth SDK). Absent a `scopeKey`, or where
 IndexedDB is unavailable, the feature runs network-only exactly as before; persistence
@@ -82,3 +82,15 @@ is a pure read-time optimisation, never a hard dependency. The persister `buster
 version never rehydrates a prior snapshot. `maxAge` is 24h (`gcTime` matches). The
 provider surface exports `clearPersistedCache()`, which the full apps call alongside
 `queryClient.clear()` on logout to wipe Rating state on shared machines.
+
+The policy above rides on the query, not on a client of feedback's own: `useFeedback`
+spreads `usePersistedQueryOptions()` into `forMessage`, which carries the persister,
+`gcTime`, the `persistMeta` mark and `staleTime: 0` together ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md)).
+That `staleTime` is a **change** — feedback used to pair the persister with a 30s
+client default, the exact combination [ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md)
+names as serving a restored snapshot without revalidating. It was never a live bug
+here (this hook's mutations `invalidate` on settle rather than writing optimistically,
+so a persisted entry is always server truth, and the window only opened on a reload
+within 30s of your own last fetch, on data only you can change), but it meant feedback
+never exercised the patched floating `query.fetch()` and would have acquired chat's bug
+in silence the day it wrote optimistically.

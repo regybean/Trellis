@@ -1,5 +1,4 @@
 import type { PersistedQuery } from '@tanstack/query-persist-client-core';
-import type { QueryPersister } from '@tanstack/react-query';
 import { experimental_createQueryPersister } from '@tanstack/query-persist-client-core';
 import { clear, createStore, del, get, set } from 'idb-keyval';
 
@@ -19,6 +18,23 @@ import { clear, createStore, del, get, set } from 'idb-keyval';
  * default — only queries a feature marks this way are ever written to storage.
  */
 export const persistMeta = { persist: true } satisfies Record<string, unknown>;
+
+/**
+ * The persister function `experimental_createQueryPersister` hands back — read
+ * off the package rather than re-declared, so a version bump surfaces as a type
+ * error here.
+ *
+ * Deliberately NOT react-query's exported `QueryPersister`, which fixes
+ * `T = unknown` and `TQueryKey = QueryKey`. That was fine while the persister
+ * only ever sat on `defaultOptions.queries`, but it is now attached to individual
+ * queries whose data and key types are narrower — and an `unknown`-returning,
+ * `readonly unknown[]`-keyed signature does not fit those slots. This alias keeps
+ * the function's own `<T, TQueryKey>` so each query instantiates it at its own
+ * types (ADR 0036).
+ */
+export type FeatureQueryPersister = ReturnType<
+  typeof experimental_createQueryPersister<PersistedQuery>
+>['persisterFn'];
 
 interface QueryPersisterOptions {
   /**
@@ -67,7 +83,7 @@ export function createQueryPersister({
   scopeKey,
   appVersion,
   maxAge,
-}: QueryPersisterOptions): QueryPersister {
+}: QueryPersisterOptions) {
   const store = featureStore(keyPrefix);
 
   const { persisterFn } = experimental_createQueryPersister<PersistedQuery>({

@@ -475,6 +475,9 @@ importers:
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -605,6 +608,9 @@ importers:
       '@acme/env':
         specifier: workspace:*
         version: link:../../packages/platform/env
+      '@acme/hooks':
+        specifier: workspace:*
+        version: link:../../packages/shared/hooks
       '@acme/ingest':
         specifier: workspace:*
         version: link:../../packages/features/ingest
@@ -680,9 +686,6 @@ importers:
       react-dom:
         specifier: catalog:react19
         version: 19.2.3(react@19.2.3)
-      superjson:
-        specifier: 'catalog:'
-        version: 2.2.2
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -843,9 +846,6 @@ importers:
       react-dom:
         specifier: catalog:react19
         version: 19.2.3(react@19.2.3)
-      superjson:
-        specifier: 'catalog:'
-        version: 2.2.2
       zod:
         specifier: 'catalog:'
         version: 4.4.3
@@ -2026,9 +2026,6 @@ importers:
       server-only:
         specifier: 'catalog:'
         version: 0.0.1
-      superjson:
-        specifier: 'catalog:'
-        version: 2.2.2
       zod:
         specifier: 'catalog:'
         version: 4.4.3

@@ -132,7 +132,8 @@ below follows from that.
 ### Setup and config
 
 Each feature owns `src/tests/frontend/setup.tsx` exporting `renderWithProviders`
-(wraps in `TRPCReactProvider`, and `<ToastContainer />` when the feature toasts)
+(wraps in `AppQueryClientProvider` + the feature's `TRPCProvider`, and
+`<ToastContainer />` when the feature toasts)
 and `trpcMsw` (a `createTRPCMsw<AppRouter>` bound to the feature's tRPC endpoint)
 — plus `import '@acme/test-utils/jsdom'`, the shared side-effect module holding
 the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture,

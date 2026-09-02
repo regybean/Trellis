@@ -84,7 +84,8 @@ Behaviour on refresh depends on **(a)** whether the URL was stamped and **(b)**
 what `chat.inflightTurn` + `chat.get` return at mount. See
 [`chat-flow-refresh.mermaid`](chat-flow-refresh.mermaid).
 
-Chat's `QueryClient` sets **`staleTime: 0`** (query-client.ts) so every persisted
+Chat's persisted queries carry **`staleTime: 0`** (`usePersistedQueryOptions`,
+trpc/react.tsx) so every persisted
 read (`chat.get`, `chat.list`) paints its restored snapshot instantly (ADR 0025)
 but revalidates against server truth on every mount. This is load-bearing: the
 persister only stores _successful fetches_, but these caches are also written

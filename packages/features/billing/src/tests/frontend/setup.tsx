@@ -8,6 +8,7 @@ import { vi } from 'vitest';
 
 import type { AuthStatus } from '@acme/hooks';
 import {
+  AppQueryClientProvider,
   AuthStatusProvider,
   loadingAuthStatus,
   resolvedAuthStatus,
@@ -15,7 +16,7 @@ import {
 
 import type { AppRouter } from '../../api/root';
 import { BillingConfigProvider } from '../../config-context';
-import { TRPCReactProvider } from '../../trpc/react';
+import { TRPCProvider } from '../../trpc/react';
 
 import '@testing-library/jest-dom';
 // jsdom gaps the Radix primitives rely on (ResizeObserver, pointer capture).
@@ -74,9 +75,11 @@ export const resetAuth = () => {
 };
 
 /**
- * Build the providers every billing frontend test renders under: the feature's
- * tRPC + React Query provider, the `BillingConfigProvider` carrying the client
- * config + server-derived localstripe mode, and a real `<ToastContainer />` so
+ * Build the providers every billing frontend test renders under: the app's single
+ * QueryClient (ADR 0036 — a feature provider renders none of its own, so a test
+ * has to mount one exactly as an app does), the feature's tRPC provider, the
+ * `BillingConfigProvider` carrying the client config + server-derived localstripe
+ * mode, and a real `<ToastContainer />` so
  * success/error toasts are asserted as DOM text (ADR 0018), not via a mocked
  * `toast`. `localstripeMode` defaults to `false` (real Stripe) — the mode is
  * threaded through the provider seam, so a test opts into localstripe by passing
@@ -86,15 +89,17 @@ export const makeProviders =
   (opts?: { localstripeMode?: boolean }) =>
   ({ children }: { children: ReactNode }) => (
     <AuthStatusProvider status={authStatus}>
-      <TRPCReactProvider>
-        <BillingConfigProvider
-          config={testBillingConfig}
-          localstripeMode={opts?.localstripeMode ?? false}
-        >
-          {children}
-          <ToastContainer />
-        </BillingConfigProvider>
-      </TRPCReactProvider>
+      <AppQueryClientProvider>
+        <TRPCProvider>
+          <BillingConfigProvider
+            config={testBillingConfig}
+            localstripeMode={opts?.localstripeMode ?? false}
+          >
+            {children}
+            <ToastContainer />
+          </BillingConfigProvider>
+        </TRPCProvider>
+      </AppQueryClientProvider>
     </AuthStatusProvider>
   );
 

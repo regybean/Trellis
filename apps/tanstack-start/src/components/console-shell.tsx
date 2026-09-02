@@ -59,9 +59,9 @@ export function ConsoleShell({
   // server threaded across the SSR boundary (ADR 0033 §6).
   const billing = useBillingConfig();
 
-  // A document load, not an SPA transition: signing out has to drop the feature
-  // QueryClients and their IndexedDB persisters, which are keyed on the departing
-  // user's id at mount (see PersistedFeatureProviders). `signOut` deletes the
+  // A document load, not an SPA transition: signing out has to drop the app's
+  // QueryClient and the feature IndexedDB persisters, which are keyed on the
+  // departing user's id at mount (see PersistedFeatureProviders). `signOut` deletes the
   // `session` row and clears the cookie, so the reload lands signed out.
   //
   // The reload is in a `finally` because it has to happen either way. If

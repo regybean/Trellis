@@ -43,13 +43,12 @@ function SignInRoute() {
     }
 
     // `reloadDocument` is load-bearing, not a shortcut. Each feature's
-    // `TRPCReactProvider` creates its QueryClient once and attaches an
-    // IndexedDB persister keyed on the signed-in id, which `__root`'s
-    // `beforeLoad` resolves on the *server* (see PersistedFeatureProviders): an
-    // SPA transition would hand the already-mounted singletons a scope key they
-    // no longer read, and the just-signed-in user would get no persistence
-    // until their next hard load. A document load re-runs SSR with the session
-    // cookie in place.
+    // `TRPCProvider` builds its IndexedDB persister once, at mount, keyed
+    // on the signed-in id that `__root`'s `beforeLoad` resolves on the *server*
+    // (see PersistedFeatureProviders): an SPA transition would hand the
+    // already-mounted providers a scope key they no longer read, and the
+    // just-signed-in user would get no persistence until their next hard load. A
+    // document load re-runs SSR with the session cookie in place.
     await navigate({ href: redirect ?? '/', reloadDocument: true });
     return null;
   };

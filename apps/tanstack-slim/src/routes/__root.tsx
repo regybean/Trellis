@@ -8,8 +8,8 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 
-import { ChatTRPCReactProvider } from '@acme/chat';
-import { IngestTRPCReactProvider } from '@acme/ingest';
+import { ChatTRPCProvider } from '@acme/chat';
+import { IngestTRPCProvider } from '@acme/ingest';
 import { NotificationsProvider } from '@acme/notifications';
 import { NextThemeProvider, ToastThemeClient, TooltipProvider } from '@acme/ui';
 
@@ -61,16 +61,16 @@ function RootDocument({ children }: { children: ReactNode }) {
           forcedTheme="dark"
           disableTransitionOnChange
         >
-          <ChatTRPCReactProvider scopeKey="anon">
-            <IngestTRPCReactProvider scopeKey="anon">
+          <ChatTRPCProvider scopeKey="anon">
+            <IngestTRPCProvider scopeKey="anon">
               <NotificationsProvider>
                 <TooltipProvider>
                   <ConsoleShell>{children}</ConsoleShell>
                   <ToastThemeClient />
                 </TooltipProvider>
               </NotificationsProvider>
-            </IngestTRPCReactProvider>
-          </ChatTRPCReactProvider>
+            </IngestTRPCProvider>
+          </ChatTRPCProvider>
         </NextThemeProvider>
         <Scripts />
       </body>

@@ -3,6 +3,8 @@ import { toast, ToastContainer } from 'react-toastify';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 
+import { AppQueryClientProvider } from '@acme/hooks';
+
 import type { Notification, NotificationRenderers } from '../../../../index';
 import { dispatchNotification, NotificationsProvider } from '../../../../index';
 
@@ -20,14 +22,17 @@ const envelope = (over: Partial<Notification> = {}): Notification => ({
   ...over,
 });
 
+// The app's single QueryClient wraps the provider (ADR 0036): the notifications
+// provider renders none of its own, so mounting it needs one exactly as an app
+// supplies one.
 function renderHarness(renderers?: NotificationRenderers) {
   return render(
-    <>
+    <AppQueryClientProvider>
       <NotificationsProvider renderers={renderers}>
         <div data-testid="child" />
       </NotificationsProvider>
       <ToastContainer />
-    </>,
+    </AppQueryClientProvider>,
   );
 }
 

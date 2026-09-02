@@ -8,7 +8,7 @@ import {
   Scripts,
 } from '@tanstack/react-router';
 
-import { BillingConfigProvider, BillingTRPCReactProvider } from '@acme/billing';
+import { BillingConfigProvider, BillingTRPCProvider } from '@acme/billing';
 import {
   env as billingEnvValues,
   toBillingClientConfig,
@@ -94,7 +94,7 @@ function RootDocument({ children }: { children: ReactNode }) {
               config={toBillingClientConfig(billingEnvValues)}
               localstripeMode={localstripeMode}
             >
-              <BillingTRPCReactProvider>
+              <BillingTRPCProvider>
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
                   <NotificationsProvider>
                     <TooltipProvider>
@@ -103,7 +103,7 @@ function RootDocument({ children }: { children: ReactNode }) {
                     </TooltipProvider>
                   </NotificationsProvider>
                 </PersistedFeatureProviders>
-              </BillingTRPCReactProvider>
+              </BillingTRPCProvider>
             </BillingConfigProvider>
           </BetterAuthStatusProvider>
         </NextThemeProvider>

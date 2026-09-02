@@ -3,5 +3,5 @@ export { FeedbackButtons } from './components/feedback-buttons';
 export { useFeedback } from './hooks/use-feedback';
 export {
   clearPersistedCache,
-  TRPCReactProvider as FeedbackTRPCReactProvider,
+  TRPCProvider as FeedbackTRPCProvider,
 } from './trpc/react';

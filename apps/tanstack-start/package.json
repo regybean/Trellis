@@ -52,7 +52,6 @@
     "postgres": "catalog:",
     "react": "catalog:react19",
     "react-dom": "catalog:react19",
-    "superjson": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

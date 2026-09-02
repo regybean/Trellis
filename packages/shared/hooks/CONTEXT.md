@@ -34,39 +34,66 @@ must not pull a provider into the slim apps' graph (ADR 0010).
 _Avoid_: "the session" (features never see one — a session is a database row on
 the server)
 
+**`createAppQueryClient` / `AppQueryClientProvider`**:
+The app's single `QueryClient` and, for the Next.js apps, the provider that
+mounts it at the root of `layout.tsx` ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md)).
+Every feature's queries live in it, namespaced by tRPC's `keyPrefix`, so
+`useQuery` has exactly one client to resolve to. It carries only what is true for
+every feature — the SuperJSON `dehydrate`/`hydrate` transformer and a
+`shouldDehydrateQuery` widened to pending queries for streamed SSR — and
+deliberately **no `staleTime`**: a non-zero app default would silently break every
+persisted query. The TanStack apps don't use the provider; their router already
+owns a client for `setupRouterSsrQueryIntegration` and calls the factory in
+`router.tsx`. _Avoid_: putting feature policy here (that is per query, below).
+
 **`createFeatureClient`**:
 The client half of a feature's tRPC wiring, authored once — the mirror of
 `createFeatureTRPC` in `@acme/trpc`. Returns a feature's `'use client'`
-`TRPCReactProvider` plus `useTRPC` / `useTRPCClient`, a `useFeatureQueryClient`
-(pins the feature's own `QueryClient` so nested providers never leak a query onto
-a foreign, persister-less client — #82), and `clearPersistedCache`. It owns
-everything identical across features — the SSR `getQueryClient` singleton, the
-`NODE_ENV==='test'` `httpLink` switch the MSW seam relies on ([ADR 0018](../../../docs/adr/0018-frontend-test-doctrine.md)),
-and the provider tree — and parameterises only what varies: `keyPrefix` (drives
-the endpoint, the query-key prefix, and the `rq-<keyPrefix>` persister store),
-`nodeEnv`, the feature's `createQueryClient`, the `transport` (`http` /
-`batch-stream` / `blob-batch-stream` for file uploads), whether it has
-`subscriptions`, and an optional `persister`. It lives here, not in `@acme/trpc`,
-because it ships React + a `'use client'` connector, which ADR 0030's
-platform-purity invariant forbids a platform package from carrying. chat,
-feedback, ingest, and notifications all mount through it. _Avoid_: re-authoring
-the `getQueryClient`/test-seam/provider scaffold per feature (the divergence this
-retired).
+`FeatureTRPCProvider` — a tRPC provider, **not** a `QueryClientProvider`, which
+is the whole point of the name — plus `useTRPC` / `useTRPCClient`,
+`usePersistedQueryOptions`, and `clearPersistedCache`. It owns everything
+identical across features — the `NODE_ENV==='test'` `httpLink` switch the MSW seam
+relies on ([ADR 0018](../../../docs/adr/0018-frontend-test-doctrine.md)), the
+provider tree, and the persister wiring — and parameterises only what varies:
+`keyPrefix` (drives the endpoint, the query-key prefix, and the `rq-<keyPrefix>`
+persister store), `nodeEnv`, the `transport` (`http` / `batch-stream` /
+`blob-batch-stream` for file uploads), whether it has `subscriptions`, and an
+optional `persister` (`appVersion` + `maxAge`). It lives here, not in
+`@acme/trpc`, because it ships React + a `'use client'` connector, which ADR
+0030's platform-purity invariant forbids a platform package from carrying. All
+five slices — chat, feedback, ingest, notifications, billing — mount through it.
+It renders **no `QueryClientProvider`**: the provider reads the app's client from
+context and throws without one, so a feature is not mountable on its own.
+_Avoid_: re-authoring the test-seam/provider scaffold per feature (the divergence
+this retired); giving a feature its own `QueryClient` (#82 — the bug ADR 0036
+closed).
+
+**`usePersistedQueryOptions`**:
+The cache policy for one query a feature persists, as a fragment to spread into
+that query's options: `meta: persistMeta`, the feature's `persister`, `gcTime`
+pinned to its `maxAge`, and `staleTime: 0`. Shipping all four together is the
+point — `staleTime: 0` is what keeps a restore stale-while-revalidate instead of
+serve-stale, and as a client-level default it could drift away from the persister
+it belongs to (ADR 0036). With no persister (no `scopeKey`, no IndexedDB, or a
+feature that never opted in) it degrades to two no-ops and the query is
+network-only. _Avoid_: setting `persister` / `gcTime` / `staleTime` on a persisted
+query by hand.
 
 **Query persister**:
 A per-query cache-to-browser mechanism built on TanStack Query's
 `experimental_createQueryPersister`, backed by IndexedDB (`idb-keyval`). Restores
 a query's last successful data on cold open (instant / offline read), then
 background-refetches when online. `createQueryPersister({ keyPrefix, scopeKey,
-appVersion, maxAge })` returns the persister to attach to a feature's
-`QueryClient` (`defaultOptions.queries.persister`). _Avoid_: "cache" alone
+appVersion, maxAge })` returns the persister; `createFeatureClient` builds it from
+the feature's `persister` config and hands it out per query through
+`usePersistedQueryOptions`. _Avoid_: "cache" alone
 (ambiguous with the in-memory QueryClient cache — this is the persisted copy).
 
 **`persistMeta`**:
-The opt-in marker. A query persists **only** if its `meta` includes it
-(`useQuery({ …, meta: persistMeta })`). Off by default — unmarked and
-non-success queries never touch storage. _Avoid_: "enable persistence globally"
-(there is no global switch; it is per query).
+The opt-in marker, carried by `usePersistedQueryOptions`. A query persists
+**only** if its `meta` includes it. Off by default — unmarked and non-success
+queries never touch storage. _Avoid_: "enable persistence globally" (there is no
+global switch; it is per query).
 
 **`keyPrefix`**:
 A feature's identifier (e.g. `'chat'`, `'feedback'`), naming its own IndexedDB
@@ -80,7 +107,9 @@ auth-agnostic — the app supplies this, not the feature.
 
 **`clearPersistedCache(keyPrefix)`**:
 Empties a feature's persisted store. App-driven: full apps call it on logout
-(with `queryClient.clear()`); slim apps never do.
+(with `queryClient.clear()`); slim apps never do. `useClearCacheOnLogout` runs
+**once** per app and clears every mounted feature's store, because the one
+`queryClient.clear()` it pairs with empties the whole cache anyway (ADR 0036).
 
 ## Design decisions
 

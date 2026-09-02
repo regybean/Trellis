@@ -2,28 +2,43 @@
 
 import type { ReactNode } from 'react';
 
-import { ChatTRPCReactProvider, clearChatPersistedCache } from '@acme/chat';
+import { ChatTRPCProvider, clearChatPersistedCache } from '@acme/chat';
 import {
   clearPersistedCache as clearFeedbackPersistedCache,
-  FeedbackTRPCReactProvider,
+  FeedbackTRPCProvider,
 } from '@acme/feedback';
 import { useAuthStatus, useClearCacheOnLogout } from '@acme/hooks';
-import {
-  clearIngestPersistedCache,
-  IngestTRPCReactProvider,
-} from '@acme/ingest';
+import { clearIngestPersistedCache, IngestTRPCProvider } from '@acme/ingest';
+
+/**
+ * Every persisted store this app mounts. Module-level so its identity is stable
+ * across renders (it feeds an effect's deps), and one function rather than three
+ * because the logout clear runs once for the whole app now — see
+ * `ClearCacheOnLogout`.
+ */
+const clearPersistedStores = async () => {
+  await Promise.all([
+    clearChatPersistedCache(),
+    clearFeedbackPersistedCache(),
+    clearIngestPersistedCache(),
+  ]);
+};
 
 /**
  * App adapter for the offline-read persistence seam (ADR 0025). The app — not the
  * feature — owns auth: it passes the signed-in user's id as `scopeKey` to the
  * chat + feedback + ingest providers. The id is *server-resolved* (`auth.api.getSession`
  * in the root layout) so it's present on the very first render, before each
- * feature's QueryClient singleton is created — a client-side session read would
- * resolve too late and the singleton would attach no persister. `scopeKey` scopes
- * each user's cache and makes a different user or a new deploy discard the prior
- * snapshot (buster = appVersion + scopeKey). Signed out ⇒ `scopeKey` undefined ⇒
- * network-only, exactly as before. Features stay auth-agnostic (no auth-provider
- * import): the id arrives as a plain string.
+ * feature builds its persister — a client-side session read would resolve too
+ * late and the feature would attach none. `scopeKey` scopes each user's cache and
+ * makes a different user or a new deploy discard the prior snapshot (buster =
+ * appVersion + scopeKey). Signed out ⇒ `scopeKey` undefined ⇒ network-only,
+ * exactly as before. Features stay auth-agnostic (no auth-provider import): the id
+ * arrives as a plain string.
+ *
+ * These providers nest but no longer stack QueryClients — there is one, mounted
+ * above them in the root layout (ADR 0036) — so the nesting is now just tRPC
+ * context, and their order carries no meaning.
  */
 export function PersistedFeatureProviders({
   scopeKey,
@@ -33,31 +48,29 @@ export function PersistedFeatureProviders({
   children: ReactNode;
 }) {
   return (
-    <ChatTRPCReactProvider scopeKey={scopeKey}>
-      <ClearCacheOnLogout clearStore={clearChatPersistedCache} />
-      <FeedbackTRPCReactProvider scopeKey={scopeKey}>
-        <ClearCacheOnLogout clearStore={clearFeedbackPersistedCache} />
-        <IngestTRPCReactProvider scopeKey={scopeKey}>
-          <ClearCacheOnLogout clearStore={clearIngestPersistedCache} />
+    <ChatTRPCProvider scopeKey={scopeKey}>
+      <FeedbackTRPCProvider scopeKey={scopeKey}>
+        <IngestTRPCProvider scopeKey={scopeKey}>
+          <ClearCacheOnLogout />
           {children}
-        </IngestTRPCReactProvider>
-      </FeedbackTRPCReactProvider>
-    </ChatTRPCReactProvider>
+        </IngestTRPCProvider>
+      </FeedbackTRPCProvider>
+    </ChatTRPCProvider>
   );
 }
 
 /**
  * Reads the app-owned auth transition and hands it to the substrate's
  * `useClearCacheOnLogout` (in `@acme/hooks`, framework- and auth-agnostic).
- * Rendered inside each feature provider so the hook clears that feature's own
- * QueryClient (from context) plus its persisted store on logout.
+ *
+ * Rendered **once**, not once per feature provider. The hook pairs
+ * `queryClient.clear()` with the store clear, and with a single app-owned client
+ * that `clear()` already empties every feature (ADR 0036) — three renders would
+ * have wiped the same cache three times. So the store clear is composed to match
+ * its scope: all three of this app's persisted stores, in one call.
  */
-function ClearCacheOnLogout({
-  clearStore,
-}: {
-  clearStore: () => Promise<void>;
-}) {
+function ClearCacheOnLogout() {
   const { isSignedIn } = useAuthStatus();
-  useClearCacheOnLogout(isSignedIn, clearStore);
+  useClearCacheOnLogout(isSignedIn, clearPersistedStores);
   return null;
 }

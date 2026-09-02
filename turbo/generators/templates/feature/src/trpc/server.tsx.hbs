@@ -10,7 +10,7 @@ import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
 import type { AppRouter } from '../api/root';
 import { appRouter } from '../api/root';
 import { createTRPCContext } from '../api/trpc';
-import { createQueryClient } from './query-client';
+import { createAppQueryClient } from '@acme/hooks';
 
 /**
  * Framework-neutral RSC server caller. The session + billing seams: the *app*
@@ -25,7 +25,11 @@ export interface ServerTRPCOptions {
   entitlements: EntitlementsProvider;
 }
 
-const getQueryClient = cache(createQueryClient);
+// The RSC half's own client — a fresh one per request, from the same factory the
+// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
+// no React context to read one from, and its cache is dehydrated into the
+// response rather than shared.
+const getQueryClient = cache(createAppQueryClient);
 
 export function createServerTRPC(opts: ServerTRPCOptions) {
   const createContext = cache(async () => {
