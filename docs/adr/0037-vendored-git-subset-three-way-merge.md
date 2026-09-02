@@ -66,6 +66,14 @@ malformed manifest, or an `include` that matches nothing all abort before the
 makes no per-path promise about how well a given path merges. Subscribing to a
 feature slice is allowed, and the consumer owns whatever conflicts that produces.
 
+**What is on offer lives in [`bank.paths.json`](../../bank.paths.json)** — the
+selectable workspace packages, the six named bundles for content that cannot be
+a package (`root`, `scaffolding`, `agents`, `ci`, `docs`, `infra`), and the
+paths excluded by default with a reason each. `bank:sync` does not read it; it
+is the input a consumer's `include` is assembled from, and the record that stops
+the definition drifting from the repo the way an inventory in prose already did
+(#254).
+
 ## Why git
 
 Git is the only distribution format that ships the merge base with the content.

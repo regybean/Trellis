@@ -1,0 +1,251 @@
+{
+  "version": 1,
+  "doc": "docs/adr/0037-vendored-git-subset-three-way-merge.md",
+  "about": "What this repo can distribute as a bank, and what it never distributes. This file is the source of truth, superseding the prose inventory in issue #219 — that one drifted from the repo and shipped wrong paths. Two selectable kinds: `packages` are real workspace packages; `bundles` are named groups of the content that cannot be a package, because the tools that read it require it at a fixed repo-relative path. `exclude` records the paths deliberately left out and why. A consumer's bank.manifest.json `include` is the flat union of the paths behind its selection; bank:sync reads that and nothing else. Paths here are prefixes — bank:sync has no per-path exclusion, so anything on `exclude` must be a path that no selectable prefix already covers.",
+  "packages": [
+    {
+      "name": "@acme/eslint-config",
+      "path": "tooling/eslint",
+      "layer": "tooling"
+    },
+    {
+      "name": "@acme/github",
+      "path": "tooling/github",
+      "layer": "tooling"
+    },
+    {
+      "name": "@acme/prettier-config",
+      "path": "tooling/prettier",
+      "layer": "tooling"
+    },
+    {
+      "name": "@acme/tailwind-config",
+      "path": "tooling/tailwind",
+      "layer": "tooling",
+      "note": "Carries `theme.css`, which #219 and #240 put outside the default include as per-app identity. It comes across anyway, as a seed, on the same reasoning that moved @acme/env in: the package is a hard dependency of every UI package, so excluding the theme leaves the include list unbuildable, and there is no way to express `take the package but not one file` — bank:sync's include is prefixes only. Three-way merge is what makes seeding safe: the base is the previous vendor commit, so a consumer's own theme survives every later sync and conflicts only where both sides edited the same lines."
+    },
+    {
+      "name": "@acme/test-utils",
+      "path": "tooling/test-utils",
+      "layer": "tooling"
+    },
+    {
+      "name": "@acme/tsconfig",
+      "path": "tooling/typescript",
+      "layer": "tooling"
+    },
+    {
+      "name": "@acme/vitest-config",
+      "path": "tooling/vitest",
+      "layer": "tooling"
+    },
+    {
+      "name": "@acme/db",
+      "path": "packages/platform/db",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/entitlements",
+      "path": "packages/platform/entitlements",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/env",
+      "path": "packages/platform/env",
+      "layer": "platform",
+      "note": "In the bank as a seed, superseding #219's \"out, per-app identity\". Two reasons. Thirteen of the nineteen runtime packages under packages/* depend on @acme/env, so excluding it makes nearly every possible selection fail to install with nothing for the consumer to copy from. And ADR 0033 gives each slice its own env factory, composed into the app's — so the per-app part is the app's composition, which is not in the bank, not this package. Under three-way merge a consumer's edits here survive and conflict only where both sides touched the same lines, which is #240's own argument for path-uniformity. Do not re-exclude it."
+    },
+    {
+      "name": "@acme/logger",
+      "path": "packages/platform/logger",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/queue",
+      "path": "packages/platform/queue",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/redis",
+      "path": "packages/platform/redis",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/subscriptions",
+      "path": "packages/platform/subscriptions",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/telemetry",
+      "path": "packages/platform/telemetry",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/trpc",
+      "path": "packages/platform/trpc",
+      "layer": "platform"
+    },
+    {
+      "name": "@acme/auth",
+      "path": "packages/shared/auth",
+      "layer": "shared",
+      "note": "In the bank, superseding #219's \"joins once Trellis moves to Better Auth\". That condition is met: #218 is closed and Clerk is gone from live code, so the two repos' auth packages are no longer a shared name over unrelated content."
+    },
+    {
+      "name": "@acme/hooks",
+      "path": "packages/shared/hooks",
+      "layer": "shared"
+    },
+    {
+      "name": "@acme/models",
+      "path": "packages/shared/models",
+      "layer": "shared"
+    },
+    {
+      "name": "@acme/notifications",
+      "path": "packages/shared/notifications",
+      "layer": "shared"
+    },
+    {
+      "name": "@acme/rag",
+      "path": "packages/shared/rag",
+      "layer": "shared"
+    },
+    {
+      "name": "@acme/ui",
+      "path": "packages/shared/ui",
+      "layer": "shared"
+    },
+    {
+      "name": "@acme/billing",
+      "path": "packages/features/billing",
+      "layer": "features"
+    },
+    {
+      "name": "@acme/chat",
+      "path": "packages/features/chat",
+      "layer": "features"
+    },
+    {
+      "name": "@acme/feedback",
+      "path": "packages/features/feedback",
+      "layer": "features"
+    },
+    {
+      "name": "@acme/ingest",
+      "path": "packages/features/ingest",
+      "layer": "features"
+    }
+  ],
+  "bundles": [
+    {
+      "name": "root",
+      "description": "The workspace itself: what pnpm, turbo, the hooks and the gate read from a fixed repo-relative path. Required by every selection, so it is never a choice. `patches/` travels with pnpm-workspace.yaml because the workspace file carries a patchedDependencies entry pointing into it — sync one without the other and `pnpm install` fails outright. `scripts/` is here rather than split per concern because the root package.json's script entries all point into it, including the infra scripts the `infra` bundle depends on.",
+      "alwaysIncluded": true,
+      "paths": [
+        "turbo.json",
+        "pnpm-workspace.yaml",
+        "patches",
+        "lefthook.yml",
+        "knip.jsonc",
+        ".kniprc.json",
+        ".gitleaks.toml",
+        ".syncpackrc.ts",
+        ".jscpd.json",
+        ".nvmrc",
+        ".prettierignore",
+        ".dockerignore",
+        ".gitignore",
+        "scripts"
+      ]
+    },
+    {
+      "name": "scaffolding",
+      "description": "The generator behind `turbo gen`, so a consumer can scaffold the packages it is creating with the same templates Trellis uses. It never touches packages taken from the bank — those arrive through bank:sync.",
+      "paths": ["turbo/generators"]
+    },
+    {
+      "name": "agents",
+      "description": "Agent configuration, so a harness arrives already knowing the repo rather than being reconstructed. `.agents/skills/` is the one agent-agnostic source; AGENTS.md, CLAUDE.md and .github/copilot-instructions.md are the per-harness entry points onto it; skills-lock.json pins each skill to its upstream by content hash; .claudeignore is the committed source that scripts/sync-claudeignore.mjs compiles into deny rules. scripts/register-skills.sh is named explicitly even though `scripts/` already covers it, so the bundle reads as self-sufficient.",
+      "paths": [
+        ".agents",
+        "skills-lock.json",
+        "AGENTS.md",
+        "CLAUDE.md",
+        ".github/copilot-instructions.md",
+        ".claudeignore",
+        ".codex",
+        "scripts/register-skills.sh"
+      ]
+    },
+    {
+      "name": "ci",
+      "description": "The workflows and the dependency-update configuration. Narrowed to these two paths rather than `.github/` wholesale, because taking the directory ships FUNDING.yml and points a consumer's sponsor button at this repo.",
+      "paths": [".github/workflows", ".github/renovate.json"]
+    },
+    {
+      "name": "docs",
+      "description": "The ADRs and the agent protocol docs — the reasoning behind the packages, which AGENTS.md and CLAUDE.md link into by relative path, so taking the agents bundle without this one leaves those links dangling.",
+      "paths": ["docs"]
+    },
+    {
+      "name": "infra",
+      "description": "The local dev stack: the compose file plus the assets it mounts. Selected automatically when any selected package declares `acme.infra` in its package.json — derived from the graph, never a hardcoded list (scripts/resolve-infra.ts is the same convention). The scripts that drive it (compose.sh, infra.sh, infra-up.sh, resolve-compose-env.ts, resolve-infra.ts) come from the always-included `root` bundle, so `pnpm infra:up` always finds the compose file its `-f deploy/compose.yaml` names.",
+      "paths": ["deploy"]
+    }
+  ],
+  "exclude": [
+    {
+      "path": "README.md",
+      "reason": "Repository identity — a consumer's front page is never ours."
+    },
+    {
+      "path": "LICENSE",
+      "reason": "Repository identity — the consumer's licensing is its own decision."
+    },
+    {
+      "path": "CONTEXT-MAP.md",
+      "reason": "An index of this repo's packages. A consumer takes a subset, so ours would be wrong on arrival; each package's own CONTEXT.md travels with it."
+    },
+    {
+      "path": "secrets.config.sh",
+      "reason": "Its header says committed and non-secret, which is true and misleading: it maps secret names to each app's env file. A consumer rewrites the mapping wholesale while Trellis edits the same lines whenever it adds an app."
+    },
+    {
+      "path": "package.json",
+      "reason": "The root manifest is consumer identity — its name, its dependency set, its script list. `scripts/` arrives with the `root` bundle; wiring the entries that invoke it is the consumer's, per #240's mounting docs."
+    },
+    {
+      "path": "pnpm-lock.yaml",
+      "reason": "Resolved from the consumer's own manifest set. Syncing ours would pin packages it does not have."
+    },
+    {
+      "path": "apps",
+      "reason": "An app is the consumer's own. The bank distributes packages and configuration and never an app — `pnpm prune <app>` is the separate path for starting from a Trellis app, and #240 puts producing a runnable application out of scope."
+    },
+    {
+      "path": ".github/FUNDING.yml",
+      "reason": "Points the sponsor button at this repo. The reason the `ci` bundle names two paths instead of `.github/`."
+    },
+    {
+      "path": ".github/ISSUE_TEMPLATE",
+      "reason": "This repo's tracker conventions, not a consumer's."
+    },
+    {
+      "path": ".github/DISCUSSION_TEMPLATE",
+      "reason": "This repo's tracker conventions, not a consumer's."
+    },
+    {
+      "path": ".github/temp",
+      "reason": "A stray committed symlink into .agents/skills/, referenced by nothing in the repo. Not bank content; it should be deleted rather than distributed."
+    },
+    {
+      "path": ".claude",
+      "reason": "Generated, not authored: the skill symlinks come from scripts/register-skills.sh and the deny rules in settings.json from scripts/sync-claudeignore.mjs, both on postinstall. .claude/worktrees/ is local scratch. The authored sources are in the `agents` bundle."
+    },
+    {
+      "path": ".vscode",
+      "reason": "Editor preferences — developer-local, and a consumer's team decides its own."
+    }
+  ]
+}
