@@ -31,8 +31,15 @@ catalog:
   "@opentelemetry/semantic-conventions": ^1.43.0
   "@openrouter/ai-sdk-provider": ^2.9.1
   "@t3-oss/env-core": ^0.13.10
-  "@tailwindcss/postcss": ^4.1.16
-  "@tailwindcss/vite": ^4.1.16
+  # Pinned exact, in lockstep with `tailwindcss` below: each integration depends
+  # on its own exact `tailwindcss`, so a caret lets the direct dep float ahead
+  # and puts two copies in the graph. Which one wins the root hoist then depends
+  # on the package subset, and prettier-plugin-tailwindcss sorts classes
+  # differently per version — so a bank consumer taking a different app subset
+  # fails `format` on files this repo formats clean (#254). Bump all three
+  # together.
+  "@tailwindcss/postcss": 4.3.3
+  "@tailwindcss/vite": 4.3.3
   "@turbo/gen": ^2.7.5
   # experimental_createQueryPersister is an experimental_ API — pinned exact
   # (no caret) so a patch bump can't silently change the persister contract.
@@ -80,7 +87,8 @@ catalog:
   server-only: ^0.0.1
   superjson: 2.2.2
   tailwind-merge: ^3.4.0
-  tailwindcss: ^4.1.17
+  # Exact, in lockstep with the two @tailwindcss/* integrations above.
+  tailwindcss: 4.3.3
   ts-deepmerge: ^8.0.0
   tsx: ^4.21.0
   turbo: ^2.7.5
