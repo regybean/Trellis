@@ -53,13 +53,7 @@ export default async function RootLayout(props: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="bg-background text-foreground h-screen overflow-hidden font-sans antialiased">
-        <BetterAuthStatusProvider
-          initialStatus={{
-            userId,
-            isSignedIn: Boolean(session),
-            isLoaded: true,
-          }}
-        >
+        <BetterAuthStatusProvider initialUserId={userId}>
           <NextThemeProvider
             attribute="class"
             defaultTheme="system"

@@ -12,23 +12,48 @@ import { createContext, useContext } from 'react';
  * "signed out" have to drive different UI: a query gated on `isSignedIn` alone
  * would fire (and 401) during the first client render, and a CTA would flash the
  * signed-out state before resolving.
+ *
+ * A **union of the three reachable states**, not a record of three independent
+ * fields. The flat version could represent `{ userId: null, isSignedIn: true }`
+ * and `{ isLoaded: false, isSignedIn: true }` — states no provider can produce
+ * but every consumer still has to defend against. Here `userId` is a `string`
+ * exactly when `isSignedIn` is `true`, so `if (status.isSignedIn)` narrows it
+ * and no consumer needs a `?? ''` or a non-null assertion.
+ *
+ * Build one with {@link loadingAuthStatus} / {@link resolvedAuthStatus} rather
+ * than by hand — an app that assembles the fields itself is back to keeping the
+ * three in agreement on its own.
  */
-export interface AuthStatus {
-  /** The signed-in user's id, or `null` when signed out or still resolving. */
-  userId: string | null;
-  isSignedIn: boolean;
-  /** `false` until the auth provider has resolved the session at least once. */
-  isLoaded: boolean;
+export type AuthStatus =
+  | { isLoaded: false; isSignedIn: false; userId: null }
+  | { isLoaded: true; isSignedIn: false; userId: null }
+  | { isLoaded: true; isSignedIn: true; userId: string };
+
+/** Before the provider has resolved a session even once. */
+export const loadingAuthStatus: AuthStatus = {
+  isLoaded: false,
+  isSignedIn: false,
+  userId: null,
+};
+
+/**
+ * A resolved session, from the one thing the app knows after resolving it: the
+ * viewer's id, or `null` for a signed-out visitor.
+ */
+export function resolvedAuthStatus(userId: string | null): AuthStatus {
+  return userId === null
+    ? { isLoaded: true, isSignedIn: false, userId: null }
+    : { isLoaded: true, isSignedIn: true, userId };
 }
 
 const AuthStatusContext = createContext<AuthStatus | null>(null);
 
 /**
  * The client half of the app-owned auth seam (ADR 0003). The *app* resolves the
- * session with whatever provider it uses — Better Auth's `useSession` in
- * `apps/nextjs`, Clerk's `useAuth` in `apps/tanstack-start` — and feeds the
- * result in here; features read it back through `useAuthStatus` and never learn
- * which provider is mounted.
+ * session with whatever provider it uses — Better Auth's `useSession` in both
+ * full apps, seeded from the server-resolved id — and feeds the result in here;
+ * features read it back through `useAuthStatus` and never learn which provider
+ * is mounted.
  *
  * This is the same arrangement `useClearCacheOnLogout` already uses (the app
  * passes a plain `isSignedIn` boolean), generalised so a feature can read the

@@ -1,8 +1,10 @@
 # Shared Auth (`@acme/auth`)
 
-The auth seam. **Mid-migration:** Clerk is still what the apps run on, and Better
-Auth's self-hosted server half now sits beside it. Both surfaces are live in this
-package until #218 finishes moving the apps over and deletes the Clerk one. See
+The auth seam. **Mid-migration:** `apps/tanstack-start` runs on Better Auth
+(#224); `apps/nextjs` is still on Clerk until #223. Both surfaces are therefore
+live in this package until #226 deletes the Clerk one — which is also why
+`authEnv()` still demands `CLERK_SECRET_KEY` from every full app, including the
+one with no Clerk code left in it. See
 [ADR 0034](../../../docs/adr/0034-better-auth-replaces-clerk.md) for the
 replacement decision and
 [ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) for the seam
@@ -17,7 +19,8 @@ app (each runs on its own port) and a shared-layer package must not read app env
 The **secret is not a parameter** — `BETTER_AUTH_SECRET` is slice-owned, declared
 and validated in `./env`.
 _Avoid_: "the auth client" (that is `createAuthClient`, app-owned — see
-`apps/nextjs/src/lib/auth-client.ts`), "the auth singleton"
+`apps/nextjs/src/lib/auth-client.ts` and its TanStack Start twin), "the auth
+singleton"
 
 **`Auth` / `Session`** (`@acme/auth/server`):
 The instance type and `{ session, user }` as Better Auth resolves it. `Session`'s
@@ -35,6 +38,21 @@ Prefixed `auth*` so `user`/`session` don't collide in a consumer's imports.
 `authTables` is the unprefixed model→table map the Drizzle adapter needs.
 _Avoid_: "the auth schema" for the Drizzle module (it means the Postgres schema
 `authSchema`)
+
+**`toPrincipal(session)` / `readSessionRole(user)`** (`@acme/auth/server`):
+The Better Auth → `InjectedUser` mapping, and the validated read of the role off
+the user row. Shared by both full apps deliberately: _resolving_ a session is
+framework-specific and app-owned (a TanStack Start server function vs. Next.js
+middleware), but the mapping is **provider**-specific, and `primaryEmailAddress`
+has to agree exactly with `@acme/billing`'s augmentation of `InjectedUser` — two
+declarations of one merged member must match, so it is built once here.
+Both are typed **structurally**, on the fields they read, not against `Session`:
+Better Auth types `getSession` as returning the core columns only, so its result
+is not assignable to `Session` (whose `UserWithRole` intersection requires the
+plugin's fields). That is also why the role is _parsed_ rather than read as a
+property — it is a runtime fact with no static promise behind it. Supersedes
+`toInjectedPrincipal` + `readRole`, which go with the Clerk half in #226.
+_Avoid_: "read the role claim" — there is no token to decode; role is a column.
 
 **A session is a row.** Better Auth resolves every request by reading `session`;
 `initAuth` turns the cookie cache off explicitly so that stays true. Deleting the
@@ -75,4 +93,6 @@ call. `authEnv()` extends it, and `apps/tanstack-start` reads it directly for
   ([ADR 0021](../../../docs/adr/0021-test-schema-provisioning-db-push.md)).
 - **The app owns the client and the chrome.** Better Auth ships no UI, so unlike
   the Clerk half this package exports no React components. `createAuthClient`,
-  the route handler and the sign-in/up pages belong to the app (#218).
+  the route handler and the sign-in/up pages belong to the app —
+  `apps/tanstack-start` is the first one wired that way (#224); `apps/nextjs`
+  follows in #223.

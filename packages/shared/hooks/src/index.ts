@@ -2,6 +2,8 @@ export const name = 'hooks';
 
 export {
   AuthStatusProvider,
+  loadingAuthStatus,
+  resolvedAuthStatus,
   useAuthStatus,
   type AuthStatus,
 } from './auth-status';

@@ -1,5 +1,6 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { ChevronsUpDown, LogOut } from 'lucide-react';
 
 import { cn } from '../../src/lib/utils';
@@ -28,6 +29,16 @@ interface UserButtonProps {
   user: UserButtonUser;
   /** Sign-out is the caller's call — this widget only triggers it. */
   onSignOut: () => void;
+  /**
+   * Extra entries for the menu, rendered above sign-out. App-owned: what belongs
+   * in a signed-in menu beyond "sign out" is product chrome, and the two apps
+   * differ (`tanstack-start` puts the subscription + billing-portal actions
+   * here). Pass `DropdownMenuItem`s — both are exported from this package.
+   *
+   * Sign-out stays the widget's own, and stays last, because it is the one entry
+   * a signed-in menu always has and its position should not vary per app.
+   */
+  menuItems?: ReactNode;
   className?: string;
 }
 
@@ -41,7 +52,12 @@ const getInitials = (name: string) =>
     .join('')
     .toUpperCase();
 
-export function UserButton({ user, onSignOut, className }: UserButtonProps) {
+export function UserButton({
+  user,
+  onSignOut,
+  menuItems,
+  className,
+}: UserButtonProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -68,6 +84,7 @@ export function UserButton({ user, onSignOut, className }: UserButtonProps) {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
+        {menuItems}
         <DropdownMenuItem onSelect={onSignOut}>
           <LogOut />
           Sign out

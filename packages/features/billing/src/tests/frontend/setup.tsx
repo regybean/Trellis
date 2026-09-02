@@ -7,7 +7,11 @@ import superjson from 'superjson';
 import { vi } from 'vitest';
 
 import type { AuthStatus } from '@acme/hooks';
-import { AuthStatusProvider } from '@acme/hooks';
+import {
+  AuthStatusProvider,
+  loadingAuthStatus,
+  resolvedAuthStatus,
+} from '@acme/hooks';
 
 import type { AppRouter } from '../../api/root';
 import { BillingConfigProvider } from '../../config-context';
@@ -48,11 +52,7 @@ vi.mock('next/navigation', () => ({
  *
  * Read at wrapper-render time, so call `setAuth` before rendering.
  */
-const SIGNED_OUT: AuthStatus = {
-  userId: null,
-  isSignedIn: false,
-  isLoaded: true,
-};
+const SIGNED_OUT: AuthStatus = resolvedAuthStatus(null);
 
 let authStatus: AuthStatus = SIGNED_OUT;
 
@@ -60,12 +60,10 @@ let authStatus: AuthStatus = SIGNED_OUT;
 export const setAuth = (
   opts: { loaded?: boolean; signedIn?: boolean } = {},
 ) => {
-  const isSignedIn = opts.signedIn ?? false;
-  authStatus = {
-    isLoaded: opts.loaded ?? true,
-    isSignedIn,
-    userId: isSignedIn ? 'user_1' : null,
-  };
+  authStatus =
+    opts.loaded === false
+      ? loadingAuthStatus
+      : resolvedAuthStatus(opts.signedIn ? 'user_1' : null);
 };
 
 /** Restore the default signed-out status between tests. */

@@ -10,28 +10,46 @@ import { render, renderHook, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { AuthStatus } from '../../../auth-status';
-import { AuthStatusProvider, useAuthStatus } from '../../../auth-status';
+import {
+  AuthStatusProvider,
+  loadingAuthStatus,
+  resolvedAuthStatus,
+  useAuthStatus,
+} from '../../../auth-status';
 
-const SIGNED_IN: AuthStatus = {
-  userId: 'user_123',
-  isSignedIn: true,
-  isLoaded: true,
-};
-const RESOLVING: AuthStatus = {
-  userId: null,
-  isSignedIn: false,
-  isLoaded: false,
-};
-const SIGNED_OUT: AuthStatus = {
-  userId: null,
-  isSignedIn: false,
-  isLoaded: true,
-};
+const SIGNED_IN = resolvedAuthStatus('user_123');
+const RESOLVING = loadingAuthStatus;
+const SIGNED_OUT = resolvedAuthStatus(null);
 
 const wrapperFor = (status: AuthStatus) =>
   function Wrapper({ children }: { children: ReactNode }) {
     return <AuthStatusProvider status={status}>{children}</AuthStatusProvider>;
   };
+
+describe('resolvedAuthStatus', () => {
+  it('pairs a signed-in id with isSignedIn, and null with signed out', () => {
+    expect(SIGNED_IN).toEqual({
+      userId: 'user_123',
+      isSignedIn: true,
+      isLoaded: true,
+    });
+    expect(SIGNED_OUT).toEqual({
+      userId: null,
+      isSignedIn: false,
+      isLoaded: true,
+    });
+  });
+
+  it('narrows userId to a string on the signed-in branch', () => {
+    const status: AuthStatus = SIGNED_IN;
+
+    // The point of the union: no `?? ''` and no non-null assertion here. This
+    // body would not compile if `userId` were `string | null` when signed in.
+    const id = status.isSignedIn ? status.userId.toUpperCase() : 'anonymous';
+
+    expect(id).toBe('USER_123');
+  });
+});
 
 describe('useAuthStatus', () => {
   it('reads back the status the app supplied', () => {
