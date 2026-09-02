@@ -4,7 +4,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { Users } from 'lucide-react';
 
-import { readSessionRole, toManagementUser } from '@acme/auth/server';
+import { readSessionRole, toAdminUser } from '@acme/auth/server';
 import {
   RateLimitManagement,
   StripeTesting,
@@ -18,7 +18,7 @@ import {
 } from '@acme/ingest';
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
-import { removeRole, setRole } from '~/lib/admin';
+import { setRole } from '~/lib/admin';
 import { auth } from '~/server/auth';
 import { SearchUsers } from './search-users';
 
@@ -54,7 +54,7 @@ export async function AdminDashboard({ searchParams }: Props) {
     headers: requestHeaders,
   });
 
-  const managementUsers = users.map((user) => toManagementUser(user));
+  const managementUsers = users.map((user) => toAdminUser(user));
 
   return (
     <div className="mx-auto max-w-7xl px-4">
@@ -94,7 +94,6 @@ export async function AdminDashboard({ searchParams }: Props) {
             <UserManagement
               users={managementUsers}
               setRole={setRole}
-              removeRole={removeRole}
               renderBillingPanels={(user) => (
                 <>
                   <RateLimitManagement user={user} />

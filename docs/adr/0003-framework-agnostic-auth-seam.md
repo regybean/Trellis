@@ -164,11 +164,11 @@ one provider mapping is exactly the fan-out this ADR exists to prevent.
 #239 collapses them. The line held is unchanged; only the provider moved:
 
 - **`@acme/auth/server`** holds `readSessionRole`, `toPrincipal` and
-  `toManagementUser`. All three are typed **structurally**, on the fields they
+  `toAdminUser`. All three are typed **structurally**, on the fields they
   read, because Better Auth types `getSession` as returning the core user columns
   only — the admin plugin's `role` is a runtime fact with no static promise
   behind it, which is why it is parsed rather than read. `readSessionRole` takes
-  a user *row*, not `unknown`: the first version accepted anything, so passing a
+  a user _row_, not `unknown`: the first version accepted anything, so passing a
   resolved `{ session, user }` compiled, failed its parse silently, and degraded
   every caller to non-admin.
 - **The two full apps** resolve the session — Next.js middleware plus a route

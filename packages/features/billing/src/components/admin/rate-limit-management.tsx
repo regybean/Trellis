@@ -57,10 +57,6 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
     return new Date(timestamp * 1000).toLocaleString('en-gb');
   };
 
-  const primaryEmail =
-    user.emailAddresses.find((email) => email.id === user.primaryEmailAddressId)
-      ?.emailAddress ?? 'No email';
-
   return (
     <Card className="border-border shadow-xs">
       <CardHeader>
@@ -69,7 +65,7 @@ export function RateLimitManagement({ user }: RateLimitManagementProps) {
           Subscription Management
         </CardTitle>
         <div className="text-muted-foreground text-sm">
-          User: {primaryEmail} (ID: {user.id})
+          User: {user.email} (ID: {user.id})
         </div>
       </CardHeader>
       <CardContent className="space-y-6">

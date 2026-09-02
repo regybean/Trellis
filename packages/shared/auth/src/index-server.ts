@@ -6,7 +6,7 @@
  * builds *the app's* Better Auth instance, and `./principal` turns whatever that
  * instance resolves into the neutral shapes the rest of the repo consumes —
  * `toPrincipal` for `@acme/trpc`'s `InjectedUser`, `readSessionRole` for the
- * role, `toManagementUser` for `@acme/ui`'s admin widget. Resolving a session
+ * role, `toAdminUser` for `@acme/ui`'s admin widget. Resolving a session
  * stays app-owned (Next.js middleware vs. a TanStack Start server function);
  * the mappings are provider-specific and shared by both full apps.
  *
