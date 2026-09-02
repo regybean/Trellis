@@ -84,13 +84,31 @@ ever worth keeping.
 
 ### `staleTime`, decided per feature rather than inherited
 
-| Feature       | Was         | Now                            | Why                                                                                                                                                                                                                        |
-| ------------- | ----------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| chat          | `0`         | `0`, via the persisted options | Unchanged and load-bearing (ADR 0025).                                                                                                                                                                                     |
-| ingest        | `0`         | `0`, via the persisted options | Same.                                                                                                                                                                                                                      |
-| feedback      | `30s`       | `0`, via the persisted options | It paired a persister with `staleTime: 30s` — the combination ADR 0025 names as serving a restored snapshot without revalidating. See below.                                                                               |
-| billing       | `30s`       | app default (`0`)              | t3 boilerplate; a 30s window only ever hides a change the user just caused (credits after a Turn, tier right after a checkout return). The reads are cheap Redis hits and every write path already invalidates explicitly. |
-| notifications | unset (`0`) | app default (`0`)              | Subscription-only — no queries for a `staleTime` to apply to.                                                                                                                                                              |
+| Feature       | Was         | Now                            | Why                                                                                                                                                                                                                                                                                                         |
+| ------------- | ----------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| chat          | `0`         | `0`, via the persisted options | Unchanged and load-bearing (ADR 0025).                                                                                                                                                                                                                                                                      |
+| ingest        | `0`         | `0`, via the persisted options | Same.                                                                                                                                                                                                                                                                                                       |
+| feedback      | `30s`       | `0`, via the persisted options | It paired a persister with `staleTime: 30s` — the combination ADR 0025 names as serving a restored snapshot without revalidating. See below.                                                                                                                                                                |
+| billing       | `30s`       | app default (`0`)              | t3 boilerplate that was **already not in effect** — see below. `0` is also right on the merits: a 30s window only ever hides a change the user just caused (credits after a Turn, tier right after a checkout return), the reads are cheap Redis hits, and every write path already invalidates explicitly. |
+| notifications | unset (`0`) | app default (`0`)              | Subscription-only — no queries for a `staleTime` to apply to.                                                                                                                                                                                                                                               |
+
+**billing's `staleTime` had already stopped applying.** Billing was the one feature
+that never pinned a client — its hooks call `useQuery` with no second argument,
+because only chat, feedback and ingest got #82's mitigation. In both full apps the
+innermost `QueryClientProvider` beneath billing's own was **notifications**', which
+sets no `defaultOptions.queries` at all. So billing's queries have been running on
+the notifications cache at `staleTime: 0`, and the 30s it declared has been dead for
+as long as that provider has been mounted below it.
+
+Nothing was visibly broken — everything in that subtree resolves to the same client,
+so the queries and their invalidations agreed with each other. And no test caught it,
+because the frontend suites mount billing's provider on its own, where
+`useQueryClient()` genuinely does return billing's client.
+
+That is the sharpest argument for this ADR. The old design let a feature declare
+cache policy that silently did not apply, with the outcome depending on which
+provider an app happened to nest last. One client per app makes the question
+disappear: a query's options are the only thing deciding its behaviour.
 
 **feedback was not a live bug, and is fixed anyway.** `use-feedback.ts` never
 writes optimistically (its mutations `invalidate` on settle), so a persisted entry

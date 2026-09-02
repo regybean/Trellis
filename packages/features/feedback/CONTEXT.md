@@ -75,7 +75,7 @@ only persisted query — the `submit`/`remove` mutations never are.
 
 **Persistence is opt-in and auth-agnostic**: `FeedbackTRPCReactProvider` accepts an
 app-supplied `scopeKey` (the signed-in user id via the `@acme/auth` seam in full apps,
-`'anon'` in slim apps — the feature never imports Clerk). Absent a `scopeKey`, or where
+`'anon'` in slim apps — the feature never imports an auth SDK). Absent a `scopeKey`, or where
 IndexedDB is unavailable, the feature runs network-only exactly as before; persistence
 is a pure read-time optimisation, never a hard dependency. The persister `buster` is
 `FEEDBACK_PERSIST_VERSION:scopeKey`, so a different user or an incompatible data-shape

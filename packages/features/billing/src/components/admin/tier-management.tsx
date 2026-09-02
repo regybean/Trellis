@@ -84,10 +84,8 @@ export function TierManagement({ user }: TierManagementProps) {
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
             {/*
-              No "has the user got an email?" guard: under Clerk this button was
-              disabled when `emailAddresses` had no entry matching the primary
-              id, which was reachable. Better Auth's email is the user row's
-              unique key, so a listed user always has one.
+              No "has the user got an email?" guard: Better Auth's email is the
+              user row's unique key, so a listed user always has one.
             */}
             <Button className="bg-primary text-on-primary hover:bg-primary/90">
               Set to {tier}

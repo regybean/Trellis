@@ -85,7 +85,7 @@
     "format": "prettier --check . --ignore-path ../../../.prettierignore",
     "lint": "eslint",
     "lint:mastra": "mastra lint --dir src/mastra",
-    "studio": "mastra dev --dir src/mastra",
+    "studio": "NODE_OPTIONS=--conditions=react-server mastra dev --dir src/mastra",
     "test": "pnpm test:backend && pnpm test:frontend",
     "test:backend": "vitest run --config vitest.config.backend.ts",
     "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",

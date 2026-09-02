@@ -1,16 +1,14 @@
 # Shared Auth (`@acme/auth`)
 
 The auth seam, and after #239 it is Better Auth end to end: both full apps run on
-it, and the last `@clerk/*` import left the tree with this package's client
-barrel. What remains is the **server** half — the instance and the mappings —
-plus the signing secret. See
-[ADR 0034](../../../docs/adr/0034-better-auth-replaces-clerk.md) for the
+it, and the package's client barrel is gone. What remains is the **server** half
+— the instance and the mappings — plus the signing secret. See
+[ADR 0034](../../../docs/adr/0034-self-hosted-better-auth.md) for the
 replacement decision and
 [ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) (with its two
 amendments) for the seam.
 
-The package ships **no React**. Under Clerk this barrel re-exported nine prebuilt
-components and hooks; Better Auth ships no UI, so `@acme/ui` owns the forms,
+The package ships **no React**. Better Auth ships no UI, so `@acme/ui` owns the forms,
 `@acme/hooks` owns the client status seam, and the app owns `createAuthClient`.
 
 ## Language
@@ -69,8 +67,8 @@ _Avoid_: "read the role claim" — there is no token to decode; role is a column
 **A session is a row.** Better Auth resolves every request by reading `session`;
 `initAuth` turns the cookie cache off explicitly so that stays true. Deleting the
 row revokes the session immediately — the backend suite asserts it.
-_Avoid_: "session claims", "JWT claims" — Clerk vocabulary with no Better Auth
-equivalent. Role lives on the **user row** (`authUser.role`), not in a token.
+_Avoid_: "session claims", "JWT claims" — there is no Better Auth equivalent.
+Role lives on the **user row** (`authUser.role`), not in a token.
 
 **`betterAuthEnv()`** (`@acme/auth/env`):
 `BETTER_AUTH_SECRET`, and nothing else — the one key this slice actually reads
@@ -89,8 +87,8 @@ _Avoid_: "the auth URL is slice config"
 ## Relationships
 
 - **Auth is now stateful, so this package depends on `@acme/db`.** `initAuth`
-  builds its adapter over `createDb()`. Under Clerk this package touched no
-  database at all.
+  builds its adapter over `createDb()`. Before the sessions-as-rows move
+  (ADR 0034) this package touched no database at all.
 - **DDL is app-owned, as for every other table.** The apps re-export the four
   tables from `src/server/db/schema.ts` and list `auth` in their
   `drizzle.config.ts` `schemaFilter`; `db:push` owns the DDL. This package

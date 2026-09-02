@@ -7,7 +7,7 @@ or app composes these; they never reach back up.
 "No auth provider" is narrower than the "no auth" this charter used to claim, and
 the distinction is the point: the package now ships the _client_ half of the auth
 seam (`AuthStatusProvider` / `useAuthStatus`), which is a plain React context
-carrying three fields. It knows nothing about Clerk, Better Auth or sessions —
+carrying three fields. It knows nothing about Better Auth or sessions —
 the app resolves those and feeds the result in. That is what keeps the slim,
 no-auth apps' graph free of a provider (ADR 0010) while letting `@acme/billing`
 gate its viewer-scoped queries on something.

@@ -41,10 +41,9 @@ const navItems: NavItem[] = [
  * (ADR 0011); the feature components rendered inside `children` are untouched.
  *
  * `user` is the signed-in principal or `null`, resolved on the server by
- * `__root`'s `beforeLoad` and passed down as a prop. Under Clerk this was
- * `<SignedIn>` / `<SignedOut>` reading provider context, which meant the rail
- * rendered its signed-out state first and swapped once Clerk hydrated; a
- * server-resolved prop paints the right one immediately (ADR 0034).
+ * `__root`'s `beforeLoad` and passed down as a prop. A prop rather than a
+ * client-side session read, so the rail paints the right state immediately
+ * instead of rendering signed-out first and swapping on hydration (ADR 0034).
  */
 export function ConsoleShell({
   user,

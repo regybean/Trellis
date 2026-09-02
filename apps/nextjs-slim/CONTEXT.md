@@ -1,18 +1,18 @@
 # App (`apps/nextjs-slim`)
 
-A slim Next.js application: a copy of `apps/nextjs` with **all auth (Clerk) and
-billing (Stripe) stripped out**. It wires only the `@acme/chat` and `@acme/ingest`
+A slim Next.js application: a copy of `apps/nextjs` with **all auth and billing
+(Stripe) stripped out**. It wires only the `@acme/chat` and `@acme/ingest`
 feature slices into a single-user, no-login product. Owns no business logic — it is
 the integration layer. Runs on port 3002.
 
 It exists to prove the platform seams (the framework-agnostic auth seam, ADR 0003,
 and the entitlements injection seam, ADR 0006) actually decouple the features from
-Clerk and Stripe: a deployment can drop both and still run.
+the auth provider and Stripe: a deployment can drop both and still run.
 
 ## Language
 
 **Constant principal** (`src/server/trpc-route.ts`):
-The fixed `InjectedSession` this app injects in place of a resolved Clerk session —
+The fixed `InjectedSession` this app injects in place of a resolved session —
 `{ user: { id: 'local', role: 'admin' } }`. The features still require a principal
 (`@acme/chat` is `protectedProcedure`; `@acme/ingest` is `adminProcedure`), so the
 app supplies one constant admin user rather than resolving auth. Nothing behind it
@@ -49,9 +49,10 @@ for every feature mount.
 - Each feature's `TRPCReactProvider` wraps its page(s) and points to its
   `/api/trpc/{feature}` endpoint.
 - `AppQueryClientProvider` (root `layout.tsx`) mounts the app's **one**
-  `QueryClient`, above every feature provider — the features render none of their
-  own ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
-- No Clerk middleware, no `@acme/auth`, `@acme/billing`, or `@acme/subscriptions`.
+  `QueryClient`, above every feature provider. The feature providers above are
+  tRPC providers — they render no `QueryClientProvider` of their own and read
+  this one from context ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
+- No auth middleware, no `@acme/auth`, `@acme/billing`, or `@acme/subscriptions`.
 - `instrumentation.ts` initialises OpenTelemetry (`trellis-nextjs-slim`) at startup.
 - `db/schema.ts` exports only `appSchema` (no app-owned tables); `db:push` owns the
   per-app `CREATE SCHEMA` that Mastra's memory + vector store need at runtime.

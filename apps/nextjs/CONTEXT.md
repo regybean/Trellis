@@ -27,11 +27,11 @@ _Avoid_: "API route", "endpoint file"
 ## Relationships
 
 - Each feature's `TRPCReactProvider` wraps its page(s) and points to its `/api/trpc/{feature}` endpoint
-- `AppQueryClientProvider` (root `layout.tsx`) mounts the app's **one** `QueryClient`, above every feature provider — the features render none of their own ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md))
+- `AppQueryClientProvider` (root `layout.tsx`) mounts the app's **one** `QueryClient`, above every feature provider. The `*TRPCReactProvider`s above are tRPC providers despite the name — they render no `QueryClientProvider` of their own and read this one from context ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md))
 - `AdminDashboard` (app-owned, `components/admin/`) guards on the admin role inline via `auth.api.getSession`; the role mutation lives in `src/lib/admin.ts` as a server action ([ADR 0011](../../docs/adr/0011-remove-compositions-layer.md))
 - `instrumentation.ts` initialises OpenTelemetry via `@acme/telemetry` at startup
 
-## Auth ([ADR 0034](../../docs/adr/0034-better-auth-replaces-clerk.md))
+## Auth ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md))
 
 Self-hosted Better Auth, sessions as rows in the shared `auth` schema ([ADR 0035](../../docs/adr/0035-auth-tables-in-a-dedicated-schema.md)). The app owns every framework-specific piece; `@acme/auth` ships the instance factory and the tables, and no React at all.
 

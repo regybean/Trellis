@@ -18,15 +18,14 @@ and `fetchRequestHandler`. The TanStack Start analogue of the Next.js _route han
 The app-owned `resolveAuthContext` that turns a `Request` into the injected
 `{ session, entitlements, headers, req, origin }` the tRPC context expects. The
 per-app half of the auth seam — see
-[ADR 0034](../../docs/adr/0034-better-auth-replaces-clerk.md) and
+[ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md) and
 [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md). It reads the
 session off the request's own `Cookie` header, so nothing has to run before it.
 It hands the resolved session to `@acme/auth/server`'s `toPrincipal` rather than
 mapping it here: resolution is app-owned, the mapping is provider-owned and
 shared with `apps/nextjs` (#239).
-_Avoid_: "auth middleware" — there is none. The Clerk wiring needed
-`clerkMiddleware()` registered in `src/start.ts` to make `auth()` work at all;
-`src/start.ts` now registers only the CSRF guard.
+_Avoid_: "auth middleware" — there is none. `src/start.ts` registers only the
+CSRF guard; nothing has to be installed for a session to resolve.
 
 **Auth instance** (`src/lib/auth-server.ts`):
 `initAuth({ baseUrl })` — _this app's_ Better Auth instance, the one thing all
@@ -109,12 +108,14 @@ Mastra owns their DDL at runtime — see
 - Each feature's `TRPCReactProvider` is mounted in `__root.tsx` and points to its
   `/api/trpc/{feature}` endpoint — same as `apps/nextjs`.
 - The app's **one** `QueryClient` is created in `src/router.tsx` and mounted by the
-  router's `Wrap`; the features render none of their own, so their queries now
-  reach `setupRouterSsrQueryIntegration` instead of being shadowed by a nested
-  client ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
+  router's `Wrap`. The `*TRPCReactProvider`s above are tRPC providers despite the
+  name — they render no `QueryClientProvider` of their own and read this one from
+  context, so their queries now reach `setupRouterSsrQueryIntegration` instead of
+  being shadowed by a nested client
+  ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
 - Auth is resolved at the HTTP boundary by the session resolver and injected into
   `createTRPCContext`; features never resolve auth themselves
-  ([ADR 0034](../../docs/adr/0034-better-auth-replaces-clerk.md),
+  ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md),
   [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md)).
 - `beforeLoad` route guards replace Next.js middleware for auth / admin gating.
   They are also what enforces "nothing fires while signed out": the guard throws
@@ -128,7 +129,7 @@ Mastra owns their DDL at runtime — see
   state and lets the persisters attach on their first render.
 - Every request costs one `session` row read. Auth is stateful now, so deleting
   the row revokes the session immediately — `initAuth` turns the cookie cache off
-  to keep that true ([ADR 0034](../../docs/adr/0034-better-auth-replaces-clerk.md)).
+  to keep that true ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md)).
 - Framework-coupled glue (admin role mutations, stripe-success redirect) lives in
   this app. The admin shell is app-owned in `src/components/admin/`, reusing the
   neutral presentational components and `@acme/billing`

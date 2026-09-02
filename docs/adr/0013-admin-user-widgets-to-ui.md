@@ -75,7 +75,7 @@ the billing/auth coupling stays at the app seam where 0011 wants it.
 `UserManagementUser` was authored as a structural twin of Clerk's user: an
 `emailAddresses` array with a `primaryEmailAddressId` pointing into it,
 `publicMetadata.role`, and `lastSignInAt`. Under Clerk that was a faithful
-picture of the data; under Better Auth ([ADR 0034](0034-better-auth-replaces-clerk.md))
+picture of the data; under Better Auth ([ADR 0034](0034-self-hosted-better-auth.md))
 it is a costume. Better Auth keeps exactly **one** email per user (it is the
 row's unique key) and records **no** last-sign-in on the user row, so two of
 those fields have no honest source.

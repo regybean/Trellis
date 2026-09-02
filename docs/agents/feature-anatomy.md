@@ -94,7 +94,7 @@ A hook firing a second mutation in the `onSuccess` of the first is the smell.
   `{ "types": "./dist/<name>.d.ts", "default": "./src/<name>.ts" }` — JIT source,
   compiled types. Bounded keys only (`.`, `./server`, `./schema`, `./env`,
   `./testing`, plus registered seams).
-- **Vendor SDKs** (`@mastra/*`, framework-specific Clerk, `stripe`) are contained
+- **Vendor SDKs** (`@mastra/*`, `better-auth`, `stripe`) are contained
   to blessed homes via ESLint `no-restricted-imports` (`tooling/eslint/base.ts`).
   A feature opts back in with `containmentOverride(...)` in its own
   `eslint.config.ts` — see CLAUDE.md's "Vendor-type containment".
@@ -118,7 +118,7 @@ tests/backend/
 
 - Test shared middleware (auth, rate limit) **once**; cover procedures with the
   **zero / one / many** pattern.
-- Mock only what you can't run (Clerk, Stripe, S3, Bedrock); exercise real
+- Mock only what you can't run (Stripe, S3, Bedrock); exercise real
   persistence. Env is real, validated, never mocked ([ADR 0014](../adr/0014-tests-validate-real-env.md)).
 
 ### Frontend — `tests/frontend/` (MSW at the HTTP boundary)
@@ -141,8 +141,8 @@ tests/frontend/
   blocks all three). Assert toasts via a real `<ToastContainer />` in the DOM.
 - **Never** `expect(spy).toHaveBeenCalledWith(...)` on the data layer — read the
   outcome (DOM, returned hook state, cache), not the mechanism.
-- Framework externals (`next/navigation`, `@acme/auth`) stay mockable; prefer
-  observable navigation (`<Link href>` in the DOM) over asserting `router.push`.
+- Framework externals (`next/navigation`) stay mockable; prefer observable
+  navigation (`<Link href>` in the DOM) over asserting `router.push`.
 - **Reference:** `feedback` (setup + `feedback-buttons` + `use-feedback`).
 
 ### Test policy

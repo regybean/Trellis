@@ -44,7 +44,7 @@ interface QueryPersisterOptions {
    */
   keyPrefix: string;
   /**
-   * App-supplied per-user scope. Full (Clerk) apps pass the signed-in user id;
+   * App-supplied per-user scope. Full apps pass the signed-in user id;
    * slim (no-auth) apps pass a constant `'anon'`. Composed into `buster` so a
    * different user never rehydrates a prior user's snapshot.
    */

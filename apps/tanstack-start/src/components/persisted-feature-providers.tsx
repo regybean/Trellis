@@ -74,8 +74,8 @@ export function PersistedFeatureProviders({
  * `isSignedIn` is derived from `scopeKey` rather than read from an auth hook,
  * which is not just a saved import: `scopeKey` *is* the server-resolved id these
  * providers are already keyed on, so the signal the hook watches and the scope
- * the cache is stored under can never disagree. Under Clerk this read
- * `useAuth()` — a second, client-side source of the same fact.
+ * the cache is stored under can never disagree. A client-side auth hook would be
+ * a second source of the same fact.
  */
 function ClearCacheOnLogout({ isSignedIn }: { isSignedIn: boolean }) {
   useClearCacheOnLogout(isSignedIn, clearPersistedStores);

@@ -124,8 +124,9 @@ below follows from that.
 - **DON'T** `expect(spy).toHaveBeenCalledWith(...)` on a data-layer mock, or
   assert a handler-side flag flipped — read the outcome, not the mechanism.
 - **DON'T** `vi.mock('react-toastify')` — the toast renders in jsdom; assert it.
-- **Framework externals stay mockable:** `next/navigation`, `@acme/auth` — the
-  frontend's blessed mock list (mirrors ADR 0014). Prefer observable navigation
+- **Framework externals stay mockable:** `next/navigation` — the frontend's
+  blessed mock list (mirrors ADR 0014). `@acme/auth` is not on it: it ships no
+  React, so no frontend test imports it (ADR 0034). Prefer observable navigation
   (`<Link href>` in the DOM) over asserting an imperative `router.push`.
 
 ### Setup and config
@@ -155,7 +156,7 @@ Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
 | `env.ts` (every package)  | **Real** — validated against `createEnv`, never mocked. Static values come from `staticTestEnv`; live DB/Redis details are hydrated from the containers. |
 | PostgreSQL / pgvector     | **Real** — a throwaway testcontainer per suite, on every run.                                                                                            |
 | Redis                     | **Real** — same.                                                                                                                                         |
-| Clerk auth                | Stubbed via the test context (`@acme/trpc/testing`) — we don't test Clerk.                                                                               |
+| Auth                      | Stubbed via the test context (`@acme/trpc/testing`) — we don't test the provider.                                                                        |
 | LLM / Bedrock, embeddings | Mocked — a true external. Behavioral fake (e.g. rag's fixed embed vector).                                                                               |
 | Stripe, S3                | Mocked — true externals.                                                                                                                                 |
 | OpenTelemetry             | Noop telemetry from the test context.                                                                                                                    |

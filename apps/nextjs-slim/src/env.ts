@@ -16,9 +16,9 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * slice's config *and* secrets, where there used to be this list plus a parallel
  * `configExtends([...])` in `src/config.ts`.
  *
- * This app strips Clerk and billing (ADR 0010), so it composes only chat +
+ * This app strips auth and billing (ADR 0010), so it composes only chat +
  * ingest — and because a secret's requiredness follows what the app assembles, it
- * never demands the Clerk or Stripe secrets. `skipValidation` is not passed here
+ * never demands the auth or Stripe secrets. `skipValidation` is not passed here
  * or anywhere (ADR 0033 §3).
  */
 export const env = createEnv({

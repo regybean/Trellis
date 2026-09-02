@@ -38,7 +38,7 @@ throwaway PostgreSQL + Redis containers. **Docker/Podman must be running.**
 
 - Build a caller with `createTestContext(...)`, then call
   `appRouter.createCaller(ctx).feedback.<procedure>(...)`.
-- Mock only what you don't own (Clerk auth, telemetry); exercise real persistence.
+- Mock only what you don't own (auth, telemetry); exercise real persistence.
 - Test shared middleware (auth, rate limit) **once**; cover business logic with the
   **zero / one / many** pattern; seed data with `fixtures.ts`.
 

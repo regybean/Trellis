@@ -37,9 +37,8 @@ const banMastra = {
     'Mastra imports are contained to @acme/rag and @acme/chat (ADR 0002). Consume them through those packages.',
 };
 /**
- * The auth provider is contained the same way Clerk's framework SDKs were: an
- * app may reach for it (it owns session *resolution*), `@acme/auth` may (it owns
- * the instance), and nothing else may — features and the substrate read auth
+ * The auth provider is contained: an app may reach for it (it owns session
+ * *resolution*), `@acme/auth` may (it owns the instance), and nothing else may — features and the substrate read auth
  * only through the neutral tRPC principal and `@acme/hooks`' `useAuthStatus`.
  *
  * Without this the seam is convention-only: nothing would stop `@acme/chat`
@@ -62,8 +61,9 @@ const banFeatureTrpc = {
 // Frontend test doctrine (ADR 0018): fake the data layer at the HTTP boundary
 // with MSW, never `vi.mock` a seam the feature owns. Banning the mocks forces
 // MSW and makes data-layer `toHaveBeenCalledWith(...)` assertions impossible
-// (the spy can't be created). Framework externals (next/navigation, @acme/auth)
-// stay mockable, mirroring the backend's blessed mock list (ADR 0014).
+// (the spy can't be created). Framework externals (next/navigation) stay
+// mockable, mirroring the backend's blessed mock list (ADR 0014). @acme/auth is
+// not one of them: it ships no React, so no frontend test imports it (ADR 0034).
 // `no-restricted-syntax` is flat-config replace (last match wins), so the
 // override re-declares the shared console ban to keep it in force.
 const banConsole = {

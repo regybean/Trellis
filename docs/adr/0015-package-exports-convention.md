@@ -49,7 +49,7 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
 
 - New packages must conform: allowed keys ∈ the vocabulary, entries match the
   dist/src shape. A genuinely new role/seam is added to `ALLOWED_KEYS` in
-  `scripts/check-exports.mjs` with a comment — that edit *is* the design review.
+  `scripts/check-exports.mjs` with a comment — that edit _is_ the design review.
 - `sideEffects` arrays must track guarded files. Moving/renaming a
   `server-only`-guarded module means updating the array, or the guard can be
   tree-shaken away in a client bundle (fails loud at build, but the failure is
@@ -57,8 +57,18 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
 - `@acme/rag` gained an `import 'server-only'` guard on `index-server.ts`
   (previously unguarded) and a `server-only` dependency, closing a gap where
   server-only RAG code could be pulled into a client bundle.
-- The check is not a substitute for `knip`/`syncpack`; it polices *shape and
-  vocabulary*, not whether an export is reachable.
+- **A guard belongs on every runtime entry that needs one, `.` included.** The
+  role vocabulary names `.` the _main_ entry, not the _client-safe_ one, so a
+  package whose whole runtime is server-only guards `.` too rather than leaving
+  it as an unguarded path to the same modules. `@acme/rag` was exactly that gap
+  (issue #214): `./server` was guarded while `.` re-exported `pgVector` /
+  `postgresStore` / `memory` to anyone. `.` and `./ownership-trpc` are now
+  guarded as well, `sideEffects` lists all three so the guards survive
+  tree-shaking, and `ensureVectorIndex` — which both entries exported — is left
+  only on `./server`. Where a package keeps both `.` and `./server`, the split
+  is by import cost (which clients get constructed), not by safety.
+- The check is not a substitute for `knip`/`syncpack`; it polices _shape and
+  vocabulary_, not whether an export is reachable.
 - Scope is the runtime layers (`packages/platform`, `packages/shared`,
   `packages/features`, `packages/compositions`). Apps ship no `exports`;
   `tooling/*` config packages (`@acme/eslint-config`, `@acme/test-utils`, …)

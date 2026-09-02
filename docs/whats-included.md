@@ -19,7 +19,7 @@ The four apps form a 2×2: framework (column) × feature subset (row). The slice
 | [`nextjs-slim`](../apps/nextjs-slim/CONTEXT.md)       | Next.js (:3002)                       | chat · ingest — **no auth, no billing**                                 | ✅                      |
 | [`tanstack-slim`](../apps/tanstack-slim/CONTEXT.md)   | TanStack Start (:3003)                | chat · ingest — **no auth, no billing** (app-owned console shell)       | ✅                      |
 
-The **columns** prove portability — the same slices under two frameworks, differing only in the per-app adapter. The **rows** prove subsetting — the slim apps drop Clerk and Stripe _from the dependency graph_ (no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`), injecting a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is a _different subset of the same packages_, not a fork.
+The **columns** prove portability — the same slices under two frameworks, differing only in the per-app adapter. The **rows** prove subsetting — the slim apps drop auth and Stripe _from the dependency graph_ (no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`), injecting a constant local principal + `unlimitedEntitlements` instead ([ADR 0010](adr/0010-slim-no-auth-apps.md)). A no-auth/no-billing product is a _different subset of the same packages_, not a fork.
 
 ---
 
@@ -37,13 +37,13 @@ The **columns** prove portability — the same slices under two frameworks, diff
 
 `packages/shared/` · depend on shared, platform, tooling.
 
-| Package                                                | What it does                                                                                                                                                                                                                                        | Status |
-| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| [`@acme/ui`](../packages/shared/ui/)                   | Shared component library (shadcn-style). Add components with `pnpm ui-add`.                                                                                                                                                                         | ✅     |
-| [`@acme/auth`](../packages/shared/auth/)               | Clerk-based auth behind a **framework-agnostic seam** — the app resolves the request into context, the feature never imports framework auth. See [ADR 0003 (auth seam)](adr/0003-framework-agnostic-auth-seam.md).                                  | ✅     |
-| [`@acme/hooks`](../packages/shared/hooks/)             | Shared React hooks.                                                                                                                                                                                                                                 | ✅     |
-| [`@acme/rag`](../packages/shared/rag/CONTEXT.md)       | RAG + conversation memory on [Mastra](adr/0002-mastra-rag-and-memory.md): vector store, document uploader, memory storage. Provider-agnostic — models come from `@acme/models`.                                                                     | ✅     |
-| [`@acme/models`](../packages/shared/models/CONTEXT.md) | Resolves chat + embed AI-SDK models from an env-selected provider (`bedrock` / `openrouter` / `ollama`). **Ollama is the default, so the repo runs with no cloud credentials.** See [ADR 0003 (multi-provider)](adr/0003-multi-provider-models.md). | ✅     |
+| Package                                                | What it does                                                                                                                                                                                                                                                                                                                                      | Status |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
+| [`@acme/ui`](../packages/shared/ui/)                   | Shared component library (shadcn-style). Add components with `pnpm ui-add`.                                                                                                                                                                                                                                                                       | ✅     |
+| [`@acme/auth`](../packages/shared/auth/)               | Self-hosted [Better Auth](adr/0034-self-hosted-better-auth.md) behind a **framework-agnostic seam** — the instance factory, the four tables and the role parse; no React, and the feature never imports an auth SDK. Email + password, sessions as rows, roles on a column. See [ADR 0003 (auth seam)](adr/0003-framework-agnostic-auth-seam.md). | ✅     |
+| [`@acme/hooks`](../packages/shared/hooks/)             | Shared React hooks.                                                                                                                                                                                                                                                                                                                               | ✅     |
+| [`@acme/rag`](../packages/shared/rag/CONTEXT.md)       | RAG + conversation memory on [Mastra](adr/0002-mastra-rag-and-memory.md): vector store, document uploader, memory storage. Provider-agnostic — models come from `@acme/models`.                                                                                                                                                                   | ✅     |
+| [`@acme/models`](../packages/shared/models/CONTEXT.md) | Resolves chat + embed AI-SDK models from an env-selected provider (`bedrock` / `openrouter` / `ollama`). **Ollama is the default, so the repo runs with no cloud credentials.** See [ADR 0003 (multi-provider)](adr/0003-multi-provider-models.md).                                                                                               | ✅     |
 
 ## Platform — the runtime substrate
 
@@ -115,7 +115,7 @@ cp deploy/.env.example deploy/.env                       # infra env (container 
 for a in apps/*/; do cp "$a.env.example" "$a.env"; done  # per-app env (no shared root .env — ADR 0029)
 ```
 
-Ollama is the default model provider, so **no cloud API keys are required** to run locally. The _full_ apps additionally need [Clerk](getting-started.md#auth-clerk-keys-required-for-the-full-apps) keys; the _slim_ apps need no auth/billing credentials at all.
+Ollama is the default model provider, so **no cloud API keys are required** to run locally. The _full_ apps additionally need a generated [`BETTER_AUTH_SECRET`](getting-started.md#auth-better-auth-secret-required-for-the-full-apps); the _slim_ apps need no auth/billing credentials at all.
 
 **The daily loop.** `pnpm dev` is graph-aware — it brings up the Docker infra each target app's dependency closure needs, waits for health, pushes the schema, then runs the dev servers ([ADR 0009](adr/0009-graph-derived-dev-infra.md)):
 
@@ -225,5 +225,5 @@ The honest answer to "how easily can I change X?". This is the practical side of
 - **Layer dependency direction** (`tooling → platform → shared → features → apps`). Enforced by Turborepo boundary tags; violations fail the build.
 - **One feature = one package = router + hooks + UI.** The vertical-slice contract is the whole idea — break it and apps can no longer mount features cleanly.
 - **tRPC as the feature transport**, with the shared middleware pipeline (auth / trace / time / rate-limit). Every feature reuses it.
-- **Clerk for auth.** Behind a framework seam and _droppable_ (the slim apps run with no Clerk at all), but the _provider_ is still coupled across the full apps' features (`@acme/auth` re-exports Clerk React hooks/components). Swapping Clerk for another provider in the full apps is the remaining work.
+- **Better Auth for auth**, self-hosted — sessions are rows in the app's own Postgres, in a dedicated `auth` schema ([ADR 0034](adr/0034-self-hosted-better-auth.md), [ADR 0035](adr/0035-auth-tables-in-a-dedicated-schema.md)). Behind a framework seam and _droppable_: the slim apps run with no auth provider in the graph at all. It replaced a hosted identity provider, and **there is no migration path off that provider**: moving real identities and credentials is the deployment's own job.
 - **Stripe for billing** (`localstripe` in dev), **Postgres + pgvector via Drizzle** + **Redis** for persistence, **Mastra** for RAG/memory.

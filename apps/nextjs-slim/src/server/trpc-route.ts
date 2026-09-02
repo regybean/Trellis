@@ -11,12 +11,12 @@ import {
  * App-owned tRPC route-handler seam for the slim (no-auth, no-billing) Next.js
  * app. The fetch-adapter wiring, error logging and CORS live once in
  * `@acme/trpc/handler`; this file owns only the app-specific seam — injecting a
- * constant local principal and `unlimitedEntitlements` in place of Clerk +
+ * constant local principal and `unlimitedEntitlements` in place of auth +
  * billing (ADR 0010).
  */
 
 /**
- * Constant local principal. This app strips Clerk, but the feature procedures
+ * Constant local principal. This app strips auth, but the feature procedures
  * still require a principal: `@acme/chat` is `protectedProcedure` (scopes Mastra
  * memory by a non-null principal) and `@acme/ingest` is `adminProcedure` (gates
  * on the principal's `role`). So we inject a single fixed admin user — the whole
@@ -28,7 +28,7 @@ const LOCAL_SESSION: InjectedSession = {
 
 /**
  * Shape the neutral context input the feature `createTRPCContext` expects. No
- * Clerk, no billing: a constant admin principal and the no-op
+ * auth, no billing: a constant admin principal and the no-op
  * `unlimitedEntitlements` (top tier, infinite credits) are injected directly.
  */
 const resolveContext = (req: Request) => ({

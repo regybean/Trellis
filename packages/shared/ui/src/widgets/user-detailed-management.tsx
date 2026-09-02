@@ -34,12 +34,11 @@ export type UserManagementRole = 'user' | 'admin';
  * (ADR 0010). The edge runs the other way: `@acme/auth` names this type to
  * describe what its adapter returns.
  *
- * Every field is one Better Auth actually stores. Until #225 this was a
- * structural twin of *Clerk's* user — an `emailAddresses` array with a
- * `primaryEmailAddressId` pointing into it, `publicMetadata.role`, and a
- * `lastSignInAt` — and two of those had no source behind them once Clerk was
- * gone (ADR 0034): Better Auth keeps exactly one email per user (it is the row's
- * unique key) and records no last-sign-in. Both are gone rather than faked.
+ * Every field is one Better Auth actually stores. Until #225 this carried an
+ * `emailAddresses` array with a `primaryEmailAddressId` pointing into it and a
+ * `lastSignInAt`, neither of which had a source behind it (ADR 0034): Better
+ * Auth keeps exactly one email per user (it is the row's unique key) and records
+ * no last-sign-in. Both are gone rather than faked.
  *
  * `role` is optional because it is a nullable free-text column that Better Auth
  * omits from `getSession`'s static type; an absent value reads as the default,
@@ -61,8 +60,8 @@ interface UserDetailedManagementProps {
   /**
    * Assign a role. One callback covers promotion and demotion because Better
    * Auth has no "no role" state to return to — `role` is a column defaulting to
-   * `user`, not Clerk's nullable metadata bag — so demoting *is* assigning
-   * `user`. The old `removeRole` prop was a second name for this call.
+   * `user`, not a nullable metadata bag — so demoting *is* assigning `user`. The
+   * old `removeRole` prop was a second name for this call.
    *
    * A plain typed callback, not the `(FormData) => Promise<void>` server-action
    * signature this took until #225: that shape is Next.js's, and it forced the
