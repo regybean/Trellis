@@ -12,6 +12,9 @@
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
+import { createFeatureTRPC } from '@acme/trpc';
+import { createTestContext } from '@acme/trpc/testing';
+
 import {
   readSessionRole,
   toAdminUser,
@@ -172,5 +175,81 @@ describe('toAdminUser', () => {
     const [listed] = users;
 
     expect(listed && toAdminUser(listed).role).toBe('admin');
+  });
+});
+
+/**
+ * The whole chain the admin surface rests on, in one place: a role written by
+ * `setRole` lands in a column, comes back on a session resolved from a real
+ * cookie, survives `toPrincipal`, and decides an `adminProcedure`.
+ *
+ * The per-feature `adminProcedure` tests hand the gate a principal with the role
+ * already set, which proves the gate reads `role` but not that a *promotion*
+ * ever produces that principal. Every link here is real — `adminProcedure` is
+ * the production middleware from `@acme/trpc`, not a re-implementation.
+ */
+const { createTRPCRouter, adminProcedure } = createFeatureTRPC();
+
+const adminOnly = createTRPCRouter({
+  ping: adminProcedure.query(({ ctx }) => ctx.session.user.id),
+});
+
+/** An `adminOnly` caller for whoever this session belongs to. */
+function callerFor(session: Parameters<typeof toPrincipal>[0]) {
+  const user = toPrincipal(session);
+
+  // Not an assertion for the test's benefit: `createTestContext` takes a
+  // principal, and a signed-out caller has none. The callers below are all
+  // signed in, so reaching this is a broken fixture, not a failed expectation.
+  if (!user) throw new Error('expected a signed-in session');
+
+  return adminOnly.createCaller(
+    createTestContext({
+      user,
+      tier: 'Basic',
+      credits: { remaining: 250, limit: 250, resetAt: Date.now() },
+    }),
+  );
+}
+
+describe('adminProcedure', () => {
+  it('admits a promoted user and refuses them again once demoted', async () => {
+    const adminHeaders = await signedInAdmin();
+    const { created, headers } = await signedInSession('principal-gate');
+
+    const currentSession = () => auth.api.getSession({ headers });
+    const setRole = (role: 'admin' | 'user') =>
+      auth.api.setRole({
+        body: { userId: created.id, role },
+        headers: adminHeaders,
+      });
+
+    await expect(
+      callerFor(await currentSession()).ping(),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+
+    await setRole('admin');
+    await expect(callerFor(await currentSession()).ping()).resolves.toBe(
+      created.id,
+    );
+
+    await setRole('user');
+    await expect(
+      callerFor(await currentSession()).ping(),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+  });
+
+  it('refuses a caller whose role column holds something unrecognised', async () => {
+    const { created, headers } = await signedInSession('principal-gate-bogus');
+    await db
+      .update(authUser)
+      .set({ role: 'superuser' })
+      .where(eq(authUser.id, created.id));
+
+    // `readSessionRole` fails closed, so the gate never sees a role it cannot
+    // mean — a value the database will happily hold, since the column is text.
+    await expect(
+      callerFor(await auth.api.getSession({ headers })).ping(),
+    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
   });
 });
