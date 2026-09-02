@@ -5,10 +5,7 @@ import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import { z, ZodError } from 'zod/v4';
 
-import type {
-  EntitlementsProvider,
-  SubscriptionTier,
-} from '@acme/entitlements';
+import type { EntitlementsProvider } from '@acme/entitlements';
 import { logger } from '@acme/logger';
 import { instrumentDrizzleClient } from '@acme/telemetry';
 import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
@@ -251,37 +248,6 @@ function buildCore() {
   const protectedProcedure = publicProcedure.use(isAuthed);
   const adminProcedure = publicProcedure.use(isAdmin);
 
-  /**
-   * Hierarchical tier gate. Admits the request only if `ctx.tier` is at least
-   * `minTier` in the tier ordering (`Basic < Standard < Pro`), so higher tiers
-   * inherit lower-tier access. Reads the already-assembled billing context —
-   * no Redis or Stripe I/O.
-   */
-  const requireTier = (minTier: SubscriptionTier) =>
-    t.middleware(({ next, ctx }) => {
-      const span = trace.getActiveSpan();
-      span?.setAttributes({
-        'subscription.status': ctx.subscription.status,
-        'subscription.tier': ctx.tier,
-      });
-
-      if (!ctx.entitlements.isTierAtLeast(ctx.tier, minTier)) {
-        span?.addEvent('subscription.check.denied', {
-          reason: 'insufficient_tier',
-          required: minTier,
-          actual: ctx.tier,
-        });
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: `This feature requires the ${minTier} tier or higher.`,
-        });
-      }
-
-      span?.addEvent('subscription.check.granted', { tier: ctx.tier });
-
-      return next();
-    });
-
   return {
     t,
     api: {
@@ -291,7 +257,6 @@ function buildCore() {
       publicProcedure,
       protectedProcedure,
       adminProcedure,
-      requireTier,
     },
   };
 }

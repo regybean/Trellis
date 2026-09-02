@@ -325,17 +325,15 @@ export const accountRouter = createTRPCRouter({
     }),
 
   // Example Standard-or-higher feature (Standard and Pro both pass)
-  standardFeature: protectedProcedure
-    .use(requireTier('Standard'))
-    .query(({ ctx }) => {
-      return {
-        message: 'This feature is available to standard subscribers!',
-        subscriptionInfo: ctx.subscription,
-      };
-    }),
+  standardFeature: requireTier('Standard').query(({ ctx }) => {
+    return {
+      message: 'This feature is available to standard subscribers!',
+      subscriptionInfo: ctx.subscription,
+    };
+  }),
 
   // Example Pro-only feature
-  proFeature: protectedProcedure.use(requireTier('Pro')).query(({ ctx }) => {
+  proFeature: requireTier('Pro').query(({ ctx }) => {
     return {
       message: 'This feature is available to pro subscribers!',
       subscriptionInfo: ctx.subscription,
