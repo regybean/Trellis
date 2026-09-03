@@ -1,5 +1,7 @@
 # Feature tRPC client wiring: two factories, no name-keyed registry
 
+**Status:** accepted
+
 The per-feature client wiring (`trpc/react.tsx`, `server.tsx`, `query-client.ts`)
 is near-identical across features, so we are consolidating it into `@acme/trpc`.
 The tempting shape is a single `createFeatureTRPCClient(name)` backed by a registry
@@ -8,10 +10,6 @@ the registry and split the wiring into **two factories across two entry points**
 
 - `@acme/trpc/client` — `createFeatureClientReact<AppRouter>(name)` (`'use client'`)
 - `@acme/trpc/server` — `createFeatureServerCaller<AppRouter>({ name, appRouter, createTRPCContext })` (`'server-only'`)
-
-## Status
-
-accepted
 
 ## Why a single name-keyed registry does not work cleanly
 

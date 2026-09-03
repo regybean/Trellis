@@ -1,5 +1,12 @@
 # Mastra Memory owns Conversation persistence; the procedure orchestrates a thread
 
+**Status:** amended by 0003-conversation-ownership-as-middleware.md
+
+> Replaces an earlier design in which `chat.stream` wrote Conversation rows
+> itself. [ADR 0003](0003-conversation-ownership-as-middleware.md) later replaced
+> this ADR's "ownership is enforced in the procedure" consequence with a
+> procedure-builder seam; everything else below stands.
+
 The `chat.stream` procedure no longer writes Conversation rows itself. It calls
 `chatAgent.stream(prompt, { memory: { thread: sessionId, resource: userId } })`
 and Mastra Memory (backed by `PostgresStore`) persists both the user turn and the
@@ -9,11 +16,6 @@ procedures (`get`, `delete`, `create`, `adminGet`, `adminList`) call the Memory 
 (`recall`, `deleteThread`, `createThread`, `getThreadById`, `listThreads`) rather
 than Drizzle. The `chats`/`messages` tables and all hand-written persistence are
 gone.
-
-## Status
-
-accepted (replaces an earlier design in which `chat.stream` wrote Conversation
-rows itself)
 
 ## Why
 

@@ -1,5 +1,7 @@
 # The `@acme` scope is a distribution constraint, not placeholder naming
 
+**Status:** accepted
+
 `@acme/*` reads like naming left over from a starter kit, the kind of thing
 someone renames on a slow afternoon so the repo feels like it belongs to the team
 that owns it. Under [ADR 0037](0037-vendored-git-subset-three-way-merge.md) that
@@ -64,10 +66,6 @@ save.
   repo-wide rename this ADR is written to prevent, because whoever runs that
   rename updates the rule in the same pass. The prevention that works is knowing
   why.
-
-## Status
-
-accepted
 
 ## Consequences
 

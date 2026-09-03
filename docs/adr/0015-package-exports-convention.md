@@ -1,5 +1,7 @@
 # Package `exports` follow a bounded, concern-driven convention
 
+**Status:** accepted
+
 Every runtime package's `exports` map (`packages/platform|shared|features`,
 plus `compositions` if reintroduced) obeys one shared shape, enforced by
 `scripts/check-exports.mjs` (wired into `pnpm lint`, hard-fail):

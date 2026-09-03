@@ -1,5 +1,7 @@
 # Slim apps are separate no-auth deployments that inject a constant admin principal
 
+**Status:** accepted
+
 The auth seam ([ADR 0003](0003-framework-agnostic-auth-seam.md)) and the
 entitlements seam ([ADR 0006](0006-entitlements-injection-seam.md)) made the
 caller's identity and billing policy _injected_ values: the platform substrate
@@ -63,10 +65,6 @@ by the build, not by a runtime branch.
 The cost is duplicated app shell/config across the two pairs. That duplication is
 deliberate — the feature slices and platform packages (where the logic lives) stay
 single-sourced; only the thin integration layer is copied.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

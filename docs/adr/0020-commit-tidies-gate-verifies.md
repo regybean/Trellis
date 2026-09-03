@@ -1,5 +1,7 @@
 # Commit tidies, the gate verifies: tiered quality checks
 
+**Status:** accepted
+
 Quality checks are split by _when they run_ and _whether they can block_, to keep
 an agent from round-tripping on a hook mid-task. Three tiers:
 

@@ -1,5 +1,7 @@
 # A suite declares its test infra explicitly; the descriptor is owned by the infra package
 
+**Status:** accepted
+
 A backend suite starts exactly the containers it names in a tiny per-suite
 global-setup file: `export default runInfraSetup([postgresContainer,
 redisContainer])`. The descriptors are **live objects** exported by the package
@@ -58,10 +60,6 @@ probe when a suite used the local compose stack instead of a container, and that
 path is gone — every suite now starts its own container on a random host port
 ([ADR 0034](0034-backend-tests-always-self-provision.md)). A descriptor declares
 `containerPort` only.
-
-## Status
-
-accepted
 
 ## LocalStack folds into the same model
 

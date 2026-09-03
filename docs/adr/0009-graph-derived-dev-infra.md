@@ -1,5 +1,7 @@
 # `pnpm dev` derives the infra it starts from the dependency graph, not a per-app list
 
+**Status:** accepted
+
 `pnpm dev [app ...]` brings up only the infra services its target apps actually
 need, waits for them to be healthy, pushes schemas, then starts the dev servers.
 The non-obvious part is **where the list of needed services comes from** and a few
@@ -73,10 +75,6 @@ and is gated `--if-present`, so a DB-less app skips it cleanly.
 is healthy, and a subset bring-up leaves unrelated running services untouched —
 covering the common case of wanting infra up without the app, and of switching
 between apps without churning containers.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

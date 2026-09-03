@@ -1,5 +1,7 @@
 # TanStack Form is the form library, and `@acme/ui` is where it lands
 
+**Status:** accepted
+
 The auth widgets (`SignInForm`, `SignUpForm`) manage their fields with
 [TanStack Form](https://tanstack.com/form) rather than hand-rolled state, and
 `@tanstack/react-form` is a runtime `dependency` of `@acme/ui`. Any future form

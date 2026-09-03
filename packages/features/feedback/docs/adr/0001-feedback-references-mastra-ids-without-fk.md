@@ -1,15 +1,16 @@
 # Feedback references Mastra ids without a foreign key
 
+**Status:** accepted
+
+> The first concrete instance of the app-owned lane in
+> [@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md).
+
 `message_feedback` is an app-owned, Drizzle-managed table that points at
 Mastra-owned identifiers (`messageId`, `threadId`) but holds **no foreign key** to
 the `mastra_*` tables. drizzle-kit owns this table's DDL; Mastra owns the DDL of the
 tables it references. Integrity across the seam — "the thread is owned by the caller"
 and "the message exists in that thread" — is enforced in the `submit` router, not by
 a database constraint.
-
-## Status
-
-accepted (first concrete instance of the app-owned lane in [@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md))
 
 ## Why
 

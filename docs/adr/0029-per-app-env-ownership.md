@@ -1,5 +1,7 @@
 # Per-app env ownership — deprecate the shared root `.env`
 
+**Status:** accepted
+
 The application env surface used to live in a shared root `.env`, layered under
 every app (`with-env` = `dotenv -e ../../.env -- dotenv -e ./.env --`, root
 winning). We deprecate that root file: each app now owns its **full** application
@@ -57,10 +59,6 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
 - **Fold `deploy/.env` into apps too.** Rejected: compose is repo-level and one
   local stack is shared across apps; there is no single app that owns the container
   passwords.
-
-## Status
-
-accepted
 
 ## Consequences
 

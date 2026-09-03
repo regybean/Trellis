@@ -1,6 +1,6 @@
 # One durable Redis-stream primitive behind chat / ingest / notifications
 
-**Status:** accepted (ticket #196).
+**Status:** accepted (ticket #196)
 
 ## Context
 

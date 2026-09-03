@@ -1,5 +1,7 @@
 # Tests validate real env instead of mocking `env.ts`
 
+**Status:** accepted
+
 Test suites let each package's `env.ts` (`createEnv`) run and validate for real
 against a populated `process.env`, rather than `vi.mock('../../env', …)`-ing it
 (and every deeper env in the dependency tree) in each `setup.ts`. Env is

@@ -1,5 +1,7 @@
 # Auth is injected into the tRPC context; the app owns the Clerk resolver
 
+**Status:** accepted
+
 Adding a second app (`apps/tanstack-start`) alongside `apps/nextjs` forced the
 question of how features get the current user. Previously `@acme/trpc`'s
 `createTRPCContext` called Clerk's `auth()` / `currentUser()` itself — bound to
@@ -22,10 +24,6 @@ load-bearing:
    - `apps/tanstack-start` resolves via `@clerk/tanstack-react-start/server`
      (`auth()` + `clerkClient().users.getUser`) in `src/lib/clerk-context.ts`,
      after registering `clerkMiddleware()` in `createStart()` (`src/start.ts`).
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

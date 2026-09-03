@@ -1,5 +1,7 @@
 # Per-query IndexedDB persister for offline read of chat & feedback
 
+**Status:** amended by ../../../../../docs/adr/0036-one-app-owned-query-client.md
+
 Operators reload or reopen an app and stare at empty Conversation History, blank
 Messages, and flickering thumbs-up/down Feedback buttons until the network
 responds — worst on a slow link, unusable offline. These are the surfaces they
@@ -166,10 +168,6 @@ load-bearing.
 - **Aligning react-query and the persister on one version instead of an override.**
   Their version lines and `query-core` pins almost never coincide, so this would
   mean frequent, awkward version gymnastics; a single `overrides` pin is simpler.
-
-## Status
-
-accepted
 
 ## Consequences
 

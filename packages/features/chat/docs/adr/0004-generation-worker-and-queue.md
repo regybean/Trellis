@@ -1,7 +1,7 @@
 # 0004 — Generation Worker and Queue
 
-**Status:** Accepted  
-**Supersedes:** —  
+**Status:** accepted
+
 **Related:** ADR 0002 (Mastra Memory), ADR 0003 (Ownership middleware), system-wide ADR 0008 (ioredis)
 
 ## Context

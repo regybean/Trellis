@@ -1,5 +1,7 @@
 # CI build stubs for infrastructure-client env vars
 
+**Status:** accepted
+
 > **Rationale updated by [ADR 0033](0033-one-env-factory-per-slice.md) §3.** The
 > stub table below still holds, but not for the reason given here. An
 > `IS_NEXT_BUILD` run no longer skips coercion: `withProfiles` always builds and
@@ -78,10 +80,6 @@ vars only, so CI step env vars are silently dropped unless listed there.
 - **Skip build in CI / make it report-only**. Build is a gate, not a report: a broken
   build must block merges.
 - **Add real DB secrets to CI**. Overkill — no DB is actually queried during build.
-
-## Status
-
-accepted
 
 ## Consequences
 

@@ -1,5 +1,7 @@
 # Auth tables live in a dedicated `auth` schema, outside the per-app one
 
+**Status:** accepted
+
 Every app-owned table in this repo is namespaced under
 `pgSchema(process.env.NEXT_PUBLIC_WEBAPP)`: one Postgres instance, four apps,
 four schemas, no cross-app reads. [ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md)
@@ -67,10 +69,6 @@ name — camelCase by default. So the **property keys** are fixed by Better Auth
 names are ours. The backend suite is what proves the whole cross-schema mapping
 resolves, including a direct `information_schema` assertion that the four tables
 are in `auth` and not in the suite's per-app schema.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 
