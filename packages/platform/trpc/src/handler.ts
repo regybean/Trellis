@@ -1,6 +1,7 @@
 import type { AnyRouter } from '@trpc/server';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 
+import type { BaseContext } from './index';
 import { logTRPCError } from './error';
 
 /**
@@ -34,19 +35,44 @@ export const corsPreflightHeaders = {
   'Access-Control-Allow-Headers': '*',
 };
 
-interface TRPCFetchHandlerOptions<TRouter extends AnyRouter, TContextInput> {
+/**
+ * A feature's router, seen through the only thing this module needs from it:
+ * the context its procedures read.
+ *
+ * Parameterised on the *context* rather than on the router, because
+ * `inferRouterContext<TRouter extends AnyRouter>` is `any` — `AnyRouter` is
+ * `Router<any, any>`, so a resolver typed against it would be checked against
+ * nothing. Naming `$types.ctx` as the parameter recovers the feature's own
+ * concrete context at every call site.
+ */
+type RouterWithContext<TContext extends BaseContext> = AnyRouter & {
+  _def: { _config: { $types: { ctx: TContext } } };
+};
+
+/**
+ * Exported because each app's route seam wraps this handler in its framework's
+ * shape and forwards these options verbatim — re-declaring them per app is how
+ * the two drifted apart before (see the module comment).
+ */
+export interface TRPCFetchHandlerOptions<TContext extends BaseContext> {
   /** The tRPC endpoint path, e.g. `/api/trpc/chat`. */
   endpoint: string;
   /** The feature's aggregated app router. */
-  router: TRouter;
-  /** The feature's `createTRPCContext` (re-exported from the platform seam). */
-  createContext: (input: TContextInput) => Promise<unknown>;
+  router: RouterWithContext<TContext>;
   /**
-   * App-owned context resolver: shape the neutral context input from the
-   * request (resolve a session, or inject a constant principal). This is the only
-   * per-app/per-framework piece — the auth seam stays in the app.
+   * App-owned context resolver: build the request context (resolve a session,
+   * inject a constant principal, hand over an entitlements provider). This is
+   * the only per-app/per-framework piece — the auth seam stays in the app.
+   *
+   * Its return type is pinned to the *router's own* context, so a mount whose
+   * feature reads a field the app's resolver doesn't produce fails to compile.
+   * That check used to be spelled out by threading the feature's
+   * `createTRPCContext` alongside; the router already carried the type, and the
+   * identity function that carried it is gone (#264). `NoInfer` keeps the
+   * router the sole inference site, so a resolver missing a field is a mismatch
+   * rather than a wider `TContext`.
    */
-  resolver: (req: Request) => TContextInput | Promise<TContextInput>;
+  resolver: (req: Request) => NoInfer<TContext> | Promise<NoInfer<TContext>>;
 }
 
 /**
@@ -55,21 +81,17 @@ interface TRPCFetchHandlerOptions<TRouter extends AnyRouter, TContextInput> {
  * `httpSubscriptionLink` SSE streams such as `chat.stream`). `logTRPCError` is
  * baked in so structured error logging can't be forgotten.
  */
-export function createTRPCFetchHandler<
-  TRouter extends AnyRouter,
-  TContextInput,
->({
+export function createTRPCFetchHandler<TContext extends BaseContext>({
   endpoint,
   router,
-  createContext,
   resolver,
-}: TRPCFetchHandlerOptions<TRouter, TContextInput>) {
+}: TRPCFetchHandlerOptions<TContext>) {
   return (req: Request) =>
     fetchRequestHandler({
       endpoint,
       req,
       router,
-      createContext: async () => createContext(await resolver(req)),
+      createContext: () => resolver(req),
       onError: logTRPCError,
     });
 }
