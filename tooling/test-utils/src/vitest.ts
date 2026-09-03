@@ -1,5 +1,5 @@
 /**
- * Shared Vitest test env + backend project preset.
+ * Shared Vitest test env + backend/frontend project presets.
  *
  * `staticTestEnv` is the one place static, non-secret env lives so every
  * package's `env.ts` (`createEnv`) validates against real values instead of
@@ -7,11 +7,15 @@
  * frontend configs. Dynamic, per-run DB/Redis connection details are hydrated
  * separately from testcontainers by `@acme/test-utils/hydrate-env`.
  *
- * `backendProject` folds the identical backend wiring (env spread, hydrate-env
- * setupFile ordering, testcontainer globalSetup, single non-isolated forked
- * worker, generous timeouts) into one call so a feature's
- * `vitest.config.backend.ts` only declares what's unique to it.
+ * `backendProject` and `frontendProject` fold the identical per-side wiring into
+ * one call each, so a package's `vitest.config.<side>.ts` only declares what's
+ * unique to it — for the backend the hydrate-env setupFile ordering, the
+ * testcontainer globalSetup, the single non-isolated forked worker and the
+ * generous timeouts; for the frontend the react plugin and the jsdom
+ * environment. Both own the `include` glob outright: test layout is one
+ * convention (`src/tests/<layer>/<kind>[/<group>]/`), not a per-package choice.
  */
+import react from '@vitejs/plugin-react';
 import { defineConfig, mergeConfig } from 'vitest/config';
 
 import baseConfig from '@acme/vitest-config/base';
@@ -63,6 +67,17 @@ export const staticTestEnv = {
   BETTER_AUTH_URL: 'http://localhost:3000',
 } satisfies Record<string, string>;
 
+/**
+ * The canonical test layout, `src/tests/<layer>/<kind>[/<group>]/`. The layer
+ * segment is present even in a single-sided package: it is not there to
+ * disambiguate within a package but so one glob works across all of them, and
+ * so the path prefix is a filter axis tooling can trust. Neither factory takes
+ * an `include` override — a suite that collected nothing would pass silently
+ * (`passWithNoTests`), so the glob is the factory's to own, not a caller's.
+ */
+const BACKEND_INCLUDE = 'src/tests/backend/**/*.test.ts';
+const FRONTEND_INCLUDE = 'src/tests/frontend/**/*.test.{ts,tsx}';
+
 interface BackendProjectOptions {
   /**
    * Dedicated Postgres schema for this suite (parallel cleanup isolation).
@@ -77,7 +92,6 @@ interface BackendProjectOptions {
   redisDb?: string;
   /** The package's own setup file(s), run after hydrate-env. */
   setupFiles?: string[];
-  include?: string[];
   /**
    * Path to this suite's per-suite global-setup file, which imports its
    * `InfraDescriptor`s (as live objects) and hands them to `runInfraSetup`
@@ -93,7 +107,6 @@ export function backendProject({
   webapp,
   redisDb,
   setupFiles = [],
-  include = ['src/tests/backend/**/*.test.ts'],
   globalSetup,
 }: BackendProjectOptions) {
   const hasInfra = globalSetup !== undefined;
@@ -108,7 +121,7 @@ export function backendProject({
           NEXT_PUBLIC_WEBAPP: webapp,
           ...(redisDb ? { TEST_REDIS_DB: redisDb } : {}),
         },
-        include,
+        include: [BACKEND_INCLUDE],
         // With infra, hydrate-env runs first: copies testcontainer connection
         // details into process.env so every env.ts validates against the real
         // DB/Redis. Infra-less suites skip it (their externals are mocked).
@@ -124,6 +137,35 @@ export function backendProject({
         pool: 'forks',
         maxWorkers: 1,
         isolate: false,
+      },
+    }),
+  );
+}
+
+interface FrontendProjectOptions {
+  /** The package's own setup file(s) — providers, jsdom polyfills, MSW server. */
+  setupFiles?: string[];
+}
+
+/**
+ * The frontend counterpart: react plugin, jsdom, and the `staticTestEnv` spread
+ * that makes jsdom's client mode validate every reachable `env.ts` against real
+ * values rather than a mock (ADR 0014). MSW is the frontier here — there is no
+ * infra to provision, so there is no globalSetup analogue (ADR 0018).
+ */
+export function frontendProject({
+  setupFiles = [],
+}: FrontendProjectOptions = {}) {
+  return mergeConfig(
+    baseConfig,
+    defineConfig({
+      plugins: [react()],
+      test: {
+        name: 'frontend',
+        environment: 'jsdom',
+        env: { ...staticTestEnv },
+        include: [FRONTEND_INCLUDE],
+        setupFiles,
       },
     }),
   );
