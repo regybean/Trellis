@@ -49,7 +49,7 @@ function branches(bank: string) {
 
 /** Edits a vendored file so the consumer has something to contribute. */
 function divergeLocally(consumer: string, last = 'consumer fixed the tail') {
-  write(consumer, 'tooling/eslint.js', numberedLines('bank first', last));
+  write(consumer, 'tooling/eslint/index.js', numberedLines('bank first', last));
   commit(consumer, 'consumer: fix the tail');
 }
 
@@ -59,7 +59,9 @@ describe('bank:contribute refuses before anything leaves the repo', () => {
     syncAndMerge(consumer);
     divergeLocally(consumer);
 
-    const { status, stderr } = contribute(consumer, ['tooling/eslint.js']);
+    const { status, stderr } = contribute(consumer, [
+      'tooling/eslint/index.js',
+    ]);
 
     expect(status).toBe(1);
     expect(stderr).toContain('"contributable"');
@@ -90,11 +92,13 @@ describe('bank:contribute refuses before anything leaves the repo', () => {
     syncAndMerge(consumer);
     write(
       consumer,
-      'tooling/eslint.js',
+      'tooling/eslint/index.js',
       numberedLines('bank first', 'unsaved'),
     );
 
-    const { status, stderr } = contribute(consumer, ['tooling/eslint.js']);
+    const { status, stderr } = contribute(consumer, [
+      'tooling/eslint/index.js',
+    ]);
 
     expect(status).toBe(1);
     expect(stderr).toContain('uncommitted changes');
@@ -104,7 +108,9 @@ describe('bank:contribute refuses before anything leaves the repo', () => {
   it('refuses when the repo has never synced, so there is no base to diff against', () => {
     const { bank, consumer } = setup({ contributable: ['tooling'] });
 
-    const { status, stderr } = contribute(consumer, ['tooling/eslint.js']);
+    const { status, stderr } = contribute(consumer, [
+      'tooling/eslint/index.js',
+    ]);
 
     expect(status).toBe(1);
     expect(stderr).toContain('vendor/trellis does not exist');
@@ -145,12 +151,12 @@ describe('bank:contribute opens the PR only after a human confirms', () => {
 
       const { status, stdout, stderr } = contribute(
         consumer,
-        ['tooling/eslint.js'],
+        ['tooling/eslint/index.js'],
         'no\n',
       );
 
       // The human saw the diff before being asked.
-      expect(stdout).toContain('--- a/tooling/eslint.js');
+      expect(stdout).toContain('--- a/tooling/eslint/index.js');
       expect(stdout).toContain('+consumer fixed the tail');
       expect(stdout).toContain('-bank last');
       expect(stdout).toContain('Type "contribute" to open the PR');
@@ -171,7 +177,7 @@ describe('bank:contribute opens the PR only after a human confirms', () => {
 
       const { status, stdout } = contribute(
         consumer,
-        ['tooling/eslint.js'],
+        ['tooling/eslint/index.js'],
         'contribute\n',
       );
 
@@ -185,12 +191,12 @@ describe('bank:contribute opens the PR only after a human confirms', () => {
       // Cut from the commit the consumer merged, so the patch applies to the
       // bank by construction and the PR shows only the consumer's change.
       expect(git(bank, ['rev-parse', `${pushed}^`])).toBe(bankTip);
-      expect(git(bank, ['show', `${pushed}:tooling/eslint.js`])).toContain(
-        'consumer fixed the tail',
-      );
+      expect(
+        git(bank, ['show', `${pushed}:tooling/eslint/index.js`]),
+      ).toContain('consumer fixed the tail');
       // Only the contributed path moved — nothing else rode along.
       expect(git(bank, ['diff', '--name-only', bankTip, pushed])).toBe(
-        'tooling/eslint.js',
+        'tooling/eslint/index.js',
       );
     },
   );
@@ -205,14 +211,14 @@ describe('bank:contribute opens the PR only after a human confirms', () => {
       const key = `AKIA${'ZZ4RVLXNQ2X7YAB6'}`;
       write(
         consumer,
-        'tooling/eslint.js',
+        'tooling/eslint/index.js',
         numberedLines('bank first', `export const accessKeyId = "${key}";`),
       );
       commit(consumer, 'consumer: wire up the uploader');
 
       const { status, stderr } = contribute(
         consumer,
-        ['tooling/eslint.js'],
+        ['tooling/eslint/index.js'],
         'contribute\n',
       );
 

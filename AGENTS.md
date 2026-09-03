@@ -98,7 +98,7 @@ pnpm preview [app...]    # Serve the COMPILED build locally (no HMR) for true pa
 
 ```bash
 pnpm tidy                # Auto-fix first (lint:fix + format:fix) — the gate is read-only
-pnpm quality-gate        # READ-ONLY verify, parallel: build + turbo(lint+format+typecheck) + test + check:exports + boundaries + lint:ws + deps:lint + test:policy + gitleaks
+pnpm quality-gate        # READ-ONLY verify, parallel: build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 
 How and when to run these — incremental per-package checks and the end-of-task
