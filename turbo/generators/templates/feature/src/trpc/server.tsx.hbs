@@ -5,11 +5,9 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { InjectedSession } from '@acme/trpc';
-
 import type { AppRouter } from '../api/root';
+import type { {{ pascalCase name }}Context } from '../api/trpc';
 import { appRouter } from '../api/root';
-import { createTRPCContext } from '../api/trpc';
 import { createAppQueryClient } from '@acme/hooks';
 
 /**
@@ -18,15 +16,11 @@ import { createAppQueryClient } from '@acme/hooks';
  * feature depends on no auth SDK. See
  * docs/adr/0003-framework-agnostic-auth-seam.md.
  *
- * A generated feature declares no tRPC context extension, so the session is all
- * there is to inject. If you add one in `api/trpc.ts`, extend it here too —
- * `@acme/chat`'s `ServerTRPCOptions extends ChatContext` is the worked example
- * (#256, ADR 0006).
+ * The options *are* the feature's context, so adding a field in `api/trpc.ts`
+ * is all it takes for callers to have to supply it here too — `@acme/chat`'s
+ * `entitlements` is the worked example (#256, ADR 0006).
  */
-export interface ServerTRPCOptions {
-  headers: Headers;
-  session: InjectedSession;
-}
+export type ServerTRPCOptions = {{ pascalCase name }}Context;
 
 // The RSC half's own client — a fresh one per request, from the same factory the
 // app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
@@ -35,14 +29,11 @@ export interface ServerTRPCOptions {
 const getQueryClient = cache(createAppQueryClient);
 
 export function createServerTRPC(opts: ServerTRPCOptions) {
-  const createContext = cache(async () => {
+  const createContext = cache(() => {
     const heads = new Headers(opts.headers);
     heads.set('x-trpc-source', 'rsc');
 
-    return createTRPCContext({
-      headers: heads,
-      session: opts.session,
-    });
+    return { ...opts, headers: heads };
   });
 
   return createTRPCOptionsProxy<AppRouter>({

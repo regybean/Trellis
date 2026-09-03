@@ -70,20 +70,20 @@ const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Provi
 
    ```ts
    // apps/nextjs/src/app/api/trpc/{{ kebabCase name }}/[trpc]/route.ts
-   import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+   import { appRouter } from '@acme/{{ kebabCase name }}/server';
 
-   import { appRouter, createTRPCContext } from '@acme/{{ kebabCase name }}/server';
+   import { createTRPCRouteHandlers, resolveContext } from '~/server/trpc-route';
 
-   const handler = (req: Request) =>
-     fetchRequestHandler({
-       endpoint: '/api/trpc/{{ kebabCase name }}',
-       req,
-       router: appRouter,
-       createContext: () => createTRPCContext({ headers: req.headers }),
-     });
-
-   export { handler as GET, handler as POST };
+   export const { GET, POST, OPTIONS } = createTRPCRouteHandlers({
+     endpoint: '/api/trpc/{{ kebabCase name }}',
+     router: appRouter,
+     resolver: resolveContext,
+   });
    ```
+
+   The resolver is checked against the router's own context, so if you add a
+   field to `{{ pascalCase name }}Context` the mount won't compile until the app
+   supplies it (#264).
 {{#if react}}
 3. Wrap the relevant tree with `{{ pascalCase name }}TRPCProvider` (from `@acme/{{ kebabCase name }}`).
 {{/if}}
