@@ -25,6 +25,15 @@ function toGlobs(raw) {
   return dirOnly ? [`${base}/**`] : [base, `${base}/**`];
 }
 
+// .claudeignore rides in the `agents` bundle, this script in `root`, so a
+// consumer that took the bank without the agent config has no source to compile
+// and nothing to write. Same guard as register-skills.sh, for the same reason:
+// this runs on every postinstall.
+if (!existsSync(ignorePath)) {
+  console.log(`sync-claudeignore: no ${ignorePath} — nothing to sync`);
+  process.exit(0);
+}
+
 const patterns = readFileSync(ignorePath, "utf8")
   .split("\n")
   .map((l) => l.trim())
