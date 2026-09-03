@@ -5,7 +5,7 @@ A slice declares its whole environment in **one `createEnv` call in one
 profile values; secrets come from `process.env`; and **every** key can be set from
 the environment, so one image deploys anywhere. This package supplies the pieces
 that make that one call work. See
-[ADR 0033](../../../docs/adr/0033-one-env-factory-per-slice.md), which superseded
+[ADR 0033](docs/adr/0001-one-env-factory-per-slice.md), which superseded
 `@acme/config` ([ADR 0026](../../../docs/adr/0026-config-as-code.md) §§2, 4, 6).
 
 ## Ubiquitous language

@@ -42,7 +42,7 @@ sources of truth.
 - Conversations are queryable with Drizzle via the mirrored `mastra_threads` /
   `mastra_messages` tables in `@acme/rag/schema`, but those mirrors are read models;
   Mastra owns the DDL and the writes (see system ADR
-  [0002-mastra-rag-and-memory](../../../../../docs/adr/0002-mastra-rag-and-memory.md)).
+  [0002-mastra-rag-and-memory](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md)).
 - A mid-stream LLM error still leaves the turn retryable — Mastra persists the user
   turn before generation.
 

@@ -81,5 +81,5 @@ in. Diffing two of them shows which parts are framework-specific.
   package, for writing one rather than mounting one.
 - [ADR 0015](../adr/0015-package-exports-convention.md) — the `exports`
   convention every **Surface** table reflects.
-- [ADR 0033](../adr/0033-one-env-factory-per-slice.md) — one env factory per
+- [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) — one env factory per
   slice, and the config/secret rule every **Env** table uses.

@@ -20,7 +20,7 @@ The app-owned `resolveAuthContext` that turns a `Request` into the injected
 `resolveAuthContextWithEntitlements` adds the entitlements provider for the chat
 and billing mounts, which declare it (#256). The
 per-app half of the auth seam — see
-[ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md) and
+[@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md) and
 [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md). It reads the
 session off the request's own `Cookie` header, so nothing has to run before it.
 It hands the resolved session to `@acme/auth/server`'s `toPrincipal` rather than
@@ -67,12 +67,12 @@ database. `src/server/db/schema.ts` is the drizzle-kit entrypoint — it re-expo
 `messageFeedback` table from `@acme/feedback/schema`. It also re-exports Better
 Auth's four tables from `@acme/auth/schema`, which sit in a constant `auth`
 schema rather than `appSchema` because identity is shared across the apps on one
-database ([ADR 0035](../../docs/adr/0035-auth-tables-in-a-dedicated-schema.md)) —
+database ([@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md)) —
 `auth` is therefore the second entry in both drizzle configs' `schemaFilter`, and
 without it push would ignore them. Mastra's `mastra_*` tables
 are deliberately excluded (the `!mastra_*` tablesFilter in `drizzle.push.config.ts`);
 Mastra owns their DDL at runtime — see
-[ADR 0002](../../docs/adr/0002-mastra-rag-and-memory.md). Run `db:push` (dev) or
+[@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md). Run `db:push` (dev) or
 `db:migrate` (deploy) before booting the app on a fresh DB.
 
 ## Structure
@@ -117,7 +117,7 @@ Mastra owns their DDL at runtime — see
   ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
 - Auth is resolved at the HTTP boundary by the session resolver and put on the
   tRPC context it returns; features never resolve auth themselves
-  ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md),
+  ([@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md),
   [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md)).
 - `beforeLoad` route guards replace Next.js middleware for auth / admin gating.
   They are also what enforces "nothing fires while signed out": the guard throws
@@ -131,7 +131,7 @@ Mastra owns their DDL at runtime — see
   state and lets the persisters attach on their first render.
 - Every request costs one `session` row read. Auth is stateful now, so deleting
   the row revokes the session immediately — `initAuth` turns the cookie cache off
-  to keep that true ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md)).
+  to keep that true ([@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)).
 - Framework-coupled glue (admin role mutations, stripe-success redirect) lives in
   this app. The admin shell is app-owned in `src/components/admin/`, reusing the
   neutral presentational components and `@acme/billing`

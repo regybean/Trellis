@@ -16,7 +16,7 @@ imports this package.
   injects, which is what keeps features from importing an auth provider.
 - Identity tables you re-export from your schema barrel, in their own Postgres
   schema so several apps on one database share their users
-  ([ADR 0035](../../../docs/adr/0035-auth-tables-in-a-dedicated-schema.md)).
+  ([ADR 0035](docs/adr/0002-auth-tables-in-a-dedicated-schema.md)).
 
 ## Surface
 

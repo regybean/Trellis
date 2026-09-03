@@ -2,7 +2,7 @@
 
 Every app-owned table in this repo is namespaced under
 `pgSchema(process.env.NEXT_PUBLIC_WEBAPP)`: one Postgres instance, four apps,
-four schemas, no cross-app reads. [ADR 0008](0008-per-app-redis-namespace.md)
+four schemas, no cross-app reads. [ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md)
 names that construct — _one app-identity value partitions every shared
 datastore_.
 
@@ -10,7 +10,7 @@ Better Auth's four tables (`user`, `session`, `account`, `verification`) are the
 **deliberate exception**. They live in a constant `auth` schema:
 
 ```ts
-export const authSchema = pgSchema("auth");
+export const authSchema = pgSchema('auth');
 ```
 
 ## Why identity is different
@@ -38,7 +38,7 @@ in `schemaFilter`, so both full apps' `drizzle.config.ts` now read
 the auth tables — no error, just no tables. Both apps also re-export the tables
 from their `src/server/db/schema.ts` (including `authSchema` itself, so drizzle
 owns `CREATE SCHEMA auth`), which is what brings them under push at all
-([ADR 0021](0021-test-schema-provisioning-db-push.md)).
+([ADR 0021](../../../../../docs/adr/0021-test-schema-provisioning-db-push.md)).
 
 **Both full apps push the same four tables.** Idempotent — identical desired
 state from one shared package — but it does mean the DDL has two owners in

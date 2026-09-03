@@ -56,7 +56,7 @@ extension point. No fork, no patch, no per-key hand-written `.default(...)`:
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 export const env = createEnv({
-  clientPrefix: "NEXT_PUBLIC_",
+  clientPrefix: 'NEXT_PUBLIC_',
   client: {},
   server: {
     DB_HOST: z.string().nonempty(),
@@ -65,13 +65,13 @@ export const env = createEnv({
   },
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
-      default: { DB_HOST: "localhost", DB_PORT: 5444 },
-      production: { DB_HOST: "db.internal" },
+      default: { DB_HOST: 'localhost', DB_PORT: 5444 },
+      production: { DB_HOST: 'db.internal' },
     }),
   runtimeEnv: {
-    DB_HOST: readEnv("DB_HOST"),
-    DB_PORT: readEnv("DB_PORT"),
-    DB_PASSWORD: readEnv("DB_PASSWORD"),
+    DB_HOST: readEnv('DB_HOST'),
+    DB_PORT: readEnv('DB_PORT'),
+    DB_PASSWORD: readEnv('DB_PASSWORD'),
   },
   emptyStringAsUndefined: true,
 });
@@ -282,7 +282,7 @@ resolved `{ appEnv, isServer }` once and threaded it in (ADR 0026 §4). A single
 - **Local development needs fewer `.env` rows, and the credentials it does need
   are authored honestly.** `@acme/ingest` authors LocalStack's dummy AWS pair and
   `@acme/billing` authors localstripe's fixed placeholders (documented as not real
-  secrets, gitleaks-allowlisted, [ADR 0004](0004-localstripe-dev-billing.md)) in
+  secrets, gitleaks-allowlisted, [@acme/billing ADR 0001](../../../../features/billing/docs/adr/0001-localstripe-dev-billing.md)) in
   their **development** profiles, and both **unauthor** them in the
   staging/production overlays — so a real target must supply them, by the same
   mechanical rule as every other secret. `@acme/db`'s `DB_PASSWORD` authors

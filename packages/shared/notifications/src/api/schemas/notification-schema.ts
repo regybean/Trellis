@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // The notification envelope — isomorphic (shipped via `./schema`), so both the
 // server (`publish`) and the client (the toast renderers) validate against the
-// one shape. This is the crux of the ADR (docs/adr/0030-notifications-seam.md):
+// one shape. This is the crux of the ADR (packages/shared/notifications/docs/adr/0001-notifications-seam.md):
 // the core owns the ENVELOPE, never the kinds. `kind` is an OPEN string (a
 // dispatch/telemetry key), not a closed enum — a closed discriminated union is
 // impossible because `shared` cannot import feature payload types. `data` is an

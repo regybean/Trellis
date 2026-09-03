@@ -4,7 +4,7 @@ The shared Postgres connection substrate, peer to `@acme/redis`. It owns _how yo
 connect_ to Postgres — the drizzle/postgres-js client factory and the `DB_*`
 connection env — not _what_ any feature stores (each feature owns its own tables)
 nor the vector store (that stays Mastra-owned in `@acme/rag`). See
-[ADR 0016](../../../docs/adr/0016-db-connection-platform-package.md).
+[ADR 0016](docs/adr/0001-db-connection-platform-package.md).
 
 ## Language
 

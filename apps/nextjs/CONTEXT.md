@@ -31,9 +31,9 @@ _Avoid_: "API route", "endpoint file"
 - `AdminDashboard` (app-owned, `components/admin/`) guards on the admin role inline via `auth.api.getSession`; the role mutation lives in `src/lib/admin.ts` as a server action ([ADR 0011](../../docs/adr/0011-remove-compositions-layer.md))
 - `instrumentation.ts` initialises OpenTelemetry via `@acme/telemetry` at startup
 
-## Auth ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md))
+## Auth ([@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md))
 
-Self-hosted Better Auth, sessions as rows in the shared `auth` schema ([ADR 0035](../../docs/adr/0035-auth-tables-in-a-dedicated-schema.md)). The app owns every framework-specific piece; `@acme/auth` ships the instance factory and the tables, and no React at all.
+Self-hosted Better Auth, sessions as rows in the shared `auth` schema ([@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md)). The app owns every framework-specific piece; `@acme/auth` ships the instance factory and the tables, and no React at all.
 
 - `server/auth.ts` — the app's `initAuth({ baseUrl })` instance, shared by the route handler, the tRPC resolver and the admin actions
 - the mapping onto the neutral `InjectedUser`, and the role read, are **not** here — `toPrincipal` / `readSessionRole` / `toAdminUser` live once in `@acme/auth/server` and are shared with `apps/tanstack-start` (#239). This app owns _resolution_ only. `role` is parsed, not asserted: it is an admin-plugin field that Better Auth omits from `getSession`'s static type

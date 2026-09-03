@@ -3,7 +3,7 @@
 A package that owns tables defines them but does not migrate them. Your app
 does. The barrel is the module your migration tool reads, and re-exporting a
 package's tables from it is how you say "this deployment manages these"
-([ADR 0016](../adr/0016-db-connection-platform-package.md)).
+([@acme/db ADR 0001](../../packages/platform/db/docs/adr/0001-db-connection-platform-package.md)).
 
 ## 1. Re-export what you want managed
 
@@ -29,7 +29,7 @@ the barrel too, so your migration tool owns its `CREATE SCHEMA`.
 
 Identity tables are the exception — they sit in their own schema so that apps
 sharing a database share their users
-([ADR 0035](../adr/0035-auth-tables-in-a-dedicated-schema.md)).
+([@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md)).
 
 ## 3. Tables you must not re-export
 

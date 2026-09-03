@@ -53,7 +53,7 @@ and `tooling/tailwind`'s `theme.css`.
 `@acme/env` is a hard dependency of thirteen of the nineteen runtime packages, so
 excluding it makes nearly every selection fail to install with nothing to copy
 from — and the per-app part of env is the app's composition, which the bank never
-distributes, not this package ([ADR 0033](adr/0033-one-env-factory-per-slice.md)).
+distributes, not this package ([@acme/env ADR 0001](../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md)).
 `theme.css` is the same shape one level down: `@acme/tailwind-config` is a hard
 dependency of every UI package, and there is no way to express _take the package
 but not one file_, because a resolved path is a prefix.

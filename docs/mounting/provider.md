@@ -38,7 +38,7 @@ in [trpc-route.md](trpc-route.md).
 ## 3. `scopeKey` — the persistence seam
 
 Features that persist reads offline take a `scopeKey`
-([ADR 0025](../adr/0025-per-query-indexeddb-persister.md)). It scopes the cached
+([@acme/hooks ADR 0001](../../packages/shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md)). It scopes the cached
 snapshot, so a different user, or a deploy that changes the data shape, discards
 the previous one.
 

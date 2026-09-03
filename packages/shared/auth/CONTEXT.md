@@ -3,7 +3,7 @@
 The auth seam, and after #239 it is Better Auth end to end: both full apps run on
 it, and the package's client barrel is gone. What remains is the **server** half
 — the instance and the mappings — plus the signing secret. See
-[ADR 0034](../../../docs/adr/0034-self-hosted-better-auth.md) for the
+[ADR 0034](docs/adr/0001-self-hosted-better-auth.md) for the
 replacement decision and
 [ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md) (with its
 amendments) for the seam.
@@ -38,7 +38,7 @@ the row carries them.
 Better Auth's four tables as Drizzle tables, hand-authored in **`pgSchema('auth')`**
 — a constant schema, not the per-app `NEXT_PUBLIC_WEBAPP` one, because identity
 is shared across the apps on one database
-([ADR 0035](../../../docs/adr/0035-auth-tables-in-a-dedicated-schema.md)).
+([ADR 0035](docs/adr/0002-auth-tables-in-a-dedicated-schema.md)).
 Prefixed `auth*` so `user`/`session` don't collide in a consumer's imports.
 `authTables` is the unprefixed model→table map the Drizzle adapter needs.
 _Avoid_: "the auth schema" for the Drizzle module (it means the Postgres schema
@@ -104,7 +104,7 @@ _Avoid_: "the auth URL is slice config"
   `toAdminUser` returns. `shared` → `shared` is a legal edge and the import
   is erased at runtime; the direction is what matters, because the reverse
   (`@acme/ui` importing `@acme/auth`) would drag auth into the slim apps' graph
-  ([ADR 0013](../../../docs/adr/0013-admin-user-widgets-to-ui.md)).
+  ([@acme/ui ADR 0001](../ui/docs/adr/0001-admin-user-widgets-to-ui.md)).
 - **The app owns the client and the chrome.** `createAuthClient`, the
   `/api/auth` route mount, the sign-in/up pages and the route guards belong to
   the app. The client-side _status_ seam features read is `@acme/hooks`'

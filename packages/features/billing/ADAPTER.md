@@ -62,4 +62,4 @@ the checkout return paths and the connection selector. See `src/env.ts`.
 `postgres` for the customer mapping. The local Stripe stand-in is needed only
 while the connection selects it — point at real Stripe and it drops out
 ([infra.md](../../../docs/mounting/infra.md),
-[ADR 0004](../../../docs/adr/0004-localstripe-dev-billing.md)).
+[ADR 0004](docs/adr/0001-localstripe-dev-billing.md)).

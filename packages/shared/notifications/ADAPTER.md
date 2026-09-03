@@ -2,7 +2,7 @@
 
 One delivery path from server-side work to a signed-in user's screen. Features
 publish; your app mounts the router and the provider that renders what arrives
-([ADR 0030](../../../docs/adr/0030-notifications-seam.md)).
+([ADR 0030](docs/adr/0001-notifications-seam.md)).
 
 ## What it gives you
 

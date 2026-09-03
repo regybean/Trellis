@@ -3,7 +3,7 @@
 A generic per-user notification primitive: a background job tells a user "your
 work finished," and a toast appears on whatever page they have open. The first
 `shared` package to own a tRPC router and a cross-cutting per-user subscription
-(see [ADR 0030](../../../docs/adr/0030-notifications-seam.md)). Ingest (spec #185)
+(see [ADR 0030](docs/adr/0001-notifications-seam.md)). Ingest (spec #185)
 is its first consumer; the primitive is the durable win.
 
 The core owns the **envelope**, never the **kinds** — a feature adds a

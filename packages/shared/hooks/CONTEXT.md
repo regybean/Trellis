@@ -128,7 +128,7 @@ Empties a feature's persisted store. App-driven: full apps call it on logout
 **Per-query, not whole-client persistence** — feedback issues one query per
 Message, which a whole-client persister would rewrite in full on every Message.
 Rationale, storage/security tradeoffs, and the pinned experimental API live in
-[ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md).
+[ADR 0025](docs/adr/0001-per-query-indexeddb-persister.md).
 
 **The mechanism lives here, the policy lives in the feature/app.** `@acme/hooks`
 knows nothing about which queries are sensitive, which provider authenticated the

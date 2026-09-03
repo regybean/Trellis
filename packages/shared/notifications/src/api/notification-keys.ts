@@ -7,6 +7,6 @@ import { nsKey } from '@acme/redis';
 // `userId` comes from `ctx.session.user` server-side (never a client input). In
 // the no-auth slim apps it collapses to the constant `'local'` principal, so
 // slim visitors share one `notifications:local` stream — accepted and documented
-// (docs/adr/0030-notifications-seam.md), the same collapse chat/ingest accept.
+// (packages/shared/notifications/docs/adr/0001-notifications-seam.md), the same collapse chat/ingest accept.
 export const notificationKey = (userId: string) =>
   nsKey('notifications', userId);

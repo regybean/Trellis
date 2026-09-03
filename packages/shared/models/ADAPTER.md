@@ -2,7 +2,7 @@
 
 The provider seam for model inference. Your app selects a provider per role;
 features ask for a role and get whatever you selected
-([ADR 0003](../../../docs/adr/0003-multi-provider-models.md)).
+([ADR 0003](docs/adr/0001-multi-provider-models.md)).
 
 ## What it gives you
 

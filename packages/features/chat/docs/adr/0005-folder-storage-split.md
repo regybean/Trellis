@@ -1,8 +1,8 @@
 # Conversation Folders: split storage, lazy delete
 
 Conversation History lets a user group their Conversations into **Folders**. Two
-facts have to live somewhere: the Folder *definition* (its name, who owns it) and
-the *assignment* of a Conversation to a Folder. Conversations are Mastra Memory
+facts have to live somewhere: the Folder _definition_ (its name, who owns it) and
+the _assignment_ of a Conversation to a Folder. Conversations are Mastra Memory
 threads (`@acme/rag`), whose DDL Mastra owns at runtime (ADR-0002); the chat
 feature owns no thread table.
 

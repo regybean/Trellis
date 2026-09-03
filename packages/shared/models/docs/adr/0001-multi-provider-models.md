@@ -12,9 +12,9 @@ no cloud credentials. Four decisions are load-bearing:
    behind a single `resolve.ts` selector that switches on `LLM_PROVIDER` /
    `EMBED_PROVIDER` and exports eager-resolved `chatModel` / `embedModel`.
 2. **Lazy, per-provider env validation.** Each provider's envs are a separate
-   `createEnv` block, called *inside* its factory. Only the selected provider's
+   `createEnv` block, called _inside_ its factory. Only the selected provider's
    factory runs, so only its envs are required — selecting `ollama` never demands
-   `OPENROUTER_API_KEY`. A missing/invalid env for an *active* provider still
+   `OPENROUTER_API_KEY`. A missing/invalid env for an _active_ provider still
    blocks eagerly at import, matching the other `env.ts` files.
 3. **Chat and embedding providers are selected independently.** `LLM_PROVIDER` and
    `EMBED_PROVIDER` are distinct; e.g. OpenRouter chat + Ollama embeddings is
@@ -35,7 +35,7 @@ starts only when a provider is `ollama`, gated by `scripts/infra.sh` via
 
 accepted
 
-Amends decision 3 of [ADR 0002](./0002-mastra-rag-and-memory.md) ("Bedrock via an
+Amends decision 3 of [@acme/rag ADR 0001](../../../rag/docs/adr/0001-mastra-rag-and-memory.md) ("Bedrock via an
 AI-SDK provider instance"): the AI-SDK-instance approach stands, but the instance is
 now produced by `@acme/models`, one of three providers, not constructed in
 `@acme/rag`.
@@ -70,7 +70,7 @@ now produced by `@acme/models`, one of three providers, not constructed in
   (Bedrock's Cohere `inputType`; nothing for Ollama) from call sites in the uploader
   and the vector query tool.
 - **Ollama embeddings are degraded in dev.** Asymmetric models like
-  `nomic-embed-text` expect `search_document:` / `search_query:` *text prefixes*
+  `nomic-embed-text` expect `search_document:` / `search_query:` _text prefixes_
   (not a provider option); we do not inject them, so dev-time recall is weaker.
   Accepted — Ollama is dev/test only.
 - `scripts/infra.sh` now fronts the `infra:*` scripts (via `with-env`) to gate the

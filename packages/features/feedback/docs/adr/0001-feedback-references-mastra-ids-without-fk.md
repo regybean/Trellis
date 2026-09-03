@@ -9,7 +9,7 @@ a database constraint.
 
 ## Status
 
-accepted (first concrete instance of the app-owned lane in [system ADR 0002](../../../../docs/adr/0002-mastra-rag-and-memory.md))
+accepted (first concrete instance of the app-owned lane in [@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md))
 
 ## Why
 
