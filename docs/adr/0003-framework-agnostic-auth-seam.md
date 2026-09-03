@@ -234,3 +234,37 @@ second declaration that only the app's program ever sees next to the first, and
 nothing checked that the two agreed. A concrete exported interface gets checked
 by the compiler at every import, which is what the original goal of "replacing
 the provider's session type cannot fan out" actually needed.
+
+## Amendment 4 — the injection point outlives its function (#264)
+
+`createTRPCContext` is deleted, so the wording above that names it is stale: the
+signature in decision 1 and its consequence at line 47, the reading of decision
+1 in amendment 1, and amendment 2's note that a scaffolded feature's
+`api/trpc.ts` "delegates to `createFeatureTRPCWithDb`". None of those functions
+exist.
+
+The seam itself does not move, which is why this is an amendment and not a
+reversal. The app still resolves whoever is calling and still injects the result
+at `ctx.session`; `@acme/trpc` still names no provider and depends on no auth
+SDK; `InjectedSession` / `InjectedUser` are still the whole of what the platform
+consumes. What changed is only which code holds the injection point:
+
+- **The app's context resolver is the injection point.** Each app writes one
+  `resolveContext(req)` (plus an entitlements-carrying variant) and hands it to
+  `createTRPCFetchHandler` at each mount. That resolver's return value _is_
+  `ctx` — `createTRPCContext` had become an identity function over it.
+- **The check survives in a stronger form.** `createTRPCFetchHandler` infers the
+  context from the `router` it is given and types `resolver` against it, so a
+  mount whose feature reads a field the app's resolver doesn't produce fails to
+  compile. That check used to be spelled out by threading the feature's
+  `createTRPCContext` alongside the router.
+- **A scaffolded feature builds its own tRPC instance.** `api/trpc.ts` calls
+  `initTRPC.context<FeatureContext>().create(trpcConfig)` and wires the shared
+  middleware bodies in four one-liners. It still names no auth provider, which
+  was amendment 2's point.
+- **`adminProcedure` still is not app-owned**, and `role` still rides the base
+  principal for it — but the gate is now `requireAdmin`, a plain function in
+  `@acme/trpc` that each feature wraps in its own `t.middleware`. The
+  `@acme/auth` integration test that proves a promotion reaches that gate calls
+  `requireAdmin` directly for the same reason: `shared` cannot import a
+  feature's procedure, and hand-rolling one would test wiring no app runs.

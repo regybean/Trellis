@@ -1,9 +1,10 @@
 import 'server-only';
 
-// Server surface (`./server`): the concrete router + context an app mounts at
-// `/api/trpc/notifications`, and the sole writer `publish` a background job
-// calls. A worker/server importing this never pulls the `'use client'` React
-// connectors (those live behind `.`).
+// Server surface (`./server`): the concrete router an app mounts at
+// `/api/trpc/notifications` (it carries its own context type; nothing outside
+// names that), and the sole writer `publish` a background job calls. A
+// worker/server importing this never pulls the `'use client'` React connectors
+// (those live behind `.`).
 export { appRouter } from './api/root';
 export type { AppRouter } from './api/root';
 export { publish } from './api/services/publish';

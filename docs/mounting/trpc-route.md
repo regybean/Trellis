@@ -1,8 +1,11 @@
 # Recipe: the route seam and per-feature routes
 
-Every feature package exports a tRPC router and its context type from its
-`./server` subpath. Serving them takes two kinds of file in your app: **one**
-route seam, and **one** small route file per feature.
+Every feature package exports a tRPC router from its `./server` subpath. The
+router carries its own context type with it — the feature declares that type in
+`api/trpc.ts` and never exports it, because nothing outside needs to name it:
+the handler reads it off the router and checks your resolver against it. Serving
+a router takes two kinds of file in your app: **one** route seam, and **one**
+small route file per feature.
 
 ## 1. The route seam
 
