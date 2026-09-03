@@ -79,9 +79,9 @@ export function gitOrNull(args, options = {}) {
 }
 
 /**
- * Is `path` the prefix itself, or inside it? The manifest's `include` and
- * `contributable` are both prefix lists, so this is the only containment test
- * either command makes.
+ * Is `path` the prefix itself, or inside it? A resolved `include`, and the
+ * manifest's `omit` and `contributable`, are all prefix lists, so this is the
+ * only containment test either command makes.
  *
  * @param {string} path
  * @param {string} prefix
@@ -108,8 +108,13 @@ export function repoRelative(entry, what) {
  * @typedef {object} Manifest
  * @property {string} upstream Git URL of the bank.
  * @property {string} ref Branch, tag or sha in the bank to sync from.
- * @property {string[]} include Repo-relative paths taken from the bank.
+ * @property {string[]} packages Workspace package names taken from the bank.
+ * @property {string[]} bundles Bundle names taken from the bank.
+ * @property {string[]} omit Closure paths the consumer supplies itself.
  * @property {string[]} contributable Paths allowed to flow back upstream.
+ *
+ * A manifest records a **selection**, never paths: `bank:sync` resolves it to
+ * the paths at the pinned ref (ADR 0039). `include` is not a field.
  */
 
 /**
@@ -148,28 +153,34 @@ export function readManifest(root) {
 
   /**
    * @param {string} field
-   * @param {{ allowEmpty: boolean }} options
    * @returns {string[]}
    */
-  const strings = (field, { allowEmpty }) => {
+  const strings = (field) => {
     const value = parsed[field] ?? [];
     if (
       !Array.isArray(value) ||
       value.some((entry) => typeof entry !== "string")
     )
       return fail(`${MANIFEST}: "${field}" must be an array of strings`);
-    if (!allowEmpty && value.length === 0)
-      return fail(`${MANIFEST}: "${field}" must list at least one path`);
     return value;
   };
+
+  // A manifest that still authors paths is a pre-ADR-0039 one. Naming the
+  // replacement beats resolving an empty selection and syncing almost nothing.
+  if ("include" in parsed)
+    return fail(
+      `${MANIFEST}: "include" is no longer authored — name what you take in "packages" (e.g. "@acme/ui") and "bundles", and bank:sync resolves the paths at "ref". See docs/bank.md.`,
+    );
 
   return {
     upstream: str("upstream"),
     ref: str("ref"),
-    include: strings("include", { allowEmpty: false }).map((entry) =>
-      repoRelative(entry, `${MANIFEST}: "include" entry`),
+    packages: strings("packages"),
+    bundles: strings("bundles"),
+    omit: strings("omit").map((entry) =>
+      repoRelative(entry, `${MANIFEST}: "omit" entry`),
     ),
-    contributable: strings("contributable", { allowEmpty: true }).map((entry) =>
+    contributable: strings("contributable").map((entry) =>
       repoRelative(entry, `${MANIFEST}: "contributable" entry`),
     ),
   };
@@ -248,19 +259,33 @@ export function defaultBranch(upstream) {
  * its patch on that exact commit — so the two halves have to agree on the
  * format, and this is where they do.
  *
+ * It records the selection as well as the paths it resolved to, so a vendor
+ * commit says both what was asked for and what arrived — which is the pair you
+ * want when a closure changed shape between two syncs.
+ *
  * @param {string} bankSha
  * @param {Manifest} manifest
+ * @param {string[]} include The paths `manifest`'s selection resolved to.
  * @returns {string}
  */
-export function vendorCommitMessage(bankSha, manifest) {
+export function vendorCommitMessage(bankSha, manifest, include) {
+  /**
+   * @param {string} label
+   * @param {string[]} entries
+   */
+  const section = (label, entries) =>
+    entries.length ? [`${label}:`, ...entries.map((e) => `  - ${e}`)] : [];
+
   return [
     `vendor: bank@${bankSha.slice(0, 8)}`,
     "",
     `upstream: ${manifest.upstream}`,
     `ref: ${manifest.ref}`,
     `commit: ${bankSha}`,
-    "include:",
-    ...manifest.include.map((entry) => `  - ${entry}`),
+    ...section("packages", manifest.packages),
+    ...section("bundles", manifest.bundles),
+    ...section("omit", manifest.omit),
+    ...section("include", include),
   ].join("\n");
 }
 
