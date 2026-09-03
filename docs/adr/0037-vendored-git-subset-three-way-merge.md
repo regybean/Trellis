@@ -122,7 +122,10 @@ repo once".
   and any policy about locally modified vendored paths are consumer-side jobs.
 - **Sync is one-directional.** Back-flow is a separate mechanism gated by
   `contributable` (default empty, so forgetting to maintain it fails closed), and
-  it never runs automatically.
+  it never runs automatically. It is `scripts/bank-contribute.mjs`: allowlist,
+  then gitleaks over the diff, then a typed confirmation, then a PR. Layer is not
+  the test for what may be published, so the allowlist stays a human's list
+  rather than anything derived from the manifest.
 - **The fetch is not shallow.** A `--depth` fetch would leave a shallow graft in
   the consumer's repo to buy a one-off speedup. The sync fetches normally instead.
 - **`@acme` becomes a hard constraint**, since a scope rename would put every

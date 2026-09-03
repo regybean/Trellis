@@ -141,6 +141,15 @@ jobs:
       - name: Setup
         uses: ./tooling/github/setup
 
+      # The bank:contribute suite asserts that the outbound secret scan really
+      # blocks a leaking diff, so it needs the real binary rather than a skip.
+      - name: Install gitleaks
+        env:
+          GITLEAKS_VERSION: "8.21.2"
+        run: |
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
+          sudo install gitleaks /usr/local/bin/gitleaks
+
       - name: Test
         run: pnpm test
 

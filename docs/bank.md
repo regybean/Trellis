@@ -81,7 +81,8 @@ At the root of your repo:
 - **`include`.** The paths you take, assembled from `bank.paths.json`. The `root`
   bundle is not optional. Without it `pnpm install` does not work.
 - **`contributable`.** The paths allowed to flow **back** to the bank. Default
-  empty, so forgetting to maintain it fails closed.
+  empty, so forgetting to maintain it fails closed. See
+  [Contributing back to the bank](#contributing-back-to-the-bank).
 
 ### 2. Pin a bank tag
 
@@ -95,13 +96,30 @@ git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
 
 ### 3. Vendor the sync script
 
-`scripts/bank-sync.mjs` lives in the `root` bundle, so after your first sync it
-arrives, and updates itself, like anything else. The first sync needs the script
-before it exists, so copy it in by hand once. Then add the script entry to your
-root `package.json`. The root manifest is yours, and the bank never writes it.
+`scripts/` lives in the `root` bundle, so after your first sync the bank
+commands arrive, and update themselves, like anything else. The first sync needs
+them before they exist, so copy two files in by hand once:
+
+```
+scripts/bank-sync.mjs
+scripts/lib/bank.mjs
+```
+
+`scripts/lib/bank.mjs` is the manifest reading, ref resolving and vendor-commit
+format both bank commands share. The sync does not run without it.
+`scripts/bank-contribute.mjs` arrives with your first sync; you do not need it to
+pull.
+
+Then add the script entries to your root `package.json`. The root manifest is
+yours, and the bank never writes it.
 
 ```json
-{ "scripts": { "bank:sync": "node scripts/bank-sync.mjs" } }
+{
+  "scripts": {
+    "bank:sync": "node scripts/bank-sync.mjs",
+    "bank:contribute": "node scripts/bank-contribute.mjs"
+  }
+}
 ```
 
 ### 4. Sync and merge
@@ -249,23 +267,94 @@ on a rhythm, not on discovery.
 
 **Locally modified vendored paths.** Read each one and decide which it is.
 
-- **Generic.** A fix or improvement with nothing to do with your domain.
-  Contribute it back: add the path to `contributable` in the manifest, then open
-  a PR against the bank with the diff. Back-flow never runs automatically and
-  always needs a human reading the diff first.
+- **Generic.** A fix or improvement with nothing to do with your domain. See
+  [Contributing back to the bank](#contributing-back-to-the-bank).
 - **Yours.** Domain-specific, or a deliberate divergence. Leave it. It survives
   every sync, and it conflicts only if the bank edits the same lines.
 - **Accidental.** A local hack nobody remembers. Revert it and take the bank's
   version back.
 
-Before contributing anything from client work, confirm with the engagement owner
-that publishing generic infrastructure code to a public repo is permitted. Then
-read the diff for context that is not a secret but is still not yours to
-publish: internal ticket numbers, client domain terms, hostnames. `gitleaks`
-catches credentials, not those.
-
 **`vendor/trellis` does not hold the pinned ref.** You changed `include` or `ref`
 without syncing. Run `pnpm bank:sync`.
+
+## Contributing back to the bank
+
+Pulling from a public bank is always safe. Contributing the other way is the
+constrained direction: it takes code out of a repo that may be private and puts
+it in one that anyone can read, permanently, whatever you delete afterwards. So
+back-flow is a separate command with its own gates.
+
+```bash
+pnpm bank:contribute packages/platform/logger
+```
+
+It diffs that path against the bank content you last merged, refuses anything
+outside `contributable`, scans the diff with `gitleaks`, prints the whole diff,
+and opens a PR on the bank **only** after you type the word `contribute`. In
+order:
+
+1. **The allowlist.** Every path must sit under an entry in `contributable`.
+   This runs first, before anything is fetched or cloned, so a refusal reaches
+   the network with nothing.
+2. **The base.** The patch is diffed against the merge base of `HEAD` and
+   `vendor/trellis`, the last vendor commit you actually merged. That commit
+   records the bank sha it was built from, and the PR branch is cut from exactly
+   that commit. So the patch applies to the bank by construction, and the PR
+   shows your change and nothing else.
+3. **Committed history only.** Uncommitted changes under the path are an error,
+   not a silent inclusion. What you review is exactly what the PR carries.
+4. **`gitleaks`.** The diff is scanned, and any finding aborts and opens nothing.
+   A missing `gitleaks` is also a refusal. Everywhere else in this repo an
+   absent scanner degrades to a warning, but this is the last automated check
+   before code leaves a private repo for a public one.
+5. **The confirmation.** The full diff is printed and you type `contribute`.
+   Anything else aborts. There is no flag to skip this.
+
+If you have no write access to the bank, the push fails and the command tells you
+where the prepared commit is waiting so you can push it to a fork and open the PR
+from there. Nothing has been published at that point.
+
+### What the machine cannot check for you
+
+**Layer is not the test.** A `shared/` package can still be tied to your domain,
+and a `features/` slice can be entirely generic. Nothing about where a file sits
+in the layer graph says whether it is safe to publish. That judgement is why
+`contributable` is a list a human maintains rather than a rule derived from the
+manifest.
+
+**A human reads every diff, every time.** Nothing invokes `bank:contribute` from
+CI, a git hook, or a schedule, and nothing should. There is no `--yes`. If you
+find yourself wanting one, the thing you actually want is a smaller diff.
+
+**`gitleaks` catches secrets, not client context.** It will not flag a comment
+referencing an internal ticket number, a client's domain terms in a type name, an
+internal hostname, or a colleague's name in a `TODO`. None of those are
+credentials and none of them are yours to publish. Read the diff for them.
+
+Before contributing anything that came out of client work, confirm with the
+engagement owner that publishing generic infrastructure code to a public repo is
+permitted at all. A person answers that once, per engagement. It is not a
+per-path question and it is not one this command can ask.
+
+### The day-one `contributable` seed
+
+**Empty.** Every consumer starts with `"contributable": []`, and that is the
+recommended day-one value rather than an oversight.
+
+[#219](https://github.com/regybean/Trellis/issues/219) named one candidate to
+seed the list with, `hooks/base-url.ts`. That file does not exist. The logic it
+referred to is now `getBaseUrl` inside
+[`packages/shared/hooks/src/create-feature-client.tsx`](../packages/shared/hooks/src/create-feature-client.tsx),
+a private function at the bottom of a 300-line factory. It cannot be contributed
+on its own. Allowlisting it means allowlisting a path that carries the whole
+feature-client factory, which is a much larger decision than the original
+candidate implied.
+
+Nothing else has been through the review the section above describes, and no
+consumer has yet completed a sync, so there is no diff anyone has read and
+approved. Seeding a list on a guess would defeat the point of having one. Add
+your first entry when you have a specific local change in front of you and have
+decided it is generic.
 
 ## Why no CI workflow ships with the bank
 
@@ -308,4 +397,6 @@ tag.
 - [ADR 0038](adr/0038-acme-scope-is-a-distribution-constraint.md) covers why
   renaming the `@acme` scope breaks the mechanism.
 - [`bank.paths.json`](../bank.paths.json) is what is on offer.
-- [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) is the implementation.
+- [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) pulls;
+  [`scripts/bank-contribute.mjs`](../scripts/bank-contribute.mjs) is the guarded
+  path back, over the shared [`scripts/lib/bank.mjs`](../scripts/lib/bank.mjs).

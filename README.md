@@ -80,7 +80,8 @@ Git is the point. It's the only distribution format that ships the **merge base*
 
 - **What's on offer** is [`bank.paths.json`](bank.paths.json): the selectable workspace packages, six bundles for content that can't be a package, and the exclusions with a reason each. Never an app, a README or a lockfile — those are consumer identity.
 - **Drift is consumer-side**, because Trellis can't see its consumers. `pnpm bank:sync --check` reports how far behind the pinned tag is and which vendored paths the consumer has modified, with distinct exit codes to gate CI on.
-- **Not built yet:** the `bank:contribute` back-flow path, and the setup wizard that assembles a manifest from `bank.paths.json`. No `bank/*` tag has been cut, so there is nothing to pin against today.
+- **Back-flow is guarded and manual.** `pnpm bank:contribute <path>` diffs a path against the bank, refuses anything outside the manifest's `contributable` allowlist (empty by default, so it fails closed), scans the diff with gitleaks, and opens a PR only after a human types the confirmation. Nothing runs it automatically, and no flag skips the prompt.
+- **Not built yet:** the setup wizard that assembles a manifest from `bank.paths.json`. No `bank/*` tag has been cut, so there is nothing to pin against today, and no consumer has contributed anything back.
 
 The guide — set-up, syncing, resolving conflicts, reading a drift report — is [**docs/bank.md**](docs/bank.md).
 
