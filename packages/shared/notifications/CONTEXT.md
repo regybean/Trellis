@@ -12,9 +12,8 @@ notification kind with zero change here.
 ## Layout
 
 - `./schema` (isomorphic) — the envelope zod schema + types.
-- `./server` (`server-only`) — `publish` (the sole writer), the `appRouter`, and
-  `createTRPCContext`. A worker/server importing this never pulls the `'use
-client'` React connectors.
+- `./server` (`server-only`) — `publish` (the sole writer) and the `appRouter`.
+  A worker/server importing this never pulls the `'use client'` React connectors.
 - `.` (client) — the `<NotificationsProvider>` an app mounts, plus
   `dispatchNotification` + `defaultToastRenderer` for assembling a `renderers` map.
   It needs the app's `QueryClientProvider` above it ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md))

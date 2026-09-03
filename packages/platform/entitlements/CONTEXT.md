@@ -2,7 +2,7 @@
 
 Pure contract package — no Redis, no Stripe, no env, no IO. Defines the neutral
 seam a feature that meters or gates on billing (`@acme/billing`, `@acme/chat`)
-names in its tRPC context extension, with zero knowledge of how those
+names on its own tRPC context, with zero knowledge of how those
 entitlements are sourced. A full deployment injects the Stripe/Redis-backed
 adapter from `@acme/subscriptions`; a no-billing deployment injects
 `unlimitedEntitlements`. The tRPC substrate itself no longer names this contract
@@ -27,7 +27,7 @@ credits after a guarded request, `refund(userId, tier, amount)` credits them bac
 are symmetric — a Credit crosses this one seam in both directions, so a billing
 swap changes a single adapter. Any per-caller idempotency guard on a refund is
 the caller's concern, not the provider's. Apps wire one concrete provider into
-`createTRPCContext` per request (and into their worker entrypoint).
+the context they build at the route seam, per request (and into their worker entrypoint).
 _Avoid_: "billing service", "subscription client"
 
 **Subscription tier**:
@@ -56,7 +56,7 @@ _Avoid_: "subscription record", "billing data"
 tier (`Pro`, so billing's tier gate always admits) with effectively infinite credits
 and a no-op `consume` **and** a no-op `refund` (a deployment that charged nothing
 refunds nothing). Pure; injected by deployments that drop `@acme/subscriptions`
-(e.g. a single-user slim app) — both into `createTRPCContext` and into the app's
+(e.g. a single-user slim app) — both into the context built at the route seam and into the app's
 worker entrypoint.
 _Avoid_: "free tier", "dev provider", a new `Unlimited` tier
 
@@ -78,7 +78,7 @@ that keeps `@acme/trpc` (and therefore every feature) free of billing
 infrastructure. The two providers live elsewhere: the Stripe adapter in
 `@acme/subscriptions`, the unlimited one here (because it has no dependencies).
 
-**Required injection, no default**: a feature whose context extension names an
+**Required injection, no default**: a feature whose own context names an
 `EntitlementsProvider` requires one. There is deliberately no implicit `unlimited`
 fallback — a forgotten provider would silently grant every caller Pro, the billing
 equivalent of a silent unauthenticated context. The deployment must choose.

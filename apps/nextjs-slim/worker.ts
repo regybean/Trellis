@@ -27,7 +27,7 @@ import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
 
 // Inject the SAME provider this slim app's route handler injects into
-// `createTRPCContext` (ADR 0006 / ADR 0010): `unlimitedEntitlements`, whose
+// the tRPC context (ADR 0006 / ADR 0010): `unlimitedEntitlements`, whose
 // `refund` is a no-op — a no-billing app charged nothing, so it refunds nothing,
 // and never imports `@acme/subscriptions`.
 const worker = createWorker(

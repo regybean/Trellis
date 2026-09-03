@@ -27,7 +27,7 @@ export type TestContextOptions = FeatureTestContextOptions;
  * fields this feature's procedures actually read (`@acme/billing` sets `email`,
  * which its Stripe customer lookup needs).
  *
- * If `api/trpc.ts` declares a context extension, pass it here alongside the
+ * If `api/trpc.ts` adds a field to the feature's context, pass it here alongside the
  * session — `@acme/chat`'s wrapper adds `entitlements: createMockEntitlements(…)`
  * from `@acme/entitlements/testing` (#256).
  */

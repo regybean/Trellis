@@ -16,7 +16,7 @@ import {
 
 /**
  * The knobs ingest's backend tests vary: the principal, and nothing else. Ingest
- * declares no context extension — it neither gates on a tier nor spends a credit
+ * context is exactly `BaseContext` — it neither gates on a tier nor spends a credit
  * — so it sets no tier or credit balance either (#256).
  */
 export type TestContextOptions = FeatureTestContextOptions;

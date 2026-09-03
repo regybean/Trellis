@@ -40,7 +40,7 @@ export type TestContextOptions = Pick<BaseContext, 'session'>;
 /**
  * The knobs a *feature's* own `createTestContext` wrapper exposes to its tests:
  * identity and role. The wrapper turns `userId`/`role` into the feature's own
- * `InjectedUser`, and adds whatever its context extension needs — see any
+ * `InjectedUser`, and adds whatever else its context names — see any
  * feature's `tests/backend/utils/test-context.ts`.
  */
 export interface FeatureTestContextOptions {
@@ -61,7 +61,7 @@ export function createMockSession(user: InjectedUser) {
 /**
  * Build a tRPC caller context for backend tests. Pass it straight to a feature's
  * `appRouter.createCaller(...)`. Stubs the session and merges in the feature's
- * context extension; real DB/Redis come from the feature's own `db`/`redis`
+ * context's extra fields; real DB/Redis come from the feature's own `db`/`redis`
  * clients (validated against the running containers — never mocked). Telemetry
  * is ambient (ADR 0023) — there is no span in a caller test, so the ambient
  * helpers noop, and nothing needs stubbing here.

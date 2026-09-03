@@ -8,24 +8,25 @@ using this package, and then one small route file per feature
 
 - `createTRPCFetchHandler` — the fetch-adapter wiring, error logging and CORS
   policy, so your seam supplies only the framework shape and the context
-  resolver.
-- `createTRPCContext` — builds the context a feature's procedures receive from
-  what your resolver returns. The context shape is the whole app-to-feature
-  contract.
+  resolver. Your resolver is typechecked against the router you mount it under,
+  so a mount that doesn't build what the feature reads won't compile.
+- `BaseContext` — the neutral context a feature extends. What your resolver
+  returns is the whole app-to-feature contract.
 - `InjectedSession` — a neutral principal, so features read a user without
   importing your auth provider.
-- `createFeatureTRPC` — the builder each feature uses to define procedures, with
-  a per-procedure trace span attached automatically.
+- `trpcConfig` plus `withProcedureSpan` / `withTimingLog` / `requirePrincipal` /
+  `requireAdmin` — the pieces each feature builds its own tRPC instance from, so
+  every procedure gets the same trace span, timing log and auth gates.
 - Test-context construction that matches what the route handler builds, so
   procedure tests exercise the real contract.
 
 ## Surface
 
-| Import               | What's in it                                       | Runs   |
-| -------------------- | -------------------------------------------------- | ------ |
-| `@acme/trpc`         | Context factory, principal types, feature builders | server |
-| `@acme/trpc/handler` | The fetch handler and CORS headers                 | either |
-| `@acme/trpc/testing` | The test-context builder                           | either |
+| Import               | What's in it                                      | Runs   |
+| -------------------- | ------------------------------------------------- | ------ |
+| `@acme/trpc`         | Context types, principal types, middleware pieces | server |
+| `@acme/trpc/handler` | The fetch handler and CORS headers                | either |
+| `@acme/trpc/testing` | The test-context builder                          | either |
 
 `./handler` is separate from `.` because your route seam imports it from
 framework code that may be bundled for either side, while `.` is server-only.

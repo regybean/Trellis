@@ -13,7 +13,7 @@ Included in this build:
 ```
 src/
 {{#if api}}  api/
-    trpc.ts                 # the feature's tRPC instance (`createFeatureTRPCWithDb`) + its db
+    trpc.ts                 # the feature's context, tRPC instance + its db
     root.ts                 # appRouter — aggregates routers
     routers/{{ kebabCase name }}.ts        # sample CRUD router
     schemas/item-schema.ts  # drizzle table + zod schemas
@@ -40,7 +40,7 @@ throwaway PostgreSQL + Redis containers. **Docker/Podman must be running.**
 
 - Build a caller with `createTestContext(...)`, then call
   `appRouter.createCaller(ctx).{{ camelCase name }}.<procedure>(...)`.
-- Mock only what you don't own (the injected session, and anything in this feature's tRPC context extension); exercise real persistence.
+- Mock only what you don't own (the injected session, and anything else this feature's tRPC context names); exercise real persistence.
 - Test shared middleware (auth) **once**; cover business logic with the
   **zero / one / many** pattern; seed data with `fixtures.ts`.
 {{/if}}{{#if frontendTests}}

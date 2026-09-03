@@ -313,3 +313,61 @@ extension, the builder type the two factories return is declared only in that
 internal module, and declaration emit fails with TS2742 unless some import names
 it by a path. The alternative is hand-annotating both factories with several
 hundred characters of tRPC internals.
+
+## Amendment (#264) — the type parameter is gone; the feature names its whole context
+
+The seam is unchanged for a third time: a provider still reaches procedures as
+`ctx.entitlements`, still chosen at the app edge, still required with no default.
+What goes is the mechanism the amendment above introduced to carry it.
+
+`TExtension` was never read. `@acme/trpc` merged it into `BaseContext` and named
+none of its fields, so the parameter existed only to be threaded — and the
+threading cost more than the thing threaded:
+
+- `createTRPCContext` had become an identity function. The route seam already
+  stacked two callbacks: the app's resolver built the object, then the feature's
+  `createTRPCContext` returned it unchanged, typed `Promise<unknown>`. It carried
+  a type and nothing else.
+- `createFeatureTRPCWithDb` injected a singleton the feature already exported.
+  `export const db` sat three lines above the call; tests imported that export
+  directly and never swapped it, so `ctx.db` was not the seam it looked like, and
+  `@acme/billing` called the factory without reading `ctx.db` once.
+- The generic itself cost the inline-arrow rule and the
+  `@trpc/server/unstable-core-do-not-import` import recorded just above — a
+  subpath tRPC marks private, in the file #219 measures as this bank's
+  most-diverged. `index.ts` had grown 296 → 359 lines paying for it.
+
+So `@acme/trpc` exports the pieces instead — `trpcConfig`, plus
+`withProcedureSpan` / `withTimingLog` / `requirePrincipal` / `requireAdmin` — and
+each feature writes about twenty lines against its own concrete context:
+
+```ts
+export interface ChatContext extends BaseContext {
+  entitlements: EntitlementsProvider;
+}
+
+const t = initTRPC.context<ChatContext>().create(trpcConfig);
+```
+
+`createTRPCContext`, `createFeatureTRPC` and `createFeatureTRPCWithDb` are
+deleted, along with the five feature re-exports, the five `/server` barrel
+re-exports and the app route threading. `t.middleware()` composes normally again,
+the private subpath import is gone, and a feature's context is declared and
+consumed in one file.
+
+**The mount check survives, in a stronger form.** The previous amendment made the
+wiring load-bearing by currying one resolver per builder and checking the
+feature's `createTRPCContext` against it. With no `createTRPCContext` to check,
+the check moves onto the thing that already knew the answer: `createTRPCFetchHandler`
+infers the context from the `router` it is given and types `resolver` against it.
+Each app now exports its resolvers and each mount names one. Verified the same
+way: pointing chat's Next.js mount at the plain `resolveContext` fails with
+TS2322 (`… is not assignable to type '(req: Request) => NoInfer<ChatContext> |
+Promise<NoInfer<ChatContext>>'`).
+
+**The counter-argument, recorded.** A factory cannot drift and hand-written wiring
+can — and `handler.ts` records that the apps did drift before it existed. The
+judgement here is that twenty generator-templated lines that typecheck are a
+smaller risk surface than a private tRPC subpath plus an inline-arrow rule nothing
+enforces. Everything that _can't_ typecheck its way out of drift — the fetch
+handler, `logTRPCError`, the CORS policy — still lives in `@acme/trpc/handler`.

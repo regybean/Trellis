@@ -23,8 +23,8 @@ import {
   persistMeta,
 } from './query-persister';
 
-// The client half of a feature's tRPC wiring, authored once. It mirrors the
-// server-side `createFeatureTRPC` in `@acme/trpc`: a single factory that owns
+// The client half of a feature's tRPC wiring, authored once. It is the mirror of
+// the server instance a feature builds in `api/trpc.ts`: a single factory that owns
 // everything identical across features — the `NODE_ENV==='test'` `httpLink`
 // switch the MSW seam relies on (ADR 0018), the provider scaffold, and the
 // per-query persister wiring (ADR 0025) — and parameterises only what genuinely

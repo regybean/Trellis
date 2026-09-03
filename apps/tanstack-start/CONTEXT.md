@@ -115,8 +115,8 @@ Mastra owns their DDL at runtime — see
   context, so their queries now reach `setupRouterSsrQueryIntegration` instead of
   being shadowed by a nested client
   ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
-- Auth is resolved at the HTTP boundary by the session resolver and injected into
-  `createTRPCContext`; features never resolve auth themselves
+- Auth is resolved at the HTTP boundary by the session resolver and put on the
+  tRPC context it returns; features never resolve auth themselves
   ([ADR 0034](../../docs/adr/0034-self-hosted-better-auth.md),
   [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md)).
 - `beforeLoad` route guards replace Next.js middleware for auth / admin gating.
