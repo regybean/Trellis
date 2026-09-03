@@ -23,6 +23,7 @@
   "private": true,
   "scripts": {
     "audit": "pnpm audit --audit-level=high",
+    "bank:contribute": "node scripts/bank-contribute.mjs",
     "bank:sync": "node scripts/bank-sync.mjs",
     "boundaries": "turbo boundaries",
     "check:exports": "node scripts/check-exports.mjs",
