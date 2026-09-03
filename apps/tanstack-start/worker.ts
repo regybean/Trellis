@@ -20,18 +20,17 @@
  * to its empty stub rather than the guard that throws outside an RSC bundle.
  */
 
-import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createChatGenerationProcessor } from '@acme/chat/server';
 import { createIngestProcessor } from '@acme/ingest/server';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
-import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
-// Inject the SAME provider this app's route handler injects into
-// the tRPC context (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter,
-// built from the plan ids billing's own env resolves (@acme/env ADR 0001), so a worker
-// error refunds the real Credit ledger.
-const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
+import { entitlements } from './src/server/deps';
+
+// The provider comes from this app's composition root, which is also where the
+// tRPC context resolver gets it (ADR 0006) — so a worker error refunds the same
+// Credit ledger the request path charged. It cannot be a second provider: there
+// is only one, and lint keeps the factory out of this file.
 const worker = createWorker(
   QUEUE_NAMES.GENERATION,
   createChatGenerationProcessor(entitlements),

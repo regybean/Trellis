@@ -1,14 +1,7 @@
 import { toPrincipal } from '@acme/auth/server';
-import { env as billingEnv, toPlanIds } from '@acme/billing/env';
-import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
 import { auth } from '~/lib/auth-server';
-
-/**
- * The Stripe/Redis entitlements provider, closing over the plan ids billing's own
- * env resolves (@acme/env ADR 0001).
- */
-const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
+import { entitlements } from '~/server/deps';
 
 /**
  * App-owned auth seam: resolve the Better Auth session on the server and map it
@@ -48,6 +41,9 @@ export async function resolveAuthContext(req: Request) {
  * mount rather than injected into every context, so the mounts that meter
  * credits or gate tiers get a provider and the mounts that do neither
  * (`feedback`, `ingest`, `notifications`) are handed nothing they cannot name.
+ *
+ * The provider comes from `~/server/deps`, this app's composition root — the
+ * same value `worker.ts` refunds through, because there is only one (ADR 0006).
  */
 export async function resolveAuthContextWithEntitlements(req: Request) {
   return { ...(await resolveAuthContext(req)), entitlements };

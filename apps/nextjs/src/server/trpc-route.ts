@@ -1,21 +1,13 @@
 import type { BaseContext } from '@acme/trpc';
 import type { TRPCFetchHandlerOptions } from '@acme/trpc/handler';
 import { toPrincipal } from '@acme/auth/server';
-import { env as billingEnv, toPlanIds } from '@acme/billing/env';
-import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 import {
   corsPreflightHeaders,
   createTRPCFetchHandler,
 } from '@acme/trpc/handler';
 
 import { auth } from './auth';
-
-/**
- * The Stripe/Redis entitlements provider, closing over the plan ids billing's
- * own env resolves (@acme/env ADR 0001) — the product→tier mapping needs them, and the
- * platform no longer reads them from `process.env`.
- */
-const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
+import { entitlements } from './deps';
 
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error
@@ -68,6 +60,9 @@ export const resolveContext = async (req: Request) => ({
  * mount rather than injected into every context, so the mounts that meter
  * credits or gate tiers get a provider and the mounts that do neither are handed
  * nothing they cannot name.
+ *
+ * The provider comes from `./deps`, this app's composition root — the same value
+ * `worker.ts` refunds through, because there is only one (ADR 0006).
  */
 export const resolveContextWithEntitlements = async (req: Request) => ({
   ...(await resolveContext(req)),

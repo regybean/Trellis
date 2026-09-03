@@ -1,17 +1,19 @@
 import type { BaseContext, InjectedSession } from '@acme/trpc';
 import type { TRPCFetchHandlerOptions } from '@acme/trpc/handler';
-import { unlimitedEntitlements } from '@acme/entitlements';
 import {
   corsPreflightHeaders,
   createTRPCFetchHandler,
 } from '@acme/trpc/handler';
 
+import { entitlements } from '~/server/deps';
+
 /**
  * App-owned tRPC route-handler seam for the slim (no-auth, no-billing) TanStack
  * Start app. The fetch-adapter wiring, error logging and CORS live once in
  * `@acme/trpc/handler`; this file owns only the app-specific seam — injecting a
- * constant local principal in place of auth, and `unlimitedEntitlements` into
- * the one mount that asks for a provider (ADR 0010) — and the framework shape.
+ * constant local principal in place of auth, and the provider from
+ * `~/server/deps` into the one mount that asks for one (ADR 0010) — and the
+ * framework shape.
  * Feature route files keep only the `createFileRoute` path literal (which the
  * route-tree codegen statically requires) and a tiny "this router at this
  * endpoint, with this resolver" declaration.
@@ -44,16 +46,16 @@ export const resolveContext = (req: Request) => ({
 });
 
 /**
- * The base context plus the no-op `unlimitedEntitlements` (top tier, infinite
- * credits) — the extra field `@acme/chat` names on its own context (#256, ADR
- * 0006). This app strips billing but still mounts chat, which meters credits, so
- * it is choosing *unmetered* rather than declining to choose. Chosen per mount,
- * so `ingest` and `notifications` — which have no tier to gate on and no credit
- * to spend — are handed nothing.
+ * The base context plus the no-op provider `~/server/deps` builds (top tier,
+ * infinite credits) — the extra field `@acme/chat` names on its own context
+ * (#256, ADR 0006). Chosen per mount, so `ingest` and `notifications` — which
+ * have no tier to gate on and no credit to spend — are handed nothing. Which
+ * provider this is is the composition root's call, not this file's; `worker.ts`
+ * reads the same one.
  */
 export const resolveContextWithEntitlements = (req: Request) => ({
   ...resolveContext(req),
-  entitlements: unlimitedEntitlements,
+  entitlements,
 });
 
 /**

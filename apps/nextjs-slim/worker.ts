@@ -21,18 +21,19 @@
  */
 
 import { createChatGenerationProcessor } from '@acme/chat/server';
-import { unlimitedEntitlements } from '@acme/entitlements';
 import { createIngestProcessor } from '@acme/ingest/server';
 import { logger } from '@acme/logger';
 import { createWorker, QUEUE_NAMES } from '@acme/queue';
 
-// Inject the SAME provider this slim app's route handler injects into
-// the tRPC context (ADR 0006 / ADR 0010): `unlimitedEntitlements`, whose
-// `refund` is a no-op — a no-billing app charged nothing, so it refunds nothing,
-// and never imports `@acme/subscriptions`.
+import { entitlements } from './src/server/deps';
+
+// The provider comes from this app's composition root, which is also where the
+// route handler gets it (ADR 0006 / ADR 0010) — so the worker error path and the
+// request path cannot disagree. For a slim app it is the no-op provider, whose
+// `refund` does nothing because nothing was charged.
 const worker = createWorker(
   QUEUE_NAMES.GENERATION,
-  createChatGenerationProcessor(unlimitedEntitlements),
+  createChatGenerationProcessor(entitlements),
 );
 
 // The ingest processor takes no args — it direct-imports its own progress writer
