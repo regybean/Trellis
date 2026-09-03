@@ -140,8 +140,10 @@ export function writePackage(
  *
  * The graph is small but has every shape the resolver has to handle: a package
  * with a workspace dependency (`@acme/db` → `@acme/logger` → the eslint config),
- * one declaring `acme.infra`, an app that the exclusions keep off the menu, and
- * a bundle that is always included next to two that are chosen.
+ * one declaring `acme.infra`, an app that the exclusions keep off the menu, a
+ * bundle that is always included next to three that are chosen, and one of
+ * those (`agents`) naming a nested *file* rather than a directory, the way the
+ * real inventory names `.claude/settings.json`.
  *
  * The consumer gets its own file, a manifest naming a selection, and the scripts
  * vendored under `scripts/`.
@@ -179,6 +181,7 @@ export function setup({
             paths: ['turbo.json', 'pnpm-workspace.yaml'],
           },
           { name: 'docs', paths: ['docs'] },
+          { name: 'agents', paths: ['.claude/settings.json'] },
           { name: 'infra', paths: ['deploy'] },
         ],
         exclude: [
@@ -195,6 +198,8 @@ export function setup({
   );
   write(bank, 'turbo.json', '{ "tasks": {} }\n');
   write(bank, 'docs/guide.md', '# bank\n');
+  write(bank, '.claude/settings.json', '{ "permissions": {} }\n');
+  write(bank, '.claude/skills/generated.md', '# regenerated on postinstall\n');
   write(bank, 'deploy/compose.yaml', 'services: {}\n');
   writePackage(
     bank,

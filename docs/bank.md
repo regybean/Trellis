@@ -29,14 +29,18 @@ two things no derivation gives you.
 
 - **`bundles`.** Named groups of content that cannot be a package, because the
   tools that read it require it at a fixed repo-relative path. `root` is always
-  included and holds `turbo.json`, `pnpm-workspace.yaml`, `patches/`, `scripts/`
-  and the lint and hook configs. The rest are `scaffolding`, `agents`, `ci`,
-  `docs` and `infra` — and `infra` selects itself when a package you took
-  declares the services it needs.
-- **`exclude`.** What is left out, with a reason each. The root `package.json`,
-  `pnpm-lock.yaml`, `README.md`, `LICENSE` and `apps/` are all consumer
-  identity. The bank distributes packages and configuration, never an
-  application and never your front page.
+  included and holds the root `package.json`, `turbo.json`,
+  `pnpm-workspace.yaml`, `patches/`, `scripts/` and the lint and hook configs.
+  The rest are `scaffolding`, `agents`, `ci`, `docs` and `infra` — and `infra`
+  selects itself when a package you took declares the services it needs.
+- **`exclude`.** What is left out, with a reason each. `pnpm-lock.yaml`,
+  `README.md`, `LICENSE` and `apps/` are all consumer identity. The bank
+  distributes packages and configuration, never an application and never your
+  front page.
+
+A bundle path may be a single file rather than a directory — `agents` names
+`.claude/settings.json` that way, while the generated symlinks beside it under
+`.claude/skills/` stay out.
 
 You name packages and bundles. `bank:sync` resolves that selection to paths at
 the ref you pinned, following workspace dependencies to their transitive
@@ -47,8 +51,8 @@ it, and the bank makes no per-path promise about how well a given path merges.
 Subscribing to a feature slice is allowed, and you own whatever conflicts it
 produces.
 
-Two paths arrive as **seeds** rather than as shared code: `packages/platform/env`
-and `tooling/tailwind`'s `theme.css`.
+Three paths arrive as **seeds** rather than as shared code: the root
+`package.json`, `packages/platform/env` and `tooling/tailwind`'s `theme.css`.
 
 `@acme/env` is a hard dependency of thirteen of the nineteen runtime packages, so
 excluding it makes nearly every selection fail to install with nothing to copy
@@ -58,7 +62,16 @@ distributes, not this package ([ADR 0033](adr/0033-one-env-factory-per-slice.md)
 dependency of every UI package, and there is no way to express _take the package
 but not one file_, because a resolved path is a prefix.
 
-Both are yours to rewrite on arrival, and three-way merge is what makes that
+The root `package.json` is a seed for a narrower reason: only `name` in it is
+yours, and the bank never edits that field, so it cannot conflict. The other six
+are the tooling contract for `scripts/`, which arrives in the same bundle — the
+script entries that invoke those files, and the devDependencies they run on. Take
+`scripts/quality-gate.sh` without the manifest and you have a script with no
+`turbo` installed and no `postinstall` to register the skills. See
+[Bringing your own root manifest](#bringing-your-own-root-manifest) if your repo
+already has one.
+
+All three are yours to rewrite on arrival, and three-way merge is what makes that
 safe: your edits survive every later sync and conflict only where both sides
 touched the same lines.
 
@@ -129,24 +142,18 @@ installed — plain node and git are enough, which is why the first sync works i
 repo with no `node_modules`. `scripts/bank-contribute.mjs` arrives with your
 first sync; you do not need it to pull.
 
-Then add the script entries to your root `package.json`. The root manifest is
-yours, and the bank never writes it.
-
-```json
-{
-  "scripts": {
-    "bank:sync": "node scripts/bank-sync.mjs",
-    "bank:contribute": "node scripts/bank-contribute.mjs"
-  }
-}
-```
-
 ### 4. Sync and merge
 
+Run the first sync as plain node, since `pnpm bank:sync` is one of the entries
+the sync itself delivers:
+
 ```bash
-pnpm bank:sync
+node scripts/bank-sync.mjs
 git merge --allow-unrelated-histories vendor/trellis
 ```
+
+The root `package.json` arrives in that merge, so from the second sync on it is
+`pnpm bank:sync` like everything else.
 
 The first merge needs `--allow-unrelated-histories` because your repo and the
 vendor branch have no shared commit yet. Every merge after it is ordinary, and
@@ -201,6 +208,56 @@ the substitution stays a decision rather than a surprise.
 
 It is called `omit` and not `exclude` on purpose — `exclude` is the bank's word,
 in `bank.paths.json`, for what it never distributes to anyone.
+
+### Bringing your own root manifest
+
+Setting up in an empty repo, the root `package.json` just arrives. Setting up in
+a repo that already has one, you have two options.
+
+**Keep yours, drop the bank's.** `omit` is the supported escape:
+
+```json
+{ "omit": ["package.json"] }
+```
+
+The sync warns by name, like any other omit, and you are then the one wiring
+`scripts/` up — the script entries that invoke it and the devDependencies they
+need. Copy them across from the bank's manifest.
+
+**Merge the two.** Take the first sync and resolve the conflict once. Per field:
+
+| Field             | Keep                                                                                                      |
+| ----------------- | --------------------------------------------------------------------------------------------------------- |
+| `name`            | **Yours.** The bank never edits it, so this conflicts only on the first merge.                            |
+| `scripts`         | **Both.** The bank's entries drive `scripts/`; yours are yours. Rename on a genuine collision.            |
+| `devDependencies` | **Both.** The bank's ten are what `scripts/` runs on. Dropping one breaks the entries that call it.       |
+| `engines`         | **The bank's**, or higher. It is the floor the packages are built against.                                |
+| `packageManager`  | **The bank's.** `pnpm-workspace.yaml` arrives in the same bundle and its catalogs assume that pnpm.       |
+| `overrides`       | **Both**, unless they disagree on a version — then yours, and expect the conflict again on the next bump. |
+| `private`         | Either. Both sides say `true`.                                                                            |
+
+After that first resolution, later syncs conflict only where the bank edits a
+line you also edited, like anything else.
+
+### Script entries that assume an app you may not have
+
+Most of the entries are workspace-wide (`turbo run build` with no `apps/` just
+builds packages) or a call into `scripts/`. Seven name something specific, and
+fail with "no projects matched" if you did not take it:
+
+| Entry                 | Assumes                       |
+| --------------------- | ----------------------------- |
+| `build:nextjs`        | the `@acme/nextjs` app        |
+| `build:nextjs-slim`   | the `@acme/nextjs-slim` app   |
+| `build:tanstack-slim` | the `@acme/tanstack-slim` app |
+| `test:nextjs`         | nothing — an alias of `test`  |
+| `lint:mastra`         | the `@acme/chat` feature      |
+| `seed:localstripe`    | the `@acme/billing` feature   |
+| `studio`              | the `@acme/chat` feature      |
+
+Delete the ones you have no use for. They are seven lines in a file the bank
+treats as a seed, so deleting them conflicts only if the bank edits the same
+lines. Nothing else in the manifest depends on them.
 
 ## Reading and resolving a conflict
 
