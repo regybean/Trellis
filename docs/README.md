@@ -33,7 +33,7 @@ Contents — every doc in the repo, in reading order.
 | [Worktree workflow](agents/worktree-workflow.md) | How parallel isolated build agents work and the standing rules.                                  |
 | [Issue tracker](agents/issue-tracker.md)         | Markdown issues + PRDs under `.scratch/`.                                                        |
 | [Triage labels](agents/triage-labels.md)         | The five canonical triage roles.                                                                 |
-| [Domain docs](agents/domain.md)                  | How skills consume `CONTEXT.md` + ADRs when exploring.                                           |
+| [Domain docs](agents/domain.md)                  | Where an ADR lives, what a status may say, and what a `CONTEXT.md` holds.                        |
 
 ## Testing
 
@@ -43,10 +43,10 @@ Contents — every doc in the repo, in reading order.
 
 ## Architectural decision records
 
-An ADR lives with what it governs. If deleting the package would take the decision
-with it, the ADR is in that package's `docs/adr/`; otherwise it is here in
-[`adr/`](adr/). Numbering is **per directory** — `@acme/auth` 0001 and root 0001
-are different decisions and that is normal.
+An ADR lives with what it governs: repo-wide decisions here in [`adr/`](adr/), a
+package's own in its `docs/adr/`. The placement test, the per-directory
+numbering, and the status vocabulary are stated once in
+[agents/domain.md](agents/domain.md#where-an-adr-lives).
 
 ### System-wide
 
@@ -79,8 +79,10 @@ are different decisions and that is normal.
 
 ### Per package
 
-Each package's own sequence, starting at `0001`. `CONTEXT-MAP.md` lists these
-alongside the root ADRs that also govern each package.
+Each package's own sequence, starting at `0001` — independent of the root's, so
+`@acme/auth` 0001 and root 0001 are different decisions and that is normal.
+`CONTEXT-MAP.md` lists these alongside the root ADRs that also govern each
+package.
 
 | Package               | ADR                                                                                              | Decision                                                                                   |
 | --------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |

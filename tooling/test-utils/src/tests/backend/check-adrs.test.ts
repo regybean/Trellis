@@ -75,13 +75,16 @@ function check(dir: string) {
   };
 }
 
+/** Where a fixture package keeps its ADRs. Assembled, for the same reason `adr` is. */
+const ADR_DIR = 'docs/adr';
+const alphaAdrDir = `packages/alpha/${ADR_DIR}/`;
+
 /** The shape every case starts from: one root ADR, one package ADR, one row. */
 function baseline(): Record<string, string> {
   return {
-    'CONTEXT-MAP.md': `| \`packages/alpha/\` | [ADRs](packages/alpha/docs/adr/) |\n`,
+    'CONTEXT-MAP.md': `| \`packages/alpha/\` | [ADRs](${alphaAdrDir}) |\n`,
     [`docs/adr/${adr(1, 'a-root-decision')}`]: body('A root decision'),
-    [`packages/alpha/docs/adr/${adr(1, 'an-alpha-decision')}`]:
-      body('An alpha decision'),
+    [`${alphaAdrDir}${adr(1, 'an-alpha-decision')}`]: body('An alpha decision'),
   };
 }
 
@@ -91,7 +94,7 @@ describe('numbering is per directory', () => {
     const second = adr(1, 'another-alpha-decision');
     const dir = sandbox({
       ...baseline(),
-      [`packages/alpha/docs/adr/${second}`]: body('Another alpha decision'),
+      [`${alphaAdrDir}${second}`]: body('Another alpha decision'),
     });
 
     const { status, output } = check(dir);
@@ -99,7 +102,7 @@ describe('numbering is per directory', () => {
     expect(status).toBe(1);
     expect(output).toContain(first);
     expect(output).toContain(second);
-    expect(output).toContain('packages/alpha/docs/adr/');
+    expect(output).toContain(alphaAdrDir);
   });
 
   it('passes when a root ADR and a package ADR share a number', () => {
@@ -157,7 +160,7 @@ describe('every ADR citation resolves', () => {
     const target = adr(1, 'a-root-decision');
     const dir = sandbox({
       ...baseline(),
-      [`packages/alpha/docs/adr/${adr(2, 'a-second-alpha-decision')}`]: `${body('A second alpha decision')}\nSee [the root rule](../../../../docs/adr/${target}).\n`,
+      [`${alphaAdrDir}${adr(2, 'a-second-alpha-decision')}`]: `${body('A second alpha decision')}\nSee [the root rule](../../../../docs/adr/${target}).\n`,
     });
 
     expect(check(dir).status).toBe(0);

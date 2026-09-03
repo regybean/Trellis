@@ -89,7 +89,7 @@ The guide — set-up, syncing, resolving conflicts, reading a drift report — i
 
 Trellis is built to be navigated and **extended** by coding agents as much as by humans.
 
-- [CONTEXT-MAP.md](CONTEXT-MAP.md) indexes the domain language, pointing to per-package `CONTEXT.md` files; [docs/adr/](docs/adr/) records the decisions that are hard to reverse.
+- [CONTEXT-MAP.md](CONTEXT-MAP.md) indexes the domain language, pointing to per-package `CONTEXT.md` files. Decisions that are hard to reverse are recorded as ADRs, each living with what it governs: repo-wide ones in [docs/adr/](docs/adr/), a package's own in its `docs/adr/` — so a package taken from the bank arrives with its reasoning. The rule is in [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives).
 - **The workflow:** `/grill-with-docs` plans a change against the domain language and updates `CONTEXT.md` + ADRs inline → launch `claude --worktree <slug>` and `/implement` builds it in an isolated worktree → PR. The point is **multiple agents in parallel, one window per task**, with a **human making the engineering calls** and reviewing every PR — agents never auto-merge.
 
 Full agent brief in [CLAUDE.md](CLAUDE.md); workflow details in [docs/agents/](docs/agents/).
