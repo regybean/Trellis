@@ -64,7 +64,7 @@ mkdir -p "$STAGE_DIR" logs
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc "$STAGE_DIR"/*.ms 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
-order=(build turbo test check:exports boundaries lint:ws deps:lint test:policy gitleaks audit)
+order=(build turbo test check:exports check:bank-paths boundaries lint:ws deps:lint test:policy gitleaks audit)
 
 # Dependency audit (ADR 0027). CI is the hard backstop; locally this stage
 # graceful-degrades on network failure (skip + warn, like gitleaks) so offline
@@ -101,15 +101,17 @@ run_stage() {
 }
 
 # The standalone checks first — none of them depend on `build`, so they overlap
-# the prime below. check:exports is verify-only, so it moves out of the `lint`
-# script (which prefixes it) and runs as its own parallel stage.
-launch check:exports pnpm check:exports
-launch boundaries    pnpm boundaries
-launch lint:ws       pnpm lint:ws
-launch deps:lint     pnpm deps:lint
-launch test:policy   pnpm test:policy
-launch gitleaks      pnpm gitleaks
-launch audit         run_audit
+# the prime below. check:exports and check:bank-paths are verify-only, so they
+# move out of the `lint` script (which prefixes both) and run as their own
+# parallel stages.
+launch check:exports    pnpm check:exports
+launch check:bank-paths pnpm check:bank-paths
+launch boundaries       pnpm boundaries
+launch lint:ws          pnpm lint:ws
+launch deps:lint        pnpm deps:lint
+launch test:policy      pnpm test:policy
+launch gitleaks         pnpm gitleaks
+launch audit            run_audit
 
 # Prime the `^build` prerequisite once, in the foreground, so the two turbo-backed
 # stages below both hit the cache instead of racing to build the graph twice.
