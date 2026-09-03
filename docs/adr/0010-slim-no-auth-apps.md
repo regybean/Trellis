@@ -86,6 +86,6 @@ single-sourced; only the thin integration layer is copied.
   removes the only app-owned table, but the per-app Postgres schema (named off
   `NEXT_PUBLIC_WEBAPP`) must still exist at runtime for Mastra's memory + vector
   store. `db/schema.ts` exports only `appSchema`, so `db:push` owns the
-  `CREATE SCHEMA` ([ADR 0002](0002-mastra-rag-and-memory.md)). Relying on Mastra's
+  `CREATE SCHEMA` ([@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md)). Relying on Mastra's
   defensive `CREATE SCHEMA IF NOT EXISTS` as the primary creator was rejected as
   unreliable.

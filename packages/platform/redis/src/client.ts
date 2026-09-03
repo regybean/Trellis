@@ -219,8 +219,8 @@ const namespaced = (raw: Redis) => {
     // `end`/`start` argument order (Redis: `XREVRANGE key + - COUNT n`). With
     // `COUNT 1` it is the cheap "what is the last stream id" read the durable
     // stream seeds a fresh tail-from-now cursor with — a REAL Redis-assigned id,
-    // never the app clock (which skews against Redis' own; see the durable-stream
-    // primitive and docs/adr/0030).
+    // never the app clock (which skews against Redis' own; see this package's
+    // docs/adr/0001-durable-redis-stream-primitive.md).
     xRevRange: (
       key: NamespacedKey,
       end: string,

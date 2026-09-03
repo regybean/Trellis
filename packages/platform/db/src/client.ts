@@ -10,7 +10,7 @@ import { env } from './env';
  * a different database on the same server pass it explicitly — the one such
  * caller is `@acme/rag`, which connects to the dedicated vector database
  * (`DB_VECTOR_NAME`). This is why there is no separate `vdb` package: a single
- * consumer parameterises the factory instead. See docs/adr/0016.
+ * consumer parameterises the factory instead. See this package's docs/adr/0001-db-connection-platform-package.md.
  *
  * No `schema` is bound: callers query table objects directly (each feature owns
  * its own tables), matching the previous per-feature construction.

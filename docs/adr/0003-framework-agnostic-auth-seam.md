@@ -187,7 +187,7 @@ one provider mapping is exactly the fan-out this ADR exists to prevent.
 What changed behaviourally: the role is a **column**, not a JWT claim, so a role
 change takes effect on the next request rather than on token refresh — sessions
 are database rows and the cookie cache is off
-([ADR 0034](0034-self-hosted-better-auth.md)).
+([@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)).
 
 ## Amendment 3 — the principal is a concrete type (#250)
 

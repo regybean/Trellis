@@ -132,7 +132,7 @@ whole (well, their own) cache and one store.
 
 ## What this changes in @acme/hooks ADR 0001
 
-[ADR 0025](0025-per-query-indexeddb-persister.md) is otherwise intact — per-query
+[@acme/hooks ADR 0001](../../packages/shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md) is otherwise intact — per-query
 persistence, IndexedDB via `idb-keyval`, per-feature `rq-<keyPrefix>` stores,
 app-supplied `scopeKey`, the `buster`, the pinned patch and the `query-core`
 override all stand. Three sentences in it assumed a per-feature client and are

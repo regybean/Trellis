@@ -2,7 +2,7 @@
 
 **Status:** accepted
 
-> **Rationale updated by [ADR 0033](0033-one-env-factory-per-slice.md) §3.** The
+> **Rationale updated by [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §3.** The
 > stub table below still holds, but not for the reason given here. An
 > `IS_NEXT_BUILD` run no longer skips coercion: `withProfiles` always builds and
 > parses the schema, relaxing only the keys no profile authors. So the stubs no
