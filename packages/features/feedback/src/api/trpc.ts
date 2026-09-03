@@ -1,23 +1,55 @@
+import { initTRPC } from '@trpc/server';
+
+import type { BaseContext } from '@acme/trpc';
 import { createDb } from '@acme/db';
-import { createFeatureTRPCWithDb } from '@acme/trpc';
+import { instrumentDrizzleClient } from '@acme/telemetry';
+import {
+  requireAdmin,
+  requirePrincipal,
+  trpcConfig,
+  withProcedureSpan,
+  withTimingLog,
+} from '@acme/trpc';
 
-// Feedback owns an app-managed Drizzle table, so it builds its tRPC instance via
-// `createFeatureTRPCWithDb`: the same neutral context (the session injected by
-// the app adapter) every feature shares, plus an instrumented `ctx.db`. No
-// context extension — feedback has no tier to gate on and no credit to spend, so
-// it names no billing type at all (#256, ADR 0006). Telemetry is ambient (ADR
-// 0023). The connection has no `schema` bound — the router
-// queries table objects directly (its own `messageFeedback` plus the
-// `@acme/rag` Drizzle mirror of `mastra_messages`).
-const _db = createDb();
+/**
+ * Feedback's tRPC instance, built on its own concrete context: the neutral
+ * `BaseContext` the app adapter injects, and nothing else. Feedback has no tier
+ * to gate on and no credit to spend, so it names no billing type at all (#256,
+ * ADR 0006). Telemetry is ambient (ADR 0023).
+ */
+export type FeedbackContext = BaseContext;
 
-export const db = _db;
-export type db = typeof _db;
+/**
+ * Feedback's Drizzle client, instrumented for tracing once at module load, and
+ * imported directly by the routers rather than read off `ctx.db` (#264). The
+ * connection has no `schema` bound — the router queries table objects directly
+ * (its own `messageFeedback` plus the `@acme/rag` Drizzle mirror of
+ * `mastra_messages`).
+ */
+export const db = createDb();
 
-export const {
-  createTRPCContext,
-  createTRPCRouter,
-  createCallerFactory,
-  protectedProcedure,
-  adminProcedure,
-} = createFeatureTRPCWithDb(_db);
+instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
+
+const t = initTRPC.context<FeedbackContext>().create(trpcConfig);
+
+// The shared middleware stack, composed against feedback's own concrete
+// context. The bodies live once in `@acme/trpc` as plain async helpers; only
+// this wiring is per-feature (#264).
+const telemetry = t.middleware(({ next, path, type, ctx }) =>
+  withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
+);
+const timing = t.middleware(({ next, path }) =>
+  withTimingLog(path, t._config.isDev, next),
+);
+const authed = t.middleware(({ next, ctx }) =>
+  next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
+);
+const admin = t.middleware(({ next, ctx }) =>
+  next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
+);
+
+export const createTRPCRouter = t.router;
+export const createCallerFactory = t.createCallerFactory;
+export const publicProcedure = t.procedure.use(telemetry).use(timing);
+export const protectedProcedure = publicProcedure.use(authed);
+export const adminProcedure = publicProcedure.use(admin);

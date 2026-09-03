@@ -9,10 +9,12 @@
  * cross (Better Auth omits the admin plugin's columns from `getSession`'s static
  * type, so the value is there and the type says otherwise).
  */
+import { initTRPC } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { createFeatureTRPC } from '@acme/trpc';
+import type { BaseContext } from '@acme/trpc';
+import { requireAdmin, trpcConfig } from '@acme/trpc';
 import { createMockSession, createTestContext } from '@acme/trpc/testing';
 
 import {
@@ -183,12 +185,17 @@ describe('toAdminUser', () => {
  *
  * The per-feature `adminProcedure` tests hand the gate a principal with the role
  * already set, which proves the gate reads `role` but not that a *promotion*
- * ever produces that principal. Every link here is real — `adminProcedure` is
- * the production middleware from `@acme/trpc`, not a re-implementation.
+ * ever produces that principal. Every link here is real — the gate body is
+ * `@acme/trpc`'s own `requireAdmin`, wired the same three lines every feature
+ * wires it in (#264), not a re-implementation.
  */
-const { createTRPCRouter, adminProcedure } = createFeatureTRPC();
+const t = initTRPC.context<BaseContext>().create(trpcConfig);
 
-const adminOnly = createTRPCRouter({
+const adminProcedure = t.procedure.use(({ next, ctx }) =>
+  next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
+);
+
+const adminOnly = t.router({
   ping: adminProcedure.query(({ ctx }) => ctx.session.user.id),
 });
 

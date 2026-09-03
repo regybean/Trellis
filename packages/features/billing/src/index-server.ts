@@ -11,4 +11,3 @@ export {
   syncStripeDataToKV,
 } from './utils/stripe';
 export { appRouter } from './api/root';
-export { createTRPCContext } from './api/trpc';

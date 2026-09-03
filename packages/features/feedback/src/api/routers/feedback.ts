@@ -12,7 +12,7 @@ import {
   selectFeedbackSchema,
   SubmitFeedbackRequest,
 } from '../schemas/feedback-schema';
-import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { createTRPCRouter, db, protectedProcedure } from '../trpc';
 
 /**
  * Message feedback router. The `submit` mutation is the worked example of the
@@ -35,7 +35,7 @@ export const feedbackRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { id: userId } = ctx.session.user;
 
-      const [row] = await ctx.db
+      const [row] = await db
         .select()
         .from(messageFeedback)
         .where(
@@ -68,7 +68,7 @@ export const feedbackRouter = createTRPCRouter({
       }
 
       // 2. Message existence — read Mastra-owned rows through the Drizzle mirror.
-      const [message] = await ctx.db
+      const [message] = await db
         .select({ id: mastraMessages.id })
         .from(mastraMessages)
         .where(
@@ -95,7 +95,7 @@ export const feedbackRouter = createTRPCRouter({
         comment: input.comment ?? null,
       });
 
-      const [saved] = await ctx.db
+      const [saved] = await db
         .insert(messageFeedback)
         .values(values)
         .onConflictDoUpdate({
@@ -128,7 +128,7 @@ export const feedbackRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.session.user;
 
-      await ctx.db
+      await db
         .delete(messageFeedback)
         .where(
           and(

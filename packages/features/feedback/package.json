@@ -45,6 +45,7 @@
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/rag": "workspace:*",
+    "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
     "@t3-oss/env-core": "catalog:",

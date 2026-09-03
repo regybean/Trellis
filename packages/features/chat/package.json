@@ -10,6 +10,7 @@
     "@acme/queue": "workspace:*",
     "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",
+    "@acme/telemetry": "workspace:*",
     "@acme/trpc": "workspace:*",
     "@acme/ui": "workspace:*",
     "@dnd-kit/core": "catalog:",

@@ -5,13 +5,11 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { InjectedSession } from '@acme/trpc';
 import { createAppQueryClient } from '@acme/hooks';
 
 import type { AppRouter } from '../api/root';
 import type { BillingContext } from '../api/trpc';
 import { appRouter } from '../api/root';
-import { createTRPCContext } from '../api/trpc';
 
 /**
  * Framework-neutral RSC server caller. The session + billing seams: the
@@ -22,10 +20,7 @@ import { createTRPCContext } from '../api/trpc';
  * `createServerTRPC`. See docs/adr/0003-framework-agnostic-auth-seam.md and
  * docs/adr/0006-entitlements-injection-seam.md.
  */
-export interface ServerTRPCOptions extends BillingContext {
-  headers: Headers;
-  session: InjectedSession;
-}
+export type ServerTRPCOptions = BillingContext;
 
 // The RSC half's own client — a fresh one per request, from the same factory the
 // app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
@@ -34,15 +29,11 @@ export interface ServerTRPCOptions extends BillingContext {
 const getQueryClient = cache(createAppQueryClient);
 
 export function createServerTRPC(opts: ServerTRPCOptions) {
-  const createContext = cache(async () => {
+  const createContext = cache(() => {
     const heads = new Headers(opts.headers);
     heads.set('x-trpc-source', 'rsc');
 
-    return createTRPCContext({
-      headers: heads,
-      session: opts.session,
-      entitlements: opts.entitlements,
-    });
+    return { ...opts, headers: heads };
   });
 
   return createTRPCOptionsProxy<AppRouter>({

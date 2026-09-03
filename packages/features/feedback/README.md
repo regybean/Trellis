@@ -59,20 +59,23 @@ renderWithProviders(<FeedbackList />);
 
    ```ts
    // apps/nextjs/src/app/api/trpc/feedback/[trpc]/route.ts
-   import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
+   import { appRouter } from '@acme/feedback/server';
 
-   import { appRouter, createTRPCContext } from '@acme/feedback/server';
+   import {
+     createTRPCRouteHandlers,
+     resolveContext,
+   } from '~/server/trpc-route';
 
-   const handler = (req: Request) =>
-     fetchRequestHandler({
-       endpoint: '/api/trpc/feedback',
-       req,
-       router: appRouter,
-       createContext: () => createTRPCContext({ headers: req.headers }),
-     });
-
-   export { handler as GET, handler as POST };
+   export const { GET, POST, OPTIONS } = createTRPCRouteHandlers({
+     endpoint: '/api/trpc/feedback',
+     router: appRouter,
+     resolver: resolveContext,
+   });
    ```
+
+   The resolver is checked against the router's own context, so if you add a
+   field to `FeedbackContext` the mount won't compile until the app supplies it
+   (#264).
 
 3. Wrap the relevant tree with `FeedbackTRPCProvider` (from `@acme/feedback`).
 4. Register the schema for migrations (drizzle config `schema` glob), then `pnpm db:push`.

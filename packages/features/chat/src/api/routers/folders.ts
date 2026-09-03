@@ -3,14 +3,13 @@ import { and, asc, eq } from 'drizzle-orm';
 
 import { logger } from '@acme/logger';
 
-import type { db } from '../trpc';
 import {
   chatFolder,
   CreateFolderRequest,
   DeleteFolderRequest,
   selectFolderSchema,
 } from '../schemas/folder-schema';
-import { createTRPCRouter, protectedProcedure } from '../trpc';
+import { createTRPCRouter, db, protectedProcedure } from '../trpc';
 
 // The Folder-ownership rule, owned by the folders module. A caller may only
 // reference their own Folder. Kept here (not inlined in `chat.setFolder`) so the
@@ -18,7 +17,7 @@ import { createTRPCRouter, protectedProcedure } from '../trpc';
 // asserts ownership through this helper rather than a naked Drizzle query in the
 // router body. Throws NOT_FOUND when the Folder does not exist for the caller.
 export async function assertFolderOwned(
-  database: db,
+  database: typeof db,
   folderId: string,
   userId: string,
 ) {
@@ -43,7 +42,7 @@ export const foldersRouter = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
     const { id: userId } = ctx.session.user;
 
-    const rows = await ctx.db
+    const rows = await db
       .select()
       .from(chatFolder)
       .where(eq(chatFolder.userId, userId))
@@ -57,7 +56,7 @@ export const foldersRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.session.user;
 
-      const [created] = await ctx.db
+      const [created] = await db
         .insert(chatFolder)
         .values({ id: input.id, userId, name: input.name })
         .returning();
@@ -80,7 +79,7 @@ export const foldersRouter = createTRPCRouter({
 
       // Scoped delete: a caller can only delete their own Folder. Member threads
       // are intentionally left untouched (lazy delete).
-      await ctx.db
+      await db
         .delete(chatFolder)
         .where(and(eq(chatFolder.id, input.id), eq(chatFolder.userId, userId)));
 
