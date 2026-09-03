@@ -1,5 +1,15 @@
 # Vendored git subset with three-way merge is the distribution model
 
+> **Superseded in part by [ADR 0039](0039-the-selection-is-the-contract.md).** The
+> mechanism below — vendored subset, pristine vendor branch, each sync parented on
+> the last, merge left to the human — **stands in full.** Two things it describes
+> no longer exist. A manifest no longer holds an `include`: it names packages and
+> bundles, and `bank:sync` resolves that selection to the transitive workspace
+> closure of paths at the pinned ref. And `bank.paths.json` no longer lists the
+> bank's packages: that set is derived from `pnpm-workspace.yaml`. Read the
+> `include` and `packages` array in the text below as the shape they had when this
+> was written; the reasoning around them is unchanged.
+
 Trellis is a bank of packages that other repos start from. Until now they started
 from it by copying the repo once. The measured result of that
 ([#219](https://github.com/regybean/Trellis/issues/219)): one consumer, nine

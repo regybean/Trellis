@@ -4,10 +4,17 @@
  * Bank sync — rebuild the pristine vendor branch from a filtered bank subset.
  *
  * Reads `bank.manifest.json` (see docs/adr/0037-vendored-git-subset-three-way-merge.md),
- * fetches the bank at `ref`, and rewrites the local `vendor/trellis` branch so
- * its tree is bank@ref filtered down to `include` and nothing else. The new
- * commit's parent is the previous vendor commit, so the previous sync is a
- * genuine merge base and `git merge` is an ordinary three-way merge.
+ * fetches the bank at `ref`, resolves the manifest's **selection** — package and
+ * bundle names — to the paths those cover at that ref, and rewrites the local
+ * `vendor/trellis` branch so its tree is bank@ref filtered down to them and
+ * nothing else. The new commit's parent is the previous vendor commit, so the
+ * previous sync is a genuine merge base and `git merge` is an ordinary
+ * three-way merge.
+ *
+ * Nobody authors paths on either side: the closure is resolved from the bank's
+ * own `pnpm-workspace.yaml`, `package.json` files and `bank.paths.json` at the
+ * pinned ref (ADR 0039, scripts/lib/bank-closure.mjs). So a package that gains
+ * a dependency upstream is taken on the next sync without a manifest edit.
  *
  * It stops there. It never merges, never checks anything out, and never touches
  * the working tree or the index — the rewrite runs entirely through plumbing
@@ -15,8 +22,9 @@
  * merge command is printed for the human to run.
  *
  * `--check` writes nothing at all. It reports how far the pinned `ref` is behind
- * the bank's default branch, which `include` paths moved in between, and which
- * vendored paths this repo has modified since its last merge. The bank cannot
+ * the bank's default branch, which subscribed paths moved in between, which
+ * paths would enter or leave the closure on a bump, and which vendored paths
+ * this repo has modified since its last merge. The bank cannot
  * see its consumers, so drift detection is consumer-side by construction — see
  * docs/bank.md for the guide, and the exit codes below for gating CI on it.
  *
@@ -37,6 +45,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { resolveInclude } from "./lib/bank-closure.mjs";
 import {
   BankError,
   MANIFEST,
@@ -186,22 +195,31 @@ function runCheck(root, manifest) {
   const headRef = defaultBranch(manifest.upstream);
   const head = fetchBank(manifest.upstream, headRef);
 
+  // Non-strict at both ends: a selection that no longer resolves upstream is
+  // exactly the news `--check` exists to deliver, so it is reported rather than
+  // raised. A sync would refuse it.
+  const atPinned = resolveInclude(pinned, manifest, { strict: false });
+  const include = atPinned.include;
+
   const behind = Number(git(["rev-list", "--count", `${pinned}..${head}`]));
   const moved = behind
-    ? byIncludePath(
-        diffFields(["--name-only", pinned, head], manifest.include),
-        manifest.include,
-      )
+    ? byIncludePath(diffFields(["--name-only", pinned, head], include), include)
     : [];
+  // The closure only moves when `ref` moves, so this is never news of its own —
+  // it belongs to the "behind" outcome and shares its exit code.
+  const atHead = behind
+    ? resolveInclude(head, manifest, { strict: false })
+    : undefined;
+  const entering =
+    atHead?.include.filter((path) => !include.includes(path)) ?? [];
+  const leaving =
+    atHead && include.filter((path) => !atHead.include.includes(path));
 
   const vendor = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
   const vendorTree = vendor && gitOrNull(["rev-parse", `${vendor}^{tree}`]);
   const unsynced =
-    vendorTree !==
-    buildFilteredTree(root, pinned, manifest.include, { quiet: true });
-  const local = vendor
-    ? localModifications(vendor, manifest.include)
-    : undefined;
+    vendorTree !== buildFilteredTree(root, pinned, include, { quiet: true });
+  const local = vendor ? localModifications(vendor, include) : undefined;
 
   const lines = [
     `bank:     ${manifest.upstream}`,
@@ -212,13 +230,33 @@ function runCheck(root, manifest) {
 
   if (behind)
     lines.push(
-      `Behind by ${behind} bank commit${behind === 1 ? "" : "s"}. "include" paths that changed in them:`,
+      `Behind by ${behind} bank commit${behind === 1 ? "" : "s"}. Subscribed paths that changed in them:`,
       ...moved.map(
         (entry) =>
           `  ${entry.prefix} (${entry.files} file${entry.files === 1 ? "" : "s"})`,
       ),
       "",
       `To take them: point "ref" in ${MANIFEST} at the newest bank tag, then run pnpm bank:sync.`,
+      "",
+    );
+
+  if (entering.length || leaving?.length)
+    lines.push(
+      "Bumping to the bank tip also changes what your selection covers:",
+      ...entering.map((path) => `  + ${path}`),
+      ...(leaving ?? []).map((path) => `  - ${path}`),
+      "",
+    );
+
+  if (atHead?.missing.length)
+    lines.push(
+      `Selected packages that do not exist at the bank tip, so a bump would fail: ${atHead.missing.join(", ")}.`,
+      "",
+    );
+
+  if (atPinned.missing.length)
+    lines.push(
+      `Selected packages that do not exist at the pinned ref, so pnpm bank:sync will fail: ${atPinned.missing.join(", ")}.`,
       "",
     );
 
@@ -267,7 +305,10 @@ function runCheck(root, manifest) {
  */
 function runSync(root, manifest) {
   const bankSha = fetchBank(manifest.upstream, manifest.ref);
-  const tree = buildFilteredTree(root, bankSha, manifest.include);
+  const { include, warnings } = resolveInclude(bankSha, manifest);
+  for (const warning of warnings)
+    console.warn(`bank:sync: warning — ${warning}`);
+  const tree = buildFilteredTree(root, bankSha, include);
 
   const parent = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
   if (parent && gitOrNull(["rev-parse", `${parent}^{tree}`]) === tree) {
@@ -282,13 +323,13 @@ function runSync(root, manifest) {
     tree,
     ...(parent ? ["-p", parent] : []),
     "-m",
-    vendorCommitMessage(bankSha, manifest),
+    vendorCommitMessage(bankSha, manifest, include),
   ]);
   git(["update-ref", VENDOR_REF, commit, ...(parent ? [parent] : [])]);
 
   console.log(
     [
-      `${VENDOR_BRANCH} ${parent ? "updated" : "created"}: ${commit.slice(0, 8)} — bank ${manifest.ref} (${bankSha.slice(0, 8)}), ${manifest.include.length} include path(s).`,
+      `${VENDOR_BRANCH} ${parent ? "updated" : "created"}: ${commit.slice(0, 8)} — bank ${manifest.ref} (${bankSha.slice(0, 8)}), ${include.length} resolved path(s).`,
       "",
       "Nothing has been merged. On your working branch, run:",
       "",

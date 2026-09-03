@@ -29,14 +29,15 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../../../../');
 
 /**
- * What a consumer vendors to get the bank commands: the two scripts and the lib
- * they share. All three live under `scripts/`, so after the first sync they
+ * What a consumer vendors to get the bank commands: the two scripts and the two
+ * libs they share. All four live under `scripts/`, so after the first sync they
  * arrive, and update themselves, like anything else in the `root` bundle.
  */
 const scriptSources = [
   'scripts/bank-sync.mjs',
   'scripts/bank-contribute.mjs',
   'scripts/lib/bank.mjs',
+  'scripts/lib/bank-closure.mjs',
 ];
 
 /**
@@ -107,19 +108,48 @@ export interface Sandbox {
 }
 
 export interface SetupOptions {
-  /** Manifest `include` — the paths the consumer takes from the bank. */
-  include?: string[];
+  /** Manifest `packages` — the workspace package names the consumer takes. */
+  packages?: string[];
+  /** Manifest `bundles` — the named path groups it takes alongside them. */
+  bundles?: string[];
+  /** Manifest `omit` — closure paths it supplies itself. */
+  omit?: string[];
   /** Manifest `contributable` — empty by default, exactly like a real one. */
   contributable?: string[];
 }
 
 /**
- * A bank holding two vendored dirs plus a path the consumer does not take, and
- * a consumer with its own file, a manifest, and the scripts vendored under
- * `scripts/`.
+ * Write a workspace package: a `package.json` plus a source file, so the
+ * package is both a graph node and a thing with content to merge.
+ */
+export function writePackage(
+  bank: string,
+  path: string,
+  pkg: Record<string, unknown>,
+  source = 'export const value = true;\n',
+) {
+  write(bank, `${path}/package.json`, `${JSON.stringify(pkg, null, 2)}\n`);
+  write(bank, `${path}/index.js`, source);
+}
+
+/**
+ * A bank that is a real pnpm workspace, because the closure is resolved from
+ * one: `pnpm-workspace.yaml` defines the package set, each `package.json`
+ * carries the dependency edges, and `bank.paths.json` carries the bundles and
+ * the exclusions ([ADR 0039](../../../../../docs/adr/0039-the-selection-is-the-contract.md)).
+ *
+ * The graph is small but has every shape the resolver has to handle: a package
+ * with a workspace dependency (`@acme/db` → `@acme/logger` → the eslint config),
+ * one declaring `acme.infra`, an app that the exclusions keep off the menu, and
+ * a bundle that is always included next to two that are chosen.
+ *
+ * The consumer gets its own file, a manifest naming a selection, and the scripts
+ * vendored under `scripts/`.
  */
 export function setup({
-  include = ['tooling', 'turbo.json'],
+  packages = ['@acme/eslint-config', '@acme/prettier-config'],
+  bundles = [],
+  omit = [],
   contributable = [],
 }: SetupOptions = {}): Sandbox {
   const root = mkdtempSync(join(tmpdir(), 'bank-sandbox-'));
@@ -129,10 +159,71 @@ export function setup({
 
   mkdirSync(bank);
   git(bank, ['init', '-q', '-b', 'main']);
-  write(bank, 'tooling/eslint.js', numberedLines('bank first', 'bank last'));
-  write(bank, 'tooling/prettier.js', 'export default {};\n');
+  write(
+    bank,
+    'pnpm-workspace.yaml',
+    ['packages:', '  - apps/*', '  - packages/*', '  - tooling/*', ''].join(
+      '\n',
+    ),
+  );
+  write(
+    bank,
+    'bank.paths.json',
+    `${JSON.stringify(
+      {
+        version: 1,
+        bundles: [
+          {
+            name: 'root',
+            alwaysIncluded: true,
+            paths: ['turbo.json', 'pnpm-workspace.yaml'],
+          },
+          { name: 'docs', paths: ['docs'] },
+          { name: 'infra', paths: ['deploy'] },
+        ],
+        exclude: [
+          { path: 'apps', reason: "An app is the consumer's own." },
+          {
+            path: 'bank.paths.json',
+            reason: 'Read at the bank ref, never off the consumer’s disk.',
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
   write(bank, 'turbo.json', '{ "tasks": {} }\n');
-  write(bank, 'packages/features/chat/index.ts', 'export const chat = true;\n');
+  write(bank, 'docs/guide.md', '# bank\n');
+  write(bank, 'deploy/compose.yaml', 'services: {}\n');
+  writePackage(
+    bank,
+    'tooling/eslint',
+    { name: '@acme/eslint-config', version: '0.0.0' },
+    numberedLines('bank first', 'bank last'),
+  );
+  writePackage(
+    bank,
+    'tooling/prettier',
+    { name: '@acme/prettier-config', version: '0.0.0' },
+    'export default {};\n',
+  );
+  writePackage(bank, 'packages/logger', {
+    name: '@acme/logger',
+    version: '0.0.0',
+    devDependencies: { '@acme/eslint-config': 'workspace:*' },
+  });
+  writePackage(bank, 'packages/db', {
+    name: '@acme/db',
+    version: '0.0.0',
+    dependencies: { '@acme/logger': 'workspace:*', postgres: 'catalog:' },
+    acme: { infra: ['postgres'] },
+  });
+  writePackage(bank, 'apps/web', {
+    name: '@acme/web',
+    version: '0.0.0',
+    dependencies: { '@acme/db': 'workspace:*' },
+  });
   commit(bank, 'bank: initial');
 
   mkdirSync(consumer);
@@ -145,7 +236,11 @@ export function setup({
   write(
     consumer,
     'bank.manifest.json',
-    `${JSON.stringify({ upstream: bank, ref: 'main', include, contributable }, null, 2)}\n`,
+    `${JSON.stringify(
+      { upstream: bank, ref: 'main', packages, bundles, omit, contributable },
+      null,
+      2,
+    )}\n`,
   );
   write(consumer, 'apps/consumer/own.ts', 'export const mine = true;\n');
   commit(consumer, 'consumer: initial');
