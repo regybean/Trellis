@@ -57,7 +57,8 @@ export interface Entitlements {
 
 /**
  * The injected policy the platform calls instead of importing a billing
- * implementation. Apps wire a concrete provider into the context they build at the route seam.
+ * implementation. Apps wire a concrete provider into the context they build
+ * at the route seam.
  */
 export interface EntitlementsProvider {
   /** Resolve the caller's current entitlements (subscription + tier + credits). */

@@ -59,7 +59,8 @@ owns a client for `setupRouterSsrQueryIntegration` and calls the factory in
 
 **`createFeatureClient`**:
 The client half of a feature's tRPC wiring, authored once — the mirror of
-the server-side instance a feature builds from `@acme/trpc`'s pieces. Returns a feature's `'use client'`
+the server-side instance a feature builds from `@acme/trpc`'s pieces. Returns
+a feature's `'use client'`
 `FeatureTRPCProvider` — a tRPC provider, **not** a `QueryClientProvider`, which
 is the whole point of the name — plus `useTRPC` / `useTRPCClient`,
 `usePersistedQueryOptions`, and `clearPersistedCache`. It owns everything

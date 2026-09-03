@@ -27,7 +27,8 @@ credits after a guarded request, `refund(userId, tier, amount)` credits them bac
 are symmetric — a Credit crosses this one seam in both directions, so a billing
 swap changes a single adapter. Any per-caller idempotency guard on a refund is
 the caller's concern, not the provider's. Apps wire one concrete provider into
-the context they build at the route seam, per request (and into their worker entrypoint).
+the context they build at the route seam, per request (and into their
+worker entrypoint).
 _Avoid_: "billing service", "subscription client"
 
 **Subscription tier**:
@@ -56,8 +57,8 @@ _Avoid_: "subscription record", "billing data"
 tier (`Pro`, so billing's tier gate always admits) with effectively infinite credits
 and a no-op `consume` **and** a no-op `refund` (a deployment that charged nothing
 refunds nothing). Pure; injected by deployments that drop `@acme/subscriptions`
-(e.g. a single-user slim app) — both into the context built at the route seam and into the app's
-worker entrypoint.
+(e.g. a single-user slim app) — both into the context built at the route seam
+and into the app's worker entrypoint.
 _Avoid_: "free tier", "dev provider", a new `Unlimited` tier
 
 ## Relationships
