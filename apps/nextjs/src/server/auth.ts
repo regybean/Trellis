@@ -5,7 +5,7 @@ import { initAuth } from '@acme/auth/server';
 import { env } from '~/env';
 
 /**
- * This app's Better Auth instance (#223, ADR 0034).
+ * This app's Better Auth instance (#223, @acme/auth ADR 0001).
  *
  * `@acme/auth` ships a factory rather than a module singleton because `baseUrl`
  * is per-app — each app binds its own port and its own deployed origin — and a

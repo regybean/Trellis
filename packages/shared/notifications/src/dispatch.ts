@@ -16,7 +16,7 @@ export type NotificationRenderers = Record<string, NotificationRenderer>;
  * needs zero registration; a rich kind is one app-side map entry. The core never
  * owns the kind→renderer map — the app assembles it, where feature payload
  * schemas are importable (a custom renderer zod-parses its own `n.data`). This is
- * the "core owns the envelope, not the kinds" seam (ADR 0030).
+ * the "core owns the envelope, not the kinds" seam (ADR 0001).
  */
 export function dispatchNotification(
   n: Notification,

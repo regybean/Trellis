@@ -7,7 +7,7 @@ import { env } from '../env';
 
 // Offline read of Conversation History + Messages: history is worth keeping for
 // a week, so a restored `chat.list`/`chat.get` renders instantly on cold open
-// (ADR 0025). Also the `gcTime` of every persisted chat query, so an in-memory
+// (@acme/hooks ADR 0001). Also the `gcTime` of every persisted chat query, so an in-memory
 // entry is never garbage-collected before its stored copy expires.
 const CHAT_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -16,7 +16,7 @@ const CHAT_MAX_AGE = 7 * 24 * 60 * 60 * 1000; // 7 days
 // tree, the persister wiring — lives once in the factory; only chat's genuine
 // variation is spelled out here: its router type, endpoint (`rq-chat` /
 // `/api/trpc/chat`), the file-upload-aware transport, its `stream` subscription,
-// and the 7-day per-query persister (ADR 0025). The app owns the `QueryClient`
+// and the 7-day per-query persister (@acme/hooks ADR 0001). The app owns the `QueryClient`
 // (ADR 0036), so there is none to configure.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: 'chat',

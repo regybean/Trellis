@@ -45,7 +45,7 @@ catalog:
   # (no caret) so a patch bump can't silently change the persister contract.
   # This package is versioned independently of react-query and its query-core
   # dep rarely matches; the `@tanstack/query-core` override below forces a single
-  # copy so the persister's QueryClient brand matches react-query's. See ADR 0025.
+  # copy so the persister's QueryClient brand matches react-query's. See @acme/hooks ADR 0001.
   "@tanstack/query-persist-client-core": 5.90.2
   "@tanstack/react-form": ^1.33.5
   "@tanstack/react-query": ^5.87.1
@@ -119,7 +119,7 @@ patchedDependencies:
   # (createPersister.js) and `Query.fetch()` re-throws on failure — so with
   # `staleTime: 0` (chat's QueryClient, needed so a recent persisted snapshot
   # still revalidates) a failed offline refetch becomes an unhandled rejection.
-  # The patch adds `.catch()`. Re-verify on any persister bump (ADR 0025).
+  # The patch adds `.catch()`. Re-verify on any persister bump (@acme/hooks ADR 0001).
   "@tanstack/query-persist-client-core@5.90.2": patches/@tanstack__query-persist-client-core@5.90.2.patch
 
 overrides:
@@ -127,7 +127,7 @@ overrides:
   # (@tanstack/query-persist-client-core) and react-query share one QueryClient
   # brand — without this they resolve two copies whose #private fields clash.
   # Pinned to react-query's exact query-core; bump in lockstep if react-query
-  # moves (ADR 0025).
+  # moves (@acme/hooks ADR 0001).
   "@tanstack/query-core": 5.90.16
   "@types/minimatch": 5.1.2
   import-in-the-middle: 2.0.4

@@ -18,7 +18,7 @@ paths = [
 #
 # Publishable keys (Stripe `pk_test_`/`pk_live_`) are non-secret by design —
 # they ship in the browser bundle. Config-as-code (ADR 0026) moved them out of the
-# path-allowlisted `.env.*` files into code, and ADR 0033 folded that into each
+# path-allowlisted `.env.*` files into code, and @acme/env ADR 0001 folded that into each
 # slice's `env.ts` as an authored profile value, so allowlist the prefix.
 regexes = [
   '''sk_test_localstripe''',

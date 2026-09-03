@@ -10,7 +10,7 @@
  * stays app-owned (Next.js middleware vs. a TanStack Start server function);
  * the mappings are provider-specific and shared by both full apps.
  *
- * See ADR 0034 and docs/adr/0003-framework-agnostic-auth-seam.md.
+ * See ADR 0001 and docs/adr/0003-framework-agnostic-auth-seam.md.
  */
 export { initAuth } from './init-auth';
 export type { Auth, InitAuthOptions, Session } from './init-auth';

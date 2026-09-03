@@ -51,7 +51,7 @@ describe('notification dispatch', () => {
 
   it('lets a registered kind win over the default renderer', async () => {
     // A custom renderer zod-parses its own opaque `data` and composes its own
-    // toast — the core never ships feature renderers (ADR 0030).
+    // toast — the core never ships feature renderers (ADR 0001).
     const renderers: NotificationRenderers = {
       'ingest.job-complete': (n) => {
         const { total } = z.object({ total: z.number() }).parse(n.data);

@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
  * `user` is the signed-in principal or `null`, resolved on the server by
  * `__root`'s `beforeLoad` and passed down as a prop. A prop rather than a
  * client-side session read, so the rail paints the right state immediately
- * instead of rendering signed-out first and swapping on hydration (ADR 0034).
+ * instead of rendering signed-out first and swapping on hydration (@acme/auth ADR 0001).
  */
 export function ConsoleShell({
   user,
@@ -56,7 +56,7 @@ export function ConsoleShell({
   const navigate = useNavigate();
   // The billing-portal URL comes through the provider the root route mounts, not
   // from this app's composed `env`: the values the browser sees are the ones the
-  // server threaded across the SSR boundary (ADR 0033 §6).
+  // server threaded across the SSR boundary (@acme/env ADR 0001 §6).
   const billing = useBillingConfig();
 
   // A document load, not an SPA transition: signing out has to drop the app's

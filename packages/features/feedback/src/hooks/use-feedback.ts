@@ -21,7 +21,7 @@ export function useFeedback(messageId: string, threadId: string) {
   const handleError = useGenericErrorHandler();
 
   // `persisted` opts this query into feedback's persister so the Rating renders
-  // instantly / offline on reload (ADR 0025). It's the only feedback query that
+  // instantly / offline on reload (@acme/hooks ADR 0001). It's the only feedback query that
   // takes it; the submit/remove mutations are never persisted. Harmless when no
   // persister is attached (no scopeKey → network-only).
   const persisted = usePersistedQueryOptions();

@@ -27,7 +27,7 @@ import SuperJSON from 'superjson';
  *   that hasn't settled yet and lets the client await it.
  *
  * No `staleTime`: react-query's default of `0` is the honest one here. A non-zero
- * app default would silently break every persisted query (ADR 0025 — the
+ * app default would silently break every persisted query (ADR 0001 — the
  * persister only revalidates `if (query.isStale())`), and the queries that want a
  * longer window are better off saying so at the call site.
  */

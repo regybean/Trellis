@@ -64,7 +64,7 @@ logical DB). Each consumer keeps only its own contract tests.
   substrate three features depend on; this ADR is where that coupling is written
   down. A fourth consumer adds a codec + seed, not a new poll loop.
 - **Accepted — one more `@acme/redis` op.** `xRevRange` is added to the facade
-  (superseding ADR 0030's "no `xRevRange`, no new `@acme/redis` surface"); the
+  (superseding @acme/notifications ADR 0001's "no `xRevRange`, no new `@acme/redis` surface"); the
   clock-skew failure it removes is worth the one-method surface growth.
 - **Unchanged behaviour.** chat/ingest observable outcomes are identical;
   notifications' leave-and-return still shows nothing (tail-from-now intent

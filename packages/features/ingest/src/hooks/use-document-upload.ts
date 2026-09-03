@@ -90,7 +90,7 @@ export function useDocumentUpload() {
   // panel. `retry: false` keeps a transient failure from thrashing (the tail still
   // delivers live stages; a missed seed self-heals via seed-on-unknown below).
   //
-  // Deliberately does NOT take `usePersistedQueryOptions()` (ADR 0025 is opt-in
+  // Deliberately does NOT take `usePersistedQueryOptions()` (@acme/hooks ADR 0001 is opt-in
   // per query): this is in-flight Upload state whose whole point is to be read
   // fresh from the retained Stream. A persisted copy would re-seed the panel on a
   // cold open with rows that finished hours ago and a `lastId` cursor the Stream

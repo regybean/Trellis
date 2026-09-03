@@ -73,12 +73,12 @@ export default defineConfig({
   // Expose the shared NEXT_PUBLIC_* env (reused from the Next.js app) to the
   // client bundle — the feature slices' `shared` keys read it (see
   // publicEnvDefine below). Nothing auth-related is in there: Better Auth's
-  // client is same-origin and its secret never leaves the server (ADR 0034).
+  // client is same-origin and its secret never leaves the server (@acme/auth ADR 0001).
   envPrefix: ['VITE_', 'NEXT_PUBLIC_'],
   // Inline public env into the client bundle (see publicEnvDefine above), plus
   // the deploy-target selector so env.ts's
   // `resolveAppEnv(process.env.APP_ENV)` resolves in the client bundle too
-  // (ADR 0026 §5). Unset → '' → the `development` base.
+  // (@acme/env ADR 0001 §2). Unset → '' → the `development` base.
   define: {
     ...publicEnvDefine,
     'process.env.APP_ENV': JSON.stringify(process.env.APP_ENV ?? ''),
@@ -91,7 +91,7 @@ export default defineConfig({
   // router-core subpaths + seroval, none seen until runtime.
   //
   // The auth provider needs no entry here: `better-auth/react` is a single entry
-  // point the client imports directly, so the first pass finds it (ADR 0034).
+  // point the client imports directly, so the first pass finds it (@acme/auth ADR 0001).
   optimizeDeps: {
     include: [
       '@tanstack/router-core',
@@ -119,7 +119,7 @@ export default defineConfig({
     // Externalize puppeteer so it stays an unbundled (absent) import.
     //
     // `plugins`: register the app-owned telemetry bootstrap as a Nitro startup
-    // plugin (initializes the OTel SDK at the server boundary — ADR-0005).
+    // plugin (initializes the OTel SDK at the server boundary — ADR 0023).
     // Registered explicitly by absolute path rather than relying on Nitro's
     // `plugins/` auto-scan, whose scan root is ambiguous under TanStack Start.
     nitro({

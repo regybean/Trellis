@@ -12,12 +12,13 @@ gone.
 
 ## Status
 
-accepted (supersedes [0001-stream-owns-message-persistence](0001-stream-owns-message-persistence.md))
+accepted (replaces an earlier design in which `chat.stream` wrote Conversation
+rows itself)
 
 ## Why
 
 Migrating RAG from LlamaIndex to Mastra brought Mastra Memory, which already does
-exactly what ADR-0001 built by hand: durable, transactionally-local persistence of
+exactly what this feature had built by hand: durable, transactionally-local persistence of
 both turns behind the streaming call, with no client orchestration. Reusing it
 deletes our bespoke persistence code (the `ensureChat`/save plumbing) and keeps the
 conversation store consistent with the agent that produces it. Keeping our own

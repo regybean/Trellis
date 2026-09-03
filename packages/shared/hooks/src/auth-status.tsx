@@ -59,7 +59,7 @@ const AuthStatusContext = createContext<AuthStatus | null>(null);
  * passes a plain `isSignedIn` boolean), generalised so a feature can read the
  * state rather than only receive it as a prop. Keeping it in `@acme/hooks`
  * rather than `@acme/auth` is deliberate: `@acme/auth` ships no React
- * (ADR 0034), and the substrate must not pull an auth provider into the graph of
+ * (@acme/auth ADR 0001), and the substrate must not pull an auth provider into the graph of
  * the slim, no-auth apps (ADR 0010).
  */
 export function AuthStatusProvider({

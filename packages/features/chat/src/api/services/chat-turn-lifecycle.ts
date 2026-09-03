@@ -32,7 +32,7 @@ import { enqueueGenerationTurn } from './chat-queue';
 // a single server-side compare-and-delete, so no read-then-act window exists for a
 // re-acquiring Turn to slip into.
 
-// The TTLs are authored config (ADR 0033). The In-flight lock's TTL
+// The TTLs are authored config (@acme/env ADR 0001). The In-flight lock's TTL
 // (`env.INFLIGHT_LOCK_TTL`) doubles as the crash-recovery bound: the worker
 // does NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
 // the lock to self-expire, after which the next `beginTurn` can re-acquire. Until

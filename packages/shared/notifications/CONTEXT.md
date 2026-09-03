@@ -81,7 +81,7 @@ The fresh-connect seed policy (`tailNotifications`): seed the cursor to the stre
 **actual last id** (`lastId()` via `xRevRange`), captured eagerly at attach, so the
 whole backlog is skipped and only entries published _after_ the reader attaches are
 delivered. A leave-and-return therefore shows nothing (no durability — accepted,
-ADR 0030). _Fixed (#196)_: the seed was `${Date.now()}-0` — the app clock, while
+ADR 0001). _Fixed (#196)_: the seed was `${Date.now()}-0` — the app clock, while
 Redis assigns ids from its own; under podman-VM drift that landed in Redis' future
 and silently dropped live entries (the same skew class ingest's #194 killed). A real
 Redis id can't skew; a regression test injects skew and asserts delivery. _Avoid_:
@@ -95,4 +95,4 @@ toast — transport-level dedup with zero client state. _Avoid_: "idempotency ke
 **Slim `'local'` bleed**:
 In the no-auth slim apps, `userId` collapses to the constant `'local'` principal
 at the tRPC route seam, so all slim visitors share one `notifications:local`
-stream. Accepted and documented (ADR 0030) — the same collapse chat/ingest accept.
+stream. Accepted and documented (ADR 0001) — the same collapse chat/ingest accept.

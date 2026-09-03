@@ -49,7 +49,7 @@ export default function RootLayout(props: { children: React.ReactNode }) {
         >
           {/* Slim has no auth, so there is no per-user scope and no logout to
               clear the cache — persistence is scoped to a constant 'anon'
-              principal (ADR 0025). The load pain is data-load, not auth, so the
+              principal (@acme/hooks ADR 0001). The load pain is data-load, not auth, so the
               instant-load win is identical to the full app; `buster` still
               discards on version change. */}
           {/* The app's one QueryClient (ADR 0036) — the feature providers

@@ -15,10 +15,10 @@ import { RAG_DEVELOPMENT_PROFILE } from './development-profile';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * RAG's environment, declared once (ADR 0033). The dedicated vector database
+ * RAG's environment, declared once (@acme/env ADR 0001). The dedicated vector database
  * name, the chunker knobs and the conversation-memory tunables (previously
  * hardcoded in `memory.ts`) are authored here as profile values, and every one of
- * them is env-overridable (ADR 0033 §4) — they are the operational knobs most
+ * them is env-overridable (@acme/env ADR 0001 §4) — they are the operational knobs most
  * likely to be retuned on a live deploy. The DB connection host/port/creds stay
  * with `@acme/db`; only the vector *name* is rag's. Server-side — ingestion, the
  * vector store and memory all run on the backend.

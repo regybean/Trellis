@@ -11,7 +11,7 @@ import { auth } from '~/lib/auth-server';
  * Server-derived localstripe mode (ADR 0003/0004), surfaced to the client
  * through the root route context → `BillingConfigProvider` seam so the client
  * reads one mode value instead of proxying it through `NODE_ENV`. A server
- * function guarantees the Stripe connection (billing env, server side, ADR 0033
+ * function guarantees the Stripe connection (billing env, server side, @acme/env ADR 0001
  * §6) is read on the server; the client can’t reach a server key.
  */
 export const getLocalstripeMode = createServerFn({ method: 'GET' }).handler(
@@ -26,9 +26,9 @@ export const getLocalstripeMode = createServerFn({ method: 'GET' }).handler(
  *
  * The principal Stripe is keyed on is Better Auth's user id — the same id
  * `protectedProcedure` gates on, because both come off the resolved session
- * (ADR 0034). A deployment predating that ADR has `stripeCustomerId` mappings in
+ * (@acme/auth ADR 0001). A deployment predating that ADR has `stripeCustomerId` mappings in
  * Redis keyed on identities that no longer exist; that is the migration cost
- * ADR 0034 names, not a bug here.
+ * @acme/auth ADR 0001 names, not a bug here.
  */
 export const syncStripeOnSuccess = createServerFn({ method: 'POST' }).handler(
   async () => {

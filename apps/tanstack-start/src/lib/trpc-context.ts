@@ -6,7 +6,7 @@ import { auth } from '~/lib/auth-server';
 
 /**
  * The Stripe/Redis entitlements provider, closing over the plan ids billing's own
- * env resolves (ADR 0033).
+ * env resolves (@acme/env ADR 0001).
  */
 const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 
@@ -26,7 +26,7 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
  * Resolving the session is the framework-specific half; the provider-specific
  * mapping onto the neutral principal is `@acme/auth`'s `toPrincipal`, shared with
  * the Next.js app. Every request costs one database read of `session` — auth is
- * stateful now, and a revoked row stops resolving immediately (ADR 0034).
+ * stateful now, and a revoked row stops resolving immediately (@acme/auth ADR 0001).
  */
 export async function resolveAuthContext(req: Request) {
   const session = await auth.api.getSession({ headers: req.headers });
@@ -36,7 +36,7 @@ export async function resolveAuthContext(req: Request) {
     req,
     // The app's own public origin (its PORT in dev, deploy origin in prod), read
     // off the request so billing can build the absolute Stripe checkout redirect
-    // URLs from the authored paths (ADR 0033).
+    // URLs from the authored paths (@acme/env ADR 0001).
     origin: new URL(req.url).origin,
     session: { user: toPrincipal(session) },
   };

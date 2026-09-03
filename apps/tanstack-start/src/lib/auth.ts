@@ -8,7 +8,7 @@ import { auth } from '~/lib/auth-server';
 /**
  * Server-resolved auth state for the route guards — the TanStack Start
  * equivalent of the Next.js app's middleware public/admin route matchers,
- * reading a Better Auth session (ADR 0034).
+ * reading a Better Auth session (@acme/auth ADR 0001).
  *
  * `getRequestHeaders()` exposes the in-flight request's headers, so the HttpOnly
  * session cookie reaches `auth.api.getSession` on the initial SSR load and on
@@ -37,7 +37,7 @@ export const getAuthState = createServerFn({ method: 'GET' }).handler(
       // Parsed off the user object rather than read as a property: Better Auth
       // types `getSession` as returning the core columns only, so the admin
       // plugin's `role` is a runtime fact with no static promise behind it.
-      // `readSessionRole` is where that gets validated (ADR 0034).
+      // `readSessionRole` is where that gets validated (@acme/auth ADR 0001).
       role: readSessionRole(session.user),
       // Shaped for `@acme/ui`'s `UserButtonUser`, which the console shell feeds
       // straight into the signed-in menu.

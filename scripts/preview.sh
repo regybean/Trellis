@@ -11,7 +11,7 @@
 # --no-push). The ONLY difference is the tail: it runs the COMPILED production
 # build via `turbo run start` (dependsOn: build, so turbo rebuilds first) instead
 # of `turbo watch dev`. Purpose: measure true time-to-paint — no HMR, no
-# dev-server latency — especially IndexedDB cache rehydration (ADR 0025), which
+# dev-server latency — especially IndexedDB cache rehydration (@acme/hooks ADR 0001), which
 # the dev server inflates. Each app co-launches its queue worker as a turbo `with`
 # sidecar (without it chat.send never generates a response), same as dev, minus
 # `watch`.

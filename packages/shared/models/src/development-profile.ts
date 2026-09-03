@@ -3,7 +3,7 @@
  * `createEnv` call.
  *
  * `env.ts` authors its `default` profile from this object, and two provisioning
- * paths read it *without* an environment (ADR 0033 §6):
+ * paths read it *without* an environment (@acme/env ADR 0001 §6):
  * `scripts/resolve-compose-env.ts` derives the local Ollama port and the models
  * to pull, and `scripts/resolve-infra.ts` decides whether the `ollama` compose
  * profile is needed at all. Both provision the local stack, so they want the

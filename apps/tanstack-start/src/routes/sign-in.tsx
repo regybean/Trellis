@@ -9,7 +9,7 @@ import { authClient } from '~/lib/auth-client';
  * In-app sign-in. A plain route, not the catch-all `/sign-in/$` this replaces:
  * the splat existed to give a hosted provider's component sub-routes for SSO
  * callbacks, and with email/password against our own handler there are none
- * (ADR 0034).
+ * (@acme/auth ADR 0001).
  *
  * The form is `@acme/ui`'s `SignInForm` — presentational and prop-driven, shared
  * with the Next.js app. This route owns the provider call and where a success

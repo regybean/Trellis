@@ -34,7 +34,7 @@ env composition uses. You mount it by writing that composition
   server does.
 - Run your composed env at boot so a missing secret fails at startup rather than
   at the first request that reads it
-  ([ADR 0022](../../../docs/adr/0022-centralized-env-validation-policy.md)).
+  ([ADR 0001](docs/adr/0001-one-env-factory-per-slice.md) §3).
 - Read `process.env` nowhere else. This package exists so that the composition
   is the single edge, and a scattered read bypasses validation, coercion and
   profiles at once.

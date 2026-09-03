@@ -7,10 +7,10 @@ import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Notifications' environment, declared once (ADR 0033). The stream TTL and the
+ * Notifications' environment, declared once (@acme/env ADR 0001). The stream TTL and the
  * reader's idle backoff bounds are operational tunables that can differ per
  * deploy target, so they are authored here as profile values rather than
- * hardcoded in the service layer — and each is env-overridable (ADR 0033 §4), so
+ * hardcoded in the service layer — and each is env-overridable (@acme/env ADR 0001 §4), so
  * a noisy deploy can be retuned without a rebuild. All server-side: `publish` and
  * `tailNotifications` run on the backend.
  */
@@ -22,7 +22,7 @@ export const env = createEnv({
   },
   server: {
     // Rolling TTL (seconds) refreshed on every `publish`. No MAXLEN — a stream
-    // with no reader simply expires. Delivery is best-effort (ADR 0030): a
+    // with no reader simply expires. Delivery is best-effort (ADR 0001): a
     // publish with no page open is never delivered.
     NOTIFICATION_TTL: z.coerce.number().int().positive(),
     // Reader idle backoff (ms): starts at MIN, doubles up to MAX while the

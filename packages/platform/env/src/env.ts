@@ -1,6 +1,6 @@
 /**
  * `@acme/env` — the one mechanism a slice uses to declare its environment
- * (ADR 0033). A slice writes a single `createEnv` call in a single `env.ts`:
+ * (ADR 0001). A slice writes a single `createEnv` call in a single `env.ts`:
  *
  * - `withProfiles` layers the `APP_ENV`-selected profile onto the call through
  *   t3-env's `createFinalSchema` seam. A key the profile supplies a value for is
@@ -11,7 +11,7 @@
  *   consumed *inside* `withProfiles`, per key: `createEnv`'s own `skipValidation`
  *   is never passed, anywhere, because it returns `runtimeEnv` raw and would
  *   discard every config default (and the client access guard) along with it.
- * - `readEnv` and `jsonEnv` are what make **every** key overridable (ADR 0033
+ * - `readEnv` and `jsonEnv` are what make **every** key overridable (ADR 0001
  *   §4): `readEnv` is the `process.env` read that survives the client bundle,
  *   and `jsonEnv` lets a key whose value is not a string accept a JSON document.
  * - `secretsOnly` is `withProfiles` for a call that authors nothing, and
@@ -19,7 +19,7 @@
  *   Postgres-identifier constraint — both exist so the shapes every slice
  *   repeats are stated once.
  *
- * This package absorbed `@acme/config` (ADR 0033 supersedes ADR 0026 §§2, 4, 6).
+ * This package absorbed `@acme/config` (ADR 0001).
  */
 export { withProfiles, secretsOnly } from './profiles';
 export type { Profiles } from './profiles';

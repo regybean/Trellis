@@ -1,7 +1,7 @@
 # Feedback (`@acme/feedback`)
 
 Thumbs-up/down feedback on individual assistant Messages. The first app-owned,
-Drizzle-managed table in the repo — the worked example of the ADR-0002 ownership
+Drizzle-managed table in the repo — the worked example of the @acme/rag ADR 0001 ownership
 seam, where an app table annotates Mastra-owned identifiers with no foreign key.
 
 ## Language
@@ -20,7 +20,7 @@ _Avoid_: "score", "thumbs", "sentiment"
 **Message reference**:
 The Mastra-owned `messageId` (and its `threadId`) a Feedback points at, carried by
 value. The feedback table holds **no foreign key** to `mastra_messages` — Mastra
-owns that DDL at runtime (ADR-0002), so integrity across the seam is enforced in the
+owns that DDL at runtime (@acme/rag ADR 0001), so integrity across the seam is enforced in the
 router, not by Postgres. _Avoid_: "foreign key", "join column"
 
 ## Relationships

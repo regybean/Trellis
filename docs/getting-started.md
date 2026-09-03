@@ -19,7 +19,7 @@ pnpm i
 
 ## 2. Configure env
 
-Env is split by owner. Each **app** owns its full application surface in `apps/<app>/.env` — there is no shared root `.env` (it was deprecated so every app is self-contained; shared model-provider secrets are duplicated per app by design, ADR 0029). The one repo-root file is [`deploy/.env`](../deploy/.env.example), the **infra** surface (the container-password secrets compose provisions with, ADR 0026 #127). All hold non-secret local-dev defaults that work as-is:
+Env is split by owner. Each **app** owns its full application surface in `apps/<app>/.env` — there is no shared root `.env` (it was deprecated so every app is self-contained; shared model-provider secrets are duplicated per app by design, ADR 0029). The one repo-root file is [`deploy/.env`](../deploy/.env.example), the **infra** surface (the container-password secrets compose provisions with, #127). All hold non-secret local-dev defaults that work as-is:
 
 ```bash
 cp deploy/.env.example deploy/.env                       # infra (dev-deployment) env

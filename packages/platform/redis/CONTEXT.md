@@ -89,7 +89,7 @@ by luck, and every caller would have to re-derive the same guarantee.
 **One sanctioned cast**: branding is nominal typing and needs a single
 `as NamespacedKey` inside `nsKey`, isolated to that one constructor.
 
-**`REDIS_URL` is authored config, and this is its home** (`env.ts`, ADR 0033 /
+**`REDIS_URL` is authored config, and this is its home** (`env.ts`, @acme/env ADR 0001 /
 #124): the whole DSN is authored in the development profile as
 `redis://localhost:6379`, so dev needs no `.env` row, and a same-named variable
 retunes it — which is what the _dynamic_ cases need (a testcontainer's mapped

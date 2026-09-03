@@ -76,7 +76,7 @@ export default defineConfig({
   // Inline public env into the client bundle (see publicEnvDefine above), plus
   // the deploy-target selector so env.ts's
   // `resolveAppEnv(process.env.APP_ENV)` resolves in the client bundle too
-  // (ADR 0026 §5). Unset → '' → the `development` base.
+  // (@acme/env ADR 0001 §2). Unset → '' → the `development` base.
   define: {
     ...publicEnvDefine,
     'process.env.APP_ENV': JSON.stringify(process.env.APP_ENV ?? ''),
@@ -114,7 +114,7 @@ export default defineConfig({
     // Externalize puppeteer so it stays an unbundled (absent) import.
     //
     // `plugins`: register the app-owned telemetry bootstrap as a Nitro startup
-    // plugin (initializes the OTel SDK at the server boundary — ADR-0005).
+    // plugin (initializes the OTel SDK at the server boundary — ADR 0023).
     // Registered explicitly by absolute path rather than relying on Nitro's
     // `plugins/` auto-scan, whose scan root is ambiguous under TanStack Start.
     nitro({

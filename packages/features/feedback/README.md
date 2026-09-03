@@ -18,7 +18,7 @@ src/
     root.ts                 # appRouter — aggregates routers
     routers/feedback.ts        # sample CRUD router
     schemas/item-schema.ts  # drizzle table + zod schemas
-  env.ts                    # the slice env: one createEnv call, APP_ENV profiles (ADR 0033)
+  env.ts                    # the slice env: one createEnv call, APP_ENV profiles (@acme/env ADR 0001)
   components/feedback-list.tsx # sample UI (presentational)
   hooks/use-feedback.ts        # data-access hook (tRPC + React Query)
   trpc/                     # client (react.tsx), RSC (server.tsx)

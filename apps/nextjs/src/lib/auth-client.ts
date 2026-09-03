@@ -3,7 +3,7 @@ import { createAuthClient } from 'better-auth/react';
 
 /**
  * The browser half of Better Auth (#223). App-owned: `@acme/auth` ships no React
- * at all (ADR 0034), so each app builds its own client.
+ * at all (@acme/auth ADR 0001), so each app builds its own client.
  *
  * No `baseURL` — the auth routes are served by this same app at Better Auth's
  * default `/api/auth` base path, so the client's own origin is already correct,

@@ -18,7 +18,7 @@ export function useTierAdmin(user: { id: string; email: string }) {
   const queryClient = useQueryClient();
   const config = useBillingConfig();
 
-  /** The Stripe product a paid tier maps to (billing env, ADR 0033); the
+  /** The Stripe product a paid tier maps to (billing env, @acme/env ADR 0001); the
    *  dev-only `setUserTier` receives it so the server needs no plan-ID env. The
    *  server ignores it for `Basic` (which just cancels), so it is always sent. */
   const productForTier = (tier: Tier) =>

@@ -48,7 +48,7 @@ accepted
   through it for a plain connection. Connection is substrate, not a RAG concern; it
   belongs in `platform` beside `@acme/redis`.
 - **`@acme/db` absorbs rag's `pgVector`/`postgresStore` too** (single Postgres
-  owner). Rejected — breaks vendor containment (ADR 0002) and couples the platform
+  owner). Rejected — breaks vendor containment (@acme/rag ADR 0001) and couples the platform
   substrate to `@mastra/pg`.
 - **A separate `vdb` package** for the vector database. Rejected — one consumer;
   fails to earn its keep. Parameterise the factory by database name instead.

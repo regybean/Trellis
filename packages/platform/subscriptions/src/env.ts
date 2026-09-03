@@ -7,7 +7,7 @@ import { jsonEnv, readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Subscriptions' environment, declared once (ADR 0033). The per-tier monthly
+ * Subscriptions' environment, declared once (@acme/env ADR 0001). The per-tier monthly
  * Credit limits and the unknown-tier fallback were hardcoded in
  * `credit-policy.ts`; they are business tunables that can legitimately differ per
  * deploy target (a promo env with higher caps, say), so they are authored here as

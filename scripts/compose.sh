@@ -18,7 +18,7 @@ deploy_dir="$repo_root/deploy"
 engine="$(resolve_engine)"
 
 # Compose's provisioning inputs (DB_*/REDIS_PORT/OLLAMA_PORT + ollama pull IDs)
-# are single-sourced from the slices' development profiles (ADR 0033 §6, #126), not duplicated .env
+# are single-sourced from the slices' development profiles (@acme/env ADR 0001 §6, #126), not duplicated .env
 # rows. Resolve + export them so compose substitutes the `${...}` refs across the
 # whole compose.yaml at parse time (regardless of the active profile).
 compose_env="$(pnpm exec tsx "$script_dir/resolve-compose-env.ts")"

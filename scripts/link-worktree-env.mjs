@@ -6,7 +6,7 @@
 // skipped at build time, yet route modules still construct clients eagerly
 // (e.g. `new PgVector({ host: DB_HOST })` in @acme/rag), which throws on an
 // empty host. Rather than lazy-init every such client, the worktree inherits
-// the primary checkout's env by symlink. See docs/adr/0019.
+// the primary checkout's env by symlink.
 //
 // Symlink (not copy) so edits to the primary .env are picked up and no stale
 // secrets are duplicated on disk. Idempotent, and a no-op anywhere that isn't a

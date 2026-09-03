@@ -55,7 +55,7 @@ const isTrpcRoute = (pathname: string) =>
  * tests that a session cookie is *present* — it does not validate the token, so
  * anyone can forge one and get past this. That is Better Auth's documented
  * recommendation for Next.js middleware, and the reason is structural: sessions
- * here are database rows with the cookie cache deliberately off (ADR 0034), and
+ * here are database rows with the cookie cache deliberately off (@acme/auth ADR 0001), and
  * middleware runs on the Edge runtime, which has no database. Validating here
  * would mean either a per-request HTTP hop to our own `/api/auth/get-session`,
  * or Node-runtime middleware — experimental before Next 16, and this app is on

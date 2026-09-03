@@ -13,7 +13,7 @@ export async function register() {
     const { initTelemetry } = await import('@acme/telemetry');
     const { env: telemetryEnv } = await import('@acme/telemetry/env');
 
-    // The OTLP endpoint is authored config, overridable per deploy (ADR 0033);
+    // The OTLP endpoint is authored config, overridable per deploy (@acme/env ADR 0001);
     // the per-app service name stays an app-owned literal (app identity, not
     // shared config).
     initTelemetry({
@@ -28,7 +28,7 @@ export async function register() {
     // providers' envs are validated (resolve.ts switch) — ollama stays AWS-free.
     await import('@acme/models');
 
-    // Create the knowledge-base table at boot (Mastra owns the DDL — ADR-0002).
+    // Create the knowledge-base table at boot (Mastra owns the DDL — @acme/rag ADR 0001).
     // PgVector creates it lazily on first upload, so a freshly-pushed vector DB
     // has no table and reads (documents.list) throw "relation does not exist".
     // Ensuring it here makes reads pure and surfaces an unreachable vector DB at

@@ -16,9 +16,9 @@ a reader had to hold both in their head. Composing an app meant composing two
 lists: `extends: [chatEnv(), …]` in `env.ts` and a parallel
 `configExtends([authConfig(ctx), …])` in `config.ts`.
 
-The second pressure is deployment. [ADR 0026](0026-config-as-code.md) moved
-non-sensitive tunables into code, which was right about _authorship_ and made
-every value **baked**: retuning one for a single deploy meant editing a profile,
+The second pressure is deployment. `@acme/config` had moved non-sensitive
+tunables into code, which was right about _authorship_ and made every value
+**baked**: retuning one for a single deploy meant editing a profile,
 committing and rebuilding an image. Two slices had already hand-rolled a way out
 (`process.env.DB_HOST ?? config.DB_HOST`, `Number(process.env.DB_PORT)`,
 `process.env.REDIS_URL ?? config.REDIS_URL`) — bypassing validation, coercing by
@@ -39,9 +39,9 @@ Within a slice's single `createEnv` call:
 
 That is the whole distinction. It is mechanical, not editorial — no second list
 to keep in sync, no judgement call at authoring time.
-[ADR 0026](0026-config-as-code.md) §1's classification of _which_ values are
-secrets is unchanged; what changes is that the classification is now readable off
-the file rather than off which file a key lives in.
+Which values count as secrets is unchanged from the config-as-code split that
+preceded this; what changes is that the classification is readable off the file
+rather than off which file a key lives in.
 
 A two-file variant (`config.ts` for defaults, `env.ts` for secrets) was
 considered for legibility and rejected: it reproduces at file level the split
@@ -79,13 +79,14 @@ export const env = createEnv({
 
 `withProfiles(shape, appEnv, profiles)` returns a `StandardSchemaV1` that:
 
-1. resolves the `APP_ENV` overlay over `default` — deep-merge, arrays replace,
-   unchanged from ADR 0026 §3, still `ts-deepmerge`;
+1. resolves the `APP_ENV` overlay over `default` — deep-merge, arrays replace
+   (an overlay that sets a list means “use this list”, not “append to the
+   base's”), via `ts-deepmerge`;
 2. attaches each resolved value to its key's schema with **`.prefault(value)`**,
    so the literal is fed _through_ the schema and is coerced and validated like
    any other input. `.default()` would short-circuit parsing and let an invalid
-   profile literal through, breaking ADR 0026 §6's always-validate guarantee for
-   the values that matter most;
+   profile literal through, breaking the always-validate guarantee for the values
+   that matter most;
 3. relaxes the keys with **no** resolved value — the secrets — to optional when
    `shouldSkipEnvValidation()` is true.
 
@@ -95,12 +96,18 @@ stylistic: `runtimeEnv` carries strings, so an object or array value
 
 `createFinalSchema` is written as an inline arrow rather than a partially applied
 `withProfiles`, so `shape`'s type flows in from the sibling
-`server`/`client`/`shared` dictionaries. That is what preserves ADR 0026's
-**authoring-time-safety** sub-decision: profile literals are typed against each
+`server`/`client`/`shared` dictionaries. That is what gives **authoring-time
+safety**: profile literals are typed against each
 key's `z.input`, so a wrong literal is a compile error reported on the literal.
 
-**Profile inheritance is unchanged, deliberately.** `default` _is_ development;
-`staging`/`production` are optional overlays. A target that authors no overlay
+**The profile set is closed, and inheritance is deliberate.** `APP_ENV` selects
+one of `development` / `staging` / `production`; `default` _is_ development, and
+`staging`/`production` are optional overlays merged over it. Unset or empty
+resolves to `development`, which keeps local and test runs ergonomic; an unknown
+value **throws**, because a typo like `prod` silently degrading would bake the
+wrong config into an image. Each slice resolves the selector at its own
+sanctioned `process.env` edge, so the profiles agree without threading a context
+object. A target that authors no overlay
 inherits the base rather than throwing, because §4 makes the environment the
 authoring surface for a deploy target: a slice does not have to be re-authored to
 be deployable, and an overlay is for values that belong in version control.
@@ -116,10 +123,30 @@ config default: `env.DB_HOST === undefined` at lint time, where `dbConfig` gave
 So the skip moves from per-call to **per-key**, inside `withProfiles`. Config
 values are authored, so they can never be missing and never need skipping; the
 only thing a lint/build/CI run cannot supply is a secret, and that is the only
-thing relaxed. This is not a new permission — it is [ADR 0022](0022-centralized-env-validation-policy.md)'s
-existing skip, made precise, and it adds a **run-context axis** to the two
-existing axes of secret requiredness (value, composition). ADR 0026 §6 ("config
-always validates") therefore survives without renegotiation.
+thing relaxed. This is not a new permission — it is the pre-existing env-validation skip, made
+precise, and it adds a **run-context axis** to the two existing axes of secret
+requiredness (value, composition). Config always validates, unchanged.
+
+The skip predicate itself is one policy this package owns —
+`shouldSkipEnvValidation()`, never a copy in each slice's `env.ts`:
+
+- `npm_lifecycle_event === 'lint'` — the step has no env and needs none;
+- `IS_NEXT_BUILD` — exported by the build scripts and declared in `turbo.json`
+  `globalEnv`, so it is set early enough to actually fire;
+- `NEXT_PHASE === 'phase-production-build'` — the non-build Next phases.
+  `NEXT_PHASE` alone is not enough: `next.config.js` jiti-imports `env` _before_
+  Next sets it, which is why `IS_NEXT_BUILD` comes first;
+- `VITEST` → **never skip**. Vitest sets it in every worker, so a test run
+  validates and coerces even under `CI`
+  ([ADR 0014](../../../../../docs/adr/0014-tests-validate-real-env.md));
+- otherwise, `CI`.
+
+The `VITEST` carve-out is load-bearing rather than cosmetic. Without it a backend
+suite under `CI` validated nothing, and `EMBED_DIMENSIONS` reached
+`pgVector.createIndex()` as the string `'768'` — never coerced, so the index build
+rejected it and `mastra_documents` was never created. The cost is that every
+required key must exist in `staticTestEnv` (`tooling/test-utils`): a missing one
+now fails loudly instead of being skipped.
 
 It also closes a live trapdoor at the app edge: each app passed
 `extends: [chatEnv(), …]` with `runtimeEnv: {}` and `skipValidation`, and because
@@ -270,7 +297,7 @@ composition edge goes with it: `configExtends([...])` in each app's `src/config.
 collapses into the single `extends: [...]` list in `env.ts`.
 
 The **purity seam** is gone. `createConfig` never read `process.env`; the app
-resolved `{ appEnv, isServer }` once and threaded it in (ADR 0026 §4). A single
+resolved `{ appEnv, isServer }` once and threaded it in. A single
 `createEnv` call cannot be pure — it reads `runtimeEnv` — so each slice resolves
 `APP_ENV` at its own `env.ts` edge, the file the ESLint guard already exempts.
 
@@ -335,15 +362,17 @@ resolved `{ appEnv, isServer }` once and threaded it in (ADR 0026 §4). A single
   rather than inherit the development base). Right when the environment is not an
   authoring surface; wrong here, because §4 makes it one — and a starter repo
   whose deploy targets are unknown would ship profiles nobody can fill in.
-- **Dynamic/remote runtime config** — rejected in ADR 0026, unchanged.
+- **Dynamic/remote runtime config** — rejected when config-as-code was designed,
+  and still rejected.
 
 ## Status
 
 accepted.
 
-Supersedes [ADR 0026](0026-config-as-code.md) §§2 (the mechanism), 4 (purity +
-the arg-injection seam) and 6 (config always validates, restated as §3 above).
-ADR 0026 §1's classification of which values are secrets is unchanged, restated
-here as the mechanical "has a profile value" rule; §3's closed
-`{development, staging, production}` set with `development` as the base stands;
-§5's `APP_ENV` resolution rule stands.
+`@acme/config` and its ADR are gone; this ADR is the whole record. The mechanism
+that ADR described — a second `createConfig` call, the purity seam, the
+arg-injection of `{ appEnv, isServer }` — is replaced by §§1–3 above. What it got
+right and this keeps: the classification of which values are secrets, restated
+here as the mechanical "has a profile value" rule; the closed
+`{development, staging, production}` profile set with `development` as the base;
+the `APP_ENV` resolution rule; and the guarantee that config always validates.

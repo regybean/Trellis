@@ -7,7 +7,7 @@ index b8dd818..1fb628c 100644
            });
            if (query.isStale()) {
 -            query.fetch();
-+            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // trellis patch (@acme/hooks ADR 0001): swallow background-revalidation failure.
 +            // The restored snapshot is already shown; with staleTime:0 this fetch
 +            // fires on every mount, and a failed one (e.g. offline) would be an
 +            // unhandled rejection since Query.fetch() re-throws. Data survives.
@@ -24,7 +24,7 @@ index 6d2f742..007e6b9 100644
            });
            if (query.isStale()) {
 -            query.fetch();
-+            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // trellis patch (@acme/hooks ADR 0001): swallow background-revalidation failure.
 +            // The restored snapshot is already shown; with staleTime:0 this fetch
 +            // fires on every mount, and a failed one (e.g. offline) would be an
 +            // unhandled rejection since Query.fetch() re-throws. Data survives.
@@ -41,7 +41,7 @@ index f0803de..f82cd2f 100644
            });
            if (query.isStale()) {
 -            query.fetch();
-+            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // trellis patch (@acme/hooks ADR 0001): swallow background-revalidation failure.
 +            // The restored snapshot is already shown; with staleTime:0 this fetch
 +            // fires on every mount, and a failed one (e.g. offline) would be an
 +            // unhandled rejection since Query.fetch() re-throws. Data survives.
@@ -58,7 +58,7 @@ index 3bb9b9b..6252717 100644
            });
            if (query.isStale()) {
 -            query.fetch();
-+            // trellis patch (ADR 0025): swallow background-revalidation failure.
++            // trellis patch (@acme/hooks ADR 0001): swallow background-revalidation failure.
 +            // The restored snapshot is already shown; with staleTime:0 this fetch
 +            // fires on every mount, and a failed one (e.g. offline) would be an
 +            // unhandled rejection since Query.fetch() re-throws. Data survives.

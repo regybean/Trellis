@@ -15,7 +15,7 @@ import { env } from '../env';
 // No `QueryClient`. The app mounts exactly one and this provider reads it from
 // context (ADR 0036). To opt into offline read, add a `persister` option here
 // and spread `usePersistedQueryOptions()` into the queries that should persist
-// (ADR 0025).
+// (@acme/hooks ADR 0001).
 const client = createFeatureClient<AppRouter>({
   keyPrefix: '{{ kebabCase name }}',
   nodeEnv: env.NODE_ENV,

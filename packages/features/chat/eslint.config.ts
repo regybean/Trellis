@@ -16,7 +16,7 @@ export default [
   ...securityConfig,
   ...restrictEnvAccess,
   ...testingConfig,
-  // Blessed Mastra home (ADR 0002); still a feature, so components keep the
+  // Blessed Mastra home (@acme/rag ADR 0001); still a feature, so components keep the
   // no-direct-tRPC slice contract.
   ...containmentOverride({ allowMastra: true, feature: true }),
 ];

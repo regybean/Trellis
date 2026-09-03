@@ -74,7 +74,7 @@ describe('readSessionRole', () => {
     expect(await currentRole()).toBe('admin');
 
     // Demotion is `setRole(…, 'user')`, not a clear: the column has a
-    // `defaultRole`, so plain membership *is* a role (ADR 0034).
+    // `defaultRole`, so plain membership *is* a role (ADR 0001).
     await auth.api.setRole({
       body: { userId: created.id, role: 'user' },
       headers: adminHeaders,

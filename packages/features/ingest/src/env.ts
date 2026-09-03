@@ -7,13 +7,13 @@ import { readEnv, resolveAppEnv, webappSchema, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Ingest's environment, declared once (ADR 0033) — composed into an app's env
+ * Ingest's environment, declared once (@acme/env ADR 0001) — composed into an app's env
  * graph via `extends: [ingestEnv(), …]`.
  *
  * **Config** — the S3 region, endpoint and upload bucket, plus the progress-stream
  * and worker tunables, carry profile values. `S3_ENDPOINT` is the canonical
  * profile example: LocalStack in development, the SDK's default AWS endpoint
- * (empty) in staging/production. Every one of them is env-overridable (ADR 0033
+ * (empty) in staging/production. Every one of them is env-overridable (@acme/env ADR 0001
  * §4), which is what a real deploy needs — a bucket name is per-environment data,
  * not a value worth a commit.
  *

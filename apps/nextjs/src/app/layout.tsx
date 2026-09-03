@@ -8,7 +8,7 @@ import {
   env as billingEnvValues,
   toBillingClientConfig,
 } from '@acme/billing/env';
-// Server-derived from the Stripe connection (billing env, ADR 0033); threaded to
+// Server-derived from the Stripe connection (billing env, @acme/env ADR 0001); threaded to
 // the client through the BillingConfigProvider seam so the client never proxies
 // billing mode through NODE_ENV.
 import { localstripeMode } from '@acme/billing/server';

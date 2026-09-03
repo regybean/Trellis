@@ -29,7 +29,7 @@ Better Auth's `useSession`, seeded from the id their server render already
 resolved. `useAuthStatus` **throws** without a provider rather than defaulting to
 signed-out: the silent version of that bug is a feature whose queries never
 enable, which looks exactly like a logged-out user. Lives here rather than in
-`@acme/auth` because that package ships no React (ADR 0034), and the substrate
+`@acme/auth` because that package ships no React (@acme/auth ADR 0001), and the substrate
 must not pull a provider into the slim apps' graph (ADR 0010).
 _Avoid_: "the session" (features never see one — a session is a database row on
 the server)

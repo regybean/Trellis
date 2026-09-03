@@ -6,8 +6,7 @@ winning). We deprecate that root file: each app now owns its **full** applicatio
 env in `apps/<app>/.env`, and its `with-env` loads only that file
 (`dotenv -e ./.env --`). Shared model-provider secrets (`AWS_ACCESS_KEY_ID`,
 `AWS_SECRET_ACCESS_KEY`, `OPENROUTER_API_KEY`) are duplicated into all four apps'
-`.env.example` by design. This partly supersedes the env-split described in
-[ADR 0026](0026-config-as-code.md) (#127).
+`.env.example` by design. This partly supersedes the env-split that came in with config-as-code (#127).
 
 ## Why
 
@@ -23,7 +22,7 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
   had to write an amendment to warn against. Removing the shared file removes the
   footgun outright.
 - **The shared surface had shrunk to almost nothing.** After the config-as-code
-  migration ([ADR 0026](0026-config-as-code.md)), the root `.env` held only
+  migration, the root `.env` held only
   model-provider secrets plus Stripe secrets — and `STRIPE_API_BASE` had already
   become config-as-code. The remaining shared rows didn't justify a whole extra
   layer with load-order subtleties.
@@ -46,8 +45,8 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
 - **Keep the shared root `.env` (status quo).** Rejected: it re-introduces the
   ADR 0008 footgun and leaves apps non-self-contained.
 - **Promote the shared model secrets to config-as-code instead.** They are genuine
-  secrets (leaking grants provider access), so they stay in `process.env` per the
-  ADR 0026 rule — config-as-code is for non-secret values only.
+  secrets (leaking grants provider access), so they stay in `process.env`:
+  config-as-code is for non-secret values only.
 
   > **Restated by [ADR 0033](0033-one-env-factory-per-slice.md) §1.** The
   > conclusion is unchanged and the mechanism is now what enforces it: these keys

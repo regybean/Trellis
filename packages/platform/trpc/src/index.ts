@@ -78,7 +78,7 @@ export interface BaseContext {
    * adapter — its `PORT` in dev, its deploy origin in prod. Optional: a build
    * that never constructs an absolute redirect URL (e.g. the slim apps, which
    * strip billing) need not thread it. Billing combines it with the config-owned
-   * checkout paths to build the Stripe redirect URLs (ADR 0033).
+   * checkout paths to build the Stripe redirect URLs (@acme/env ADR 0001).
    */
   origin?: string;
   /**

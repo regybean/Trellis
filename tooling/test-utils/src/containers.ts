@@ -193,7 +193,7 @@ function findPushApp(): string {
 export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
   console.log(`📊 Pushing database schemas into "${targetSchema}"...`);
   // Host/port are the dynamic bits (a testcontainer hands back a mapped port);
-  // user/name are authored config (`@acme/db` `postgres`/`testdb`, ADR 0033),
+  // user/name are authored config (`@acme/db` `postgres`/`testdb`, @acme/env ADR 0001),
   // so they no longer ride `process.env` here.
   console.log(`   DB target: ${process.env.DB_HOST}:${process.env.DB_PORT}`);
 

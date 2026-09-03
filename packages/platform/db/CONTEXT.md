@@ -39,9 +39,9 @@ connection it serves; `@acme/test-utils` is the engine that starts it. See
   `@acme/chat`/`@acme/feedback`/`@acme/rag` own their `pgSchema`/`pgTable`
   definitions — the direct parallel to Redis's **Key builder** rule (ADR 0008).
 - **The vector store stays in `@acme/rag`.** `PgVector` / `PostgresStore` are
-  `@mastra/pg` constructs, vendor-contained to rag (ADR 0002); they read
+  `@mastra/pg` constructs, vendor-contained to rag (@acme/rag ADR 0001); they read
   host/creds from `@acme/db/env` but are not moved here (that would couple the
   platform substrate to Mastra).
 - **Migration is app-owned.** `@acme/db` does not run migrations; apps keep
   `db:migrate` + `drizzle.push.config.ts`, and the test harness's
-  `apps/$WEBAPP db:migrate` reach is unchanged (ADR 0016).
+  `apps/$WEBAPP db:migrate` reach is unchanged (ADR 0001).

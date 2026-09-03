@@ -9,7 +9,7 @@
 //
 // The graph yields a CANDIDATE set; the slices' authored development profiles
 // then PRUNE it for services that are only needed under a given configuration
-// (ADR 0033 §6), NOT process.env:
+// (@acme/env ADR 0001 §6), NOT process.env:
 //   - `billing` (localstripe) is dropped unless the authored Stripe connection is
 //     `localstripe` (real Stripe needs no local container). Reads
 //     `BILLING_DEVELOPMENT_PROFILE`'s `STRIPE_CONNECTION` discriminated union.

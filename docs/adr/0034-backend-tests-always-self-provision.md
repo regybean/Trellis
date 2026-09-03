@@ -10,8 +10,7 @@ The local path is the dishonest one. It runs against whatever state the dev
 database happens to be in: a stale `pnpm db:push`, a half-finished manual edit,
 another suite's leftovers. It also skips the provisioning step entirely, so the
 step CI depends on was only ever exercised elsewhere — the failure mode
-[ADR 0021](0021-test-schema-provisioning-db-push.md) and
-[ADR 0019](0019-worktrees-mirror-ci-test-infra.md) were both written to chase.
+[ADR 0021](0021-test-schema-provisioning-db-push.md) was written to chase.
 A local pass did not mean what a CI pass meant.
 
 ## Decision
@@ -34,14 +33,15 @@ What goes with it:
   `*_test` schemas into the dev database so the local path would find tables; the
   global-setup now does that per suite.
 
-**`CI` comes out of the test tasks' turbo hash.** [ADR 0022](0022-centralized-env-validation-policy.md)'s
+**`CI` comes out of the test tasks' turbo hash.** [`@acme/env` ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §3's
 `VITEST` carve-out already means `CI` no longer changes env validation under
 vitest. Once the infra branch goes, `CI` has no effect on test results at all —
 so hashing it only splits one honest result across three partitions. `CI` is
 removed from the `env` of `test`, `test:backend` and `test:frontend`, and stays in
 `globalPassThroughEnv` for every other task. `scripts/test.sh` stops forcing
 `CI=true` in a worktree. Local, worktree and CI runs now share one cache
-partition — the reuse ADR 0019 had to give up to stay correct.
+partition — the reuse the old CI-mirroring scheme had to give up to stay
+correct.
 
 **The concurrency cap applies to every test run.** It used to be gated on
 `CI=true`, on the reasoning that a local compose-backed run shared one Postgres
@@ -85,8 +85,7 @@ error naming the fix, instead of one opaque socket error per descriptor per suit
   The obvious answer to the cost below, and the wrong one: it reintroduces an
   artifact that can drift from `schema.ts`, which is the class of failure this
   ADR exists to kill.
-- **A `TEST_INFRA_MODE` toggle** (ADR 0019's rejected alternative) — moot once
-  there is only one mode.
+- **A `TEST_INFRA_MODE` toggle** — moot once there is only one mode.
 - **Cap the gate's single batched invocation instead of splitting `test` out.**
   One `turbo run lint format typecheck test --concurrency=2` would need no second
   invocation, but the cap is there for containers and would throttle lint, format
@@ -97,8 +96,6 @@ error naming the fix, instead of one opaque socket error per descriptor per suit
 ## Status
 
 accepted
-
-Supersedes [ADR 0019](0019-worktrees-mirror-ci-test-infra.md).
 
 ## Consequences
 
@@ -113,7 +110,8 @@ Supersedes [ADR 0019](0019-worktrees-mirror-ci-test-infra.md).
   is the whole setup.
 - **Worktrees stop being special for tests.** No forced `CI`, no separate cache
   partition, no callout in `CLAUDE.md` / `AGENTS.md`. They still inherit the
-  primary checkout's `.env` by symlink for build/run env (ADR 0022).
+  primary checkout's `.env` by symlink for build/run env, which
+  `scripts/link-worktree-env.mjs` does in the `postinstall` chain.
 - **Tests never touch the dev database.** A suite can no longer be broken by dev
   state, and `pnpm test` can no longer corrupt it.
 - Raising `TEST_CONCURRENCY` past what the podman machine's memory and socket can

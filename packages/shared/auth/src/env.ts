@@ -22,7 +22,7 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * on 3001. That is the same fact `initAuth` already encodes by taking `baseUrl`
  * as a parameter instead of reading it — a slice-level declaration would be a
  * slice validating a key it never reads and cannot author a default for, while
- * the app can author one per profile like any other config row (ADR 0033 §4).
+ * the app can author one per profile like any other config row (@acme/env ADR 0001 §4).
  */
 export function betterAuthEnv() {
   return createEnv({

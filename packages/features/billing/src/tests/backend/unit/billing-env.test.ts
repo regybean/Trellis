@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-// Pure unit: billing's server-side authored config (ADR 0033). Covers the
+// Pure unit: billing's server-side authored config (@acme/env ADR 0001). Covers the
 // localstripe-vs-real signal (a discriminated union resolved per deploy target)
 // and the invariant that the localstripe `apiBase` must never leak into a real
 // (staging/production) build.
@@ -59,7 +59,7 @@ describe('billing env (server)', () => {
     }
   });
 
-  it('lets a same-named variable retune the connection whole (ADR 0033 §4)', async () => {
+  it('lets a same-named variable retune the connection whole (@acme/env ADR 0001 §4)', async () => {
     // The override arrives as one JSON document, so a half-configured connection
     // stays unrepresentable — `jsonEnv` validates it against the same union the
     // profile literal goes through.

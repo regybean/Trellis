@@ -20,7 +20,7 @@ type EmbedProvider = EmbedConfig['provider'];
 // Each resolver takes the narrowed variant (`env.MODELS_CHAT` / `env.MODELS_EMBED`)
 // and dispatches on its `provider` discriminant to that provider's factory. The
 // active providers' secrets are validated once up front by `validateModelSecrets()` below
-// (ADR 0033, value axis), so the factories only build model instances — they
+// (@acme/env ADR 0001, value axis), so the factories only build model instances — they
 // read no env. The variant carries exactly the chosen provider's fields — no
 // region on Ollama, no base URL on Bedrock — so the factories need no
 // cross-provider guards. Chat and embed are resolved independently — e.g.

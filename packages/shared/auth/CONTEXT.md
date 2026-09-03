@@ -94,7 +94,7 @@ _Avoid_: "the auth URL is slice config"
 
 - **Auth is now stateful, so this package depends on `@acme/db`.** `initAuth`
   builds its adapter over `createDb()`. Before the sessions-as-rows move
-  (ADR 0034) this package touched no database at all.
+  (ADR 0001) this package touched no database at all.
 - **DDL is app-owned, as for every other table.** The apps re-export the four
   tables from `src/server/db/schema.ts` and list `auth` in their
   `drizzle.config.ts` `schemaFilter`; `db:push` owns the DDL. This package

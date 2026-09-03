@@ -11,7 +11,7 @@ import { createCsrfMiddleware, createStart } from '@tanstack/react-start';
  * Global Start instance. Auth registers **no** request middleware here: Better
  * Auth resolves a session from the request's own `Cookie` header (`lib/auth.ts`,
  * `lib/trpc-context.ts`), so there is nothing to install and no ordering to get
- * right — auth is never ambient (ADR 0034).
+ * right — auth is never ambient (@acme/auth ADR 0001).
  */
 const csrfMiddleware = createCsrfMiddleware({
   filter: (ctx) => ctx.handlerType === 'serverFn',

@@ -33,7 +33,7 @@ does not compile.
 **Telemetry bootstrap** (Nitro startup plugin, `src/nitro/telemetry.ts`):
 The app-owned hook that calls `initTelemetry()` (`trellis-tanstack-slim`) once at
 server startup. The per-app half of the telemetry seam — see
-[ADR 0005](../../docs/adr/0005-telemetry-init-seam.md).
+[ADR 0023](../../docs/adr/0023-ambient-telemetry-no-context-object.md).
 
 **Console shell** (`src/components/console-shell.tsx`):
 The app-local dark/dense "developer console" chrome (left rail + top bar + status

@@ -2,7 +2,7 @@
 
 Tracing. Your app initialises it once at process start; every mounted package
 then produces spans without being handed anything
-([ADR 0005](../../../docs/adr/0005-telemetry-init-seam.md)).
+([ADR 0023](../../../docs/adr/0023-ambient-telemetry-no-context-object.md)).
 
 ## What it gives you
 

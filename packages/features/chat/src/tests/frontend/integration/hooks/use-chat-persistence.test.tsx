@@ -1,5 +1,5 @@
 /**
- * Offline read of Conversation History + Messages (#84, ADR 0025).
+ * Offline read of Conversation History + Messages (#84, @acme/hooks ADR 0001).
  *
  * The behaviour under test at the existing hook seam (ADR 0018): a persisted
  * query paints from IndexedDB on a cold cache. Chat’s persisted queries revalidate

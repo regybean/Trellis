@@ -18,7 +18,7 @@ const DEFAULT_QUANTITY = 1;
 const SUBSCRIPTION_SEARCH_LIMIT = 1;
 
 // Build an absolute Stripe redirect URL from the app's own `origin` (threaded
-// from the app edge) and an authored, env-invariant path+query (ADR 0033).
+// from the app edge) and an authored, env-invariant path+query (@acme/env ADR 0001).
 const checkoutUrl = (origin: string, path: string) =>
   new URL(path, origin).toString();
 

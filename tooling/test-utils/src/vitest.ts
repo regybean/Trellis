@@ -31,12 +31,12 @@ export const staticTestEnv = {
   NEXT_PUBLIC_WEBAPP: 'testing',
   // The deploy-target selector. Set explicitly (rather than leaning on the
   // unset→development default) so suites document that they validate against the
-  // base profile. See ADR 0033.
+  // base profile. See @acme/env ADR 0001.
   APP_ENV: 'development',
   // Every slice's non-secret values — provider selection, model ids, region, S3
   // endpoint + bucket, vector db name, chunk sizes, embedding dimension, the
   // Stripe plan ids/connection/checkout paths, the TTLs — are authored in each
-  // slice's `env.ts` development profile (ADR 0033), so no test env is needed for
+  // slice's `env.ts` development profile (@acme/env ADR 0001), so no test env is needed for
   // them. The development profile also authors the *local* credentials that a
   // real deploy must supply (LocalStack's dummy AWS pair, localstripe's fixed
   // placeholders), which is why they are absent here too: a suite validating

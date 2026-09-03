@@ -34,7 +34,7 @@ import type { UserManagementUser } from '@acme/ui';
  * unrecognised value reads as *no role* rather than propagating something
  * `@acme/trpc`'s closed `Roles` union cannot mean.
  *
- * The role is a **column**, not a JWT claim (ADR 0034). Nothing here decodes a
+ * The role is a **column**, not a JWT claim (ADR 0001). Nothing here decodes a
  * token.
  */
 const withRole = z.object({ role: z.enum(['admin', 'user']) });
@@ -106,7 +106,7 @@ interface ManageableUser extends RoleBearingUser {
  *
  * Not a translation layer. #225 cut the widget back to exactly what Better Auth
  * stores, so nothing here has to fabricate a field to satisfy a shape the
- * provider has no source for (ADR 0034). That leaves this doing one honest job.
+ * provider has no source for (ADR 0001). That leaves this doing one honest job.
  *
  * That job is the `role` column, and it is why the function still exists rather
  * than the apps spreading the row straight into the widget. The column is

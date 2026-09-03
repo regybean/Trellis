@@ -60,7 +60,7 @@ which would replay an hour of completed jobs and worsen the duplicate.
    completion is signalled by the existing notification toast. This kills the
    duplicate (symptom #2).
 
-The IndexedDB persister (ADR 0025) is deliberately **not** used: progress is a
+The IndexedDB persister (@acme/hooks ADR 0001) is deliberately **not** used: progress is a
 subscription-fed reducer, not a query; the server-side fold is multi-tab correct
 and reuses durable data the stream already holds. The persister stays for
 `documents.list`.
