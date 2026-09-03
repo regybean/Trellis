@@ -17,8 +17,9 @@ and `fetchRequestHandler`. The TanStack Start analogue of the Next.js _route han
 **Session resolver** (`src/lib/trpc-context.ts`):
 The app-owned `resolveAuthContext` that turns a `Request` into the injected
 `{ session, headers, req, origin }` the tRPC base context expects; its sibling
-`resolveAuthContextWithEntitlements` adds the entitlements provider for the chat
-and billing mounts, which declare it (#256). The
+`resolveAuthContextWithEntitlements` adds the entitlements provider — imported
+from `~/server/deps`, not built here — for the chat and billing mounts, which
+declare it (#256). The
 per-app half of the auth seam — see
 [@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md) and
 [ADR 0003](../../docs/adr/0003-framework-agnostic-auth-seam.md). It reads the
@@ -100,10 +101,27 @@ Mastra owns their DDL at runtime — see
 | `src/lib/auth-redirect.ts`                              | `redirectToSignIn` — the guards' router-shaped throw (the _rule_ is `@acme/ui`'s `authSearchSchema`) |
 | `src/lib/admin.ts`                                      | `listUsers` / `setUserRole` over the admin plugin (one role mutation: demoting is assigning `user`)  |
 | `src/lib/stripe.ts`                                     | `syncStripeOnSuccess` server fn                                                                      |
+| `src/server/deps.ts`                                    | **Composition root** — every implementation this app injects, built once                             |
+| `worker.ts`                                             | Generation + ingest worker entrypoint                                                                |
 | `src/server/app-schema.ts`                              | App-owned `pgSchema` (per-app isolation, named off `NEXT_PUBLIC_WEBAPP`)                             |
 | `src/server/db/schema.ts`                               | drizzle-kit entrypoint — re-exports `appSchema` + `messageFeedback`                                  |
 | `drizzle.config.ts`, `drizzle.push.config.ts`           | drizzle-kit configs (generate/migrate; push excludes `mastra_*`)                                     |
 | `src/components/`                                       | App-local shell + framework-coupled glue (console shell, admin, stripe)                              |
+
+## Composition root (`src/server/deps.ts`)
+
+Everything this app injects into a seam is constructed here, once, and both entry
+points — `src/lib/trpc-context.ts` and `worker.ts` — import the result. Today
+that is the Stripe/Redis entitlements provider,
+`createSubscriptionsEntitlements(toPlanIds(billingEnv))`.
+
+Two independently built providers typecheck and still disagree about which one
+charged and which one refunds, so there is only one, and lint keeps the factories
+out of every other file in this app
+([ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md)). Construction
+lives in `src/server/`; request-time resolution stays in `src/lib/` and imports
+across. Auth is the exception, and stays in the resolver: only one entry point
+resolves a principal.
 
 ## Relationships
 

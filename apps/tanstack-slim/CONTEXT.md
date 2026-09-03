@@ -25,8 +25,9 @@ A file route bridging a feature's tRPC router to `/api/trpc/{feature}/$` via
 `createFileRoute(...)({ server: { handlers } })` and `fetchRequestHandler`. Two
 builders in `src/lib/trpc-route.ts`, one per context shape this app composes:
 `createTRPCServerHandlers` injects the constant principal, and
-`createTRPCServerHandlersWithEntitlements` adds `unlimitedEntitlements` for the
-chat mount — the only feature here that declares them (#256). `@acme/ingest` and
+`createTRPCServerHandlersWithEntitlements` adds the provider from
+`~/server/deps` for the chat mount — the only feature here that declares them
+(#256). `@acme/ingest` and
 `@acme/notifications` are handed none, and a mount wired to the wrong builder
 does not compile.
 
@@ -61,9 +62,26 @@ DDL at runtime — see [@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0
 | `src/routes/api/trpc/{chat,ingest}.$.ts` | Server route handlers per feature router                              |
 | `src/routes/api/health.ts`               | Health check endpoint                                                 |
 | `src/lib/trpc-route.ts`                  | Two route-handler builders — constant principal, ± entitlements       |
+| `src/server/deps.ts`                     | **Composition root** — every implementation this app injects, once    |
+| `worker.ts`                              | Generation + ingest worker entrypoint                                 |
 | `src/server/app-schema.ts`               | App-owned `pgSchema` (named off `NEXT_PUBLIC_WEBAPP`)                 |
 | `src/server/db/schema.ts`                | drizzle-kit entrypoint — exports only `appSchema`                     |
 | `src/components/console-shell.tsx`       | App-local dark console shell (app-owned, no auth UI; ADR 0011)        |
+
+## Composition root (`src/server/deps.ts`)
+
+Everything this app injects into a seam is constructed here, once, and both entry
+points — `src/lib/trpc-route.ts` and `worker.ts` — import the result. Two
+independently built providers typecheck and still disagree about which one
+charged and which one refunds, so there is only one, and lint keeps the providers
+out of every other file in this app
+([ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md)). Construction
+lives in `src/server/`; request-time resolution stays in `src/lib/` and imports
+across.
+
+For a slim app it is also where the absence of Stripe is _readable_ rather than
+inferred from a missing dependency: one line choosing `unlimitedEntitlements`,
+with `@acme/subscriptions` nowhere in it (ADR 0010).
 
 ## Relationships
 

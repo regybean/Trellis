@@ -28,15 +28,20 @@ in your app's dev graph and as a process in your deployment, alongside the web
 process. A single shared worker service for several apps would have to inject
 each app's env by hand.
 
-## 3. Inject the same dependencies your route seam injects
+## 3. Inject from your app's composition root
 
-A processor that charges or refunds credits needs the same
-`EntitlementsProvider` your route seam builds
-([trpc-route.md](trpc-route.md)). Injecting a different one — or a no-op — means
-a job failure refunds a ledger nobody is reading.
+A processor that charges or refunds credits needs the `EntitlementsProvider`
+your route seam uses ([trpc-route.md](trpc-route.md)) — the same value, not an
+identically written second one. A job failure that refunds through a different
+provider refunds a ledger nobody is reading, and both versions typecheck.
+
+So the app builds it once, in `src/server/deps.ts`, and both entry points import
+the result. Lint keeps the factories out of every other file in the app
+([ADR 0006](../adr/0006-entitlements-injection-seam.md)).
 
 ```ts
-const entitlements = /* the same provider your route seam builds */;
+import { entitlements } from "./src/server/deps";
+
 createWorker(QUEUE_NAMES.GENERATION, createChatProcessor(entitlements));
 ```
 
