@@ -20,6 +20,10 @@
  * see its consumers, so drift detection is consumer-side by construction — see
  * docs/bank.md for the guide, and the exit codes below for gating CI on it.
  *
+ * This is the pull half. Back-flow is `scripts/bank-contribute.mjs`, which is
+ * separate on purpose: pulling from a public bank is always safe, contributing
+ * to it is the constrained direction.
+ *
  * Usage:
  *   node scripts/bank-sync.mjs             # or: pnpm bank:sync
  *   node scripts/bank-sync.mjs --check     # or: pnpm bank:sync --check
@@ -29,215 +33,30 @@
  *   1  error — bad manifest, unreachable bank, unresolvable ref
  *   2  behind — the bank has commits this repo has not taken
  */
-import { execFileSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-const MANIFEST = "bank.manifest.json";
-const VENDOR_BRANCH = "vendor/trellis";
-const VENDOR_REF = `refs/heads/${VENDOR_BRANCH}`;
-/** Namespace the all-refs fallback fetch lands in, so it shadows nothing local. */
-const FETCH_NS = "refs/bank-sync";
+import {
+  BankError,
+  MANIFEST,
+  VENDOR_BRANCH,
+  VENDOR_REF,
+  defaultBranch,
+  enterRepoRoot,
+  fail,
+  fetchBank,
+  git,
+  gitOrNull,
+  readManifest,
+  under,
+  vendorCommitMessage,
+} from "./lib/bank.mjs";
 
 /** `--check` outcomes. Documented in docs/bank.md, so any CI can gate on them. */
 const EXIT_UP_TO_DATE = 0;
 const EXIT_ERROR = 1;
 const EXIT_BEHIND = 2;
-
-/**
- * Abort with a message on stderr. Nothing is written before the final
- * `update-ref`, so failing here always leaves the vendor branch as it was.
- *
- * @param {string} message
- * @returns {never}
- */
-function fail(message) {
-  console.error(`bank:sync: ${message}`);
-  process.exit(EXIT_ERROR);
-}
-
-/**
- * Run git, returning trimmed stdout. Throws on a non-zero exit.
- *
- * @param {string[]} args
- * @param {import("node:child_process").ExecFileSyncOptions & { input?: string }} [options]
- * @returns {string}
- */
-function git(args, options = {}) {
-  return String(
-    execFileSync("git", args, {
-      stdio: ["pipe", "pipe", "pipe"],
-      ...options,
-      encoding: "utf8",
-    }),
-  ).trim();
-}
-
-/**
- * Run git for its exit code alone — `undefined` when it fails.
- *
- * @param {string[]} args
- * @param {import("node:child_process").ExecFileSyncOptions & { input?: string }} [options]
- * @returns {string | undefined}
- */
-function gitOrNull(args, options = {}) {
-  try {
-    return git(args, options);
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * @typedef {object} Manifest
- * @property {string} upstream Git URL of the bank.
- * @property {string} ref Branch, tag or sha in the bank to sync from.
- * @property {string[]} include Repo-relative paths taken from the bank.
- * @property {string[]} contributable Paths allowed to flow back upstream.
- */
-
-/**
- * Read and validate the manifest. Every field is checked here rather than at
- * point of use, so a malformed manifest fails before anything is fetched.
- *
- * @param {string} root
- * @returns {Manifest}
- */
-function readManifest(root) {
-  const path = join(root, MANIFEST);
-  let raw;
-  try {
-    raw = readFileSync(path, "utf8");
-  } catch {
-    return fail(
-      `no ${MANIFEST} at ${root} — a consumer repo pins its bank there.`,
-    );
-  }
-
-  /** @type {Record<string, unknown>} */
-  let parsed;
-  try {
-    parsed = JSON.parse(raw);
-  } catch (error) {
-    return fail(`${MANIFEST} is not valid JSON: ${String(error)}`);
-  }
-
-  /** @param {string} field */
-  const str = (field) => {
-    const value = parsed[field];
-    if (typeof value !== "string" || value.trim() === "")
-      return fail(`${MANIFEST}: "${field}" must be a non-empty string`);
-    return value.trim();
-  };
-
-  /**
-   * @param {string} field
-   * @param {{ allowEmpty: boolean }} options
-   * @returns {string[]}
-   */
-  const strings = (field, { allowEmpty }) => {
-    const value = parsed[field] ?? [];
-    if (
-      !Array.isArray(value) ||
-      value.some((entry) => typeof entry !== "string")
-    )
-      return fail(`${MANIFEST}: "${field}" must be an array of strings`);
-    if (!allowEmpty && value.length === 0)
-      return fail(`${MANIFEST}: "${field}" must list at least one path`);
-    return value;
-  };
-
-  const include = strings("include", { allowEmpty: false }).map((entry) => {
-    const path = entry.replace(/^\.\//, "").replace(/\/+$/, "");
-    if (path === "" || path.startsWith("/") || path.split("/").includes(".."))
-      return fail(
-        `${MANIFEST}: "include" entry ${JSON.stringify(entry)} is not a repo-relative path`,
-      );
-    return path;
-  });
-
-  return {
-    upstream: str("upstream"),
-    ref: str("ref"),
-    include,
-    contributable: strings("contributable", { allowEmpty: true }),
-  };
-}
-
-/**
- * Fetch the bank and resolve `ref` to a commit sha.
- *
- * The direct refspec covers branches and tags, which is what a manifest pins in
- * practice. A raw sha is only fetchable that way when the server allows
- * reachable-sha1-in-want, so fall back to fetching every ref into our own
- * namespace and resolving locally.
- *
- * @param {string} upstream
- * @param {string} ref
- * @returns {string}
- */
-function fetchBank(upstream, ref) {
-  if (
-    gitOrNull(["fetch", "--no-tags", "--quiet", upstream, ref]) !== undefined
-  ) {
-    const sha = gitOrNull([
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      "FETCH_HEAD^{commit}",
-    ]);
-    if (sha) return sha;
-  }
-
-  gitOrNull([
-    "fetch",
-    "--quiet",
-    "--force",
-    upstream,
-    `+refs/heads/*:${FETCH_NS}/heads/*`,
-    `+refs/tags/*:${FETCH_NS}/tags/*`,
-  ]);
-
-  for (const candidate of [
-    `${FETCH_NS}/heads/${ref}`,
-    `${FETCH_NS}/tags/${ref}`,
-    ref,
-  ]) {
-    const sha = gitOrNull([
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      `${candidate}^{commit}`,
-    ]);
-    if (sha) return sha;
-  }
-
-  return fail(
-    `cannot resolve ref "${ref}" at ${upstream} — check the "ref" in ${MANIFEST}`,
-  );
-}
-
-/**
- * The bank's canonical branch. ADR 0037 makes that whatever `HEAD` points at
- * upstream rather than a name hardcoded here. `HEAD` is itself a fetchable ref,
- * so it is a safe fallback when the server sends no symref.
- *
- * @param {string} upstream
- * @returns {string}
- */
-function defaultBranch(upstream) {
-  const symref = gitOrNull(["ls-remote", "--symref", upstream, "HEAD"]);
-  const match = symref?.match(/^ref: refs\/heads\/(\S+)\s+HEAD$/m);
-  return match ? match[1] : "HEAD";
-}
-
-/**
- * @param {string} path
- * @param {string} prefix
- */
-const under = (path, prefix) =>
-  path === prefix || path.startsWith(`${prefix}/`);
 
 /**
  * Build a tree holding exactly the `include` paths of `sha`.
@@ -359,7 +178,7 @@ function localModifications(vendor, include) {
  * tree.
  *
  * @param {string} root
- * @param {Manifest} manifest
+ * @param {import("./lib/bank.mjs").Manifest} manifest
  * @returns {never}
  */
 function runCheck(root, manifest) {
@@ -444,7 +263,7 @@ function runCheck(root, manifest) {
  * command for the human to run.
  *
  * @param {string} root
- * @param {Manifest} manifest
+ * @param {import("./lib/bank.mjs").Manifest} manifest
  */
 function runSync(root, manifest) {
   const bankSha = fetchBank(manifest.upstream, manifest.ref);
@@ -458,22 +277,12 @@ function runSync(root, manifest) {
     return;
   }
 
-  const message = [
-    `vendor: bank@${bankSha.slice(0, 8)}`,
-    "",
-    `upstream: ${manifest.upstream}`,
-    `ref: ${manifest.ref}`,
-    `commit: ${bankSha}`,
-    "include:",
-    ...manifest.include.map((entry) => `  - ${entry}`),
-  ].join("\n");
-
   const commit = git([
     "commit-tree",
     tree,
     ...(parent ? ["-p", parent] : []),
     "-m",
-    message,
+    vendorCommitMessage(bankSha, manifest),
   ]);
   git(["update-ref", VENDOR_REF, commit, ...(parent ? [parent] : [])]);
 
@@ -497,13 +306,18 @@ function main() {
       `unknown argument${unknown.length === 1 ? "" : "s"} ${unknown.join(" ")} — usage: bank:sync [--check]`,
     );
 
-  const root = gitOrNull(["rev-parse", "--show-toplevel"]);
-  if (!root) return fail("not inside a git repository");
-  process.chdir(root);
-
+  const root = enterRepoRoot();
   const manifest = readManifest(root);
   if (args.includes("--check")) runCheck(root, manifest);
   else runSync(root, manifest);
 }
 
-main();
+try {
+  main();
+} catch (error) {
+  // Nothing is written before the final `update-ref`, so aborting here always
+  // leaves the vendor branch exactly as it was.
+  if (!(error instanceof BankError)) throw error;
+  console.error(`bank:sync: ${error.message}`);
+  process.exit(EXIT_ERROR);
+}

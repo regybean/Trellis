@@ -1,194 +1,57 @@
 /**
- * Verifies `scripts/bank-sync.mjs` against real git repositories: a throwaway
- * bank and a throwaway consumer in a temp dir, the script copied in the way a
- * consumer vendors it, and every assertion read back out of git.
+ * Verifies `scripts/bank-sync.mjs` — the pull half of the bank — against real
+ * git repositories: a throwaway bank and a throwaway consumer, the script
+ * copied in the way a consumer vendors it, and every assertion read back out of
+ * git. The sandbox lives in `./bank-sandbox`, shared with the back-flow suite.
  *
  * Nothing is mocked — the point of the vendored-subset model
  * ([ADR 0037](../../../../../docs/adr/0037-vendored-git-subset-three-way-merge.md))
  * is what git itself does with the ancestry the script builds, so a fake git
- * would assert nothing. The sandbox never touches the real repo: the only path
- * read out of it is the script.
+ * would assert nothing.
  *
  * No container is needed here. The suite's global-setup starts LocalStack for
  * the sibling secrets test; this file uses none of it.
  */
 
-import { execFileSync } from 'node:child_process';
-import {
-  cpSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs';
-import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
-const here = dirname(fileURLToPath(import.meta.url));
-// src/tests/backend -> repo root is five levels up.
-const repoRoot = resolve(here, '../../../../../');
-const scriptSource = join(repoRoot, 'scripts/bank-sync.mjs');
+import type { Sandbox } from './bank-sandbox';
+import {
+  cleanupSandboxes,
+  commit,
+  editManifest,
+  git,
+  merge,
+  numberedLines,
+  read,
+  runScript,
+  setup,
+  sync,
+  treePaths,
+  write,
+} from './bank-sandbox';
 
-/**
- * Identity and config isolation for every git call, including the script's own.
- * `GIT_CONFIG_GLOBAL=/dev/null` keeps the developer's `~/.gitconfig` (aliases,
- * `merge.conflictStyle`, hooks) out of the assertions.
- */
-const gitEnv = {
-  ...process.env,
-  GIT_CONFIG_GLOBAL: '/dev/null',
-  GIT_CONFIG_SYSTEM: '/dev/null',
-  GIT_AUTHOR_NAME: 'Bank Test',
-  GIT_AUTHOR_EMAIL: 'bank@test.invalid',
-  GIT_COMMITTER_NAME: 'Bank Test',
-  GIT_COMMITTER_EMAIL: 'bank@test.invalid',
-};
-
-const sandboxes: string[] = [];
-
-afterEach(() => {
-  for (const dir of sandboxes.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
-});
-
-function git(cwd: string, args: string[]): string {
-  return execFileSync('git', args, {
-    cwd,
-    env: gitEnv,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  }).trim();
-}
-
-function write(repo: string, path: string, content: string) {
-  const file = join(repo, path);
-  mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, content);
-}
-
-function commit(repo: string, message: string) {
-  git(repo, ['add', '-A']);
-  git(repo, ['commit', '-q', '-m', message]);
-}
-
-function read(repo: string, path: string) {
-  return readFileSync(join(repo, path), 'utf8');
-}
-
-/** Paths a ref's tree holds, sorted — the "exactly these files" assertion. */
-function treePaths(repo: string, ref: string) {
-  return git(repo, ['ls-tree', '-r', '--name-only', ref]).split('\n').sort();
-}
-
-/** A twelve-line file, so the two sides can edit non-adjacent regions of it. */
-function numberedLines(first: string, last: string) {
-  return [
-    first,
-    ...Array.from({ length: 10 }, (_, i) => `line ${i + 2}`),
-    last,
-  ].join('\n');
-}
-
-interface Sandbox {
-  bank: string;
-  consumer: string;
-}
-
-/**
- * A bank holding two vendored dirs plus a path the consumer does not take, and
- * a consumer with its own file, a manifest, and the script vendored under
- * `scripts/`.
- */
-function setup(include = ['tooling', 'turbo.json']): Sandbox {
-  const root = mkdtempSync(join(tmpdir(), 'bank-sync-'));
-  sandboxes.push(root);
-  const bank = join(root, 'bank');
-  const consumer = join(root, 'consumer');
-
-  mkdirSync(bank);
-  git(bank, ['init', '-q', '-b', 'main']);
-  write(bank, 'tooling/eslint.js', numberedLines('bank first', 'bank last'));
-  write(bank, 'tooling/prettier.js', 'export default {};\n');
-  write(bank, 'turbo.json', '{ "tasks": {} }\n');
-  write(bank, 'packages/features/chat/index.ts', 'export const chat = true;\n');
-  commit(bank, 'bank: initial');
-
-  mkdirSync(consumer);
-  git(consumer, ['init', '-q', '-b', 'main']);
-  mkdirSync(join(consumer, 'scripts'), { recursive: true });
-  cpSync(scriptSource, join(consumer, 'scripts/bank-sync.mjs'));
-  write(
-    consumer,
-    'bank.manifest.json',
-    `${JSON.stringify({ upstream: bank, ref: 'main', include, contributable: [] }, null, 2)}\n`,
-  );
-  write(consumer, 'apps/consumer/own.ts', 'export const mine = true;\n');
-  commit(consumer, 'consumer: initial');
-
-  return { bank, consumer };
-}
-
-function sync(consumer: string) {
-  return execFileSync('node', ['scripts/bank-sync.mjs'], {
-    cwd: consumer,
-    env: gitEnv,
-    encoding: 'utf8',
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
-}
+afterEach(cleanupSandboxes);
 
 /**
  * Runs `--check`, returning its exit code and stdout. A non-zero exit is an
  * outcome here rather than a failure, so both paths come back the same shape.
  */
 function check(consumer: string) {
-  try {
-    const stdout = execFileSync('node', ['scripts/bank-sync.mjs', '--check'], {
-      cwd: consumer,
-      env: gitEnv,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
-    return { status: 0, stdout: String(stdout) };
-  } catch (error) {
-    if (error instanceof Error && 'status' in error && 'stdout' in error) {
-      return { status: Number(error.status), stdout: String(error.stdout) };
-    }
-    throw error;
-  }
+  return runScript(consumer, 'scripts/bank-sync.mjs', ['--check']);
 }
 
 /** Repoints the consumer's manifest at another bank ref. */
 function pin(consumer: string, ref: string) {
-  const manifest: unknown = JSON.parse(read(consumer, 'bank.manifest.json'));
-  write(
-    consumer,
-    'bank.manifest.json',
-    `${JSON.stringify({ ...(manifest as object), ref }, null, 2)}\n`,
-  );
-  commit(consumer, `consumer: pin ${ref}`);
+  editManifest(consumer, { ref }, `consumer: pin ${ref}`);
 }
 
 /** Runs a sync expected to fail, returning its exit code and stderr. */
 function syncFailure(consumer: string) {
-  try {
-    sync(consumer);
-  } catch (error) {
-    if (error instanceof Error && 'status' in error && 'stderr' in error) {
-      return { status: Number(error.status), stderr: String(error.stderr) };
-    }
-    throw error;
-  }
-  throw new Error('expected bank:sync to fail, but it succeeded');
-}
-
-/** Merges the vendor branch the way the script tells the human to. */
-function merge(consumer: string, extra: string[] = []) {
-  return git(consumer, ['merge', '--no-edit', ...extra, 'vendor/trellis']);
+  const run = runScript(consumer, 'scripts/bank-sync.mjs');
+  if (run.status === 0)
+    throw new Error('expected bank:sync to fail, but it succeeded');
+  return run;
 }
 
 function mergeFailure(consumer: string, extra: string[] = []) {
