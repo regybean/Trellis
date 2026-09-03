@@ -1,0 +1,64 @@
+# Mounting `@acme/chat`
+
+A conversational assistant: sessions, streamed generation, folders, and the
+background worker that produces the tokens. The slice that exercises most of the
+substrate at once, so mounting it touches every recipe.
+
+## What it gives you
+
+- A full assistant UI, or the conversation view alone if you want to build your
+  own frame around it.
+- Streamed responses over the tRPC transport your route seam already serves, so
+  streaming needs no separate endpoint.
+- Generation that survives a reload: the stream is durable, so a user who
+  refreshes mid-answer rejoins it rather than losing it
+  ([ADR 0032](../../../docs/adr/0032-durable-redis-stream-primitive.md)).
+- Conversation memory and retrieval through `@acme/rag`, and folders for
+  organising sessions, with no wiring of your own beyond the table.
+- Metering through the entitlements seam — a turn consumes credits and a failure
+  refunds them — against whichever provider you injected.
+
+## Surface
+
+| Import              | What's in it                                     | Runs   |
+| ------------------- | ------------------------------------------------ | ------ |
+| `@acme/chat`        | Assistant UI, conversation view, provider, hooks | client |
+| `@acme/chat/server` | Router, context factory, generation processor    | server |
+| `@acme/chat/schema` | The folder table                                 | client |
+| `@acme/chat/env`    | This package's env factory                       | either |
+
+## Wiring
+
+- Mount the router, serving GET as well as POST — the stream arrives over GET —
+  and the provider with a server-resolved `scopeKey`
+  ([trpc-route.md](../../../docs/mounting/trpc-route.md),
+  [provider.md](../../../docs/mounting/provider.md)).
+- Run the generation processor in your worker entrypoint, injecting the **same**
+  entitlements provider your route seam injects, or a failed turn refunds
+  nothing — [worker.md](../../../docs/mounting/worker.md).
+- Re-export the folder table from your schema barrel, and compose the env
+  factory with a chat model selected
+  ([schema.md](../../../docs/mounting/schema.md),
+  [env.md](../../../docs/mounting/env.md)).
+- Give the UI a route carrying an optional session id, passed in as a prop, and
+  change the URL on selection so a conversation is linkable —
+  [ui.md](../../../docs/mounting/ui.md).
+- Invalidate your credit display after a turn if you also mount billing. The
+  features do not know about each other; your page wires the two together.
+
+## Env
+
+| Key                  | Class  | What it's for       |
+| -------------------- | ------ | ------------------- |
+| `NEXT_PUBLIC_WEBAPP` | secret | Your app's identity |
+
+Plus nine profile-authored tunables: the credit charge per turn, the
+stream-lifecycle timeouts, the reader's poll interval and the job-retention
+counts. Each is env-overridable, so retuning one on a live deploy needs no
+rebuild. See `src/env.ts`.
+
+## Infra
+
+`postgres` for sessions and retrieval, `redis` transitively for the queue and
+the durable stream. Local inference only if a model role selects it —
+[infra.md](../../../docs/mounting/infra.md).

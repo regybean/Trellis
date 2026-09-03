@@ -6,6 +6,8 @@ companion to [CLAUDE.md](../../CLAUDE.md) (the boundary rules) and the per-packa
 features with `pnpm turbo gen feature` — never by hand — and this is the shape it
 produces.
 
+> Mounting one of these in an app is the other side of this document: see [`docs/mounting/`](../mounting/) for the wiring, and the package's own `ADAPTER.md` for what it gives an app.
+
 ## The slice contract
 
 **One feature = one package = router + hooks + UI, depending only downward**
