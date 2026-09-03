@@ -30,7 +30,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 // src/tests/backend -> repo root is five levels up.
 const repoRoot = resolve(here, '../../../../../');
-const scriptSource = join(repoRoot, 'scripts/bank-sync.mjs');
+/**
+ * What a consumer vendors to get the sync: the script and the shared bank lib
+ * it imports. Both live under `scripts/`, so after the first sync they arrive,
+ * and update themselves, like anything else in the `root` bundle.
+ */
+const scriptSources = ['scripts/bank-sync.mjs', 'scripts/lib/bank.mjs'];
 
 /**
  * Identity and config isolation for every git call, including the script's own.
@@ -119,8 +124,11 @@ function setup(include = ['tooling', 'turbo.json']): Sandbox {
 
   mkdirSync(consumer);
   git(consumer, ['init', '-q', '-b', 'main']);
-  mkdirSync(join(consumer, 'scripts'), { recursive: true });
-  cpSync(scriptSource, join(consumer, 'scripts/bank-sync.mjs'));
+  for (const source of scriptSources) {
+    const target = join(consumer, source);
+    mkdirSync(dirname(target), { recursive: true });
+    cpSync(join(repoRoot, source), target);
+  }
   write(
     consumer,
     'bank.manifest.json',
