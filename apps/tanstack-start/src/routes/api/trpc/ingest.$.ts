@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { appRouter, createTRPCContext } from '@acme/ingest/server';
+import { appRouter } from '@acme/ingest/server';
 
+import { resolveAuthContext } from '~/lib/trpc-context';
 import { createTRPCServerHandlers } from '~/lib/trpc-route';
 
 export const Route = createFileRoute('/api/trpc/ingest/$')({
@@ -9,7 +10,7 @@ export const Route = createFileRoute('/api/trpc/ingest/$')({
     handlers: createTRPCServerHandlers({
       endpoint: '/api/trpc/ingest',
       router: appRouter,
-      createContext: createTRPCContext,
+      resolver: resolveAuthContext,
     }),
   },
 });

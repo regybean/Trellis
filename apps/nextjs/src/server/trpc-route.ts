@@ -1,5 +1,5 @@
-import type { AnyRouter } from '@trpc/server';
-
+import type { BaseContext } from '@acme/trpc';
+import type { TRPCFetchHandlerOptions } from '@acme/trpc/handler';
 import { toPrincipal } from '@acme/auth/server';
 import { env as billingEnv, toPlanIds } from '@acme/billing/env';
 import { createSubscriptionsEntitlements } from '@acme/subscriptions';
@@ -20,9 +20,9 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 /**
  * App-owned tRPC route-handler seam for Next.js. The fetch-adapter wiring, error
  * logging and CORS live once in `@acme/trpc/handler`; this file owns only the
- * app-specific auth seam — resolving the session and shaping the neutral context
- * input the feature `createTRPCContext` expects. The feature packages never
- * import an auth SDK or a billing implementation themselves (ADR 0003).
+ * app-specific auth seam — resolving the session and building the context a
+ * feature's procedures read. The feature packages never import an auth SDK or a
+ * billing implementation themselves (ADR 0003).
  */
 
 /**
@@ -47,12 +47,15 @@ const resolveSession = async (req: Request) => ({
 });
 
 /**
- * Shape the neutral base context every mount receives — and nothing more.
+ * The neutral base context every mount receives — and nothing more. Mounts whose
+ * feature context is exactly `BaseContext` (`feedback`, `ingest`,
+ * `notifications`) name this resolver.
+ *
  * `origin` is the app's own public origin (its `PORT` in dev, deploy origin in
  * prod), read off the incoming request and threaded in so billing can build the
  * absolute Stripe checkout redirect URLs (ADR 0026 follow-up).
  */
-const resolveContext = async (req: Request) => ({
+export const resolveContext = async (req: Request) => ({
   headers: req.headers,
   req,
   origin: new URL(req.url).origin,
@@ -60,13 +63,13 @@ const resolveContext = async (req: Request) => ({
 });
 
 /**
- * The base context plus the entitlements provider — the **context extension**
- * `@acme/chat` and `@acme/billing` declare (#256, ADR 0006). Injected per mount
- * rather than into every context, so the mounts that meter credits or gate tiers
- * get a provider and the mounts that do neither (`feedback`, `ingest`,
- * `notifications`) are handed nothing they cannot name.
+ * The base context plus the entitlements provider — the extra field `@acme/chat`
+ * and `@acme/billing` name on their own contexts (#256, ADR 0006). Chosen per
+ * mount rather than injected into every context, so the mounts that meter
+ * credits or gate tiers get a provider and the mounts that do neither are handed
+ * nothing they cannot name.
  */
-const resolveContextWithEntitlements = async (req: Request) => ({
+export const resolveContextWithEntitlements = async (req: Request) => ({
   ...(await resolveContext(req)),
   entitlements,
 });
@@ -75,53 +78,22 @@ const resolveContextWithEntitlements = async (req: Request) => ({
 const handleOptions = () =>
   new Response(null, { status: 204, headers: corsPreflightHeaders });
 
-interface TRPCRouteOptions<TRouter extends AnyRouter, TContextInput> {
-  /** The tRPC endpoint path, e.g. `/api/trpc/chat`. */
-  endpoint: string;
-  /** The feature's aggregated app router. */
-  router: TRouter;
-  /** The feature's `createTRPCContext` (re-exported from the platform seam). */
-  createContext: (input: TContextInput) => Promise<unknown>;
-}
-
-/**
- * Build a route-handler factory bound to one context resolver. Currying is what
- * pins `TContextInput` before a feature's `createTRPCContext` is checked against
- * it: a mount whose feature declares a context extension the bound resolver does
- * not produce fails to compile, which is the whole point of injecting the
- * provider per mount.
- */
-function routeHandlersFor<TContextInput>(
-  resolver: (req: Request) => TContextInput | Promise<TContextInput>,
-) {
-  return <TRouter extends AnyRouter>({
-    endpoint,
-    router,
-    createContext,
-  }: TRPCRouteOptions<TRouter, TContextInput>) => {
-    const handler = createTRPCFetchHandler({
-      endpoint,
-      router,
-      createContext,
-      resolver,
-    });
-
-    return { GET: handler, POST: handler, OPTIONS: handleOptions };
-  };
-}
-
 /**
  * Build the Next.js route handlers for a feature's tRPC mount. The same fetch
  * handler serves both GET and POST (the latter for mutations, the former also
  * carrying `httpSubscriptionLink` SSE streams such as `chat.stream`).
+ *
+ * The mount names its own resolver. `TContext` is inferred from the router, and
+ * the resolver is checked against it — so a mount whose feature reads a field
+ * this app's resolver doesn't produce (chat's `entitlements`, say) fails to
+ * compile. That used to be enforced by currying one resolver per factory and
+ * threading the feature's `createTRPCContext` through to be checked against it;
+ * the router carries the type on its own (#264).
  */
-export const createTRPCRouteHandlers = routeHandlersFor(resolveContext);
+export function createTRPCRouteHandlers<TContext extends BaseContext>(
+  opts: TRPCFetchHandlerOptions<TContext>,
+) {
+  const handler = createTRPCFetchHandler(opts);
 
-/**
- * As `createTRPCRouteHandlers`, for a feature whose context extension is the
- * entitlements provider — `@acme/chat` (meters credits) and `@acme/billing`
- * (gates tiers). Every other mount uses the plain builder.
- */
-export const createTRPCRouteHandlersWithEntitlements = routeHandlersFor(
-  resolveContextWithEntitlements,
-);
+  return { GET: handler, POST: handler, OPTIONS: handleOptions };
+}

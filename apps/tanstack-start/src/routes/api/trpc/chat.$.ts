@@ -1,15 +1,16 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { appRouter, createTRPCContext } from '@acme/chat/server';
+import { appRouter } from '@acme/chat/server';
 
-import { createTRPCServerHandlersWithEntitlements } from '~/lib/trpc-route';
+import { resolveAuthContextWithEntitlements } from '~/lib/trpc-context';
+import { createTRPCServerHandlers } from '~/lib/trpc-route';
 
 export const Route = createFileRoute('/api/trpc/chat/$')({
   server: {
-    handlers: createTRPCServerHandlersWithEntitlements({
+    handlers: createTRPCServerHandlers({
       endpoint: '/api/trpc/chat',
       router: appRouter,
-      createContext: createTRPCContext,
+      resolver: resolveAuthContextWithEntitlements,
     }),
   },
 });
