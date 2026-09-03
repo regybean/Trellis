@@ -17,7 +17,6 @@
     "@trpc/client": "catalog:",
     "@trpc/server": "catalog:",
     "@trpc/tanstack-react-query": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "framer-motion": "catalog:",
     "lucide-react": "catalog:",
     "msw-trpc": "catalog:",

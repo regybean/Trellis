@@ -14,10 +14,10 @@
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",
     "@acme/prettier-config": "workspace:*",
+    "@acme/test-utils": "workspace:*",
     "@acme/tsconfig": "workspace:*",
     "@acme/vitest-config": "workspace:*",
     "@testing-library/react": "catalog:",
-    "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
     "fake-indexeddb": "catalog:",
     "jsdom": "catalog:",
