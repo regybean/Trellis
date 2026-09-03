@@ -25,7 +25,7 @@ import { notificationStream } from './notification-stream';
  *
  * There is deliberately NO core "kind factory": a feature writes its own typed
  * one-line wrapper around `publish` (ingest's `notifyJobComplete`). Delivery is
- * best-effort — a publish with no reader attached is never seen (ADR 0030).
+ * best-effort — a publish with no reader attached is never seen (ADR 0001).
  */
 export async function publish(userId: string, input: PublishInput) {
   const parsed = publishInputSchema.parse(input);

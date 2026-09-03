@@ -16,7 +16,7 @@ const LEVEL_TO_TOAST = {
  * `toastId: n.id` so react-toastify collapses a duplicate delivery (StrictMode
  * double-mount, transient reconnect) to a single visible toast — the deferred
  * dedup from the delivery design, resolved at the transport level with zero
- * client state (ADR 0030). It renders into whatever `<ToastContainer/>` the app
+ * client state (ADR 0001). It renders into whatever `<ToastContainer/>` the app
  * already mounts (`<ToastThemeClient/>`); the provider adds none.
  */
 export function defaultToastRenderer(n: Notification) {

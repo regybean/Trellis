@@ -4,7 +4,7 @@ import { backendProject } from '@acme/test-utils/vitest';
 // 0021) — this suite doesn't use it, but the push needs a target and the value
 // keeps the suite off any other schema. The tables under test live in the fixed
 // `auth` schema, which the same push creates because the canonical app
-// re-exports them and lists `auth` in its `schemaFilter` (ADR 0035). No Redis.
+// re-exports them and lists `auth` in its `schemaFilter` (ADR 0002). No Redis.
 export default backendProject({
   webapp: 'auth_test',
   globalSetup: './src/tests/backend/global-setup.ts',

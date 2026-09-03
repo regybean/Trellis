@@ -9,11 +9,11 @@ import { REDIS_DEVELOPMENT_PROFILE } from './development-profile';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * The Redis connection and this slice's selectors, declared once (ADR 0033).
+ * The Redis connection and this slice's selectors, declared once (@acme/env ADR 0001).
  *
  * **Config** — `REDIS_URL` carries a profile value, so a clean checkout with no
  * `.env` row connects to the local stack, and it is env-overridable like every
- * other key (ADR 0033 §4): a testcontainer hands back a mapped port and a prod
+ * other key (@acme/env ADR 0001 §4): a testcontainer hands back a mapped port and a prod
  * endpoint is infra-injected, neither of which a profile can know. The
  * hand-rolled `process.env.REDIS_URL ?? config.REDIS_URL` this replaced skipped
  * validation; the override is now re-checked as a URL like the authored value.

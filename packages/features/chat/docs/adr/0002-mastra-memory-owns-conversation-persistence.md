@@ -12,12 +12,13 @@ gone.
 
 ## Status
 
-accepted (supersedes [0001-stream-owns-message-persistence](0001-stream-owns-message-persistence.md))
+accepted (replaces an earlier design in which `chat.stream` wrote Conversation
+rows itself)
 
 ## Why
 
 Migrating RAG from LlamaIndex to Mastra brought Mastra Memory, which already does
-exactly what ADR-0001 built by hand: durable, transactionally-local persistence of
+exactly what this feature had built by hand: durable, transactionally-local persistence of
 both turns behind the streaming call, with no client orchestration. Reusing it
 deletes our bespoke persistence code (the `ensureChat`/save plumbing) and keeps the
 conversation store consistent with the agent that produces it. Keeping our own
@@ -42,7 +43,7 @@ sources of truth.
 - Conversations are queryable with Drizzle via the mirrored `mastra_threads` /
   `mastra_messages` tables in `@acme/rag/schema`, but those mirrors are read models;
   Mastra owns the DDL and the writes (see system ADR
-  [0002-mastra-rag-and-memory](../../../../../docs/adr/0002-mastra-rag-and-memory.md)).
+  [0002-mastra-rag-and-memory](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md)).
 - A mid-stream LLM error still leaves the turn retryable — Mastra persists the user
   turn before generation.
 

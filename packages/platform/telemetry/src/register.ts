@@ -10,13 +10,13 @@
  * so HTTP/redis/aws auto-instrumentation patches the runtime before any
  * instrumented module loads (giving an HTTP-parent span). Apps that init at the
  * server boundary instead (e.g. a Nitro startup plugin) call `initTelemetry`
- * directly and do not need this. See docs/adr/0005-telemetry-init-seam.md.
+ * directly and do not need this. See docs/adr/0023-ambient-telemetry-no-context-object.md.
  */
 import { env } from './env';
 import { initTelemetry } from './index';
 
 // This preload runs before any app composition, so it reads the slice's own env
-// (ADR 0033): the values are authored as profile defaults and any of them can be
+// (@acme/env ADR 0001): the values are authored as profile defaults and any of them can be
 // retuned by a same-named variable, which is how a deploy points at its own
 // collector. `serviceVersion`/`debug` stay `process.env`/`NODE_ENV` reads — a
 // build signal and a runtime mode, not config.

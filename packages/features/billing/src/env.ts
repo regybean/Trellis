@@ -31,7 +31,7 @@ export const stripeConnectionSchema = z.discriminatedUnion('mode', [
 export type StripeConnection = z.output<typeof stripeConnectionSchema>;
 
 /**
- * Billing's environment, declared once (ADR 0033) — the slice's browser-safe
+ * Billing's environment, declared once (@acme/env ADR 0001) — the slice's browser-safe
  * values, its server-only values and its secrets in one `createEnv` call,
  * composed into an app's env graph via `extends: [billingEnv(), …]`.
  *
@@ -51,12 +51,12 @@ export type StripeConnection = z.output<typeof stripeConnectionSchema>;
  *   *origin* varies per app, and that is threaded in at the app edge.
  * - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`: the two secrets. The
  *   development profile authors localstripe's fixed placeholders — documented as
- *   not real secrets and gitleaks-allowlisted (ADR 0004) — so a clean checkout
+ *   not real secrets and gitleaks-allowlisted (ADR 0001) — so a clean checkout
  *   runs billing against the fake server with no `.env` rows; the
  *   staging/production overlays **unauthor** them, which makes them demanded
  *   secrets on those targets by the same mechanical rule as every other secret.
  *
- * Every key is in `runtimeEnv`, so every key is env-overridable (ADR 0033 §4) —
+ * Every key is in `runtimeEnv`, so every key is env-overridable (@acme/env ADR 0001 §4) —
  * which for this slice is the difference between "point a deploy at a different
  * Stripe account" and "edit a profile, commit, rebuild the image". Override
  * reaches the *server*; a browser resolves `shared` keys from the authored
@@ -125,7 +125,7 @@ export function billingEnv() {
 export const env = billingEnv();
 
 /**
- * The single env→`PlanIds` mapper (ADR 0033). Every edge that needs the
+ * The single env→`PlanIds` mapper (@acme/env ADR 0001). Every edge that needs the
  * product→tier plan ids — the tRPC route, the tRPC context, the generation
  * workers, and `usePricing` — threads its values through here rather than each
  * hand-rolling `{ standardPlanId, proPlanId }` (a data clump). Adding a plan

@@ -23,7 +23,7 @@ import '@testing-library/jest-dom';
 import '@acme/test-utils/jsdom';
 
 /**
- * The billing values the client seam reads (ADR 0033), supplied directly here —
+ * The billing values the client seam reads (@acme/env ADR 0001), supplied directly here —
  * config is pure, so a test constructs it with no env. The plan IDs match the
  * subscription-cache products the MSW handlers/backends seed.
  */

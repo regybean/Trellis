@@ -63,7 +63,7 @@ async function refund(userId: string, tier: SubscriptionTier, amount: number) {
  * setting the value and the billing-window expiry in one command (no immortal
  * key on a partial failure). Takes the resolved subscription + tier — admin
  * callers target an arbitrary user and resolve them through the injected
- * entitlements provider (ADR 0033: plan ids no longer live in this module).
+ * entitlements provider (@acme/env ADR 0001: plan ids no longer live in this module).
  */
 async function reset(
   userId: string,

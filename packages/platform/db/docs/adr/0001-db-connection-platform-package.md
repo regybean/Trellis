@@ -4,7 +4,7 @@ Postgres gets a first-class platform home — `@acme/db` — owning the
 drizzle/postgres-js **connection** (a client factory) and the `DB_*` connection
 **env**, exactly mirroring how `@acme/redis` owns the Redis clients + env. It is
 created to remove a real duplication, not for tests; the test descriptor
-([ADR 0017](0017-test-infra-owned-by-infra-package.md)) only follows for free.
+([ADR 0017](../../../../../docs/adr/0017-test-infra-owned-by-infra-package.md)) only follows for free.
 
 ## The asymmetry it fixes
 
@@ -21,10 +21,10 @@ for the connection values.
 `@acme/db` owns the connection substrate — nothing above it.
 
 - **Features keep their own table schemas.** This is the direct parallel to the
-  Redis **key builder** rule ([ADR 0008](0008-per-app-redis-namespace.md)):
-  `@acme/db` owns *how you connect*, the domain package owns *what it stores*.
+  Redis **key builder** rule ([ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md)):
+  `@acme/db` owns _how you connect_, the domain package owns _what it stores_.
 - **`@acme/rag` keeps its Mastra `pgVector` / `postgresStore`.** Those are
-  `@mastra/pg` constructs, vendor-contained to rag ([ADR 0002](0002-mastra-rag-and-memory.md));
+  `@mastra/pg` constructs, vendor-contained to rag ([@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md));
   moving them into `@acme/db` would couple the platform substrate to Mastra. They
   read host/creds from `@acme/db/env` and stay put.
 - **No `vdb` package.** The vector database (`DB_VECTOR_NAME`) has exactly one
@@ -43,12 +43,12 @@ accepted
 
 ## Considered and rejected
 
-- **Leave Postgres in `@acme/rag`.** Rejected — rag is a `shared`-layer *feature*
+- **Leave Postgres in `@acme/rag`.** Rejected — rag is a `shared`-layer _feature_
   concern (RAG), yet `@acme/billing`/`@acme/chat`/`@acme/feedback` already reach
   through it for a plain connection. Connection is substrate, not a RAG concern; it
   belongs in `platform` beside `@acme/redis`.
 - **`@acme/db` absorbs rag's `pgVector`/`postgresStore` too** (single Postgres
-  owner). Rejected — breaks vendor containment (ADR 0002) and couples the platform
+  owner). Rejected — breaks vendor containment (@acme/rag ADR 0001) and couples the platform
   substrate to `@mastra/pg`.
 - **A separate `vdb` package** for the vector database. Rejected — one consumer;
   fails to earn its keep. Parameterise the factory by database name instead.

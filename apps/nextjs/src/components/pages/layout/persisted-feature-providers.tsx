@@ -25,7 +25,7 @@ const clearPersistedStores = async () => {
 };
 
 /**
- * App adapter for the offline-read persistence seam (ADR 0025). The app — not the
+ * App adapter for the offline-read persistence seam (@acme/hooks ADR 0001). The app — not the
  * feature — owns auth: it passes the signed-in user's id as `scopeKey` to the
  * chat + feedback + ingest providers. The id is *server-resolved* (`auth.api.getSession`
  * in the root layout) so it's present on the very first render, before each

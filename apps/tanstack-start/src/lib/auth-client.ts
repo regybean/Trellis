@@ -2,7 +2,7 @@ import { createAuthClient } from 'better-auth/react';
 
 /**
  * App-owned Better Auth React client. Better Auth ships no UI, so the app owns
- * the client and `@acme/ui` owns the presentation (ADR 0034).
+ * the client and `@acme/ui` owns the presentation (@acme/auth ADR 0001).
  *
  * **No `baseURL`.** The client is same-origin: it appends Better Auth's default
  * `/api/auth` base path to the origin it was loaded from, which is the one thing

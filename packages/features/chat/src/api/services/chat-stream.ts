@@ -13,7 +13,7 @@ import { streamReaderEventSchema } from '../schemas/chat-schema';
 // is only chat's own: the wire codec (encode/decode off the one
 // `streamReaderEventSchema`), the delta-coalesce it passes as the tail
 // `transform`, and the terminal predicate the router closes on. Config-as-code
-// (ADR 0033).
+// (@acme/env ADR 0001).
 
 // The pure inverse of `decodeEvent`: a validated event → the flat field record
 // `xAdd` writes. A `delta` carries only `chunk` (no `type`, so an absent `type`

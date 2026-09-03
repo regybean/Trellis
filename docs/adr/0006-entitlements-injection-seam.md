@@ -16,7 +16,7 @@ in tests, which had to `vi.mock('@acme/subscriptions')` to construct a context
 at all.
 
 > **That env problem is fixed, and it is no longer why the seam exists.**
-> ADR 0033 moved the Stripe variables into `@acme/billing`'s env and made plan
+> @acme/env ADR 0001 moved the Stripe variables into `@acme/billing`'s env and made plan
 > ids an injected argument, so a direct import would no longer demand Stripe keys
 > of anyone. The seam still holds, for two different reasons. See the
 > [#250 amendment](#amendment-250--the-substrate-stops-reading-billing) before

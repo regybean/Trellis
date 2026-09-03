@@ -31,8 +31,8 @@ With `IS_NEXT_BUILD=true`, `dbEnv.DB_HOST` is `process.env.DB_HOST` (raw, unvali
 In CI the var is absent, so host is `undefined`, and the constructor throws:
 `PgVector: host must be provided and cannot be empty`.
 
-ADR 0022 solved the parallel worktree problem by symlinking the primary checkout's `.env`
-into the worktree. CI has no primary checkout to inherit from, so the symlink approach
+The parallel-worktree case is solved by symlinking the primary checkout's `.env`
+into the worktree (`scripts/link-worktree-env.mjs`). CI has no primary checkout to inherit from, so the symlink approach
 does not apply.
 
 ## Decision
@@ -60,7 +60,7 @@ Stubs declared in CI:
 | `OLLAMA_EMBED_MODEL` | `stub`                   | ollama embed model id                                     |
 
 These stubs exist to satisfy Mastra/AI-SDK constructor guards, which run at module
-import whatever env validation does. (As noted at the top: since ADR 0033 §3 they are
+import whatever env validation does. (As noted at the top: since @acme/env ADR 0001 §3 they are
 also coerced and validated by the slice's schema rather than bypassing it, so each one
 has to be a legal value for its key — the reason `OLLAMA_BASE_URL` above is a
 well-formed URL and not `stub`.) All stub
@@ -69,7 +69,7 @@ vars only, so CI step env vars are silently dropped unless listed there.
 
 ## Considered and rejected
 
-- **Lazy-init `pgVector`** (`??=` getter / factory). Already rejected in ADR 0022 —
+- **Lazy-init `pgVector`** (`??=` getter / factory). Rejected once already —
   larger blast radius, env at build is not actually wrong to require.
 - **Guard with `IS_NEXT_BUILD` in `vector.ts`**. Same class as lazy-init: defers
   construction behind a conditional, silently breaking any code that touches `pgVector`
@@ -89,4 +89,4 @@ accepted
   its required env var must also be added to the CI stub set. Omitting it produces the
   same class of error (constructor throws, build fails) making it easy to detect.
 - The stub vars are only present in `typecheck` and `build` CI jobs; test jobs still use
-  real env from testcontainers (ADR 0014 / ADR 0019).
+  real env from testcontainers ([ADR 0014](0014-tests-validate-real-env.md)).

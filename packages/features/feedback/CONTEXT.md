@@ -1,7 +1,7 @@
 # Feedback (`@acme/feedback`)
 
 Thumbs-up/down feedback on individual assistant Messages. The first app-owned,
-Drizzle-managed table in the repo — the worked example of the ADR-0002 ownership
+Drizzle-managed table in the repo — the worked example of the @acme/rag ADR 0001 ownership
 seam, where an app table annotates Mastra-owned identifiers with no foreign key.
 
 ## Language
@@ -20,7 +20,7 @@ _Avoid_: "score", "thumbs", "sentiment"
 **Message reference**:
 The Mastra-owned `messageId` (and its `threadId`) a Feedback points at, carried by
 value. The feedback table holds **no foreign key** to `mastra_messages` — Mastra
-owns that DDL at runtime (ADR-0002), so integrity across the seam is enforced in the
+owns that DDL at runtime (@acme/rag ADR 0001), so integrity across the seam is enforced in the
 router, not by Postgres. _Avoid_: "foreign key", "join column"
 
 ## Relationships
@@ -45,7 +45,7 @@ router, not by Postgres. _Avoid_: "foreign key", "join column"
 defined here but re-exported through each app's `db/schema.ts` so drizzle-kit owns its
 DDL, while Mastra owns the `mastra_*` tables it references. The two ownership lanes
 never cross with a database constraint; integrity is enforced in the `submit` router
-(thread owned + message exists) instead. This is the concrete proof of [ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md)'s
+(thread owned + message exists) instead. This is the concrete proof of [@acme/rag ADR 0001](../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md)'s
 app-owned lane and is documented in its own [ADR 0001](docs/adr/0001-feedback-references-mastra-ids-without-fk.md).
 
 **Ownership reuses the shared rule**: `submit` does not re-derive thread ownership; it
@@ -67,7 +67,7 @@ can omit feedback entirely.
 **Rating state persists for instant / offline read (opt-in)**: `feedback.forMessage`
 is marked persistable via `meta: persistMeta`, so its Rating renders immediately on
 reload — including offline — instead of flickering in once the network responds. The
-mechanism is the shared per-query IndexedDB persister from `@acme/hooks` ([ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md)),
+mechanism is the shared per-query IndexedDB persister from `@acme/hooks` ([@acme/hooks ADR 0001](../../shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md)),
 composed into feedback's own query client under storage key `rq-feedback`; each
 per-Message query is written under its own hash, lazily and asynchronously, so many
 Messages never rewrite a whole-cache blob or jank the main thread. `forMessage` is the
@@ -87,7 +87,7 @@ The policy above rides on the query, not on a client of feedback's own: `useFeed
 spreads `usePersistedQueryOptions()` into `forMessage`, which carries the persister,
 `gcTime`, the `persistMeta` mark and `staleTime: 0` together ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md)).
 That `staleTime` is a **change** — feedback used to pair the persister with a 30s
-client default, the exact combination [ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md)
+client default, the exact combination [@acme/hooks ADR 0001](../../shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md)
 names as serving a restored snapshot without revalidating. It was never a live bug
 here (this hook's mutations `invalidate` on settle rather than writing optimistically,
 so a persisted entry is always server truth, and the window only opened on a reload

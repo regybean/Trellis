@@ -68,7 +68,7 @@ export async function setUserTier(args: {
   tier: SubscriptionTier;
   /**
    * The Stripe product the paid tier maps to. A billing-env plan id
-   * (ADR 0033), resolved on the client from `useBillingConfig` and threaded
+   * (@acme/env ADR 0001), resolved on the client from `useBillingConfig` and threaded
    * through the mutation — so this dev-only tool needs no server-side plan-ID
    * env. Unused for `Basic` (which just cancels).
    */

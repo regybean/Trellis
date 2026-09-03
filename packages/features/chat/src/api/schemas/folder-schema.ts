@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { env } from '../../env';
 
 // `chat_folder` is an app-owned, drizzle-kit-managed table — the same ownership
-// seam as `message_feedback` (ADR-0002). It defines a Folder (a user-created
+// seam as `message_feedback` (@acme/rag ADR 0001). It defines a Folder (a user-created
 // grouping of Conversations); the Folder *assignment* lives on the Mastra thread
 // as `metadata.folderId` (a single scalar, so a Conversation is in at most one
 // Folder). There is NO foreign key from the Mastra thread metadata to this table:

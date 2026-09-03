@@ -33,7 +33,7 @@ does not compile.
 **Telemetry bootstrap** (Nitro startup plugin, `src/nitro/telemetry.ts`):
 The app-owned hook that calls `initTelemetry()` (`trellis-tanstack-slim`) once at
 server startup. The per-app half of the telemetry seam — see
-[ADR 0005](../../docs/adr/0005-telemetry-init-seam.md).
+[ADR 0023](../../docs/adr/0023-ambient-telemetry-no-context-object.md).
 
 **Console shell** (`src/components/console-shell.tsx`):
 The app-local dark/dense "developer console" chrome (left rail + top bar + status
@@ -45,7 +45,7 @@ from `apps/nextjs-slim` (indigo/violet).
 The per-app `pgSchema` named off `NEXT_PUBLIC_WEBAPP` (falls back to `tanstack-slim`).
 `src/server/db/schema.ts` is the drizzle-kit entrypoint and exports only `appSchema`
 (no app-owned tables) so `db:push` owns `CREATE SCHEMA`. Mastra owns its `mastra_*`
-DDL at runtime — see [ADR 0002](../../docs/adr/0002-mastra-rag-and-memory.md). Run
+DDL at runtime — see [@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md). Run
 `db:push` (dev) or `db:migrate` (deploy) before booting on a fresh DB.
 
 ## Structure

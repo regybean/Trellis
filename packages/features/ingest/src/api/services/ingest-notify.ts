@@ -23,7 +23,7 @@ export interface JobCompleteSummary {
   failed: JobFailure[];
 }
 
-// Ingest's typed one-line wrapper around the generic `publish` (ADR 0030 — the
+// Ingest's typed one-line wrapper around the generic `publish` (@acme/notifications ADR 0001 — the
 // notifications core owns the envelope, never the kinds; a feature owns its own
 // wrapper). Fired exactly once, on the settled path, by the processor.
 export function notifyJobComplete(userId: string, summary: JobCompleteSummary) {

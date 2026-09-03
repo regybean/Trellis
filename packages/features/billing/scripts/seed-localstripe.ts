@@ -17,7 +17,7 @@ import Stripe from 'stripe';
 
 import { env } from '../src/env';
 
-// The Stripe connection is authored config (ADR 0033): localstripe (dev) carries
+// The Stripe connection is authored config (@acme/env ADR 0001): localstripe (dev) carries
 // the `apiBase`; real Stripe carries none and needs no seeding. Read off the
 // slice's own env, so seeding follows a `STRIPE_CONNECTION` override rather than
 // the profile's value when one is set.

@@ -16,7 +16,7 @@ import { createTRPCRouter, db, protectedProcedure } from '../trpc';
 
 /**
  * Message feedback router. The `submit` mutation is the worked example of the
- * ADR-0002 ownership seam: a Drizzle-owned, app-managed row (`message_feedback`)
+ * @acme/rag ADR 0001 ownership seam: a Drizzle-owned, app-managed row (`message_feedback`)
  * that annotates Mastra-owned identifiers, with integrity enforced in code
  * rather than by a database foreign key.
  *

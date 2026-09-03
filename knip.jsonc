@@ -53,7 +53,7 @@
       "entry": ["drizzle.push.config.ts"],
     },
     "apps/tanstack-slim": {
-      // `src/env.ts` is the app's one composition edge (ADR 0033) — a root of the
+      // `src/env.ts` is the app's one composition edge (@acme/env ADR 0001) — a root of the
       // graph, not something another module imports. Declared an entry so its
       // own imports still count. That nothing *loads* it at boot is a separate
       // defect: issue #235.

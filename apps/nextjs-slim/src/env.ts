@@ -12,14 +12,14 @@ import { ingestEnv } from '@acme/ingest/env';
 export const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * The app's **one** composition edge (ADR 0033): one `extends` list carrying each
+ * The app's **one** composition edge (@acme/env ADR 0001): one `extends` list carrying each
  * slice's config *and* secrets, where there used to be this list plus a parallel
  * `configExtends([...])` in `src/config.ts`.
  *
  * This app strips auth and billing (ADR 0010), so it composes only chat +
  * ingest — and because a secret's requiredness follows what the app assembles, it
  * never demands the auth or Stripe secrets. `skipValidation` is not passed here
- * or anywhere (ADR 0033 §3).
+ * or anywhere (@acme/env ADR 0001 §3).
  */
 export const env = createEnv({
   clientPrefix: 'NEXT_PUBLIC_',

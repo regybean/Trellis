@@ -34,7 +34,7 @@ import tseslint from 'typescript-eslint';
 const banMastra = {
   group: ['@mastra/*'],
   message:
-    'Mastra imports are contained to @acme/rag and @acme/chat (ADR 0002). Consume them through those packages.',
+    'Mastra imports are contained to @acme/rag and @acme/chat (@acme/rag ADR 0001). Consume them through those packages.',
 };
 /**
  * The auth provider is contained: an app may reach for it (it owns session
@@ -50,7 +50,7 @@ const banBetterAuth = {
   group: ['better-auth', 'better-auth/*'],
   allowTypeImports: true,
   message:
-    'better-auth imports belong in apps or @acme/auth (ADR 0003, ADR 0034). Read the principal off the tRPC context, or the client status off @acme/hooks.',
+    'better-auth imports belong in apps or @acme/auth (ADR 0003, @acme/auth ADR 0001). Read the principal off the tRPC context, or the client status off @acme/hooks.',
 };
 const banFeatureTrpc = {
   group: ['**/trpc/react', '**/trpc/server', '@trpc/*'],

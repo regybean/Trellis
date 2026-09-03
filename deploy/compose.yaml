@@ -4,7 +4,7 @@ services:
     container_name: trellis-postgres
     ports:
       # DB_PORT/USER/NAME + DB_VECTOR_NAME are single-sourced from config and
-      # exported by scripts/compose.sh (ADR 0033 §6, #126) — bare refs, no `:-`
+      # exported by scripts/compose.sh (@acme/env ADR 0001 §6, #126) — bare refs, no `:-`
       # fallback, so a missing export fails loud rather than masking config drift.
       # DB_PASSWORD is the container secret and stays in .env (env_file below).
       - "${DB_PORT}:5432"
@@ -42,7 +42,7 @@ services:
     container_name: trellis-redis
     ports:
       # REDIS_PORT is parsed from REDIS_URL in config + exported by compose.sh
-      # (ADR 0033 §6, #126). REDIS_PASSWORD is the container secret, from .env.
+      # (@acme/env ADR 0001 §6, #126). REDIS_PASSWORD is the container secret, from .env.
       - "${REDIS_PORT}:6379"
     command:
       - sh
@@ -155,7 +155,7 @@ services:
   # chat and embeddings over the OpenAI-compatible `/v1` endpoint. Models are
   # pulled on first boot; OLLAMA_PORT + the `${OLLAMA_*_MODEL}` pull IDs are
   # single-sourced from @acme/models config and exported by scripts/compose.sh
-  # (ADR 0033 §6, #126), so they are never duplicated in .env.
+  # (@acme/env ADR 0001 §6, #126), so they are never duplicated in .env.
   ollama:
     image: ollama/ollama:0.9.4
     container_name: trellis-ollama

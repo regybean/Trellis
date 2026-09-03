@@ -9,7 +9,7 @@ cd "$(dirname "$0")/.."
 
 pnpm with-env ./scripts/infra.sh up -d --wait
 
-# Seed localstripe. The connection is authored config (ADR 0033), so the seed
+# Seed localstripe. The connection is authored config (@acme/env ADR 0001), so the seed
 # self-guards on it — a no-op when the connection resolves to real
 # Stripe — and is safe to run unconditionally. If the `billing` profile wasn't
 # started (real Stripe), the compose stack simply has no localstripe container.

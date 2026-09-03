@@ -12,7 +12,7 @@ export interface StripeCustomer {
 
 export type STRIPE_SUB_CACHE = SubscriptionCache;
 
-// The Stripe connection, resolved once from this slice's env (ADR 0033):
+// The Stripe connection, resolved once from this slice's env (@acme/env ADR 0001):
 // `localstripe` (dev, against the fake stateful server) or `real`. The SDK host
 // override reads `apiBase` off the narrowed `localstripe` variant.
 const stripe = env.STRIPE_CONNECTION;

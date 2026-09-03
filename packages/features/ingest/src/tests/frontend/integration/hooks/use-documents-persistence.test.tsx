@@ -1,5 +1,5 @@
 /**
- * Offline read of the Documents pane (#216, ADR 0025).
+ * Offline read of the Documents pane (#216, @acme/hooks ADR 0001).
  *
  * The behaviour under test at the rendered-DOM seam (ADR 0018): `documents.list`
  * paints from IndexedDB on a cold cache instead of the "Loading

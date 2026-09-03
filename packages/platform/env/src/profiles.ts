@@ -13,8 +13,8 @@ type EnvShape = Record<string, z.ZodType>;
 
 /**
  * One profile's values, typed against the **input** of each key's schema so a
- * wrong literal is a compile error, not just a runtime one (ADR 0026's
- * authoring-time-safety sub-decision, preserved by ADR 0033). Every key is
+ * wrong literal is a compile error, not just a runtime one (ADR 0001's
+ * authoring-time-safety rule). Every key is
  * optional: `default` supplies the base set and an overlay patches a subset.
  *
  * An overlay may also set a key to `undefined`, which **unauthors** it — the key
@@ -29,10 +29,10 @@ type ProfileValues<TShape extends EnvShape> = {
 };
 
 /**
- * The closed profile set (ADR 0026 §3): `default` *is* `development`; `staging`
+ * The closed profile set (ADR 0001 §2): `default` *is* `development`; `staging`
  * and `production` are optional overlays merged over it. A target with no
  * overlay of its own inherits the base — which in this repo is the deliberate
- * rule, not an oversight: every key is env-overridable (ADR 0033 §4), so a
+ * rule, not an oversight: every key is env-overridable (ADR 0001 §4), so a
  * deploy target's own values arrive as environment variables and a slice does
  * not have to be re-authored to be deployable. Authoring an overlay is for
  * values that belong in version control.
@@ -54,8 +54,8 @@ type ShapeOutput<TShape extends EnvShape> = {
  * the closed set rather than an index into the profiles.
  *
  * Arrays **replace** rather than concatenate (`mergeArrays: false`): an overlay
- * that sets a list means "use this list", not "append to the base's" (ADR 0026
- * §3's array-merge sub-decision).
+ * that sets a list means "use this list", not "append to the base's"
+ * (ADR 0001 §2).
  */
 function resolveProfile(appEnv: AppEnv, profiles: Profiles<EnvShape>) {
   if (appEnv === 'development') return { ...profiles.default };
@@ -71,7 +71,7 @@ function resolveProfile(appEnv: AppEnv, profiles: Profiles<EnvShape>) {
  * Build the schema `createEnv` validates `runtimeEnv` against.
  *
  * Two things happen per key, and which one is decided **mechanically** by
- * whether the resolved profile supplies a value (ADR 0033 §1):
+ * whether the resolved profile supplies a value (ADR 0001 §1):
  *
  * - **It does — the key is config.** The value is attached with `.prefault()`,
  *   not `.default()`: prefault feeds the literal *through* the schema, so a
@@ -81,7 +81,7 @@ function resolveProfile(appEnv: AppEnv, profiles: Profiles<EnvShape>) {
  *   cannot supply one (`shouldSkipEnvValidation()`), in which case it is relaxed
  *   to optional. This is the per-key replacement for `createEnv`'s
  *   `skipValidation`, which returns `runtimeEnv` raw and would discard every
- *   config default alongside the secrets (ADR 0033 §3).
+ *   config default alongside the secrets (ADR 0001 §3).
  *
  * "Supplies a value" means a value that is not `undefined`, so an overlay can
  * unauthor a key the base authored and turn it into a secret on that target.
@@ -126,7 +126,7 @@ function parseWithShape<TOutput>(schema: z.ZodType, value: unknown) {
 
 /**
  * `APP_ENV` profile layering for a `createEnv` call, via t3-env's public
- * `createFinalSchema` seam (ADR 0033) — no fork, no patch:
+ * `createFinalSchema` seam (ADR 0001) — no fork, no patch:
  *
  * ```ts
  * export const env = createEnv({
@@ -153,7 +153,7 @@ function parseWithShape<TOutput>(schema: z.ZodType, value: unknown) {
  * access guard).
  *
  * **A key is env-overridable iff it appears in the call's `runtimeEnv`** — and
- * every key does (ADR 0033 §4). Profile values are attached to the schema, so a
+ * every key does (ADR 0001 §4). Profile values are attached to the schema, so a
  * key left out of `runtimeEnv` could never be reached by a same-named variable
  * in the environment.
  */
@@ -193,7 +193,7 @@ export function withProfiles<TShape extends EnvShape>(
  * profile is empty — these keys are credentials by construction, not config
  * someone forgot to author — and keeps the empty `default: {}` from reading like
  * an oversight at each site. It still routes through `withProfiles`, so the
- * per-key relaxation on a run that cannot supply secrets (ADR 0033 §3) is
+ * per-key relaxation on a run that cannot supply secrets (ADR 0001 §3) is
  * identical; `skipValidation` is still never passed.
  */
 export function secretsOnly(appEnv: AppEnv) {

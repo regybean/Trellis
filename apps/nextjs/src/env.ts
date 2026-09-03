@@ -17,18 +17,18 @@ import { ingestEnv } from '@acme/ingest/env';
 export const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * The app's **one** composition edge (ADR 0033). It used to be two: this
+ * The app's **one** composition edge (@acme/env ADR 0001). It used to be two: this
  * `extends` list for secrets and a parallel `configExtends([...])` in
  * `src/config.ts` for the non-secret values. Each slice now declares both halves
  * in one `createEnv` call, so composing the app is composing one list.
  *
- * Each preset validates its own keys at boot (ADR 0022 two-axis validation) —
+ * Each preset validates its own keys at boot (@acme/env ADR 0001 §3) —
  * `betterAuthEnv()` the Better Auth signing secret (composed by the full apps
  * only, ADR 0010), `billingEnv()` the Stripe plan ids/connection and the two Stripe
  * secrets, `chatEnv()` and `ingestEnv()` their slices' tunables plus ingest's AWS
  * credentials.
  *
- * **`skipValidation` is not passed, here or anywhere** (ADR 0033 §3). It used to
+ * **`skipValidation` is not passed, here or anywhere** (@acme/env ADR 0001 §3). It used to
  * be, and it made this edge a trapdoor: `createEnv` returns `runtimeEnv` *before*
  * merging `extends`, so with `runtimeEnv: {}` the composed `env` was literally
  * `{}` on every skip path. Nothing skips now — `withProfiles` relaxes the secrets
@@ -44,9 +44,9 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * routes are mounted on, and each app in this repo runs on its own port (this
  * one on 3000, `tanstack-start` on 3001). A shared-layer package cannot know it,
  * which is exactly why `initAuth` takes `baseUrl` as a parameter while keeping
- * `BETTER_AUTH_SECRET` slice-owned in `@acme/auth/env` (ADR 0034). It is config,
+ * `BETTER_AUTH_SECRET` slice-owned in `@acme/auth/env` (@acme/auth ADR 0001). It is config,
  * not a secret — the profile authors the dev origin and a deploy target
- * overrides it by environment variable like any other key (ADR 0033 §4).
+ * overrides it by environment variable like any other key (@acme/env ADR 0001 §4).
  * Server-only: the browser never needs it, because `createAuthClient` is
  * same-origin and appends Better Auth's base path to whatever origin it is
  * loaded from.

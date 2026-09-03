@@ -21,7 +21,7 @@ import '@acme/test-utils/jsdom';
 
 // jsdom has no IndexedDB; `fake-indexeddb/auto` installs an in-memory one on the
 // global. Swap in a fresh factory before each test so persisted caches never
-// leak across cases (ADR 0025 / ADR 0018).
+// leak across cases (@acme/hooks ADR 0001 / ADR 0018).
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });

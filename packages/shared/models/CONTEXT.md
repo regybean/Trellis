@@ -7,7 +7,7 @@ and `@acme/chat` depend on this; it owns no RAG, persistence, or agent logic.
 ## Language
 
 **Provider**:
-A model backend selected by the slice's env (`MODELS_CHAT` / `MODELS_EMBED` in `env.ts`, ADR 0033). `chat` and `embed` are
+A model backend selected by the slice's env (`MODELS_CHAT` / `MODELS_EMBED` in `env.ts`, @acme/env ADR 0001). `chat` and `embed` are
 **per-role discriminated unions** keyed by `provider`: chat ∈ {`ollama`,
 `bedrock`, `openrouter`}; embed ∈ {`ollama`, `bedrock`}. Selecting a provider
 carries (and validates) only that provider's fields — Ollama has a `baseUrl`,
@@ -49,7 +49,7 @@ demands `OPENROUTER_API_KEY` (Ollama has no secret, so no env factory at all). A
 missing/invalid secret for an _active_ provider still blocks eagerly at import,
 matching the other `env.ts` files. Provider selection, model ids, region, base
 URL and the embed dimension are authored config (`env.ts` profiles), always validated,
-and each is overridable as one JSON document (ADR 0033 §4).
+and each is overridable as one JSON document (@acme/env ADR 0001 §4).
 
 **Discriminated unions make no-embed unrepresentable, single-authored connection
 params**: `chat`/`embed` are `z.discriminatedUnion('provider', …)`, so the shared
@@ -91,7 +91,7 @@ profile is the **single source** for the two ollama model IDs and the host port:
 the local ollama container's pull list and `OLLAMA_PORT` are derived from it by
 `scripts/resolve-compose-env.ts` (run by `scripts/compose.sh`, which parses the
 port out of the ollama variant's `baseUrl`), not duplicated in `.env.example`
-(ADR 0033, #120, #126).
+(@acme/env ADR 0001, #120, #126).
 
 ## Known limitations
 

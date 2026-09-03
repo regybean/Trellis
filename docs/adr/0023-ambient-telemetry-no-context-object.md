@@ -1,10 +1,8 @@
 # Telemetry is ambient (read from the active OTel span), never threaded through tRPC context
 
-Supersedes [ADR 0005](0005-telemetry-init-seam.md).
-
 ## Context
 
-ADR 0005 kept a `telemetry` object on the tRPC context: `createTRPCContext`
+An earlier design kept a `telemetry` object on the tRPC context: `createTRPCContext`
 built a throwaway placeholder (a non-recording noop span when no ambient span
 existed) that `telemetryMiddleware` immediately overwrote with the real
 per-procedure span. The placeholder existed **only** to keep `BaseContext`
@@ -26,7 +24,7 @@ sole span source: it creates and _activates_ the per-procedure span
 Everything else reads that span **ambiently** via `trace.getActiveSpan()`:
 
 - The reusable middlewares emit their events through the active span, not `ctx`.
-  This removes the `BaseContext`-typing blocker ADR 0005 cited — with no generic
+  This removes the `BaseContext`-typing blocker the placeholder existed for — with no generic
   and no conditional-type explosion — because nothing reads `ctx.telemetry`.
 - `@acme/telemetry` exports two ambient, ctx-free helpers: `withSpan(name, fn, opts?)`
   (child span with error handling, under `context.active()`) and
@@ -43,11 +41,27 @@ Everything else reads that span **ambiently** via `trace.getActiveSpan()`:
 Enforcement is by removal, not lint: with nothing on the context, router code has
 nothing to call.
 
+**Each app initialises the OTel SDK at its own server boundary.** The Next.js apps
+keep an `instrumentation.ts` preload, which gives full HTTP auto-instrumentation;
+the TanStack apps call `initTelemetry()` from a Nitro startup plugin, which is
+loader-free and runs identically in dev and prod. `service.name` is a per-app
+literal (`trellis-nextjs`, `trellis-tanstack-start`, …) — app identity, not shared
+config. The platform never assumes a framework established an ambient span: the
+per-procedure span is simply parentless when none exists.
+
+A TanStack trace is therefore rooted at the tRPC procedure span rather than an HTTP
+one, and lacks auto redis/aws/outgoing-HTTP spans; DB spans are unaffected either
+way, since they come from manual `instrumentDrizzleClient`. The escalation path to
+HTTP-parent parity is the pre-built side-effecting `@acme/telemetry/register`
+entry — preload it with `NODE_OPTIONS="--import @acme/telemetry/register"` and
+auto-instrumentation patches the runtime before the server graph loads. Additive,
+no rework of the seam.
+
 ## Consequences
 
 - Per-app SDK init (`instrumentation.ts` / Nitro plugin) is unchanged; the noop
-  fallback that ADR 0005 added for tanstack-start's missing ambient span is no
-  longer needed, because context creation no longer builds a telemetry object.
+  fallback added for tanstack-start's missing ambient span is no longer
+  needed, because context creation no longer builds a telemetry object.
 - Telemetry becomes invisible in domain code at the cost of a little signal
   (per-router domain counts, validation-schema tags) — an accepted trade.
 - If a future need arises to trace work done _during_ context creation (before the
@@ -67,7 +81,7 @@ against its own concrete context. Same span name, same attributes, same ordering
 (telemetry first, so every later middleware has an active span to write to); the
 `initTRPC` call it is attached to is the feature's now.
 
-The "concrete-context blocker" this ADR cites from ADR 0005 is doubly dead: with
+The "concrete-context blocker" behind that placeholder is doubly dead: with
 no `ctx.telemetry` there is nothing to type, and with #264 there is no generic
 context left to type it against. See the
 [#264 amendment to ADR 0006](0006-entitlements-injection-seam.md).

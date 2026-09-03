@@ -1,5 +1,5 @@
 /**
- * useFeedback — offline read (ADR 0025 / ADR 0018).
+ * useFeedback — offline read (@acme/hooks ADR 0001 / ADR 0018).
  *
  * The persister mechanism itself is verified once in `@acme/hooks`; here we
  * assert the *feature* wiring at the same seam the hook is already tested at

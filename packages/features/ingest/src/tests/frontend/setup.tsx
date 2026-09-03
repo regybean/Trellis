@@ -19,7 +19,7 @@ import '@testing-library/jest-dom';
 import '@acme/test-utils/jsdom';
 
 // jsdom ships no IndexedDB; `fake-indexeddb/auto` installs an in-memory one so
-// the query persister (ADR 0025) can be exercised. A fresh factory per test
+// the query persister (@acme/hooks ADR 0001) can be exercised. A fresh factory per test
 // keeps persisted caches from leaking across cases.
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
@@ -52,7 +52,7 @@ export const Providers = ({ children }: { children: ReactNode }) => (
 
 /**
  * Providers with the query persister wired for a given per-user `scopeKey`
- * (ADR 0025). Used by the offline-read tests to prime and then cold-restore a
+ * (@acme/hooks ADR 0001). Used by the offline-read tests to prime and then cold-restore a
  * persisted cache; the default `Providers` passes no `scopeKey`, so persistence
  * stays off for every other test (network-only, unchanged).
  *

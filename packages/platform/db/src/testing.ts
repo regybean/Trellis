@@ -13,7 +13,7 @@ import { DB_DEVELOPMENT_PROFILE } from './development-profile';
 
 // The throwaway credentials for the ephemeral test container come from the same
 // authored development profile the app connects with, so a suite validates
-// against the values it provisions (ADR 0033 §6). `DB_VECTOR_NAME` is
+// against the values it provisions (@acme/env ADR 0001 §6). `DB_VECTOR_NAME` is
 // `@acme/rag`'s to author, so it stays a literal here rather than making this
 // package depend on that one; the two agree by convention and the init script
 // defaults to the same name.

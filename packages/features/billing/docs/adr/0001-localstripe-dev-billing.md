@@ -19,7 +19,7 @@ no API keys, and no network. Five decisions are load-bearing:
    SDK's defaults are untouched. Every localstripe-only branch keys off the single
    `localstripeMode` boolean, so the real-Stripe path is unchanged. (Originally an
    `STRIPE_API_BASE` env switch; migrated to the `stripeConnectionConfig`
-   discriminated union in #146 — see ADR 0026's follow-up.)
+   discriminated union in #146.)
 3. **Legacy Plans fallback — localstripe predates the Prices API.** localstripe
    models the deprecated **Plans** API: subscription items carry `plan`, not
    `price`; there is no `/v1/prices`, no `default_price`, and no

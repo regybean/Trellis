@@ -10,7 +10,7 @@ container's `DB_*` into `process.env`, so drizzle-kit is invoked directly.
 ## Why push, not migrate — and why this was invisible
 
 The previous global-setup ran `cd apps/$WEBAPP && pnpm db:migrate`. It was broken
-two ways, and both were **masked by the Turbo cache** ([ADR 0019](0019-worktrees-mirror-ci-test-infra.md)):
+two ways, and both were **masked by the Turbo cache**:
 
 - `apps/nextjs/migrations/db` holds **no SQL** — this repo is push-based, so
   `drizzle-kit migrate` applied nothing and created no tables.
@@ -21,8 +21,8 @@ two ways, and both were **masked by the Turbo cache** ([ADR 0019](0019-worktrees
 The migrate step ran **only** under testcontainers (`useTestcontainers`), so it
 only ever executed in CI — and CI served cache hits populated by local compose
 passes, so it never actually ran. The entire backend-testcontainer
-provisioning path was dead and undetected until [ADR 0019](0019-worktrees-mirror-ci-test-infra.md)
-partitioned the cache and made worktrees exercise it. `push` reads `schema.ts`
+provisioning path was dead and undetected until the test cache was partitioned
+so worktrees exercised it. `push` reads `schema.ts`
 directly and force-syncs it — the same declarative sync dev relies on — so it
 works with an empty migrations dir.
 

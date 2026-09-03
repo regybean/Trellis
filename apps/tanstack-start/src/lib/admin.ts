@@ -16,7 +16,7 @@ import { auth } from '~/lib/auth-server';
  * gated by Better Auth's own admin middleware, which resolves the session from
  * the passed headers and rejects a non-admin caller. The hand-rolled
  * `assertAdmin()` this file used to open with is gone: the role is a column the
- * plugin owns and checks, so the check is no longer ours to write (ADR 0034).
+ * plugin owns and checks, so the check is no longer ours to write (@acme/auth ADR 0001).
  * The route's
  * `beforeLoad` still redirects non-admins, but that is a redirect, not the gate —
  * calling these server functions directly is refused here.

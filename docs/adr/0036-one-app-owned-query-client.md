@@ -36,7 +36,7 @@ useQuery(
 );
 ```
 
-Binding `staleTime: 0` into that fragment is the point, not a detail. ADR 0025
+Binding `staleTime: 0` into that fragment is the point, not a detail. @acme/hooks ADR 0001
 established that any `staleTime > 0` silently converts stale-while-revalidate into
 serve-stale, because the persister _is_ the queryFn on a cold open and only
 schedules its background refetch `if (query.isStale())`. As a client default that
@@ -86,9 +86,9 @@ ever worth keeping.
 
 | Feature       | Was         | Now                            | Why                                                                                                                                                                                                                                                                                                         |
 | ------------- | ----------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| chat          | `0`         | `0`, via the persisted options | Unchanged and load-bearing (ADR 0025).                                                                                                                                                                                                                                                                      |
+| chat          | `0`         | `0`, via the persisted options | Unchanged and load-bearing (@acme/hooks ADR 0001).                                                                                                                                                                                                                                                          |
 | ingest        | `0`         | `0`, via the persisted options | Same.                                                                                                                                                                                                                                                                                                       |
-| feedback      | `30s`       | `0`, via the persisted options | It paired a persister with `staleTime: 30s` — the combination ADR 0025 names as serving a restored snapshot without revalidating. See below.                                                                                                                                                                |
+| feedback      | `30s`       | `0`, via the persisted options | It paired a persister with `staleTime: 30s` — the combination @acme/hooks ADR 0001 names as serving a restored snapshot without revalidating. See below.                                                                                                                                                    |
 | billing       | `30s`       | app default (`0`)              | t3 boilerplate that was **already not in effect** — see below. `0` is also right on the merits: a 30s window only ever hides a change the user just caused (credits after a Turn, tier right after a checkout return), the reads are cheap Redis hits, and every write path already invalidates explicitly. |
 | notifications | unset (`0`) | app default (`0`)              | Subscription-only — no queries for a `staleTime` to apply to.                                                                                                                                                                                                                                               |
 
@@ -128,7 +128,7 @@ what the hook is for: a shared machine, where the departing user's chat history,
 feedback, _and_ documents must all go. Previously three renders each cleared the
 whole (well, their own) cache and one store.
 
-## What this changes in ADR 0025
+## What this changes in @acme/hooks ADR 0001
 
 [ADR 0025](0025-per-query-indexeddb-persister.md) is otherwise intact — per-query
 persistence, IndexedDB via `idb-keyval`, per-feature `rq-<keyPrefix>` stores,
@@ -172,7 +172,7 @@ its transport links, its `keyPrefix`, and its persister scope.
   needs `staleTime: 0`, and a new app that forgot would silently break chat's
   revalidation. Policy belongs with the query.
 - **Move `createFeatureClient` back to whole-client persistence so the client
-  stays meaningful.** Rejected by ADR 0025 on its own merits (feedback's
+  stays meaningful.** Rejected by @acme/hooks ADR 0001 on its own merits (feedback's
   one-query-per-Message write pattern), and unchanged by this decision.
 - **An app-level `QueryClient` in each app with no shared factory.** Four copies
   of the same SuperJSON dehydrate block and the same browser-singleton subtlety.

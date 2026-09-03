@@ -2,7 +2,7 @@
 
 **Status:** accepted (authored on package creation, per spec #185 / ticket #186).
 **Amended #196** — Decision 2's reader is now the shared `@acme/redis`
-durable-stream primitive ([ADR 0032](0032-durable-redis-stream-primitive.md)),
+durable-stream primitive ([@acme/redis ADR 0001](../../../../platform/redis/docs/adr/0001-durable-redis-stream-primitive.md)),
 not a hand-copied `xRange` poll loop. Two specifics are **superseded**: the
 fresh-connect seed is no longer `${Date.now()}-0` but the stream's **actual last
 id** (read via `xRevRange` — the "no `xRevRange`, no new `@acme/redis` surface"
@@ -91,4 +91,4 @@ resolvers, checked against the router's context. `createFeatureTRPC()` no longer
 exists either: this package builds its own instance from `trpcConfig` and the
 shared middleware bodies, against a `NotificationsContext` that is exactly
 `BaseContext` — it still owns no database. See the
-[#264 amendment to ADR 0006](0006-entitlements-injection-seam.md).
+[#264 amendment to ADR 0006](../../../../../docs/adr/0006-entitlements-injection-seam.md).

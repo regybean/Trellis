@@ -5,8 +5,8 @@
 ## Context
 
 Three features delivered per-user real-time updates over a Redis Stream — chat's
-token stream, ingest's progress stream ([ADR 0031](0031-ingest-progress-survives-refresh.md)),
-and the notifications stream ([ADR 0030](0030-notifications-seam.md)) — and each
+token stream, ingest's progress stream ([@acme/ingest ADR 0001](../../../../features/ingest/docs/adr/0001-ingest-progress-survives-refresh.md)),
+and the notifications stream ([@acme/notifications ADR 0001](../../../../shared/notifications/docs/adr/0001-notifications-seam.md)) — and each
 had hand-copied the same transport triplet: an `xRange` poll-loop with idle
 backoff, a byte-identical abort-aware `delay(ms, signal)` timer, the same
 cursor / `rangeStart` logic, and an encode/parse pair off one zod schema. There
@@ -64,7 +64,7 @@ logical DB). Each consumer keeps only its own contract tests.
   substrate three features depend on; this ADR is where that coupling is written
   down. A fourth consumer adds a codec + seed, not a new poll loop.
 - **Accepted — one more `@acme/redis` op.** `xRevRange` is added to the facade
-  (superseding ADR 0030's "no `xRevRange`, no new `@acme/redis` surface"); the
+  (superseding @acme/notifications ADR 0001's "no `xRevRange`, no new `@acme/redis` surface"); the
   clock-skew failure it removes is worth the one-method surface growth.
 - **Unchanged behaviour.** chat/ingest observable outcomes are identical;
   notifications' leave-and-return still shows nothing (tail-from-now intent

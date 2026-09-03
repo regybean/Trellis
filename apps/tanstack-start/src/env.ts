@@ -17,12 +17,12 @@ import { ingestEnv } from '@acme/ingest/env';
 export const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * The app's **one** composition edge (ADR 0033) — the same preset list the Next.js
+ * The app's **one** composition edge (@acme/env ADR 0001) — the same preset list the Next.js
  * app composes, so both apps validate the identical runtime surface. It used to be
  * two edges: this `extends` list for secrets and a parallel `configExtends([...])`
  * in `src/config.ts` for the non-secret values.
  *
- * **`skipValidation` is not passed, here or anywhere** (ADR 0033 §3):
+ * **`skipValidation` is not passed, here or anywhere** (@acme/env ADR 0001 §3):
  * `createEnv` returns `runtimeEnv` *before* merging `extends`, so a skip path made
  * the composed `env` literally `{}`. `withProfiles` relaxes the secrets per key
  * instead, so config defaults survive a lint/build run.
@@ -37,9 +37,9 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * routes are mounted on, and each app in this repo runs on its own port
  * (`tanstack-start` on 3001). A shared-layer package cannot know it, which is
  * exactly why `initAuth` takes `baseUrl` as a parameter while keeping
- * `BETTER_AUTH_SECRET` slice-owned in `@acme/auth/env` (ADR 0034). It is config,
+ * `BETTER_AUTH_SECRET` slice-owned in `@acme/auth/env` (@acme/auth ADR 0001). It is config,
  * not a secret — the profile authors the dev origin and a deploy target overrides
- * it by environment variable like any other key (ADR 0033 §4). Server-only: the
+ * it by environment variable like any other key (@acme/env ADR 0001 §4). Server-only: the
  * browser never needs it, because `createAuthClient` is same-origin and appends
  * Better Auth's base path to whatever origin it is loaded from.
  */

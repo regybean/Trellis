@@ -43,13 +43,13 @@ here.
 The forms stay presentational and prop-driven. `onSubmit`, `error` and `pending`
 are still the caller's, so `@acme/ui` takes no `@acme/auth` dependency and the
 slim apps' graph gains no auth or billing code
-([ADR 0010](0010-slim-no-auth-apps.md)). TanStack Form owns field state and
+([ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md)). TanStack Form owns field state and
 validation timing, nothing else. The caller still owns the provider call and
 still owns clearing `error`.
 
 The swap was invisible to the tests. All 17 existing cases passed unchanged
 across the rewrite, because they assert rendered DOM rather than form internals
-([ADR 0018](0018-frontend-test-doctrine.md)). That is the evidence the seam sits
+([ADR 0018](../../../../../docs/adr/0018-frontend-test-doctrine.md)). That is the evidence the seam sits
 in the right place, and the reason a future swap stays cheap.
 
 ## Consequences

@@ -34,7 +34,7 @@ ENV CI=true
 ENV NODE_ENV=production
 ENV TURBO_REMOTE_ONLY=true
 
-# Config-as-code (ADR 0026): the deploy-target selector is derived from STAGE.
+# Config-as-code (@acme/env ADR 0001): the deploy-target selector comes from STAGE.
 # This is a staging/production image build, so APP_ENV must be a real profile —
 # fail loudly if it is unset/invalid rather than silently baking the
 # `development` base into a production bundle.
@@ -60,7 +60,7 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store \
 
 # Build the project. Non-secret per-env values — Stripe plan IDs/publishable
 # key/manage URL (billingConfig) — are config-as-code, baked into the client
-# bundle via APP_ENV (ADR 0026), so there is no .env.<stage> file to load. Auth
+# bundle via APP_ENV (@acme/env ADR 0001), so there is no .env.<stage> file to load. Auth
 # contributes nothing here since #223: Better Auth's two variables
 # (BETTER_AUTH_SECRET, BETTER_AUTH_URL) are read on the server at runtime, not
 # baked into the bundle. No SKIP_ENV_VALIDATION needed: the app build script

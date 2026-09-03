@@ -3,7 +3,7 @@
 # concurrency cap below applies to every one-shot test run. See ADR 0034.
 #
 # `CI` is deliberately *not* set or read here: backend suites always
-# self-provision testcontainers, and ADR 0022's `VITEST` carve-out means `CI` no
+# self-provision testcontainers, and the `VITEST` carve-out in @acme/env means `CI` no
 # longer changes env validation under vitest. So `CI` has no effect on test
 # results, is not in the test tasks' turbo hash, and local/worktree/CI runs share
 # one cache partition.

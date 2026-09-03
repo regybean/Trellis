@@ -10,7 +10,7 @@ import { env } from '../env';
 // `@acme/models` (read from `/env`, which imports only zod + `@acme/env`, never
 // the package root, so this schema never triggers provider resolution). The
 // dimension rides with the selected embed variant (`MODELS_EMBED.dimensions`,
-// ADR 0033). Switching embed model means changing it and re-pushing the schema.
+// @acme/env ADR 0001). Switching embed model means changing it and re-pushing the schema.
 export const EMBED_DIMENSIONS = modelsEnv.MODELS_EMBED.dimensions;
 
 // Knowledge-base table name. Mastra-owned (PgVector creates it), but the name is
@@ -35,7 +35,7 @@ export const ragSchema = pgSchema(env.NEXT_PUBLIC_WEBAPP);
 
 // Drizzle mirror of the table Mastra's PgVector creates at runtime. Kept so the
 // knowledge base stays queryable with Drizzle (listing/deletion). Mastra owns the
-// actual DDL; the vector database is not drizzle-kit-managed at all (ADR-0002).
+// actual DDL; the vector database is not drizzle-kit-managed at all (ADR 0001).
 export const documents = ragSchema.table(KNOWLEDGE_BASE_TABLE, {
   id: serial('id').primaryKey(),
   vectorId: text('vector_id').notNull().unique(),

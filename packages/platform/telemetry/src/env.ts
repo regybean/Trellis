@@ -7,9 +7,9 @@ import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Telemetry's environment, declared once (ADR 0033). Both keys are **config** —
+ * Telemetry's environment, declared once (@acme/env ADR 0001). Both keys are **config** —
  * they carry profile values, so a clean checkout exports to the local collector
- * with no `.env` rows — and both are env-overridable (ADR 0033 §4), which is what
+ * with no `.env` rows — and both are env-overridable (@acme/env ADR 0001 §4), which is what
  * a real deploy needs: the collector endpoint is the value that differs per
  * target, and pointing an app at one should not require re-authoring a profile.
  *

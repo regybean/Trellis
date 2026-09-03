@@ -22,7 +22,7 @@ const jsonText = z.string().transform((raw, ctx) => {
  * Make a **non-scalar** key env-overridable: accept either the authored literal
  * or a JSON string, and validate both against the same schema.
  *
- * ADR 0033 §4 makes every key overridable, and an environment variable is a
+ * ADR 0001 §4 makes every key overridable, and an environment variable is a
  * string. `z.coerce.number()` already covers the scalar case; an array, an
  * object or a boolean has no such coercion, so `MODELS_CHAT`, `CREDIT_LIMITS`
  * and `MEMORY_SEMANTIC_RECALL` would otherwise be overridable in name only —
@@ -38,7 +38,7 @@ const jsonText = z.string().transform((raw, ctx) => {
  * literal it was authored as; `process.env` arrives as text. The literal branch
  * is first so the common path — no override set — is also the first one tried.
  *
- * The union is what preserves ADR 0026's authoring-time safety: the input type
+ * The union is what preserves authoring-time safety: the input type
  * stays `string | z.input<TSchema>`, so a mis-shaped profile literal still fails
  * to match either branch and is a compile error on the literal. A `z.preprocess`
  * would read better but widens the input to `unknown`, which would silently

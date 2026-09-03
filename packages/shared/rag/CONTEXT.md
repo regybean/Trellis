@@ -66,7 +66,7 @@ Cohere-only detail), "mode", "direction"
   persistence in the app database.
 - Mastra creates every table at runtime; `@acme/rag/schema` exposes Drizzle mirrors
   of them so the data stays queryable. The matching migrations are generated but
-  marked applied — see [system ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
+  marked applied — see [system ADR 0002](docs/adr/0001-mastra-rag-and-memory.md).
 - `assertThreadOwned` is the shared **thread ownership** rule: chat's ownership
   middleware and feedback's `submit` mutation both call it rather than re-reading
   `resourceId` inline, so the ownership fact has one definition across features.
@@ -77,12 +77,12 @@ Cohere-only detail), "mode", "direction"
 by `@acme/models` from an env-selected provider (Bedrock / OpenRouter / Ollama) and
 passed to Mastra as AI-SDK instances. This package is provider-agnostic — it consumes
 `embedModel` / `embedProviderOptions` and never names a provider. See
-[ADR 0003](../../../docs/adr/0003-multi-provider-models.md).
+[@acme/models ADR 0001](../models/docs/adr/0001-multi-provider-models.md).
 
 **Mastra owns DDL; Drizzle mirrors are read models**: Mastra's stores create their
 tables (all `mastra_*`-prefixed); the Drizzle mirrors exist only so the data is
 queryable with Drizzle. Letting both own DDL would race and drift. `db:push` is
-scoped off `mastra_*` so it can only manage app-owned tables — see [ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
+scoped off `mastra_*` so it can only manage app-owned tables — see [ADR 0002](docs/adr/0001-mastra-rag-and-memory.md).
 
 **Per-app separation via `schemaName`**: Mastra exposes no table-prefix hook, so
 each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
@@ -94,7 +94,7 @@ calls `ensureVectorIndex()` at boot (Next.js `instrumentation.ts`) so the table
 exists before any read; `uploadDoc` keeps its own (memoized) call as a backstop. Reads stay
 pure (no DDL on a read), and an unreachable vector DB fails at startup rather than
 on the first request — the same contract as provider resolution. Still Mastra-owned
-DDL, consistent with [ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md).
+DDL, consistent with [ADR 0002](docs/adr/0001-mastra-rag-and-memory.md).
 
 **Single-file `uploadDoc`, stage reporting injected**: indexing is exposed as
 `uploadDoc(file, { onStage })` — one file's `parse → chunk → embed → upsert`,

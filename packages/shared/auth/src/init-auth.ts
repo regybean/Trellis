@@ -60,7 +60,7 @@ function authOptions(options: InitAuthOptions) {
       // one. Better Auth defaults this off; it is set explicitly because it is a
       // load-bearing decision, not a tuning knob — with the cookie cache on, a
       // deleted or revoked session row would keep resolving until the cached
-      // cookie expired. See ADR 0034.
+      // cookie expired. See ADR 0001.
       cookieCache: { enabled: false },
     },
     plugins: [

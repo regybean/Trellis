@@ -22,9 +22,9 @@ import { env as telemetryEnv } from '@acme/telemetry/env';
  * (`trpc.<path>`), not an HTTP parent. DB spans are unaffected (manual
  * `instrumentDrizzleClient`). For full HTTP-parent parity, preload
  * `@acme/telemetry/register` via NODE_OPTIONS instead. See
- * docs/adr/0005-telemetry-init-seam.md.
+ * docs/adr/0023-ambient-telemetry-no-context-object.md.
  */
-// The OTLP endpoint is authored config, overridable per deploy (ADR 0033); the
+// The OTLP endpoint is authored config, overridable per deploy (@acme/env ADR 0001); the
 // per-app service name stays an app-owned literal (app identity, not shared
 // config).
 initTelemetry({
@@ -39,7 +39,7 @@ initTelemetry({
 // crashes startup, not the first request.
 await import('@acme/models');
 
-// Create the knowledge-base table at boot (Mastra owns the DDL — ADR-0002), so a
+// Create the knowledge-base table at boot (Mastra owns the DDL — @acme/rag ADR 0001), so a
 // freshly-pushed vector DB has the table before the first documents.list read.
 const { ensureVectorIndex } = await import('@acme/rag/server');
 await ensureVectorIndex();

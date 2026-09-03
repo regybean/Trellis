@@ -1,7 +1,7 @@
 /**
  * Read one variable off the ambient environment, safely in both runtimes.
  *
- * Every key is env-overridable (ADR 0033 §4), which means every slice's
+ * Every key is env-overridable (ADR 0001 §4), which means every slice's
  * `runtimeEnv` now reads `process.env` for keys a bundler has no reason to
  * inline — and some of those slices build their env **in the browser** (any
  * slice with a `shared` key, e.g. `@acme/billing`'s Stripe plan ids). Vite

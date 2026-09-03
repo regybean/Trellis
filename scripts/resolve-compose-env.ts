@@ -1,6 +1,6 @@
 // Resolve every value `compose.yaml` interpolates to provision the local infra
 // stack, FROM the slices' authored development profiles — the single source of
-// truth (ADR 0033 §6, #126) — so `.env`/`.env.example` no longer carry (and can't
+// truth (@acme/env ADR 0001 §6, #126) — so `.env`/`.env.example` no longer carry (and can't
 // drift from) them. `scripts/compose.sh` runs this and exports the printed
 // `KEY=value` lines into the environment, where compose substitutes the `${...}`
 // refs at parse time.

@@ -24,7 +24,7 @@ import {
  * Tier is controlled the way production sets it: by seeding the Stripe
  * subscription cache in Redis (`setStripeCustomerId` + `setSubscriptionCache`),
  * which `getUserSubscriptionFromRedis` + `getSubscriptionType` then resolve. The
- * `credits.*` admin ops take the resolved `(subscription, tier)` (ADR 0033 — plan
+ * `credits.*` admin ops take the resolved `(subscription, tier)` (@acme/env ADR 0001 — plan
  * IDs are config, injected, not read from env); `resolve` below stands in for the
  * entitlements provider, mapping the seeded product ids via `PLAN_IDS`.
  */

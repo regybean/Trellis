@@ -2,7 +2,7 @@
 
 Retrieval and conversational memory. Features use it to store and search
 document chunks and to recall prior turns
-([ADR 0002](../../../docs/adr/0002-mastra-rag-and-memory.md)). Your app provides
+([ADR 0002](docs/adr/0001-mastra-rag-and-memory.md)). Your app provides
 the database, creates the index at boot, and keeps the runtime-owned tables away
 from its migration tool.
 

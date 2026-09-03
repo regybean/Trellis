@@ -25,7 +25,7 @@ entries AIA has already deleted. The design is proven in a sibling repo rather
 than speculative.
 
 **It makes auth a seam the template can actually swap.** Clerk was named as a
-replaceable provider "behind a seam" ([ADR 0003](0003-framework-agnostic-auth-seam.md)),
+replaceable provider "behind a seam" ([ADR 0003](../../../../../docs/adr/0003-framework-agnostic-auth-seam.md)),
 but the seam only covered _resolution_ — the session _type_ in `@acme/trpc` was
 Clerk's shape (`userId` + `sessionClaims`), and `CustomJwtSessionClaims` was
 declared in seven places. A starter whose auth cannot be self-hosted is a
@@ -83,7 +83,7 @@ stores rather than reproducing Clerk's shape, so `emailAddresses` /
 `primaryEmailAddressId` collapsed to the single `email` that is the row's unique
 key, and `lastSignInAt` was dropped rather than tracked — the core schema
 records none, and inventing it meant writing session-history tracking to fill a
-line of UI. See [ADR 0013](0013-admin-user-widgets-to-ui.md).
+line of UI. See [@acme/ui ADR 0001](../../../ui/docs/adr/0001-admin-user-widgets-to-ui.md).
 
 Existing Clerk users have no migration path. For a template repo that is
 probably a non-issue, but any deployment with real users needs its own plan.
@@ -94,8 +94,8 @@ probably a non-issue, but any deployment with real users needs its own plan.
   `index.ts` exists solely to stop the Next RSC graph evaluating
   `@clerk/shared` → `swr`; it goes with the dependency.
 - The session type in `@acme/trpc` becomes `{ user: InjectedUser | null }`, so
-  the provider is an app-side mapping. [ADR 0003](0003-framework-agnostic-auth-seam.md)
-  and [ADR 0013](0013-admin-user-widgets-to-ui.md) need updating for what the
+  the provider is an app-side mapping. [ADR 0003](../../../../../docs/adr/0003-framework-agnostic-auth-seam.md)
+  and [@acme/ui ADR 0001](../../../ui/docs/adr/0001-admin-user-widgets-to-ui.md) need updating for what the
   seam actually covers and for the user shape the admin widgets read.
 - Both `*-slim` apps should come through untouched — a useful check that
-  [ADR 0010](0010-slim-no-auth-apps.md) holds.
+  [ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md) holds.

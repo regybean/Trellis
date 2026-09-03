@@ -29,7 +29,7 @@ import { createSubscriptionsEntitlements } from '@acme/subscriptions';
 
 // Inject the SAME provider this app's route handler injects into
 // the tRPC context (ADR 0006 / ADR 0010): the Stripe/Redis-backed adapter,
-// built from the plan ids billing's own env resolves (ADR 0033), so a worker
+// built from the plan ids billing's own env resolves (@acme/env ADR 0001), so a worker
 // error refunds the real Credit ledger.
 const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
 const worker = createWorker(

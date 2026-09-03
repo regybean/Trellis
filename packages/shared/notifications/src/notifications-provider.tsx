@@ -13,7 +13,7 @@ import { NotificationsTRPCProvider, useTRPC } from './trpc/react';
 
 /**
  * The one self-contained seam an app mounts to turn per-user notifications into
- * toasts (ADR 0030). It renders its own tRPC provider and, inside it, a headless
+ * toasts (ADR 0001). It renders its own tRPC provider and, inside it, a headless
  * always-on tail child — so NO page owns the subscription hook: notifications are
  * chrome, not a page feature. Mount it once per app, adjacent to the ingest tRPC
  * provider; the mount is byte-identical in all 4 apps (no persister, no

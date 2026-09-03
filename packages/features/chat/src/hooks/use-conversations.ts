@@ -19,7 +19,7 @@ export function useConversations() {
   const handleError = useGenericErrorHandler();
   const persisted = usePersistedQueryOptions();
 
-  // Conversation History persists for offline read (ADR 0025); Folders do not
+  // Conversation History persists for offline read (@acme/hooks ADR 0001); Folders do not
   // (a dangling folderId simply falls back to its Date Bucket), which is why
   // only the first spreads `persisted`.
   const conversationsQuery = useQuery(

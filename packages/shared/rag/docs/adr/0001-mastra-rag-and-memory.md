@@ -33,6 +33,7 @@ decisions are load-bearing:
    drizzle-kit limitation — sequences aren't filtered with their table), so vector
    `db:push` tried to `DROP SEQUENCE` it and failed on the column dependency. Mastra
    owns the whole vector DB end to end, including its schema creation.
+
 2. **Per-app isolation via a Postgres schema, not a table prefix.** Mastra has no
    table-prefix option, so both stores set `schemaName: NEXT_PUBLIC_WEBAPP`. Each app
    gets its own schema. **Drizzle owns the app database's schema creation:** the app
@@ -53,7 +54,7 @@ decisions are load-bearing:
    provider instance directly as the agent/embedding model (Claude chat + Cohere
    `embed-english-v3`, with `inputType` — `search_document` vs. `search_query` —
    distinguishing document from query embeddings).
-   **Superseded by [ADR 0003](./0003-multi-provider-models.md):** the AI-SDK-instance
+   **Superseded by [@acme/models ADR 0001](../../../models/docs/adr/0001-multi-provider-models.md):** the AI-SDK-instance
    approach stands, but the instance is now resolved by `@acme/models` (one of
    Bedrock / OpenRouter / Ollama, Ollama default) rather than constructed in
    `@acme/rag`. Bedrock is no longer the only — or default — provider.
@@ -66,7 +67,7 @@ accepted
 
 - **Let Drizzle own the DDL (run the migrations).** Drizzle and Mastra would race to
   create the same tables and could drift on column types Mastra controls. Rejected —
-  one owner; Mastra is it. The mirrors exist only so Drizzle can *read*.
+  one owner; Mastra is it. The mirrors exist only so Drizzle can _read_.
 - **A literal `acme_`-style table prefix for multi-app separation.** Mastra exposes
   no prefix hook; faking it would mean post-processing DDL we don't own. The
   `schemaName` option is the supported, first-class mechanism. Rejected.

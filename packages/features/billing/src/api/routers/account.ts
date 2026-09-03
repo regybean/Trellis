@@ -40,7 +40,7 @@ const CheckoutRequest = z.object({
 /**
  * The app's own public origin, threaded into the context at the app edge
  * (`ctx.origin`) and combined with the config-owned checkout paths to build the
- * absolute Stripe redirect URLs (ADR 0033). Absent only in a build
+ * absolute Stripe redirect URLs (@acme/env ADR 0001). Absent only in a build
  * that mounts billing without threading it — surface that as a billing error
  * rather than passing `undefined` into `new URL`.
  */
@@ -180,7 +180,7 @@ export const accountRouter = createTRPCRouter({
       try {
         // Resolve the target user's subscription + tier through the injected
         // entitlements provider (which closes over billing's authored plan ids,
-        // ADR 0033) rather than reading them here.
+        // @acme/env ADR 0001) rather than reading them here.
         const { subscription, tier } = await ctx.entitlements.resolve(userId);
         const { limit, resetAt } = await credits.reset(
           userId,

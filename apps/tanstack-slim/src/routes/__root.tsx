@@ -44,7 +44,7 @@ function RootComponent() {
  * slim app injects a constant principal at the tRPC route seam instead. The
  * theme is locked dark to match the developer-console shell.
  *
- * Chat persistence is scoped to a constant 'anon' principal (ADR 0025): slim has
+ * Chat persistence is scoped to a constant 'anon' principal (@acme/hooks ADR 0001): slim has
  * no auth, so no per-user scope and no logout to clear the cache. The load pain
  * is data-load, not auth, so the instant-load win is identical to the full app;
  * `buster` still discards on version change.

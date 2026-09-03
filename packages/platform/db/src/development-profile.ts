@@ -8,7 +8,7 @@
  * exports back into the environment — reading an override there would be
  * circular). Both **provision** the local database rather than connect to someone
  * else's, so they want the values this file authors and never an operator's
- * override (ADR 0033 §6). Overriding `DB_NAME` therefore points a *connection* at
+ * override (@acme/env ADR 0001 §6). Overriding `DB_NAME` therefore points a *connection* at
  * a different database; it does not rename the one compose provisions.
  *
  * `DB_PASSWORD` is deliberately absent: it is the one DB key with no profile

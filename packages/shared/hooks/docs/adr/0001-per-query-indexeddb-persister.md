@@ -10,7 +10,7 @@ load-bearing choices behind the shared mechanism (`@acme/hooks`); the features
 that opt in (chat, feedback, and — since #216 — ingest) and the app-supplied scope wiring are separate
 tickets that compose it.
 
-> **Amended by [ADR 0036](0036-one-app-owned-query-client.md).** This ADR was
+> **Amended by [ADR 0036](../../../../../docs/adr/0036-one-app-owned-query-client.md).** This ADR was
 > written when each feature owned a `QueryClient`, and said "attach the persister
 > to its `QueryClient`". Apps now mount a single `QueryClient`, and a feature
 > attaches its persister — with the `gcTime` and `staleTime: 0` that make it
@@ -99,7 +99,7 @@ full (Clerk) apps pass the signed-in user id via the `@acme/auth` seam; slim
 `buster = appVersion + scopeKey`, so a different user or a new deploy never
 rehydrates a prior snapshot (buster mismatch discards it on restore). This keeps
 features auth-agnostic and mountable in both app families (respects
-[ADR 0010](0010-slim-no-auth-apps.md)).
+[ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md)).
 
 **App-driven logout-clear.** `clearPersistedCache(keyPrefix)` empties a feature's
 store. Full apps call it — alongside `queryClient.clear()` — on the Clerk logout
@@ -191,7 +191,7 @@ accepted
   freshness matters and the persister still gives the instant paint. It is not
   optional for an opting-in query — any `staleTime > 0` silently converts
   stale-while-revalidate into serve-stale, which is why
-  [ADR 0036](0036-one-app-owned-query-client.md) ships the two together in one
+  [ADR 0036](../../../../../docs/adr/0036-one-app-owned-query-client.md) ships the two together in one
   spread rather than leaving them two files apart.
 - Opting a feature in is now a small, uniform step: declare a `persister` in
   `createFeatureClient`, spread `usePersistedQueryOptions()` into the queries

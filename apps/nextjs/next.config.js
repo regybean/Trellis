@@ -18,7 +18,7 @@ const config = {
   transpilePackages,
   // Inline the deploy-target selector into both the server and
   // client bundles so `resolveAppEnv(process.env.APP_ENV)` in env.ts resolves
-  // identically in each (ADR 0026 §5). Unset → '' → the `development` base.
+  // identically in each (@acme/env ADR 0001 §2). Unset → '' → the `development` base.
   env: { APP_ENV: process.env.APP_ENV ?? '' },
   // officeparser (via @acme/rag) ships an ESM wrapper that destructures its named
   // exports off the CJS default import. When bundled (Turbopack/webpack), the

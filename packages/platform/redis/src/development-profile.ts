@@ -5,7 +5,7 @@
  * `env.ts` authors its `default` profile from this object, and
  * `scripts/resolve-compose-env.ts` reads it *without* an environment: it parses
  * the port out of the DSN to publish the local container, and provisioning wants
- * the authored value rather than an operator's override (ADR 0033 §6). The port
+ * the authored value rather than an operator's override (@acme/env ADR 0001 §6). The port
  * is parsed rather than stored twice — a second field would be a drift source.
  */
 export const REDIS_DEVELOPMENT_PROFILE = {

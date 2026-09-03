@@ -12,7 +12,7 @@ import { auth } from './auth';
 
 /**
  * The Stripe/Redis entitlements provider, closing over the plan ids billing's
- * own env resolves (ADR 0033) — the product→tier mapping needs them, and the
+ * own env resolves (@acme/env ADR 0001) — the product→tier mapping needs them, and the
  * platform no longer reads them from `process.env`.
  */
 const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
@@ -40,7 +40,7 @@ const entitlements = createSubscriptionsEntitlements(toPlanIds(billingEnv));
  *
  * This is a database read of the session row on every call, by design: sessions
  * are stateful and the cookie cache is off, so a revoked session stops
- * authenticating immediately (ADR 0034).
+ * authenticating immediately (@acme/auth ADR 0001).
  */
 const resolveSession = async (req: Request) => ({
   user: toPrincipal(await auth.api.getSession({ headers: req.headers })),
@@ -53,7 +53,7 @@ const resolveSession = async (req: Request) => ({
  *
  * `origin` is the app's own public origin (its `PORT` in dev, deploy origin in
  * prod), read off the incoming request and threaded in so billing can build the
- * absolute Stripe checkout redirect URLs (ADR 0026 follow-up).
+ * absolute Stripe checkout redirect URLs (#146).
  */
 export const resolveContext = async (req: Request) => ({
   headers: req.headers,

@@ -14,7 +14,7 @@ import { env } from '../env';
 // billing's real variation: its router type, endpoint (`/api/trpc/billing`), and
 // the batch-stream transport.
 //
-// No persister. Credits and Subscription state are the queries ADR 0025 names as
+// No persister. Credits and Subscription state are the queries @acme/hooks ADR 0001 names as
 // the ones never to persist — they are the account's live balance, and a restored
 // snapshot of a number the user is watching change is worse than a spinner.
 const client = createFeatureClient<AppRouter>({

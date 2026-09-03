@@ -9,7 +9,7 @@ import { pgSchema, uniqueIndex } from 'drizzle-orm/pg-core';
  * exception: a person signing in to `nextjs` and to `tanstack-start` is the same
  * person, and a per-app identity store would mean four rows, four password
  * hashes and four sessions for one human. The schema name is therefore a
- * constant, not derived from `NEXT_PUBLIC_WEBAPP`. See ADR 0035.
+ * constant, not derived from `NEXT_PUBLIC_WEBAPP`. See ADR 0002.
  *
  * **Why hand-authored.** `@better-auth/cli generate` can emit `pgSchema()` (its
  * drizzle adapter takes a `schemaName`), but wiring a codegen step for four
@@ -58,7 +58,7 @@ export const authUser = authSchema.table('user', (t) => ({
 }));
 
 /**
- * Sessions are rows, not stateless cookies (ADR 0034). `token` is the opaque
+ * Sessions are rows, not stateless cookies (ADR 0001). `token` is the opaque
  * value the session cookie carries; deleting the row revokes the session on the
  * next request. `impersonatedBy` is the admin plugin's.
  */

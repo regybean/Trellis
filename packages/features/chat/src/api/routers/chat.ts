@@ -50,7 +50,7 @@ import {
 } from '../trpc';
 import { assertFolderOwned, foldersRouter } from './folders';
 
-// CREDITS_PER_TURN has one origin in env (ADR 0033) — the credit gate + consume
+// CREDITS_PER_TURN has one origin in env (@acme/env ADR 0001) — the credit gate + consume
 // read it here; the Turn lifecycle's refund reads the same config value.
 
 export const chatRouter = createTRPCRouter({

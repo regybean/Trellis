@@ -13,7 +13,7 @@ import { notificationSchema } from '../schemas/notification-schema';
 // hand-copy alongside chat and ingest (and where the two fixes ingest already
 // shipped, atomic TTL + a real-id fresh-connect seed, had never propagated). What
 // stays here is only notifications' own: the wire codec and the tail-from-now
-// cursor-seed policy. Its tunables are authored config in `env.ts` (ADR 0033).
+// cursor-seed policy. Its tunables are authored config in `env.ts` (@acme/env ADR 0001).
 
 // `publish` writes the whole envelope as a single `payload` JSON field — the
 // nested `data` object can't be a flat field map. Decode is the inverse: the
@@ -54,7 +54,7 @@ export type NotificationEntry = StreamEntry<Notification>;
 //   - fresh connect (no `lastEventId`) ⇒ TAIL-FROM-NOW seeded from the stream's
 //     ACTUAL last id (`lastId()`, a real Redis-assigned id). Every later entry
 //     has a strictly greater id, so the tail skips the whole backlog — a
-//     leave-and-return shows nothing (the ADR 0030 no-durability contract). This
+//     leave-and-return shows nothing (the ADR 0001 no-durability contract). This
 //     replaces the old `${Date.now()}-0` seed, which read the app clock while
 //     Redis assigns ids from its own: under podman-VM drift that landed in Redis'
 //     future and silently dropped live entries. A real id cannot skew.

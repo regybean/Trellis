@@ -36,7 +36,7 @@ export type UserManagementRole = 'user' | 'admin';
  *
  * Every field is one Better Auth actually stores. Until #225 this carried a
  * multi-address email shape and a `lastSignInAt`, neither of which had a source
- * behind it (ADR 0034): Better Auth keeps exactly one email per user (it is the
+ * behind it (@acme/auth ADR 0001): Better Auth keeps exactly one email per user (it is the
  * row's unique key) and records no last-sign-in. Both are gone rather than
  * faked.
  *

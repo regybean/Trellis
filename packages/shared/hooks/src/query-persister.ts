@@ -10,7 +10,7 @@ import { clear, createStore, del, get, set } from 'idb-keyval';
 // Per-query (NOT whole-client): built on `experimental_createQueryPersister`,
 // so each query is written under its own hash, lazily. The deciding factor is
 // feedback's one-query-per-Message pattern, which a whole-client persister
-// would rewrite in full on every Message. See ADR 0025.
+// would rewrite in full on every Message. See ADR 0001.
 
 /**
  * Spread into a query's `meta` to opt it into persistence:

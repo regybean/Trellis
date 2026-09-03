@@ -5,8 +5,8 @@ A slice declares its whole environment in **one `createEnv` call in one
 profile values; secrets come from `process.env`; and **every** key can be set from
 the environment, so one image deploys anywhere. This package supplies the pieces
 that make that one call work. See
-[ADR 0033](../../../docs/adr/0033-one-env-factory-per-slice.md), which superseded
-`@acme/config` ([ADR 0026](../../../docs/adr/0026-config-as-code.md) §§2, 4, 6).
+[ADR 0001](docs/adr/0001-one-env-factory-per-slice.md), which dissolved
+`@acme/config` into this package.
 
 ## Ubiquitous language
 
@@ -24,7 +24,7 @@ that make that one call work. See
 - **Profile** — a named layer of values. `default` **is** `development`; `staging`
   and `production` are optional overlays deep-merged over it (arrays replace, not
   concat). A target with no overlay inherits the base, because the environment is
-  the authoring surface for a deploy target (ADR 0033 §§2, 4).
+  the authoring surface for a deploy target (ADR 0001 §§2, 4).
 - **Unauthoring** — an overlay setting a key to `undefined` removes the base's
   value on that target, so the key becomes a **secret** there. The one way to say
   "config in development, credential in production" (`@acme/ingest`'s LocalStack
@@ -165,7 +165,7 @@ the values the server threaded across the RSC/Flight boundary.
 
 One call per slice is the rule; one slice splits its own, because something other
 than the config/secret line forces a subset to be demandable on its own. It still
-routes every call through `withProfiles` (ADR 0033 §6a).
+routes every call through `withProfiles` (ADR 0001 §6a).
 
 - **`@acme/models`, by conditional secrets.** Three calls: `env` (the two authored
   provider selections) plus one `secretsOnly` group per provider's credentials,

@@ -11,7 +11,7 @@ auth status they read
   provider is built from, so every feature caches and invalidates the same way.
 - An offline-read persister, per query rather than per client, so a page of
   cached results survives a reload without stale writes being replayed
-  ([ADR 0025](../../../docs/adr/0025-per-query-indexeddb-persister.md)).
+  ([ADR 0025](docs/adr/0001-per-query-indexeddb-persister.md)).
 - `useAuthStatus` — the auth seam features and shared UI read, so neither
   imports your auth provider.
 - `useClearCacheOnLogout` — the hook that empties persisted caches when a

@@ -8,7 +8,7 @@ import { env } from './env';
  * (`tests/unit`) while the storage operations are tested against real Redis
  * (`tests/integration/service`).
  *
- * The tier limits are authored config (ADR 0033): resolved from the
+ * The tier limits are authored config (@acme/env ADR 0001): resolved from the
  * deploy-target profile in `env.ts`, where a same-named variable can retune them
  * per deploy.
  */

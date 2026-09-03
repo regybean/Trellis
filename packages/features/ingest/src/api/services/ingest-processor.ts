@@ -11,7 +11,7 @@ import { deleteFilesFromS3, downloadFileFromS3 } from '../../utils/s3-client';
 import { notifyJobComplete } from './ingest-notify';
 import { createIngestProgressWriter } from './ingest-progress-stream';
 
-// INGEST_CONCURRENCY (fan-out width) + BullMQ retention are authored config (ADR 0033).
+// INGEST_CONCURRENCY (fan-out width) + BullMQ retention are authored config (@acme/env ADR 0001).
 
 // A per-Upload outcome on the SETTLED path only. A content failure
 // (`DocumentParseError`) is isolated here — it does NOT throw, so the sibling

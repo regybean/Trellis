@@ -7,7 +7,7 @@ import { resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * The tRPC substrate's environment (ADR 0033) — one key, and it is a runtime
+ * The tRPC substrate's environment (@acme/env ADR 0001) — one key, and it is a runtime
  * mode rather than a tunable: `withTimingLog` adds an artificial 100-500ms
  * stall in development so local UIs actually render their loading states.
  *

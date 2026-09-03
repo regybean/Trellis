@@ -12,7 +12,7 @@ import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 // append-with-TTL — that ingest used to hand-copy alongside chat and
 // notifications. What stays here is ingest's own: the wire codec (encode/decode
 // off the one `ingestProgressEventSchema`) and the fresh-connect cursor-seed
-// policy. Its tunables are authored config in `env.ts` (ADR 0033).
+// policy. Its tunables are authored config in `env.ts` (@acme/env ADR 0001).
 
 // A validated event → the flat field record `xAdd` writes. `stage` is always
 // emitted; `error` rides only on `failed`. Pure — the inverse of `decodeProgress`,

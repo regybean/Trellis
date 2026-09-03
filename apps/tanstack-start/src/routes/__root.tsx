@@ -28,7 +28,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // Server-resolved so the chat/feedback/ingest persisters have their scope on the
     // first render (see PersistedFeatureProviders). Signed out ⇒ userId null ⇒
     // network-only. localstripeMode is server-derived from the Stripe connection
-    // (ADR 0033) and threaded to the client through the BillingConfigProvider seam
+    // (@acme/env ADR 0001) and threaded to the client through the BillingConfigProvider seam
     // below.
     beforeLoad: async () => {
       const [{ userId, user }, localstripeMode] = await Promise.all([
@@ -62,7 +62,7 @@ function RootComponent() {
  * Billing/Chat/Ingest tRPC → tooltip), with the theme locked dark to match the
  * developer-console shell. The feature providers are reused as-is.
  *
- * There is **no auth provider**, which is the visible shape of ADR 0034: Better
+ * There is **no auth provider**, which is the visible shape of @acme/auth ADR 0001: Better
  * Auth's client is a plain module (`lib/auth-client.ts`) that any component
  * imports directly, so nothing has to wrap the tree. The signed-in
  * principal reaches the shell as a prop off this route's server-resolved

@@ -7,14 +7,14 @@ import { readEnv, resolveAppEnv, webappSchema, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Chat's environment, declared once (ADR 0033) — the slice's whole surface in one
+ * Chat's environment, declared once (@acme/env ADR 0001) — the slice's whole surface in one
  * `createEnv` call, composed into an app's env graph via `extends: [chatEnv(), …]`.
  *
  * **Config** — the Turn-lifecycle TTLs, the stream poll interval, the per-Turn
  * credit charge and the BullMQ retention counts were hardcoded across the
  * `api/services` layer. They are operational tunables that can differ per deploy
  * target, so they are authored here as profile values, and each is
- * env-overridable (ADR 0033 §4) — retuning a TTL on a live deploy should not need
+ * env-overridable (@acme/env ADR 0001 §4) — retuning a TTL on a live deploy should not need
  * a rebuild. All server-side: the durable-stream control plane runs on the
  * backend / worker.
  *
