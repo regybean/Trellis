@@ -1,5 +1,11 @@
 # Framework-agnostic admin user widgets belong in `@acme/ui`, not duplicated per app
 
+**Status:** accepted — refines [ADR 0011](../../../../../docs/adr/0011-remove-compositions-layer.md) for two files only
+
+> Since amended by #239 (the user shape is Better Auth's, adapted once) and #225
+> (the widgets render Better Auth's columns directly; the role mutation is one
+> typed callback).
+
 [ADR 0011](../../../../../docs/adr/0011-remove-compositions-layer.md) deleted the `@acme/admin` composition
 and folded its components back into the two consuming apps, because those
 components coupled to a specific auth provider and framework: `AdminDashboard`
@@ -151,13 +157,6 @@ and a separate one.
 
 `@acme/ui` still declares the shape itself and still has no `@acme/auth`
 dependency, so the slim graph stays auth-free.
-
-## Status
-
-accepted — refines [ADR 0011](../../../../../docs/adr/0011-remove-compositions-layer.md) for these two
-files only. Amended by #239 (the user shape is Better Auth's, adapted once) and
-#225 (the widgets render Better Auth's columns directly; the role mutation is
-one typed callback).
 
 ## Considered and rejected
 

@@ -1,5 +1,10 @@
 # Dev-server + compose output mirrored to `logs/*.log` for agent consumption
 
+**Status:** accepted — planning output, not yet built
+
+The [Implementation handoff](#implementation-handoff) is the follow-on effort's
+spec.
+
 The agent cannot watch a live `pnpm dev`. Dev launch is `scripts/dev.sh` →
 `turbo watch dev --continue` — a **foreground, full-screen TUI** (`ui: "tui"`,
 task `persistent: false`) with no tty in the agent's shell; compose services run
@@ -210,11 +215,6 @@ below-turbo tee).
 - **`compose logs` with `--no-log-prefix` / `compose ps --status`** ([#149]/[#151]).
   Both are non-portable across podman-compose versions; direct
   `<engine> logs`/`<engine> ps` sidesteps both.
-
-## Status
-
-accepted — planning output; **not yet built**. The
-[Implementation handoff](#implementation-handoff) is the follow-on effort's spec.
 
 ## Implementation handoff
 

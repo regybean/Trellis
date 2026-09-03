@@ -1,6 +1,12 @@
 # Vendored git subset with three-way merge is the distribution model
 
-> **Superseded in part by [ADR 0039](0039-the-selection-is-the-contract.md).** The
+**Status:** amended by 0039-the-selection-is-the-contract.md
+
+Implements the distribution decision in
+[#219](https://github.com/regybean/Trellis/issues/219), replacing "copy the repo
+once".
+
+> **Amended by [ADR 0039](0039-the-selection-is-the-contract.md).** The
 > mechanism below — vendored subset, pristine vendor branch, each sync parented on
 > the last, merge left to the human — **stands in full.** Two things it describes
 > no longer exist. A manifest no longer holds an `include`: it names packages and
@@ -112,14 +118,6 @@ two trees and a diff tool.
   Produces the same trees while putting per-consumer state and tooling on the
   bank. Trellis stores nothing about who consumes it, and the filtered-tree commit
   gets the same ancestry from plumbing every git install already has.
-
-## Status
-
-accepted
-
-Implements the distribution decision in
-[#219](https://github.com/regybean/Trellis/issues/219), superseding "copy the
-repo once".
 
 ## Consequences
 

@@ -1,5 +1,12 @@
 # Multi-provider models behind a single `@acme/models` package
 
+**Status:** accepted
+
+> **Amends decision 3 of [@acme/rag ADR 0001](../../../rag/docs/adr/0001-mastra-rag-and-memory.md)** ("Bedrock via
+> an AI-SDK provider instance"). The AI-SDK-instance approach stands, but the
+> instance is now produced by `@acme/models`, one of three providers, not
+> constructed in `@acme/rag`.
+
 Chat (LLM) and embedding models are no longer hard-wired to AWS Bedrock. A new
 shared package `@acme/models` owns provider selection and hands resolved AI-SDK
 model instances to `@acme/rag` (embeddings) and `@acme/chat` (chat + retrieval).
@@ -30,15 +37,6 @@ no cloud credentials. Four decisions are load-bearing:
 Infrastructure follows selection: the `ollama` compose profile (and the container)
 starts only when a provider is `ollama`, gated by `scripts/infra.sh` via
 `COMPOSE_PROFILES`.
-
-## Status
-
-accepted
-
-Amends decision 3 of [@acme/rag ADR 0001](../../../rag/docs/adr/0001-mastra-rag-and-memory.md) ("Bedrock via an
-AI-SDK provider instance"): the AI-SDK-instance approach stands, but the instance is
-now produced by `@acme/models`, one of three providers, not constructed in
-`@acme/rag`.
 
 ## Considered and rejected
 

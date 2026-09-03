@@ -1,5 +1,7 @@
 # Backend tests always self-provision testcontainers; `CI` leaves the test cache hash
 
+**Status:** accepted
+
 Backend suites used to pick their infra at runtime. With `CI` unset on the primary
 checkout they probed `localhost` for an already-running compose stack and skipped
 schema provisioning; under `CI` — and in a linked worktree, which
@@ -92,10 +94,6 @@ error naming the fix, instead of one opaque socket error per descriptor per suit
   and typecheck to two tasks at a time for the whole run. Splitting `test` off
   costs a foreground `build` prime — without which two concurrent `turbo run`
   invocations each build the graph — and buys back the uncapped batch.
-
-## Status
-
-accepted
 
 ## Consequences
 

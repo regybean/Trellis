@@ -1,5 +1,7 @@
 # Testcontainer schemas are provisioned by the app's `drizzle-kit push --force`
 
+**Status:** accepted
+
 A fresh testcontainer Postgres has no tables. The global-setup provisions them by
 running `drizzle-kit push --force` against the **canonical full app** (`nextjs`),
 with `NEXT_PUBLIC_WEBAPP` set to the suite's isolated Postgres schema. One push
@@ -36,10 +38,6 @@ alternative — each suite deriving its own DDL via `drizzle-kit/api`
 schema ownership per suite and left the other suites unprovisioned. Mastra
 (`mastra_*`) and pgvector tables are created lazily at runtime and excluded by the
 push config's `tablesFilter`, so push never manages them.
-
-## Status
-
-accepted
 
 ## Consequences
 

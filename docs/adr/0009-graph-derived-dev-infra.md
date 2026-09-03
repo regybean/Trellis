@@ -1,5 +1,7 @@
 # `pnpm dev` derives the infra it starts from the dependency graph, not a per-app list
 
+**Status:** accepted
+
 `pnpm dev [app ...]` brings up only the infra services its target apps actually
 need, waits for them to be healthy, pushes schemas, then starts the dev servers.
 The non-obvious part is **where the list of needed services comes from** and a few
@@ -34,21 +36,21 @@ set that env/config then prunes:
 
 - `billing` (localstripe) is dropped unless the Stripe connection resolves to
   `localstripe` — real Stripe needs no local container
-  ([ADR 0004](0004-localstripe-dev-billing.md)). The connection is authored in code
+  ([@acme/billing ADR 0001](../../packages/features/billing/docs/adr/0001-localstripe-dev-billing.md)). The connection is authored in code
   as a discriminated union (#146), so this prune reads
   `BILLING_DEVELOPMENT_PROFILE.STRIPE_CONNECTION.mode`, **not** `process.env`.
 - `ollama` is dropped unless the chat or embed role's provider is `ollama` — the
   provider is a deploy-target choice read from `MODELS_DEVELOPMENT_PROFILE`'s
   `MODELS_CHAT` / `MODELS_EMBED` variants, **not** `process.env`; the graph only
   records "this package does LLM/embeddings"
-  ([ADR 0003](0003-multi-provider-models.md)). The resolver runs via
+  ([@acme/models ADR 0001](../../packages/shared/models/docs/adr/0001-multi-provider-models.md)). The resolver runs via
   `pnpm exec tsx` (not `node`) so these imports resolve.
 
 Both prunes import each slice's `development-profile.ts` — the authored values, in a
 module that runs no `createEnv` call — rather than its `env.ts`. Provisioning wants
 what version control declares and never an operator's override, and importing
 `env.ts` would evaluate the whole slice's env just to read a mode
-([ADR 0033](0033-one-env-factory-per-slice.md) §6). Before @acme/env ADR 0001 these read
+([@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6). Before @acme/env ADR 0001 these read
 `stripeConnectionConfig` / `modelsConfig` from the now-deleted `@acme/config`.
 
 Both are _prunes of graph-derived candidates_, not special cases bolted on — the
@@ -73,10 +75,6 @@ and is gated `--if-present`, so a DB-less app skips it cleanly.
 is healthy, and a subset bring-up leaves unrelated running services untouched —
 covering the common case of wanting infra up without the app, and of switching
 between apps without churning containers.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

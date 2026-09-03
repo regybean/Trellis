@@ -1,5 +1,7 @@
 # Frontend tests fake the network at the HTTP boundary and assert what renders
 
+**Status:** accepted
+
 A frontend test wires the real React tree to a real TanStack `QueryClient` and
 fakes the network at the **HTTP boundary** with MSW (`msw-trpc` +
 `setupServer`). It never `vi.mock`s a seam the feature owns — the tRPC client
@@ -103,10 +105,6 @@ The structural rules are machine-checked; the assertion rule follows from them:
 - **`scripts/check-test-policy.mjs`** requires every `*.test.tsx` to sit under
   `unit/`, `integration/hooks/`, or `integration/components/`, and extends the
   unit-purity check (no `vi.mock`/`vi.spyOn`/`vi.fn`) to `frontend/unit/`.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

@@ -1,5 +1,7 @@
 # Pluggable secrets sync with `.env.example` as the contract
 
+**Status:** accepted
+
 `env:pull` / `env:push` keep local `.env` files in sync, but the backend is now
 pluggable: each script sources `secrets.config.sh` (selecting a `SECRETS_BACKEND`)
 and a one-function-pair adapter from `scripts/secrets-backends/<name>.sh`

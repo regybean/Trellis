@@ -1,5 +1,7 @@
 # Slim apps are separate no-auth deployments that inject a constant admin principal
 
+**Status:** accepted
+
 The auth seam ([ADR 0003](0003-framework-agnostic-auth-seam.md)) and the
 entitlements seam ([ADR 0006](0006-entitlements-injection-seam.md)) made the
 caller's identity and billing policy _injected_ values: the platform substrate
@@ -64,10 +66,6 @@ The cost is duplicated app shell/config across the two pairs. That duplication i
 deliberate — the feature slices and platform packages (where the logic lives) stay
 single-sourced; only the thin integration layer is copied.
 
-## Status
-
-accepted
-
 ## Considered and rejected
 
 - **A runtime `AUTH_DISABLED` flag on the full apps.** Rejected — keeps Clerk +
@@ -88,6 +86,6 @@ accepted
   removes the only app-owned table, but the per-app Postgres schema (named off
   `NEXT_PUBLIC_WEBAPP`) must still exist at runtime for Mastra's memory + vector
   store. `db/schema.ts` exports only `appSchema`, so `db:push` owns the
-  `CREATE SCHEMA` ([ADR 0002](0002-mastra-rag-and-memory.md)). Relying on Mastra's
+  `CREATE SCHEMA` ([@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md)). Relying on Mastra's
   defensive `CREATE SCHEMA IF NOT EXISTS` as the primary creator was rejected as
   unreliable.

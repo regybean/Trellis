@@ -1,5 +1,7 @@
 # Compositions layer removed — shell/chrome is always app-owned
 
+**Status:** accepted
+
 The compositions layer (`packages/compositions/`) was introduced as a home for
 cross-app reuse of UI assemblies that depended on more than one feature package.
 Two packages were ever written: `@acme/sidebar` and `@acme/admin`.
@@ -51,14 +53,10 @@ package) — not to create a new composition that will accumulate framework coup
 A new `packages/compositions/` entry requires an explicit ADR justifying why the
 assembly genuinely cannot live in an app or in `@acme/ui`.
 
-[ADR 0013](0013-admin-user-widgets-to-ui.md) later applied this escape hatch: the
+[@acme/ui ADR 0001](../../packages/shared/ui/docs/adr/0001-admin-user-widgets-to-ui.md) later applied this escape hatch: the
 two admin user widgets folded in here turned out to be byte-identical and
 framework-free, so they were promoted into `@acme/ui`. That refines this ADR for
 those two files; it does not reopen wholesale composition.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

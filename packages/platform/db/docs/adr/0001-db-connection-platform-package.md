@@ -1,5 +1,7 @@
 # Postgres connection lives in a platform package (`@acme/db`), peer to `@acme/redis`
 
+**Status:** accepted
+
 Postgres gets a first-class platform home — `@acme/db` — owning the
 drizzle/postgres-js **connection** (a client factory) and the `DB_*` connection
 **env**, exactly mirroring how `@acme/redis` owns the Redis clients + env. It is
@@ -36,10 +38,6 @@ for the connection values.
   runner; apps keep `db:migrate` and `drizzle.push.config.ts`. The
   `@acme/test-utils` → `apps/$WEBAPP` `db:migrate` reach is unchanged and left as a
   separate, later decision.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

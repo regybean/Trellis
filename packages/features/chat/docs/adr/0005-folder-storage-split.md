@@ -1,5 +1,7 @@
 # Conversation Folders: split storage, lazy delete
 
+**Status:** accepted
+
 Conversation History lets a user group their Conversations into **Folders**. Two
 facts have to live somewhere: the Folder _definition_ (its name, who owns it) and
 the _assignment_ of a Conversation to a Folder. Conversations are Mastra Memory
@@ -43,10 +45,6 @@ per-Conversation write, no scan.
 The cost: a deleted Folder leaves dangling `folderId` values in thread metadata
 forever. They are harmless (they resolve to nothing) but they accumulate. We
 accept that for v1 rather than paying a write per member Conversation on delete.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

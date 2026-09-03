@@ -1,5 +1,7 @@
 # Telemetry is ambient (read from the active OTel span), never threaded through tRPC context
 
+**Status:** accepted
+
 ## Context
 
 An earlier design kept a `telemetry` object on the tRPC context: `createTRPCContext`

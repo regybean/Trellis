@@ -1,5 +1,7 @@
 # Billing is injected into the tRPC context as an `EntitlementsProvider`
 
+**Status:** accepted
+
 The auth seam ([ADR 0003](0003-framework-agnostic-auth-seam.md)) made the
 _current user_ an injected value, but billing stayed hard-wired: `@acme/trpc`'s
 `createTRPCContext` imported `@acme/subscriptions` directly (Redis + Stripe env)
@@ -40,10 +42,6 @@ Two decisions are load-bearing, mirroring the auth seam:
    adapter. A no-billing build injects `unlimitedEntitlements` from
    `@acme/entitlements` (top tier, infinite credits, no-op `consume`). A missing
    provider is a type error, not a silent default.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 
