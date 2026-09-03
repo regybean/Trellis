@@ -13,33 +13,54 @@ and copy-and-own gives you the files with no way to update them.
 
 ## What the bank holds
 
-[`bank.paths.json`](../bank.paths.json) at the repo root is the source of truth.
-It lists three things.
+Packages, and the configuration around them. Only the second half is written
+down.
 
-- **`packages`.** The selectable workspace packages: `tooling/*`, everything
-  under `packages/platform/`, the generic `packages/shared/*`, and the feature
-  slices. Each entry carries its layer, and some carry a note explaining why it
-  is in.
+**The package set is derived.** Everything the bank's `pnpm-workspace.yaml`
+globs match is on offer — `tooling/*`, `packages/platform/*`,
+`packages/shared/*` and the feature slices under `packages/features/*` — minus
+anything on the exclusions below, which is what keeps `apps/*` off the menu.
+Nothing enumerates them, so a package added, moved or renamed upstream needs no
+edit anywhere, on either side
+([ADR 0039](adr/0039-the-selection-is-the-contract.md)).
+
+**Everything else is [`bank.paths.json`](../bank.paths.json)**, which carries the
+two things no derivation gives you.
+
 - **`bundles`.** Named groups of content that cannot be a package, because the
   tools that read it require it at a fixed repo-relative path. `root` is always
   included and holds `turbo.json`, `pnpm-workspace.yaml`, `patches/`, `scripts/`
   and the lint and hook configs. The rest are `scaffolding`, `agents`, `ci`,
-  `docs` and `infra`.
+  `docs` and `infra` — and `infra` selects itself when a package you took
+  declares the services it needs.
 - **`exclude`.** What is left out, with a reason each. The root `package.json`,
   `pnpm-lock.yaml`, `README.md`, `LICENSE` and `apps/` are all consumer
   identity. The bank distributes packages and configuration, never an
   application and never your front page.
 
-`include` in your manifest is the flat union of the paths behind your selection.
-It is **path-uniform**. Any repo-relative path may appear in it, and the bank
-makes no per-path promise about how well a given path merges. Subscribing to a
-feature slice is allowed, and you own whatever conflicts it produces.
+You name packages and bundles. `bank:sync` resolves that selection to paths at
+the ref you pinned, following workspace dependencies to their transitive
+closure — so taking `@acme/billing` takes `@acme/auth` and `@acme/subscriptions`
+with it, and keeps taking whatever billing depends on next month without you
+noticing. What arrives is **path-uniform**: any repo-relative path may end up in
+it, and the bank makes no per-path promise about how well a given path merges.
+Subscribing to a feature slice is allowed, and you own whatever conflicts it
+produces.
 
 Two paths arrive as **seeds** rather than as shared code: `packages/platform/env`
-and `tooling/tailwind`'s `theme.css`. Nearly every package depends on them, so
-excluding them leaves an uninstallable selection. They are yours to rewrite on
-arrival. Three-way merge is what makes that safe. Your edits survive every later
-sync and conflict only where both sides touched the same lines.
+and `tooling/tailwind`'s `theme.css`.
+
+`@acme/env` is a hard dependency of thirteen of the nineteen runtime packages, so
+excluding it makes nearly every selection fail to install with nothing to copy
+from — and the per-app part of env is the app's composition, which the bank never
+distributes, not this package ([ADR 0033](adr/0033-one-env-factory-per-slice.md)).
+`theme.css` is the same shape one level down: `@acme/tailwind-config` is a hard
+dependency of every UI package, and there is no way to express _take the package
+but not one file_, because a resolved path is a prefix.
+
+Both are yours to rewrite on arrival, and three-way merge is what makes that
+safe: your edits survive every later sync and conflict only where both sides
+touched the same lines.
 
 ## Setting up a consumer repo
 
@@ -51,35 +72,30 @@ At the root of your repo:
 {
   "upstream": "https://github.com/regybean/Trellis.git",
   "ref": "bank/2026-08-26",
-  "include": [
-    "turbo.json",
-    "pnpm-workspace.yaml",
-    "patches",
-    "scripts",
-    "lefthook.yml",
-    "knip.jsonc",
-    ".kniprc.json",
-    ".gitleaks.toml",
-    ".syncpackrc.ts",
-    ".jscpd.json",
-    ".nvmrc",
-    ".prettierignore",
-    ".dockerignore",
-    ".gitignore",
-    "tooling/eslint",
-    "tooling/prettier",
-    "tooling/typescript",
-    "packages/platform/logger"
-  ],
+  "packages": ["@acme/logger", "@acme/ui"],
+  "bundles": ["docs"],
+  "omit": [],
   "contributable": []
 }
 ```
 
+You author a **selection**, not paths. There is no `include`, and a manifest that
+still has one is refused by name.
+
 - **`upstream`.** The bank's git URL. It is public, so cloning or fetching it
   needs no credentials, including from a private host.
 - **`ref`.** The bank tag you are pinned to. See [Pinning](#2-pin-a-bank-tag).
-- **`include`.** The paths you take, assembled from `bank.paths.json`. The `root`
-  bundle is not optional. Without it `pnpm install` does not work.
+- **`packages`.** Workspace package **names**, `@acme/ui` rather than
+  `packages/shared/ui`. Their transitive workspace closure comes with them, so
+  list what you import and let the sync work out the rest. A name that does not
+  exist at `ref` fails the sync rather than being dropped quietly.
+- **`bundles`.** Bundle names from `bank.paths.json`. `root` is always included —
+  don't list it, and you cannot opt out of it, because without it `pnpm install`
+  does not work. `infra` selects itself when a package in your closure declares
+  the services it needs.
+- **`omit`.** Paths to subtract from your resolved closure, for the case where
+  you keep your own. Default empty. See
+  [Omitting part of your closure](#omitting-part-of-your-closure).
 - **`contributable`.** The paths allowed to flow **back** to the bank. Default
   empty, so forgetting to maintain it fails closed. See
   [Contributing back to the bank](#contributing-back-to-the-bank).
@@ -98,17 +114,20 @@ git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
 
 `scripts/` lives in the `root` bundle, so after your first sync the bank
 commands arrive, and update themselves, like anything else. The first sync needs
-them before they exist, so copy two files in by hand once:
+them before they exist, so copy three files in by hand once:
 
 ```
 scripts/bank-sync.mjs
 scripts/lib/bank.mjs
+scripts/lib/bank-closure.mjs
 ```
 
 `scripts/lib/bank.mjs` is the manifest reading, ref resolving and vendor-commit
-format both bank commands share. The sync does not run without it.
-`scripts/bank-contribute.mjs` arrives with your first sync; you do not need it to
-pull.
+format both bank commands share; `scripts/lib/bank-closure.mjs` turns your
+selection into paths. The sync does not run without either. They need nothing
+installed — plain node and git are enough, which is why the first sync works in a
+repo with no `node_modules`. `scripts/bank-contribute.mjs` arrives with your
+first sync; you do not need it to pull.
 
 Then add the script entries to your root `package.json`. The root manifest is
 yours, and the bank never writes it.
@@ -142,11 +161,17 @@ pnpm bank:sync                 # rewrites vendor/trellis; merges nothing
 git merge vendor/trellis       # your call, your conflicts
 ```
 
-`bank:sync` fetches the bank at `ref` and rewrites your local `vendor/trellis`
-branch so its tree is bank@ref filtered down to `include` and nothing else,
-committed on top of the previous vendor commit. Then it stops. It does not check
-anything out and does not touch your working tree or index, so it is safe to run
-on a dirty branch.
+`bank:sync` fetches the bank at `ref`, resolves your selection to paths **at that
+ref**, and rewrites your local `vendor/trellis` branch so its tree is bank@ref
+filtered down to them and nothing else, committed on top of the previous vendor
+commit. Then it stops. It does not check anything out and does not touch your
+working tree or index, so it is safe to run on a dirty branch.
+
+Resolving at the ref rather than at authoring time is what keeps the selection
+correct as the bank changes shape. A package that gains a dependency, moves
+directory or is renamed arrives right on the next sync, with nothing to edit. The
+vendor commit message records both what you selected and what it resolved to, so
+`git log vendor/trellis` says why a path is in your tree.
 
 Three rules keep the mechanism working.
 
@@ -159,6 +184,23 @@ Three rules keep the mechanism working.
   without you running `git merge`.
 
 To take a newer bank, bump `ref` in the manifest and run the same two commands.
+
+### Omitting part of your closure
+
+Sometimes you take a package whose closure pulls in something you already have —
+your own logger, your own auth. `omit` subtracts those paths after resolution:
+
+```json
+{ "omit": ["packages/platform/logger"] }
+```
+
+The sync warns for each entry, because the resulting tree does not install
+unaided: something in it still imports `@acme/logger`, and you are now the one
+supplying it. That is the whole point of the field, and the warning is there so
+the substitution stays a decision rather than a surprise.
+
+It is called `omit` and not `exclude` on purpose — `exclude` is the bank's word,
+in `bank.paths.json`, for what it never distributes to anyone.
 
 ## Reading and resolving a conflict
 
@@ -196,7 +238,8 @@ Two things to check while you resolve:
 - **Whether you resolve it the same way every sync.** If you do, either your
   version is generic and belongs back in the bank (see
   [Drift](#what-to-do-when---check-reports-drift)), or the path is yours and
-  should come out of `include`.
+  should come out of your selection — either drop the package or `omit` the
+  path.
 
 `git merge --abort` backs out without touching the vendor branch, so you can
 retry whenever.
@@ -218,12 +261,16 @@ bank:     https://github.com/regybean/Trellis.git
 pinned:   bank/2026-08-26 (a1b2c3d4)
 bank tip: main (e5f6a7b8)
 
-Behind by 14 bank commits. "include" paths that changed in them:
+Behind by 14 bank commits. Subscribed paths that changed in them:
   scripts (3 files)
   tooling/eslint (1 file)
   packages/shared/ui (9 files)
 
 To take them: point "ref" in bank.manifest.json at the newest bank tag, then run pnpm bank:sync.
+
+Bumping to the bank tip also changes what your selection covers:
+  + packages/shared/icons
+  - packages/platform/queue
 
 Locally modified vendored paths:
   M  packages/shared/hooks/src/base-url.ts
@@ -233,10 +280,17 @@ Review these and consider contributing them back to the bank — anything generi
 here is a fix every other consumer is currently missing.
 ```
 
-`--check` rolls upstream changes up to the `include` entry that owns them,
+`--check` rolls upstream changes up to the subscribed path that owns them,
 because a package-level answer stays readable where nine months of file names
 does not. It lists your own modifications per file with their git status,
 because those are what you review one by one.
+
+The `+`/`-` block is your **closure delta**: `--check` resolves your selection at
+both the pinned ref and the tip, so "bumping also brings `@acme/icons`, which
+`@acme/ui` now depends on" is something you read before the bump rather than
+discover when the install fails. It has no exit code of its own, because a
+closure only moves when `ref` does — it is never news independent of being
+behind.
 
 It measures those modifications against the merge base of `HEAD` and
 `vendor/trellis`, the last vendor commit you actually merged. So a sync you have
@@ -260,7 +314,7 @@ Three outcomes, three codes, so any CI can gate on them.
 
 ## What to do when `--check` reports drift
 
-**Behind by N commits.** Read the `include` paths it listed, bump `ref` to the
+**Behind by N commits.** Read the paths it listed, bump `ref` to the
 newest `bank/YYYY-MM-DD` tag, run `pnpm bank:sync`, and merge. Nine months of
 drift arriving in one merge is the failure this command exists to prevent. Pull
 on a rhythm, not on discovery.
@@ -274,8 +328,9 @@ on a rhythm, not on discovery.
 - **Accidental.** A local hack nobody remembers. Revert it and take the bank's
   version back.
 
-**`vendor/trellis` does not hold the pinned ref.** You changed `include` or `ref`
-without syncing. Run `pnpm bank:sync`.
+**`vendor/trellis` does not hold the pinned ref.** You changed your selection or
+`ref` without syncing — or the bank moved a path your selection covers. Run
+`pnpm bank:sync`.
 
 ## Contributing back to the bank
 
@@ -383,6 +438,12 @@ git tag bank/$(date +%F) main
 git push origin bank/$(date +%F)
 ```
 
+Adding a package needs no edit to `bank.paths.json` — the package set is derived.
+Adding a root-level file does, and `pnpm lint` fails naming it until it is either
+in a bundle or on `exclude` (`scripts/check-bank-paths.mjs`). There is no third
+answer: an unclassified root entry is content nobody can take and nobody can see
+was withheld.
+
 Consumers pin those tags, so a tag promises that `main` was green at that commit.
 Cut it after the gate passes, not before.
 
@@ -396,7 +457,12 @@ tag.
   distribution model, and what was considered and rejected.
 - [ADR 0038](adr/0038-acme-scope-is-a-distribution-constraint.md) covers why
   renaming the `@acme` scope breaks the mechanism.
-- [`bank.paths.json`](../bank.paths.json) is what is on offer.
+- [ADR 0039](adr/0039-the-selection-is-the-contract.md) covers why neither side
+  enumerates paths.
+- [`bank.paths.json`](../bank.paths.json) is the bundles and the exclusions; the
+  package set is the `pnpm-workspace.yaml` globs.
 - [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) pulls;
   [`scripts/bank-contribute.mjs`](../scripts/bank-contribute.mjs) is the guarded
-  path back, over the shared [`scripts/lib/bank.mjs`](../scripts/lib/bank.mjs).
+  path back. Both run over [`scripts/lib/bank.mjs`](../scripts/lib/bank.mjs), and
+  the sync over [`scripts/lib/bank-closure.mjs`](../scripts/lib/bank-closure.mjs)
+  for the selection.
