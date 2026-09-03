@@ -18,12 +18,13 @@
  * providers out of every other file in this app.
  */
 
-import { unlimitedEntitlements } from '@acme/entitlements';
-
 /**
  * The no-op entitlements provider — top tier, infinite credits, and a `refund`
  * that does nothing, because an app with no billing charged nothing. This app
  * strips billing but still mounts `@acme/chat`, which meters credits, so it is
  * choosing *unmetered* rather than declining to choose (ADR 0006, ADR 0010).
+ *
+ * Renamed to `entitlements` on the way out: entry points import what this app
+ * injects, not which provider it happens to be.
  */
-export const entitlements = unlimitedEntitlements;
+export { unlimitedEntitlements as entitlements } from '@acme/entitlements';

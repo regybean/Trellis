@@ -92,10 +92,39 @@ const banFrontendSeamMocks = [
   },
 ];
 
+/**
+ * Seam implementations are constructed in exactly one file per app — its
+ * composition root (ADR 0006). This is the ban that makes that enforceable
+ * everywhere else.
+ *
+ * TypeScript already checks that a mount naming `entitlements` is handed one
+ * (#264). What it cannot check is that two *independently constructed* values
+ * are the same value, and an app has two entry points that both need the
+ * provider: the tRPC route seam and the generation worker. Build one each and
+ * both typecheck while disagreeing about which provider charged and which one
+ * refunds — Credits leak silently. So construction happens once and every entry
+ * point imports the result.
+ *
+ * Names, not whole packages: `@acme/subscriptions` also exports ordinary reads
+ * (`getStripeCustomerId`) that an app is free to call from wherever it reads
+ * them. What is confined is *constructing an implementation*.
+ */
+const seamImplementationNames = [
+  'createSubscriptionsEntitlements',
+  'unlimitedEntitlements',
+];
+
+const banSeamConstruction = (compositionRoot: string): ImportPattern => ({
+  group: ['@acme/subscriptions', '@acme/entitlements'],
+  importNames: seamImplementationNames,
+  message: `Seam implementations are constructed in one file per app — this app's is ${compositionRoot} (ADR 0006). Import the built value from there instead of constructing a second one.`,
+});
+
 type ImportPattern = {
   group: string[];
   message: string;
   allowTypeImports?: boolean;
+  importNames?: string[];
 };
 
 /** A `no-restricted-imports` error entry banning the given import patterns. */
@@ -130,11 +159,21 @@ const defaultContainment = defineConfig(
  * a package's eslint.config (after `restrictEnvAccess`) so it wins. Pass
  * `allowMastra`/`allowBetterAuth` for the blessed vendor homes; `feature: true`
  * re-asserts the component tRPC ban when a feature also relaxes a vendor.
+ *
+ * `compositionRoot` is an app's package-relative composition root — the one file
+ * allowed to construct a seam implementation (see `banSeamConstruction`). Each
+ * app names its own, so the four are free to differ.
  */
 export function containmentOverride({
   allowMastra = false,
   allowBetterAuth = false,
   feature = false,
+  compositionRoot,
+}: {
+  allowMastra?: boolean;
+  allowBetterAuth?: boolean;
+  feature?: boolean;
+  compositionRoot?: string;
 } = {}) {
   const patterns: ImportPattern[] = [
     ...(allowMastra ? [] : [banMastra]),
@@ -153,6 +192,23 @@ export function containmentOverride({
               'no-restricted-imports': banImports([
                 banFeatureTrpc,
                 ...patterns,
+              ]),
+            },
+          },
+        ]
+      : []),
+    // Last, and re-declaring `patterns`, because flat config *replaces* rule
+    // options rather than merging them — whichever block matches a file last
+    // supplies the whole option set (see the note on `defaultContainment`).
+    ...(compositionRoot
+      ? [
+          {
+            files: ['**/*.{ts,tsx}'],
+            ignores: [compositionRoot],
+            rules: {
+              'no-restricted-imports': banImports([
+                ...patterns,
+                banSeamConstruction(compositionRoot),
               ]),
             },
           },

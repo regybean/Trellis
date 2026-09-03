@@ -1,4 +1,8 @@
-import { baseConfig, restrictEnvAccess } from '@acme/eslint-config/base';
+import {
+  baseConfig,
+  containmentOverride,
+  restrictEnvAccess,
+} from '@acme/eslint-config/base';
 import { reactConfig } from '@acme/eslint-config/react';
 import { securityConfig } from '@acme/eslint-config/security';
 
@@ -50,4 +54,9 @@ export default [
       ],
     },
   },
+  // No auth provider and no Stripe in this app's graph (ADR 0010), so the vendor
+  // containment default stands unrelaxed. What this adds is the composition
+  // root: seam implementations are constructed in one file per app (ADR 0006),
+  // and for a slim app that file is where "unmetered" is chosen.
+  ...containmentOverride({ compositionRoot: 'src/server/deps.ts' }),
 ];
