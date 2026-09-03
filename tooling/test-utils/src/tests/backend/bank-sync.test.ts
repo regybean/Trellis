@@ -29,6 +29,7 @@ import {
   sync,
   treePaths,
   write,
+  writePackage,
 } from './bank-sandbox';
 
 afterEach(cleanupSandboxes);
@@ -67,15 +68,20 @@ function mergeFailure(consumer: string, extra: string[] = []) {
 }
 
 describe('bank:sync builds the vendor branch', () => {
-  it('creates vendor/trellis holding exactly the include paths, and merges nothing', () => {
+  it('creates vendor/trellis holding exactly the resolved paths, and merges nothing', () => {
     const { consumer } = setup();
     const headBefore = git(consumer, ['rev-parse', 'HEAD']);
 
     const stdout = sync(consumer);
 
+    // The two selected packages plus the always-included `root` bundle, and
+    // nothing else: no app, no unselected bundle, no bank.paths.json.
     expect(treePaths(consumer, 'vendor/trellis')).toEqual([
-      'tooling/eslint.js',
-      'tooling/prettier.js',
+      'pnpm-workspace.yaml',
+      'tooling/eslint/index.js',
+      'tooling/eslint/package.json',
+      'tooling/prettier/index.js',
+      'tooling/prettier/package.json',
       'turbo.json',
     ]);
     expect(stdout).toContain(
@@ -95,7 +101,11 @@ describe('bank:sync builds the vendor branch', () => {
     const firstVendor = git(consumer, ['rev-parse', 'vendor/trellis']);
     merge(consumer, ['--allow-unrelated-histories']);
 
-    write(bank, 'tooling/prettier.js', 'export default { semi: false };\n');
+    write(
+      bank,
+      'tooling/prettier/index.js',
+      'export default { semi: false };\n',
+    );
     commit(bank, 'bank: prettier semi');
 
     const stdout = sync(consumer);
@@ -112,9 +122,11 @@ describe('bank:sync builds the vendor branch', () => {
     merge(consumer);
 
     expect(git(consumer, ['diff', '--name-only', beforeMerge, 'HEAD'])).toBe(
-      'tooling/prettier.js',
+      'tooling/prettier/index.js',
     );
-    expect(read(consumer, 'tooling/prettier.js')).toContain('semi: false');
+    expect(read(consumer, 'tooling/prettier/index.js')).toContain(
+      'semi: false',
+    );
     expect(read(consumer, 'apps/consumer/own.ts')).toContain('mine');
   });
 
@@ -126,14 +138,14 @@ describe('bank:sync builds the vendor branch', () => {
 
     write(
       consumer,
-      'tooling/eslint.js',
+      'tooling/eslint/index.js',
       numberedLines('bank first', 'consumer changed the last line'),
     );
     commit(consumer, 'consumer: tweak the tail');
 
     write(
       bank,
-      'tooling/eslint.js',
+      'tooling/eslint/index.js',
       numberedLines('bank changed the first line', 'bank last'),
     );
     commit(bank, 'bank: tweak the head');
@@ -141,7 +153,7 @@ describe('bank:sync builds the vendor branch', () => {
     sync(consumer);
     merge(consumer);
 
-    const merged = read(consumer, 'tooling/eslint.js');
+    const merged = read(consumer, 'tooling/eslint/index.js');
     expect(merged).toContain('bank changed the first line');
     expect(merged).toContain('consumer changed the last line');
     expect(merged).not.toContain('<<<<<<<');
@@ -155,14 +167,14 @@ describe('bank:sync builds the vendor branch', () => {
 
     write(
       consumer,
-      'tooling/eslint.js',
+      'tooling/eslint/index.js',
       numberedLines('consumer owns the first line', 'bank last'),
     );
     commit(consumer, 'consumer: claim the head');
 
     write(
       bank,
-      'tooling/eslint.js',
+      'tooling/eslint/index.js',
       numberedLines('bank rewrote the first line', 'bank last'),
     );
     commit(bank, 'bank: rewrite the head');
@@ -170,7 +182,7 @@ describe('bank:sync builds the vendor branch', () => {
     sync(consumer);
     expect(mergeFailure(consumer)).not.toBe(0);
 
-    const conflicted = read(consumer, 'tooling/eslint.js');
+    const conflicted = read(consumer, 'tooling/eslint/index.js');
     expect(conflicted).toContain('<<<<<<<');
     expect(conflicted).toContain('consumer owns the first line');
     expect(conflicted).toContain('bank rewrote the first line');
@@ -198,6 +210,111 @@ describe('bank:sync builds the vendor branch', () => {
   });
 });
 
+describe('bank:sync resolves the selection at the pinned ref', () => {
+  /** The package directories a synced tree holds, deduped from its file paths. */
+  function packageDirs(consumer: string) {
+    return [
+      ...new Set(
+        treePaths(consumer, 'vendor/trellis')
+          .filter((path) => path.endsWith('/package.json'))
+          .map((path) => path.slice(0, -'/package.json'.length)),
+      ),
+    ].sort();
+  }
+
+  it('takes the full transitive workspace closure of a named package', () => {
+    // @acme/db depends on @acme/logger, which devDepends on the eslint config.
+    // None of those three paths is authored anywhere.
+    const { consumer } = setup({ packages: ['@acme/db'] });
+
+    sync(consumer);
+
+    expect(packageDirs(consumer)).toEqual([
+      'packages/db',
+      'packages/logger',
+      'tooling/eslint',
+    ]);
+  });
+
+  it('adds the infra bundle when a closure member declares acme.infra', () => {
+    const { consumer } = setup({ packages: ['@acme/db'] });
+
+    sync(consumer);
+
+    expect(treePaths(consumer, 'vendor/trellis')).toContain(
+      'deploy/compose.yaml',
+    );
+  });
+
+  it('leaves the infra bundle out when nothing in the closure declares it', () => {
+    const { consumer } = setup({ packages: ['@acme/logger'] });
+
+    sync(consumer);
+
+    expect(treePaths(consumer, 'vendor/trellis')).not.toContain(
+      'deploy/compose.yaml',
+    );
+  });
+
+  it('takes a selected bundle and no unselected one', () => {
+    const { consumer } = setup({ packages: [], bundles: ['docs'] });
+
+    sync(consumer);
+
+    const paths = treePaths(consumer, 'vendor/trellis');
+    expect(paths).toContain('docs/guide.md');
+    expect(paths).not.toContain('deploy/compose.yaml');
+  });
+
+  it('takes the root bundle even for an empty selection', () => {
+    const { consumer } = setup({ packages: [], bundles: [] });
+
+    sync(consumer);
+
+    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
+      'pnpm-workspace.yaml',
+      'turbo.json',
+    ]);
+  });
+
+  it('never offers a package the exclusions withhold', () => {
+    const { consumer } = setup({ packages: ['@acme/web'] });
+
+    const { status, stderr } = syncFailure(consumer);
+
+    expect(status).toBe(1);
+    expect(stderr).toContain('@acme/web');
+    expect(git(consumer, ['branch', '--list', 'vendor/trellis'])).toBe('');
+  });
+
+  it('fails naming a selected package that does not exist at the ref, writing nothing', () => {
+    const { consumer } = setup({ packages: ['@acme/logger'] });
+    sync(consumer);
+    const vendorBefore = git(consumer, ['rev-parse', 'vendor/trellis']);
+
+    editManifest(consumer, { packages: ['@acme/logger', '@acme/nope'] });
+    const { status, stderr } = syncFailure(consumer);
+
+    expect(status).toBe(1);
+    expect(stderr).toContain('@acme/nope');
+    expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(vendorBefore);
+  });
+
+  it('subtracts an omitted closure path and warns that the tree will not install', () => {
+    const { consumer } = setup({
+      packages: ['@acme/db'],
+      omit: ['packages/logger'],
+    });
+
+    const run = runScript(consumer, 'scripts/bank-sync.mjs');
+
+    expect(run.status).toBe(0);
+    expect(packageDirs(consumer)).toEqual(['packages/db', 'tooling/eslint']);
+    expect(run.stderr).toContain('packages/logger');
+    expect(run.stderr).toContain('will not install unaided');
+  });
+});
+
 describe('bank:sync --check reports drift', () => {
   /** Pins the consumer to a tag, syncs and merges it, then moves the bank on. */
   function fallBehind(sandbox: Sandbox) {
@@ -207,7 +324,11 @@ describe('bank:sync --check reports drift', () => {
     sync(consumer);
     merge(consumer, ['--allow-unrelated-histories']);
 
-    write(bank, 'tooling/prettier.js', 'export default { semi: false };\n');
+    write(
+      bank,
+      'tooling/prettier/index.js',
+      'export default { semi: false };\n',
+    );
     write(bank, 'turbo.json', '{ "tasks": { "build": {} } }\n');
     commit(bank, 'bank: prettier semi and a build task');
   }
@@ -224,7 +345,7 @@ describe('bank:sync --check reports drift', () => {
     expect(stdout).toContain('Up to date with main');
   });
 
-  it('exits 2 naming the unpulled commit count and the include paths that moved', () => {
+  it('exits 2 naming the unpulled commit count and the subscribed paths that moved', () => {
     const sandbox = setup();
     fallBehind(sandbox);
 
@@ -232,7 +353,7 @@ describe('bank:sync --check reports drift', () => {
 
     expect(status).toBe(2);
     expect(stdout).toContain('Behind by 1 bank commit.');
-    expect(stdout).toContain('tooling (1 file)');
+    expect(stdout).toContain('tooling/prettier (1 file)');
     expect(stdout).toContain('turbo.json (1 file)');
   });
 
@@ -264,7 +385,7 @@ describe('bank:sync --check reports drift', () => {
 
     write(
       consumer,
-      'tooling/eslint.js',
+      'tooling/eslint/index.js',
       numberedLines('bank first', 'consumer changed the last line'),
     );
     commit(consumer, 'consumer: tweak the tail');
@@ -274,7 +395,7 @@ describe('bank:sync --check reports drift', () => {
     // Still up to date with the bank — a local edit is a report, not a pull.
     expect(status).toBe(0);
     expect(stdout).toContain('Locally modified vendored paths:');
-    expect(stdout).toContain('tooling/eslint.js');
+    expect(stdout).toContain('tooling/eslint/index.js');
     expect(stdout).toContain('contributing them back');
     // The consumer's own file is outside `include`, so it is not drift.
     expect(stdout).not.toContain('apps/consumer/own.ts');
@@ -285,7 +406,11 @@ describe('bank:sync --check reports drift', () => {
     sync(consumer);
     merge(consumer, ['--allow-unrelated-histories']);
 
-    write(bank, 'tooling/prettier.js', 'export default { semi: false };\n');
+    write(
+      bank,
+      'tooling/prettier/index.js',
+      'export default { semi: false };\n',
+    );
     commit(bank, 'bank: prettier semi');
     sync(consumer);
 
@@ -301,6 +426,34 @@ describe('bank:sync --check reports drift', () => {
 
     expect(status).toBe(2);
     expect(stdout).toContain('vendor/trellis does not exist');
+  });
+
+  it('names the paths entering and leaving the closure at the bank tip', () => {
+    const { bank, consumer } = setup({ packages: ['@acme/db'] });
+    git(bank, ['tag', 'bank/2026-01-01']);
+    pin(consumer, 'bank/2026-01-01');
+    sync(consumer);
+    merge(consumer, ['--allow-unrelated-histories']);
+
+    // Upstream, db swaps its logger dependency for a new cache package. Neither
+    // path is in any manifest, so --check is the only place this surfaces.
+    writePackage(bank, 'packages/cache', {
+      name: '@acme/cache',
+      version: '0.0.0',
+    });
+    writePackage(bank, 'packages/db', {
+      name: '@acme/db',
+      version: '0.0.0',
+      dependencies: { '@acme/cache': 'workspace:*', postgres: 'catalog:' },
+      acme: { infra: ['postgres'] },
+    });
+    commit(bank, 'bank: db moves from logger to cache');
+
+    const { status, stdout } = check(consumer);
+
+    expect(status).toBe(2);
+    expect(stdout).toContain('+ packages/cache');
+    expect(stdout).toContain('- packages/logger');
   });
 
   it('exits 1 on an error, distinct from both other outcomes', () => {
