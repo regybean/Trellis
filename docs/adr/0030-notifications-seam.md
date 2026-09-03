@@ -77,3 +77,18 @@ input)` is the only `xAdd`: it mints `id` (`randomUUID` → the react-toastify
   (leave-and-return shows nothing) — "exactly-one" means per-connected-reader once,
   no cross-tab coordination or consumer groups. An inbox / notification-center is
   explicitly out of scope; there is no consumer hook.
+
+## Amendment (#264) — the two `@acme/trpc` symbols decision 2 names are gone
+
+Decision 2 still holds in full: `@acme/notifications` exports a concrete
+`appRouter` mounted at its own `/api/trpc/notifications` in all four apps, the
+subscription is `protectedProcedure`, and `userId` comes off `ctx.session.user.id`.
+The platform still owns no router and ships no React.
+
+Two names in it are stale. `createTRPCContext` no longer exists — a `./server`
+barrel exports the router alone, and each app's mount names one of its own
+resolvers, checked against the router's context. `createFeatureTRPC()` no longer
+exists either: this package builds its own instance from `trpcConfig` and the
+shared middleware bodies, against a `NotificationsContext` that is exactly
+`BaseContext` — it still owns no database. See the
+[#264 amendment to ADR 0006](0006-entitlements-injection-seam.md).

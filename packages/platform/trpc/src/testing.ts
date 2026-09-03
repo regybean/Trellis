@@ -8,8 +8,9 @@
  * subpath (it is tree-shaken out); only `*.test.ts` and backend `setup.ts` files
  * do.
  *
- * Fidelity: `createTestContext` returns exactly the shape `createTRPCContext`
- * produces, and takes the same context extension as a type parameter. A feature
+ * Fidelity: `createTestContext` returns exactly the shape an app adapter's
+ * resolver produces — `BaseContext`, plus whatever the feature's own context
+ * adds, handed in as `TExtension`. A feature
  * with a billing extension hands it `entitlements: createMockEntitlements(...)`
  * from `@acme/entitlements/testing` — the tier and credit knobs live with the
  * mock provider that resolves *to* them, not here, so a feature with no tiers
@@ -39,7 +40,7 @@ export type TestContextOptions = Pick<BaseContext, 'session'>;
 /**
  * The knobs a *feature's* own `createTestContext` wrapper exposes to its tests:
  * identity and role. The wrapper turns `userId`/`role` into the feature's own
- * `InjectedUser`, and adds whatever its context extension needs — see any
+ * `InjectedUser`, and adds whatever else its context names — see any
  * feature's `tests/backend/utils/test-context.ts`.
  */
 export interface FeatureTestContextOptions {
@@ -60,14 +61,14 @@ export function createMockSession(user: InjectedUser) {
 /**
  * Build a tRPC caller context for backend tests. Pass it straight to a feature's
  * `appRouter.createCaller(...)`. Stubs the session and merges in the feature's
- * context extension; real DB/Redis come from the feature's own `db`/`redis`
+ * context's extra fields; real DB/Redis come from the feature's own `db`/`redis`
  * clients (validated against the running containers — never mocked). Telemetry
  * is ambient (ADR 0023) — there is no span in a caller test, so the ambient
  * helpers noop, and nothing needs stubbing here.
  *
- * `TExtension` mirrors `createTRPCContext`'s: the extension's fields arrive
- * alongside `session` and are passed through untouched, so a test builds its
- * context exactly the way an app adapter builds a real one.
+ * `TExtension` is whatever the feature's context adds on top of `BaseContext`:
+ * its fields arrive alongside `session` and pass through untouched, so a test
+ * builds its context exactly the way an app adapter builds a real one.
  *
  * The return type is spelled out rather than inferred, which is the one place
  * this file departs from the repo's usual "let it infer". An inferred `headers`

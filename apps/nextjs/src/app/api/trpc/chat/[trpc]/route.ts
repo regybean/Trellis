@@ -1,9 +1,12 @@
-import { appRouter, createTRPCContext } from '@acme/chat/server';
+import { appRouter } from '@acme/chat/server';
 
-import { createTRPCRouteHandlersWithEntitlements } from '~/server/trpc-route';
+import {
+  createTRPCRouteHandlers,
+  resolveContextWithEntitlements,
+} from '~/server/trpc-route';
 
-export const { GET, POST, OPTIONS } = createTRPCRouteHandlersWithEntitlements({
+export const { GET, POST, OPTIONS } = createTRPCRouteHandlers({
   endpoint: '/api/trpc/chat',
   router: appRouter,
-  createContext: createTRPCContext,
+  resolver: resolveContextWithEntitlements,
 });

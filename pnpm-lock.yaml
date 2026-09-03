@@ -1055,6 +1055,9 @@ importers:
       '@acme/redis':
         specifier: workspace:*
         version: link:../../platform/redis
+      '@acme/telemetry':
+        specifier: workspace:*
+        version: link:../../platform/telemetry
       '@acme/trpc':
         specifier: workspace:*
         version: link:../../platform/trpc
@@ -1194,6 +1197,9 @@ importers:
       '@acme/rag':
         specifier: workspace:*
         version: link:../../shared/rag
+      '@acme/telemetry':
+        specifier: workspace:*
+        version: link:../../platform/telemetry
       '@acme/trpc':
         specifier: workspace:*
         version: link:../../platform/trpc
@@ -1758,6 +1764,9 @@ importers:
 
   packages/platform/trpc:
     dependencies:
+      '@acme/env':
+        specifier: workspace:*
+        version: link:../env
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger
@@ -1767,6 +1776,9 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
+      '@t3-oss/env-core':
+        specifier: 'catalog:'
+        version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
       '@trpc/server':
         specifier: 'catalog:'
         version: 11.8.1(typescript@5.9.3)
@@ -1841,6 +1853,9 @@ importers:
       '@acme/vitest-config':
         specifier: workspace:*
         version: link:../../../tooling/vitest
+      '@trpc/server':
+        specifier: 'catalog:'
+        version: 11.8.1(typescript@5.9.3)
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)

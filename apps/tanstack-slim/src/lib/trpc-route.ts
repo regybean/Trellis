@@ -1,6 +1,5 @@
-import type { AnyRouter } from '@trpc/server';
-
-import type { InjectedSession } from '@acme/trpc';
+import type { BaseContext, InjectedSession } from '@acme/trpc';
+import type { TRPCFetchHandlerOptions } from '@acme/trpc/handler';
 import { unlimitedEntitlements } from '@acme/entitlements';
 import {
   corsPreflightHeaders,
@@ -15,7 +14,7 @@ import {
  * the one mount that asks for a provider (ADR 0010) — and the framework shape.
  * Feature route files keep only the `createFileRoute` path literal (which the
  * route-tree codegen statically requires) and a tiny "this router at this
- * endpoint" declaration.
+ * endpoint, with this resolver" declaration.
  *
  * The fetch adapter serves the `chat.stream` SSE subscription over the same GET
  * handler (`httpSubscriptionLink`), so SSE rides this route through Nitro with
@@ -34,10 +33,11 @@ const LOCAL_SESSION: InjectedSession = {
 };
 
 /**
- * Shape the neutral base context every mount receives. No auth: a constant admin
- * principal, injected directly.
+ * The neutral base context every mount receives. No auth: a constant admin
+ * principal, injected directly. Mounts whose feature context is exactly
+ * `BaseContext` (`ingest`, `notifications`) name this resolver.
  */
-const resolveContext = (req: Request) => ({
+export const resolveContext = (req: Request) => ({
   headers: req.headers,
   req,
   session: LOCAL_SESSION,
@@ -45,68 +45,38 @@ const resolveContext = (req: Request) => ({
 
 /**
  * The base context plus the no-op `unlimitedEntitlements` (top tier, infinite
- * credits) — the **context extension** `@acme/chat` declares (#256, ADR 0006).
- * This app strips billing but still mounts chat, which meters credits, so it is
- * choosing *unmetered* rather than declining to choose. Injected per mount, so
- * `ingest` and `notifications` — which have no tier to gate on and no credit to
- * spend — are handed nothing.
+ * credits) — the extra field `@acme/chat` names on its own context (#256, ADR
+ * 0006). This app strips billing but still mounts chat, which meters credits, so
+ * it is choosing *unmetered* rather than declining to choose. Chosen per mount,
+ * so `ingest` and `notifications` — which have no tier to gate on and no credit
+ * to spend — are handed nothing.
  */
-const resolveContextWithEntitlements = (req: Request) => ({
+export const resolveContextWithEntitlements = (req: Request) => ({
   ...resolveContext(req),
   entitlements: unlimitedEntitlements,
 });
-
-interface TRPCRouteOptions<TRouter extends AnyRouter, TContextInput> {
-  /** The tRPC endpoint path, e.g. `/api/trpc/chat`. */
-  endpoint: string;
-  /** The feature's aggregated app router. */
-  router: TRouter;
-  /** The feature's `createTRPCContext` (re-exported from the platform seam). */
-  createContext: (input: TContextInput) => Promise<unknown>;
-}
-
-/**
- * Build a server-handlers factory bound to one context resolver. Currying is
- * what pins `TContextInput` before a feature's `createTRPCContext` is checked
- * against it: a mount whose feature declares a context extension the bound
- * resolver does not produce fails to compile, which is the whole point of
- * injecting the provider per mount.
- */
-function serverHandlersFor<TContextInput>(
-  resolver: (req: Request) => TContextInput | Promise<TContextInput>,
-) {
-  return <TRouter extends AnyRouter>({
-    endpoint,
-    router,
-    createContext,
-  }: TRPCRouteOptions<TRouter, TContextInput>) => {
-    const handler = createTRPCFetchHandler({
-      endpoint,
-      router,
-      createContext,
-      resolver,
-    });
-
-    return {
-      GET: ({ request }: { request: Request }) => handler(request),
-      POST: ({ request }: { request: Request }) => handler(request),
-      OPTIONS: () =>
-        new Response(null, { status: 204, headers: corsPreflightHeaders }),
-    };
-  };
-}
 
 /**
  * Build the `server.handlers` map for a feature's tRPC mount. The same fetch
  * handler serves both GET and POST (the latter for mutations, the former also
  * carrying `httpSubscriptionLink` SSE streams such as `chat.stream`).
+ *
+ * The mount names its own resolver. `TContext` is inferred from the router, and
+ * the resolver is checked against it — so a mount whose feature reads a field
+ * this app's resolver doesn't produce (chat's `entitlements`, say) fails to
+ * compile. That used to be enforced by currying one resolver per factory and
+ * threading the feature's `createTRPCContext` through to be checked against it;
+ * the router carries the type on its own (#264).
  */
-export const createTRPCServerHandlers = serverHandlersFor(resolveContext);
+export function createTRPCServerHandlers<TContext extends BaseContext>(
+  opts: TRPCFetchHandlerOptions<TContext>,
+) {
+  const handler = createTRPCFetchHandler(opts);
 
-/**
- * As `createTRPCServerHandlers`, for a feature whose context extension is the
- * entitlements provider — here that is `@acme/chat` alone.
- */
-export const createTRPCServerHandlersWithEntitlements = serverHandlersFor(
-  resolveContextWithEntitlements,
-);
+  return {
+    GET: ({ request }: { request: Request }) => handler(request),
+    POST: ({ request }: { request: Request }) => handler(request),
+    OPTIONS: () =>
+      new Response(null, { status: 204, headers: corsPreflightHeaders }),
+  };
+}

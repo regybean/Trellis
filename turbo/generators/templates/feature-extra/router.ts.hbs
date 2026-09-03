@@ -11,13 +11,19 @@ import {
   items,
   selectItemSchema,
 } from '../schemas/item-schema';
-import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
+import {
+  adminProcedure,
+  createTRPCRouter,
+  db,
+  protectedProcedure,
+} from '../trpc';
 
 /**
  * Sample CRUD router demonstrating the patterns used across this monorepo:
  * - `protectedProcedure` / `adminProcedure` for auth (tested once via middleware)
  * - the caller read off `ctx.session.user` — never off an input
- * - telemetry is ambient (ADR 0023): the platform owns the per-procedure span
+ * - the feature's own `db`, imported rather than read off the context (#264)
+ * - telemetry is ambient (ADR 0023): the middleware owns the per-procedure span
  * - ownership checks before mutating user-owned rows
  *
  * Replace `items` with your real domain.
@@ -27,7 +33,7 @@ export const {{ camelCase name }}Router = createTRPCRouter({
   list: protectedProcedure.query(async ({ ctx }) => {
     const { id: userId } = ctx.session.user;
 
-    const rows = await ctx.db
+    const rows = await db
       .select()
       .from(items)
       .where(eq(items.userId, userId))
@@ -42,7 +48,7 @@ export const {{ camelCase name }}Router = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { id: userId } = ctx.session.user;
 
-      const [row] = await ctx.db
+      const [row] = await db
         .select()
         .from(items)
         .where(and(eq(items.id, input.id), eq(items.userId, userId)))
@@ -63,7 +69,7 @@ export const {{ camelCase name }}Router = createTRPCRouter({
 
       const values = insertItemSchema.parse({ userId, text: input.text });
 
-      const [created] = await ctx.db.insert(items).values(values).returning();
+      const [created] = await db.insert(items).values(values).returning();
       if (!created) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -81,7 +87,7 @@ export const {{ camelCase name }}Router = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.session.user;
 
-      const deleted = await ctx.db
+      const deleted = await db
         .delete(items)
         .where(and(eq(items.id, input.id), eq(items.userId, userId)))
         .returning();
@@ -104,7 +110,7 @@ export const {{ camelCase name }}Router = createTRPCRouter({
         { adminId: ctx.session.user.id, targetUserId: input.userId },
         'admin listing items',
       );
-      return ctx.db
+      return db
         .select()
         .from(items)
         .where(eq(items.userId, input.userId))

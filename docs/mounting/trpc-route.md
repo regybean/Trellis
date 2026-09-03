@@ -1,8 +1,11 @@
 # Recipe: the route seam and per-feature routes
 
-Every feature package exports a tRPC router and a context factory from its
-`./server` subpath. Serving them takes two kinds of file in your app: **one**
-route seam, and **one** small route file per feature.
+Every feature package exports a tRPC router from its `./server` subpath. The
+router carries its own context type with it — the feature declares that type in
+`api/trpc.ts` and never exports it, because nothing outside needs to name it:
+the handler reads it off the router and checks your resolver against it. Serving
+a router takes two kinds of file in your app: **one** route seam, and **one**
+small route file per feature.
 
 ## 1. The route seam
 
@@ -12,23 +15,29 @@ policy; your seam supplies the framework shape and the context resolver.
 
 ```ts
 // Your app's route seam. One per app.
+import type { BaseContext } from '@acme/trpc';
+import type { TRPCFetchHandlerOptions } from '@acme/trpc/handler';
 import { corsPreflightHeaders, createTRPCFetchHandler } from '@acme/trpc/handler';
 
-const resolveContext = async (req: Request) => ({
+// One resolver per context shape your app can build. Mounts that need nothing
+// beyond a session name this one.
+export const resolveContext = async (req: Request) => ({
   headers: req.headers,
   req,
   origin: new URL(req.url).origin,
   session: { user: /* your provider's user, mapped onto InjectedSession */ },
+});
+
+// …and one for the features that meter or gate.
+export const resolveContextWithEntitlements = async (req: Request) => ({
+  ...(await resolveContext(req)),
   entitlements: /* your EntitlementsProvider */,
 });
 
-export function createRouteHandlers({ endpoint, router, createContext }) {
-  const handler = createTRPCFetchHandler({
-    endpoint,
-    router,
-    createContext,
-    resolver: resolveContext,
-  });
+export function createRouteHandlers<TContext extends BaseContext>(
+  opts: TRPCFetchHandlerOptions<TContext>,
+) {
+  const handler = createTRPCFetchHandler(opts);
   return {
     GET: handler,
     POST: handler,
@@ -47,38 +56,46 @@ Points that matter:
 - **Adapting to your framework** is the only thing that changes between apps —
   the handler shape a route file must export (a bare function, or one taking a
   `{ request }` object, or something else).
+- **The resolver is checked against the router.** `TContext` is inferred from the
+  `router` you pass, so handing a mount a resolver that doesn't build what that
+  feature reads is a compile error, not a runtime one.
 
 ## 2. What the resolver must return
 
 The context object is the contract between your app and every feature. Features
 never look at your auth provider or your billing provider; they read these
-fields.
+fields. The first four are `BaseContext`, which every feature's context extends.
 
-| Field          | Required | What supplies it                                                         |
-| -------------- | -------- | ------------------------------------------------------------------------ |
-| `headers`      | yes      | The request's `Headers`                                                  |
-| `req` / `res`  | no       | The request, for procedures that need it                                 |
-| `origin`       | no       | Your app's public origin, for packages building absolute redirects       |
-| `session`      | yes      | `InjectedSession` — your provider's user mapped onto a neutral principal |
-| `entitlements` | yes      | An `EntitlementsProvider`                                                |
+| Field          | Required           | What supplies it                                                         |
+| -------------- | ------------------ | ------------------------------------------------------------------------ |
+| `headers`      | yes                | The request's `Headers`                                                  |
+| `req` / `res`  | no                 | The request, for procedures that need it                                 |
+| `origin`       | no                 | Your app's public origin, for packages building absolute redirects       |
+| `session`      | yes                | `InjectedSession` — your provider's user mapped onto a neutral principal |
+| `entitlements` | for chat + billing | An `EntitlementsProvider`                                                |
 
-`session` and `entitlements` are required with no default on purpose: a
-deployment has to state whether it has auth and whether it has billing, rather
-than inheriting an answer. A build with neither injects a constant principal and
-an unlimited provider — see [ADR 0003](../adr/0003-framework-agnostic-auth-seam.md)
-and [ADR 0010](../adr/0010-slim-no-auth-apps.md).
+`session` is required with no default on purpose, and so is `entitlements` for
+the features that name it: a deployment has to state whether it has auth and
+whether it meters, rather than inheriting an answer. A build with neither injects
+a constant principal and an unlimited provider — see
+[ADR 0003](../adr/0003-framework-agnostic-auth-seam.md) and
+[ADR 0010](../adr/0010-slim-no-auth-apps.md). Which features want more than
+`BaseContext` is theirs to say, not the platform's
+([ADR 0006](../adr/0006-entitlements-injection-seam.md)).
 
 ## 3. Per-feature routes
 
 One file per feature, mounted at a path of your choosing.
 
 ```ts
-import { appRouter, createTRPCContext } from "@acme/<feature>/server";
+import { appRouter } from "@acme/<feature>/server";
+
+import { createRouteHandlers, resolveContext } from "./route-seam";
 
 export const { GET, POST, OPTIONS } = createRouteHandlers({
   endpoint: "/api/trpc/<feature>",
   router: appRouter,
-  createContext: createTRPCContext,
+  resolver: resolveContext,
 });
 ```
 

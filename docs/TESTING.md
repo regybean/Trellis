@@ -176,17 +176,19 @@ different from mocking `env` for _shape_ — the latter is what ADR 0014 forbids
 
 There is **one** canonical context builder, shipped from `@acme/trpc/testing` (a
 dedicated export subpath — prod code never imports it). It is typed against the
-real platform contract and builds a context exactly the way an app adapter builds
-a real one: the session, plus the feature's own **context extension** passed
-through untouched, with nothing resolved up front (#250, #256).
+real platform contract and builds a context exactly the way an app resolver builds
+a real one: the session, plus whatever the feature's own context adds on top of
+`BaseContext`, passed through untouched, with nothing resolved up front (#250,
+#256, #264).
 
 The builder takes the `session` whole, not a `userId` + `role` it fabricates one
 from, because which fields matter is the feature's knowledge: billing's tests set
 the `email` its Stripe customer lookup reads; the other three need identity and
 role. So each feature's `test-context.ts` wraps the builder, maps the knobs its
-tests pass onto its own principal, and supplies whatever its extension declares.
+tests pass onto its own principal, and supplies whatever else its context names.
 
-Most features declare no extension, and their wrapper is the whole of it:
+Most features' contexts are exactly `BaseContext`, and their wrapper is the whole
+of it:
 
 ```typescript
 // src/tests/backend/utils/test-context.ts wraps it + owns feature cleanup:
@@ -248,8 +250,9 @@ export function createTestContext({
 }
 ```
 
-`db` is **not** passed in the context — it's bound at the feature tRPC instance
-by `createFeatureTRPCWithDb(db)` middleware. Tests never inject it.
+`db` is **not** passed in the context — the feature creates and exports it in
+`api/trpc.ts`, and its routers import it. Tests import that same export when they
+need to seed or clean, and never inject one (#264).
 
 ### Data cleanup
 

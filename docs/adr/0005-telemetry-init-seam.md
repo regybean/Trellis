@@ -62,3 +62,22 @@ placeholder (decision 1) is removed in favour of ambient `trace.getActiveSpan()`
   `instrumentation.ts` — provider resolution (`import('@acme/models')`) and
   `ensureVectorIndex()` — so both apps fail fast at startup on a missing selected-
   provider env or an unreachable vector DB, rather than on the first request.
+
+## Amendment (#264) — `createTRPCContext` and the concrete-context constraint are both gone
+
+Two things this ADR names no longer exist.
+
+`createTRPCContext` is deleted. The rejected option above ("deleting the base
+telemetry placeholder entirely") was argued against on the grounds that
+`BaseContext = ReturnType<typeof createTRPCContext>` typed the middlewares that
+read `ctx.telemetry`. ADR 0023 removed `ctx.telemetry` and that argument with it;
+#264 removed the function. `BaseContext` is now a plain exported interface, and an
+app's route resolver returns a feature's context directly.
+
+The "concrete-context design" the same bullet appeals to is also no longer a
+constraint being worked around — it is the shape. #256 made the context generic in
+the feature's half; #264 removed the parameter and moved `initTRPC` into each
+feature, so every tRPC instance in the repo is created against a named, concrete
+context. The middleware conditional-type explosion this ADR feared is a
+non-question at a concrete context: `t.middleware(fn)` composes normally. See the
+[#264 amendment to ADR 0006](0006-entitlements-injection-seam.md).

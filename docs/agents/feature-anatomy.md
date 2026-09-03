@@ -27,7 +27,7 @@ packages/features/<name>/
   CONTEXT.md              # domain language for this feature (ubiquitous terms)
   src/
     api/
-      trpc.ts             # per-feature tRPC context + extension + middleware (auth, telemetry, db)
+      trpc.ts             # the feature's context type, tRPC instance, middleware and db
       root.ts             # appRouter — aggregates this feature's routers
       routers/<name>.ts   # the procedures (the BACKEND contract)
       schemas/*-schema.ts # drizzle tables + zod schemas

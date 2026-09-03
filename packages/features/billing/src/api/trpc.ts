@@ -1,22 +1,23 @@
 import { trace } from '@opentelemetry/api';
-import { TRPCError } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 
 import type {
   EntitlementsProvider,
   SubscriptionTier,
 } from '@acme/entitlements';
-import { createDb } from '@acme/db';
+import type { BaseContext } from '@acme/trpc';
 import { isTierAtLeast } from '@acme/entitlements';
-import { createFeatureTRPCWithDb } from '@acme/trpc';
-
-const _db = createDb();
-
-export const db = _db;
-export type db = typeof _db;
+import {
+  requireAdmin,
+  requirePrincipal,
+  trpcConfig,
+  withProcedureSpan,
+  withTimingLog,
+} from '@acme/trpc';
 
 /**
- * Billing's tRPC context extension — the injected `EntitlementsProvider`, on
- * top of the neutral session + request the substrate supplies.
+ * Billing's request context — the neutral base the app adapter injects, plus
+ * the `EntitlementsProvider`.
  *
  * It is declared here, by the one feature whose whole job is billing, rather
  * than in `@acme/trpc` where it used to be a required field on every context.
@@ -26,17 +27,31 @@ export type db = typeof _db;
  * chooses the provider at its edge; this type is just how billing says it needs
  * one.
  */
-export interface BillingContext {
+export interface BillingContext extends BaseContext {
   entitlements: EntitlementsProvider;
 }
 
-export const {
-  createTRPCContext,
-  createTRPCRouter,
-  createCallerFactory,
-  protectedProcedure,
-  adminProcedure,
-} = createFeatureTRPCWithDb<db, BillingContext>(_db);
+const t = initTRPC.context<BillingContext>().create(trpcConfig);
+
+// The shared middleware stack, composed against billing's own concrete context.
+// The bodies live once in `@acme/trpc` as plain async helpers; only this wiring
+// is per-feature (#264).
+const telemetry = t.middleware(({ next, path, type, ctx }) =>
+  withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
+);
+const timing = t.middleware(({ next, path }) => withTimingLog(path, next));
+const authed = t.middleware(({ next, ctx }) =>
+  next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
+);
+const admin = t.middleware(({ next, ctx }) =>
+  next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
+);
+
+export const createTRPCRouter = t.router;
+export const createCallerFactory = t.createCallerFactory;
+const publicProcedure = t.procedure.use(telemetry).use(timing);
+export const protectedProcedure = publicProcedure.use(authed);
+export const adminProcedure = publicProcedure.use(admin);
 
 /**
  * Hierarchical tier gate: admits the caller only if their tier is at least

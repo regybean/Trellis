@@ -3,17 +3,18 @@
  *
  * These three used to exist twice, once per app (#237 and #238 each wrote their
  * own); #239 collapsed them here, so this is where a promote/demote is proved to
- * reach `adminProcedure` — through one implementation, for both apps. Nothing is
+ * reach the admin gate — through one implementation, for both apps. Nothing is
  * mocked: the role comes back on a session resolved from a real cookie against a
  * real Postgres, which is the only way to exercise the gap this code exists to
  * cross (Better Auth omits the admin plugin's columns from `getSession`'s static
  * type, so the value is there and the type says otherwise).
  */
+import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
-import { createFeatureTRPC } from '@acme/trpc';
-import { createMockSession, createTestContext } from '@acme/trpc/testing';
+import { requireAdmin } from '@acme/trpc';
+import { createMockSession } from '@acme/trpc/testing';
 
 import {
   readSessionRole,
@@ -179,34 +180,47 @@ describe('toAdminUser', () => {
 /**
  * The whole chain the admin surface rests on, in one place: a role written by
  * `setRole` lands in a column, comes back on a session resolved from a real
- * cookie, survives `toPrincipal`, and decides an `adminProcedure`.
+ * cookie, survives `toPrincipal`, and decides the admin gate.
  *
  * The per-feature `adminProcedure` tests hand the gate a principal with the role
  * already set, which proves the gate reads `role` but not that a *promotion*
- * ever produces that principal. Every link here is real — `adminProcedure` is
- * the production middleware from `@acme/trpc`, not a re-implementation.
+ * ever produces that principal. This test owns that half of the chain, and its
+ * subject is `requireAdmin` — the gate body itself, called exactly as each
+ * feature's `admin` middleware calls it.
+ *
+ * It deliberately builds no tRPC instance. `@acme/auth` is a `shared` package,
+ * so it cannot import a feature's real `adminProcedure` (features sit above
+ * it), and hand-rolling one here would be a sixth copy of the middleware wiring
+ * — one with no telemetry and no timing, i.e. not the stack any feature
+ * actually runs, sitting in the one file the generator can't keep in step
+ * (#264, #265 review). The procedure envelope adds nothing this test asserts
+ * on: what turns a role into a decision is `requireAdmin`, and the five
+ * features already prove their `adminProcedure` is built from it.
  */
-const { createTRPCRouter, adminProcedure } = createFeatureTRPC();
 
-const adminOnly = createTRPCRouter({
-  ping: adminProcedure.query(({ ctx }) => ctx.session.user.id),
-});
-
-/** An `adminOnly` caller for whoever this session belongs to. */
-function callerFor(session: Parameters<typeof toPrincipal>[0]) {
+/**
+ * The gate's verdict for whoever this session belongs to: the admitted
+ * principal's id, or the `TRPCError` code it refused with. One value for both
+ * outcomes, so a promotion and a demotion read as the same assertion twice.
+ */
+function verdictFor(session: Parameters<typeof toPrincipal>[0]) {
   const user = toPrincipal(session);
 
-  // Not an assertion for the test's benefit: `createTestContext` takes a
-  // principal, and a signed-out caller has none. The callers below are all
-  // signed in, so reaching this is a broken fixture, not a failed expectation.
+  // Not an assertion for the test's benefit: the gate reads a session that has
+  // a principal on it, and a signed-out caller has none. The callers below are
+  // all signed in, so reaching this is a broken fixture, not a failed
+  // expectation.
   if (!user) throw new Error('expected a signed-in session');
 
-  return adminOnly.createCaller(
-    createTestContext({ session: createMockSession(user) }),
-  );
+  try {
+    return requireAdmin(createMockSession(user)).id;
+  } catch (error) {
+    if (error instanceof TRPCError) return error.code;
+    throw error;
+  }
 }
 
-describe('adminProcedure', () => {
+describe('the admin gate', () => {
   it('admits a promoted user and refuses them again once demoted', async () => {
     const adminHeaders = await signedInAdmin();
     const { created, headers } = await signedInSession('principal-gate');
@@ -218,19 +232,13 @@ describe('adminProcedure', () => {
         headers: adminHeaders,
       });
 
-    await expect(
-      callerFor(await currentSession()).ping(),
-    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(verdictFor(await currentSession())).toBe('UNAUTHORIZED');
 
     await setRole('admin');
-    await expect(callerFor(await currentSession()).ping()).resolves.toBe(
-      created.id,
-    );
+    expect(verdictFor(await currentSession())).toBe(created.id);
 
     await setRole('user');
-    await expect(
-      callerFor(await currentSession()).ping(),
-    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(verdictFor(await currentSession())).toBe('UNAUTHORIZED');
   });
 
   it('refuses a caller whose role column holds something unrecognised', async () => {
@@ -242,8 +250,8 @@ describe('adminProcedure', () => {
 
     // `readSessionRole` fails closed, so the gate never sees a role it cannot
     // mean — a value the database will happily hold, since the column is text.
-    await expect(
-      callerFor(await auth.api.getSession({ headers })).ping(),
-    ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
+    expect(verdictFor(await auth.api.getSession({ headers }))).toBe(
+      'UNAUTHORIZED',
+    );
   });
 });

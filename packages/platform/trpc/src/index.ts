@@ -1,22 +1,15 @@
 import 'server-only';
 
-// `ProcedureType` is re-exported from the root barrel too, but importing it
-// from this subpath is load-bearing beyond naming the type. tRPC declares its
-// builder types in one internal module that the barrel only re-exports from;
-// with a concrete context the builder `buildCore` returns collapsed to something
-// the barrel could name, and generic in the extension it no longer does, so
-// declaration emit fails with TS2742 unless some import names the module by a
-// path. Annotating the two factories by hand is the alternative, and their types
-// run to hundreds of characters of tRPC internals.
-import type { ProcedureType } from '@trpc/server/unstable-core-do-not-import';
+import type { TRPCDefaultErrorShape, TRPCProcedureType } from '@trpc/server';
 import { context, trace } from '@opentelemetry/api';
-import { initTRPC, TRPCError } from '@trpc/server';
+import { TRPCError } from '@trpc/server';
 import superjson from 'superjson';
 import { z, ZodError } from 'zod/v4';
 
 import { logger } from '@acme/logger';
-import { instrumentDrizzleClient } from '@acme/telemetry';
 import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
+
+import { env } from './env';
 
 /**
  * The session seam. The *app's* adapter resolves whoever its auth provider says
@@ -62,23 +55,19 @@ export interface InjectedSession {
 
 /**
  * The neutral, feature-agnostic half of a request context: the request itself
- * plus the injected principal. Everything a *feature* needs on top arrives as
- * that feature's own **context extension** — a type parameter it hands to
- * `createFeatureTRPC` / `createFeatureTRPCWithDb`, which the substrate merges in
- * and never names.
+ * plus the injected principal. A feature names its own context by extending
+ * this with whatever else its procedures read, and hands *that* to
+ * `initTRPC.context<…>()` — see any feature's `api/trpc.ts`.
  *
- * One name for both roles, because they are one object: what the app adapter
- * injects *is* the base half of `ctx`, since `createTRPCContext` passes it
- * through untouched. It was briefly `ContextOpts` — two names for the same
- * fields, disagreeing with `CONTEXT.md`, which has always called this the base
- * context.
+ * One name for both roles, because they are one object: what the app adapter's
+ * resolver returns *is* `ctx`, handed to the fetch handler untouched (#264).
  *
  * Billing used to be a field here. `entitlements: EntitlementsProvider` was
  * required on every context, so constructing one meant importing the billing
  * contract — in `@acme/feedback`, in `@acme/ingest`, in the slim apps, none of
  * which have a tier or a credit to their name. Nothing in the substrate had read
- * it since #250; the type was the last of the coupling. It is now `@acme/billing`
- * and `@acme/chat`'s extension (#256, ADR 0006 amendment).
+ * it since #250; the type was the last of the coupling. It is now a field on
+ * `@acme/billing` and `@acme/chat`'s own contexts (#256, ADR 0006 amendment).
  */
 export interface BaseContext {
   headers: Headers;
@@ -101,45 +90,52 @@ export interface BaseContext {
   session: InjectedSession;
 }
 
-type DrizzleDb = Parameters<typeof instrumentDrizzleClient>[0];
-
 /**
- * Builds a feature's request context: the neutral base merged with the
- * feature's own extension, passed straight through. `TExtension` defaults to
- * `object` — "this feature needs nothing beyond a session", which is `feedback`
- * and `ingest` — so the common case names no type at all.
+ * The runtime config every feature's tRPC instance is created with: superjson on
+ * the wire, and a `zodError` tree on the error shape so a client can map a
+ * validation failure back onto its form fields.
  *
- * It does no I/O, and now not even a field read: the substrate has nothing to
- * pick out of the extension. It used to `await entitlements.resolve()` here,
- * which cost every tRPC call in both full apps 2-4 Redis round-trips whether or
- * not the procedure read the result — and the one router that did read it
- * re-resolved anyway. A procedure that needs entitlements resolves them where
- * it uses them (#250, ADR 0006 amendment).
+ * A feature passes it straight to `initTRPC.context<MyContext>().create()`. That
+ * is the whole of what this package has to say about *initialisation*; the
+ * middleware stack is the four helpers below, which a feature composes against
+ * its own concrete context (#264).
  *
- * Still returns a promise: the app adapters await it, and the shape a future
- * context needs to assemble asynchronously shouldn't churn the resolver seam.
- *
- * Telemetry is ambient — the telemetry middleware owns the per-procedure span
- * and everything reads it from the active OTel context (ADR 0023), so nothing
- * is threaded here.
+ * `errorFormatter`'s parameter is annotated rather than contextually typed,
+ * because it is written here and called there — it reads two of the six fields
+ * tRPC passes, so naming those two is enough. The *return* type stays inferred:
+ * `.create()` reads the wire error shape off it, and spelling it out is the one
+ * way `zodError` could quietly stop reaching clients.
  */
-export function createTRPCContext<TExtension extends object = object>(
-  opts: BaseContext & TExtension,
-) {
-  return Promise.resolve({ ...opts });
-}
+export const trpcConfig = {
+  transformer: superjson,
+  errorFormatter({
+    shape,
+    error,
+  }: {
+    shape: TRPCDefaultErrorShape;
+    error: TRPCError;
+  }) {
+    return {
+      ...shape,
+      data: {
+        ...shape.data,
+        zodError:
+          error.cause instanceof ZodError ? z.treeifyError(error.cause) : null,
+      },
+    };
+  },
+};
 
 /**
  * Wraps a procedure invocation in its OTel span: one span per procedure, named
  * `trpc.<path>`, carrying status, duration and any thrown error.
  *
- * The span lifecycle lives out here as plain code with no tRPC types in it,
- * because the middleware that calls it has to be an *inline* arrow to compile
- * at all — see `buildCore`. Keeping the bodies out here is what lets those
- * arrows stay one-liners.
+ * A plain async helper with no tRPC builder types in it, so the one
+ * implementation serves every feature's context. The feature wraps it in a
+ * one-line `t.middleware`.
  */
-async function withProcedureSpan<T>(
-  meta: { path: string; type: ProcedureType; userId?: string },
+export async function withProcedureSpan<T>(
+  meta: { path: string; type: TRPCProcedureType; userId?: string },
   run: () => Promise<T>,
 ) {
   const start = Date.now();
@@ -189,17 +185,23 @@ async function withProcedureSpan<T>(
 
 /**
  * Logs a procedure's wall-clock duration, plus an artificial 100-500ms stall in
- * dev so local UIs actually render their loading states. Extracted for the same
- * reason as `withProcedureSpan`.
+ * dev so local UIs actually render their loading states. A plain helper for the
+ * same reason as `withProcedureSpan`.
+ *
+ * The dev check is read from this slice's own validated env rather than
+ * threaded in as a parameter. Every feature passed `t._config.isDev`, which
+ * made "how do we detect dev" a fact six files knew (five wirings plus the
+ * generator template) and reached into tRPC's private `_config` to learn — so
+ * retuning it meant editing all six (#265 review).
+ *
+ * `=== 'development'` is also the honest test: tRPC's `isDev` defaults to
+ * `NODE_ENV !== 'production'`, so the stall used to fire under `test` too — a
+ * random 100-500ms added to every procedure call in the backend suites.
  */
-async function withTimingLog<T>(
-  path: string,
-  isDev: boolean,
-  run: () => Promise<T>,
-) {
+export async function withTimingLog<T>(path: string, run: () => Promise<T>) {
   const start = Date.now();
 
-  if (isDev) {
+  if (env.NODE_ENV === 'development') {
     const waitMs = Math.floor(Math.random() * 400) + 100;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
@@ -220,7 +222,7 @@ async function withTimingLog<T>(
  * re-injection is what gives every downstream procedure a non-null
  * `ctx.session.user`.
  */
-function requirePrincipal(session: InjectedSession) {
+export function requirePrincipal(session: InjectedSession) {
   const span = trace.getActiveSpan();
   const { user } = session;
 
@@ -238,7 +240,7 @@ function requirePrincipal(session: InjectedSession) {
 }
 
 /** The `adminProcedure` gate: an admin principal, or UNAUTHORIZED. */
-function requireAdmin(session: InjectedSession) {
+export function requireAdmin(session: InjectedSession) {
   const span = trace.getActiveSpan();
   const { user } = session;
 
@@ -259,107 +261,4 @@ function requireAdmin(session: InjectedSession) {
   span?.addEvent('auth.granted', { role: 'admin' });
 
   return user;
-}
-
-/**
- * Initializes a tRPC instance and the full middleware stack for one feature's
- * context. Generic in the *extension* only; the base half stays concrete, so the
- * gates below still narrow `ctx.session.user` against a real type. The extension
- * is opaque here — the substrate carries it and reads none of it.
- *
- * Every middleware is an inline arrow passed straight to `.use`, and has to be.
- * A generic context leaves tRPC's `ContextCallback` conditionals unresolved, and
- * the `MiddlewareBuilder` a standalone `t.middleware(fn)` produces then stops
- * being assignable to what `.use` wants — the two sides only agree once the
- * context is concrete. Passed inline, the arrow is contextually typed by `.use`
- * itself and the two never have to be compared. This is the constraint the old
- * concrete-context comment was really about; it costs an inline arrow, not the
- * type parameter.
- */
-function buildCore<TExtension extends object>() {
-  const t = initTRPC.context<BaseContext & TExtension>().create({
-    transformer: superjson,
-    errorFormatter({ shape, error }) {
-      return {
-        ...shape,
-        data: {
-          ...shape.data,
-          zodError:
-            error.cause instanceof ZodError
-              ? z.treeifyError(error.cause)
-              : null,
-        },
-      };
-    },
-  });
-
-  const publicProcedure = t.procedure
-    .use(({ next, path, type, ctx }) =>
-      withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
-    )
-    .use(({ next, path }) => withTimingLog(path, t._config.isDev, next));
-
-  const protectedProcedure = publicProcedure.use(({ next, ctx }) =>
-    next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
-  );
-
-  const adminProcedure = publicProcedure.use(({ next, ctx }) =>
-    next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
-  );
-
-  return {
-    t,
-    api: {
-      // Pinned to this feature's extension, so its `createTRPCContext`
-      // re-export asks callers for exactly the fields its procedures read.
-      createTRPCContext: createTRPCContext<TExtension>,
-      createTRPCRouter: t.router,
-      createCallerFactory: t.createCallerFactory,
-      publicProcedure,
-      protectedProcedure,
-      adminProcedure,
-    },
-  };
-}
-
-/**
- * Feature tRPC for a feature with no database. Every procedure receives the
- * neutral base context, plus whatever `TExtension` the feature declares — see
- * `@acme/chat`'s `api/trpc.ts` for a feature that declares one and
- * `@acme/ingest`'s for one that doesn't.
- */
-export function createFeatureTRPC<TExtension extends object = object>() {
-  return buildCore<TExtension>().api;
-}
-
-/**
- * Feature tRPC for a feature with a database. The Drizzle client is
- * instrumented for tracing and injected into every procedure's context as
- * `ctx.db`, typed to the feature's own schema (`TDb`).
- *
- * `TDb` comes first because it is inferred from `db`; a feature that also wants
- * a context extension names both (`createFeatureTRPCWithDb<db, MyContext>(_db)`),
- * since TypeScript won't mix inference with a partial type-argument list.
- */
-export function createFeatureTRPCWithDb<
-  TDb extends DrizzleDb,
-  TExtension extends object = object,
->(db: TDb) {
-  instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
-
-  const { api } = buildCore<TExtension>();
-
-  // Inlined per procedure rather than shared as one `t.middleware`, for the
-  // reason `buildCore` documents: a standalone middleware builder doesn't
-  // survive a generic context.
-  return {
-    ...api,
-    publicProcedure: api.publicProcedure.use(({ next }) =>
-      next({ ctx: { db } }),
-    ),
-    protectedProcedure: api.protectedProcedure.use(({ next }) =>
-      next({ ctx: { db } }),
-    ),
-    adminProcedure: api.adminProcedure.use(({ next }) => next({ ctx: { db } })),
-  };
 }

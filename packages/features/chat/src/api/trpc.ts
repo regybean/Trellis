@@ -1,33 +1,61 @@
-import { TRPCError } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import type { EntitlementsProvider } from '@acme/entitlements';
+import type { BaseContext } from '@acme/trpc';
 import { createDb } from '@acme/db';
 import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
-import { createFeatureTRPCWithDb } from '@acme/trpc';
-
-const _db = createDb();
-
-export const db = _db;
-export type db = typeof _db;
+import { instrumentDrizzleClient } from '@acme/telemetry';
+import {
+  requireAdmin,
+  requirePrincipal,
+  trpcConfig,
+  withProcedureSpan,
+  withTimingLog,
+} from '@acme/trpc';
 
 /**
- * Chat's tRPC context extension — the injected `EntitlementsProvider`. Chat
- * meters credits inline in `send` and refunds through the same seam in
- * `reconcileTurn` (ADR 0006, #109 amendment), so it declares the provider it
- * resolves against. The substrate no longer does that for every feature (#256).
+ * Chat's Drizzle client, instrumented for tracing once at module load. Routers
+ * import it directly rather than reading it off `ctx.db`: it is a module
+ * singleton, no test ever swaps it, and threading it through a middleware only
+ * bought a second name for the same object (#264).
  */
-export interface ChatContext {
+export const db = createDb();
+
+instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
+
+/**
+ * Chat's request context — the neutral base the app adapter injects, plus the
+ * `EntitlementsProvider`. Chat meters credits inline in `send` and refunds
+ * through the same seam in `reconcileTurn` (ADR 0006, #109 amendment), so it
+ * names the provider it resolves against. The substrate names it for nobody
+ * (#256), and no longer carries it as a type parameter either (#264).
+ */
+export interface ChatContext extends BaseContext {
   entitlements: EntitlementsProvider;
 }
 
-export const {
-  createTRPCContext,
-  createTRPCRouter,
-  createCallerFactory,
-  protectedProcedure,
-  adminProcedure,
-} = createFeatureTRPCWithDb<db, ChatContext>(_db);
+const t = initTRPC.context<ChatContext>().create(trpcConfig);
+
+// The shared middleware stack, composed against chat's own concrete context.
+// The bodies live once in `@acme/trpc` as plain async helpers; only this wiring
+// is per-feature (#264).
+const telemetry = t.middleware(({ next, path, type, ctx }) =>
+  withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
+);
+const timing = t.middleware(({ next, path }) => withTimingLog(path, next));
+const authed = t.middleware(({ next, ctx }) =>
+  next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
+);
+const admin = t.middleware(({ next, ctx }) =>
+  next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
+);
+
+export const createTRPCRouter = t.router;
+export const createCallerFactory = t.createCallerFactory;
+const publicProcedure = t.procedure.use(telemetry).use(timing);
+export const protectedProcedure = publicProcedure.use(authed);
+export const adminProcedure = publicProcedure.use(admin);
 
 const conversationInput = z.object({ sessionId: z.uuid() });
 

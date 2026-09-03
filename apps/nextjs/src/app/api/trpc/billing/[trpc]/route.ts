@@ -1,9 +1,12 @@
-import { appRouter, createTRPCContext } from '@acme/billing/server';
+import { appRouter } from '@acme/billing/server';
 
-import { createTRPCRouteHandlersWithEntitlements } from '~/server/trpc-route';
+import {
+  createTRPCRouteHandlers,
+  resolveContextWithEntitlements,
+} from '~/server/trpc-route';
 
-export const { GET, POST, OPTIONS } = createTRPCRouteHandlersWithEntitlements({
+export const { GET, POST, OPTIONS } = createTRPCRouteHandlers({
   endpoint: '/api/trpc/billing',
   router: appRouter,
-  createContext: createTRPCContext,
+  resolver: resolveContextWithEntitlements,
 });

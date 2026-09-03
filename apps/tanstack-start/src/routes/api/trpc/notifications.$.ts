@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { appRouter, createTRPCContext } from '@acme/notifications/server';
+import { appRouter } from '@acme/notifications/server';
 
+import { resolveAuthContext } from '~/lib/trpc-context';
 import { createTRPCServerHandlers } from '~/lib/trpc-route';
 
 export const Route = createFileRoute('/api/trpc/notifications/$')({
@@ -9,7 +10,7 @@ export const Route = createFileRoute('/api/trpc/notifications/$')({
     handlers: createTRPCServerHandlers({
       endpoint: '/api/trpc/notifications',
       router: appRouter,
-      createContext: createTRPCContext,
+      resolver: resolveAuthContext,
     }),
   },
 });

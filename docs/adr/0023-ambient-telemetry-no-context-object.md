@@ -53,3 +53,21 @@ nothing to call.
 - If a future need arises to trace work done _during_ context creation (before the
   procedure span is active, e.g. `entitlements.resolve`), it needs its own span —
   it can no longer piggyback on a context-level telemetry object.
+
+## Amendment (#264) — the telemetry middleware is now wired per feature
+
+The decision is unchanged: telemetry is ambient, nothing reads `ctx.telemetry`,
+and the per-procedure span is created and activated by one middleware that
+everything else reads through `trace.getActiveSpan()`.
+
+What moved is where that middleware is _wired_. `@acme/trpc` no longer builds a
+tRPC instance at all — it exports `withProcedureSpan`, the plain async helper that
+owns the span lifecycle, and each feature wraps it in a one-line `t.middleware`
+against its own concrete context. Same span name, same attributes, same ordering
+(telemetry first, so every later middleware has an active span to write to); the
+`initTRPC` call it is attached to is the feature's now.
+
+The "concrete-context blocker" this ADR cites from ADR 0005 is doubly dead: with
+no `ctx.telemetry` there is nothing to type, and with #264 there is no generic
+context left to type it against. See the
+[#264 amendment to ADR 0006](0006-entitlements-injection-seam.md).

@@ -360,7 +360,7 @@ export const chatRouter = createTRPCRouter({
       // asserted through the folders module so `chat_folder` is only ever
       // queried there — no naked Drizzle query in this router body.
       if (input.folderId) {
-        await assertFolderOwned(ctx.db, input.folderId, userId);
+        await assertFolderOwned(input.folderId, userId);
       }
 
       try {

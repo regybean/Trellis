@@ -48,3 +48,30 @@ accepted
   existing server initialization stays under the server entry.
 - New features reduce to thin re-export files; the turbo generator template is updated
   to emit them.
+
+## Amendment (#264) — the server factory is gone; the decision it argues for is not
+
+The names above are stale. `@acme/trpc/server` no longer exists, and neither does
+`createFeatureServerCaller({ name, appRouter, createTRPCContext })` — nor
+`createTRPCContext` itself. Each feature now builds its own tRPC instance on its
+own concrete context in `api/trpc.ts`, and writes its own `trpc/server.tsx` RSC
+caller against it; `@acme/trpc` exports `trpcConfig` plus four middleware bodies
+and owns no `initTRPC` call (see the package `CONTEXT.md` and ADR 0006's #264
+amendment for why the generic had to go).
+
+The rejection recorded here still holds, and is why nothing was consolidated
+behind a name key when the wiring moved back into the features:
+
+- **Reason 1 (a runtime registry poisons the browser bundle) is unchanged.** The
+  client half still needs only the `AppRouter` type and a URL — `@acme/hooks`'
+  `createFeatureClientReact<AppRouter>(name)` is still the one string. The server
+  half still holds the real `appRouter` and pulls `server-only`, Redis and
+  Drizzle behind it.
+- **Reason 2 (a string key carries no type) is unchanged.** Feature routers are
+  still reached through `<AppRouter>` at the call site.
+- **Reason 3 (registration is an import-order hazard) now argues for less.** The
+  values a mount needs — `appRouter` and the app's own context resolver — are
+  already in lexical scope at the route file, so `createTRPCFetchHandler` takes
+  them as arguments. It infers the context from the router it is handed and
+  types `resolver` against it, which is the check the old threaded
+  `createTRPCContext` was there to spell out.
