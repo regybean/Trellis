@@ -98,9 +98,15 @@ app's `OPTIONS` seam.
 - The four middleware bodies — `withProcedureSpan`, `withTimingLog`,
   `requirePrincipal`, `requireAdmin` — live here as plain functions with no tRPC
   types in them; each feature wraps them in `t.middleware` and stacks them
+- Each body takes only what it logs or decides on. `withTimingLog` reads
+  `NODE_ENV` itself rather than taking an `isDev` flag, so "how do we detect
+  dev" is not a fact five features and the generator template each restate by
+  reaching into tRPC's private `t._config`
 - Every procedure receives its feature's **Feature context**, whole — there is no
   merge step and nothing the substrate adds
-- **Admin procedure** and **Protected procedure** build on the public procedure (telemetry + timing middleware)
+- **Admin procedure** and **Protected procedure** build on a public procedure
+  (telemetry + timing middleware) that each feature keeps unexported — every
+  procedure in the tree today is gated, so the base is a local, not a surface
 - The telemetry middleware creates and _activates_ the per-procedure span; the other
   middlewares emit their events through the active span read ambiently via
   `trace.getActiveSpan()`, not through `ctx` (ADR 0023)

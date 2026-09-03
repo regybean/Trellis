@@ -9,6 +9,8 @@ import { z, ZodError } from 'zod/v4';
 import { logger } from '@acme/logger';
 import { getTracer, SpanStatusCode } from '@acme/telemetry/server';
 
+import { env } from './env';
+
 /**
  * The session seam. The *app's* adapter resolves whoever its auth provider says
  * is calling and injects the result here; this package names no provider and
@@ -185,15 +187,21 @@ export async function withProcedureSpan<T>(
  * Logs a procedure's wall-clock duration, plus an artificial 100-500ms stall in
  * dev so local UIs actually render their loading states. A plain helper for the
  * same reason as `withProcedureSpan`.
+ *
+ * The dev check is read from this slice's own validated env rather than
+ * threaded in as a parameter. Every feature passed `t._config.isDev`, which
+ * made "how do we detect dev" a fact six files knew (five wirings plus the
+ * generator template) and reached into tRPC's private `_config` to learn — so
+ * retuning it meant editing all six (#265 review).
+ *
+ * `=== 'development'` is also the honest test: tRPC's `isDev` defaults to
+ * `NODE_ENV !== 'production'`, so the stall used to fire under `test` too — a
+ * random 100-500ms added to every procedure call in the backend suites.
  */
-export async function withTimingLog<T>(
-  path: string,
-  isDev: boolean,
-  run: () => Promise<T>,
-) {
+export async function withTimingLog<T>(path: string, run: () => Promise<T>) {
   const start = Date.now();
 
-  if (isDev) {
+  if (env.NODE_ENV === 'development') {
     const waitMs = Math.floor(Math.random() * 400) + 100;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }

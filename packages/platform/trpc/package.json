@@ -1,9 +1,11 @@
 {
   "name": "@acme/trpc",
   "dependencies": {
+    "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/telemetry": "workspace:*",
     "@opentelemetry/api": "catalog:",
+    "@t3-oss/env-core": "catalog:",
     "@trpc/server": "catalog:",
     "server-only": "catalog:",
     "superjson": "catalog:",
