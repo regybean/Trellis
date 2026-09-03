@@ -1,142 +1,7 @@
 {
   "version": 1,
-  "doc": "docs/adr/0037-vendored-git-subset-three-way-merge.md",
-  "about": "What this repo can distribute as a bank, and what it never distributes. This file is the source of truth, superseding the prose inventory in issue #219 — that one drifted from the repo and shipped wrong paths. Two selectable kinds: `packages` are real workspace packages; `bundles` are named groups of the content that cannot be a package, because the tools that read it require it at a fixed repo-relative path. `exclude` records the paths deliberately left out and why. A consumer's bank.manifest.json `include` is the flat union of the paths behind its selection; bank:sync reads that and nothing else. Paths here are prefixes — bank:sync has no per-path exclusion, so anything on `exclude` must be a path that no selectable prefix already covers.",
-  "packages": [
-    {
-      "name": "@acme/eslint-config",
-      "path": "tooling/eslint",
-      "layer": "tooling"
-    },
-    {
-      "name": "@acme/github",
-      "path": "tooling/github",
-      "layer": "tooling"
-    },
-    {
-      "name": "@acme/prettier-config",
-      "path": "tooling/prettier",
-      "layer": "tooling"
-    },
-    {
-      "name": "@acme/tailwind-config",
-      "path": "tooling/tailwind",
-      "layer": "tooling",
-      "note": "Carries `theme.css`, which #219 and #240 put outside the default include as per-app identity. It comes across anyway, as a seed, on the same reasoning that moved @acme/env in: the package is a hard dependency of every UI package, so excluding the theme leaves the include list unbuildable, and there is no way to express `take the package but not one file` — bank:sync's include is prefixes only. Three-way merge is what makes seeding safe: the base is the previous vendor commit, so a consumer's own theme survives every later sync and conflicts only where both sides edited the same lines."
-    },
-    {
-      "name": "@acme/test-utils",
-      "path": "tooling/test-utils",
-      "layer": "tooling"
-    },
-    {
-      "name": "@acme/tsconfig",
-      "path": "tooling/typescript",
-      "layer": "tooling"
-    },
-    {
-      "name": "@acme/vitest-config",
-      "path": "tooling/vitest",
-      "layer": "tooling"
-    },
-    {
-      "name": "@acme/db",
-      "path": "packages/platform/db",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/entitlements",
-      "path": "packages/platform/entitlements",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/env",
-      "path": "packages/platform/env",
-      "layer": "platform",
-      "note": "In the bank as a seed, superseding #219's \"out, per-app identity\". Two reasons. Thirteen of the nineteen runtime packages under packages/* depend on @acme/env, so excluding it makes nearly every possible selection fail to install with nothing for the consumer to copy from. And ADR 0033 gives each slice its own env factory, composed into the app's — so the per-app part is the app's composition, which is not in the bank, not this package. Under three-way merge a consumer's edits here survive and conflict only where both sides touched the same lines, which is #240's own argument for path-uniformity. Do not re-exclude it."
-    },
-    {
-      "name": "@acme/logger",
-      "path": "packages/platform/logger",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/queue",
-      "path": "packages/platform/queue",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/redis",
-      "path": "packages/platform/redis",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/subscriptions",
-      "path": "packages/platform/subscriptions",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/telemetry",
-      "path": "packages/platform/telemetry",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/trpc",
-      "path": "packages/platform/trpc",
-      "layer": "platform"
-    },
-    {
-      "name": "@acme/auth",
-      "path": "packages/shared/auth",
-      "layer": "shared",
-      "note": "In the bank, superseding #219's \"joins once Trellis moves to Better Auth\". That condition is met: #218 is closed and Clerk is gone from live code, so the two repos' auth packages are no longer a shared name over unrelated content."
-    },
-    {
-      "name": "@acme/hooks",
-      "path": "packages/shared/hooks",
-      "layer": "shared"
-    },
-    {
-      "name": "@acme/models",
-      "path": "packages/shared/models",
-      "layer": "shared"
-    },
-    {
-      "name": "@acme/notifications",
-      "path": "packages/shared/notifications",
-      "layer": "shared"
-    },
-    {
-      "name": "@acme/rag",
-      "path": "packages/shared/rag",
-      "layer": "shared"
-    },
-    {
-      "name": "@acme/ui",
-      "path": "packages/shared/ui",
-      "layer": "shared"
-    },
-    {
-      "name": "@acme/billing",
-      "path": "packages/features/billing",
-      "layer": "features"
-    },
-    {
-      "name": "@acme/chat",
-      "path": "packages/features/chat",
-      "layer": "features"
-    },
-    {
-      "name": "@acme/feedback",
-      "path": "packages/features/feedback",
-      "layer": "features"
-    },
-    {
-      "name": "@acme/ingest",
-      "path": "packages/features/ingest",
-      "layer": "features"
-    }
-  ],
+  "doc": "docs/adr/0039-the-selection-is-the-contract.md",
+  "about": "What this repo can distribute as a bank, and what it never distributes. This file is the source of truth, superseding the prose inventory in issue #219 — that one drifted from the repo and shipped wrong paths. It records the two things that cannot be derived. `bundles` are named groups of content that cannot be a package, because the tools that read it require it at a fixed repo-relative path. `exclude` records the paths deliberately left out and why. The bank's *package* set is not listed here: it is every workspace package the `pnpm-workspace.yaml` globs match, minus anything under `exclude`, so a package that is added, moved or renamed needs no edit (ADR 0039). A consumer's bank.manifest.json names packages and bundles; `bank:sync` resolves that selection to the transitive workspace closure of paths at the pinned ref, and reads nothing else. Paths here are prefixes — bank:sync has no per-path exclusion, so anything on `exclude` must be a path that no selectable prefix already covers. `scripts/check-bank-paths.mjs` fails `pnpm lint` when a tracked root-level entry is in neither a bundle nor `exclude`.",
   "bundles": [
     {
       "name": "root",
@@ -246,6 +111,10 @@
     {
       "path": ".vscode",
       "reason": "Editor preferences — developer-local, and a consumer's team decides its own."
+    },
+    {
+      "path": "bank.paths.json",
+      "reason": "The bank's inventory of itself. bank:sync reads it out of the fetched bank tree at `ref`, never off the consumer's disk, so vendoring it would put a second, always-staler copy in a repo that already reads the authoritative one."
     }
   ]
 }
