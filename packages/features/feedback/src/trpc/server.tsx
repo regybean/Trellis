@@ -11,6 +11,12 @@ import type { AppRouter } from '../api/root';
 import type { FeedbackContext } from '../api/trpc';
 import { appRouter } from '../api/root';
 
+// The RSC half's own client — a fresh one per request, from the same factory the
+// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
+// no React context to read one from, and its cache is dehydrated into the
+// response rather than shared.
+const getQueryClient = cache(createAppQueryClient);
+
 /**
  * Framework-neutral RSC server caller (reference scaffold — no app imports it
  * today). The session seam: the *app* resolves whoever is calling at its
@@ -20,16 +26,13 @@ import { appRouter } from '../api/root';
  * extension: no tier to gate on, no credit to spend, so it names no entitlements
  * provider at all. `@acme/chat`'s equivalent does (#256, ADR 0006 amendment).
  * See docs/adr/0003-framework-agnostic-auth-seam.md.
+ *
+ * `opts` *is* the context: it is handed to every RSC procedure as it
+ * arrives, with only `x-trpc-source` added to the headers. There is no
+ * second name for it — the alias this used to carry (`ServerTRPCOptions`)
+ * said nothing the context type doesn't (#264).
  */
-export type ServerTRPCOptions = FeedbackContext;
-
-// The RSC half's own client — a fresh one per request, from the same factory the
-// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
-// no React context to read one from, and its cache is dehydrated into the
-// response rather than shared.
-const getQueryClient = cache(createAppQueryClient);
-
-export function createServerTRPC(opts: ServerTRPCOptions) {
+export function createServerTRPC(opts: FeedbackContext) {
   const createContext = cache(() => {
     const heads = new Headers(opts.headers);
     heads.set('x-trpc-source', 'rsc');

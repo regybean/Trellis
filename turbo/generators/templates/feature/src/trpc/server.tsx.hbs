@@ -10,6 +10,12 @@ import type { {{ pascalCase name }}Context } from '../api/trpc';
 import { appRouter } from '../api/root';
 import { createAppQueryClient } from '@acme/hooks';
 
+// The RSC half's own client — a fresh one per request, from the same factory the
+// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
+// no React context to read one from, and its cache is dehydrated into the
+// response rather than shared.
+const getQueryClient = cache(createAppQueryClient);
+
 /**
  * Framework-neutral RSC server caller. The session seam: the *app* resolves
  * whoever is calling at its boundary and injects the result here, so this
@@ -19,16 +25,12 @@ import { createAppQueryClient } from '@acme/hooks';
  * The options *are* the feature's context, so adding a field in `api/trpc.ts`
  * is all it takes for callers to have to supply it here too — `@acme/chat`'s
  * `entitlements` is the worked example (#256, ADR 0006).
+ *
+ * `opts` *is* the context: it is handed to every RSC procedure as it arrives,
+ * with only `x-trpc-source` added to the headers. Name the context type here
+ * rather than aliasing it — a second name for one type says nothing (#264).
  */
-export type ServerTRPCOptions = {{ pascalCase name }}Context;
-
-// The RSC half's own client — a fresh one per request, from the same factory the
-// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
-// no React context to read one from, and its cache is dehydrated into the
-// response rather than shared.
-const getQueryClient = cache(createAppQueryClient);
-
-export function createServerTRPC(opts: ServerTRPCOptions) {
+export function createServerTRPC(opts: {{ pascalCase name }}Context) {
   const createContext = cache(() => {
     const heads = new Headers(opts.headers);
     heads.set('x-trpc-source', 'rsc');
