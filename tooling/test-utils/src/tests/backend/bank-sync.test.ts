@@ -141,6 +141,38 @@ function sync(consumer: string) {
   });
 }
 
+/**
+ * Runs `--check`, returning its exit code and stdout. A non-zero exit is an
+ * outcome here rather than a failure, so both paths come back the same shape.
+ */
+function check(consumer: string) {
+  try {
+    const stdout = execFileSync('node', ['scripts/bank-sync.mjs', '--check'], {
+      cwd: consumer,
+      env: gitEnv,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
+    return { status: 0, stdout: String(stdout) };
+  } catch (error) {
+    if (error instanceof Error && 'status' in error && 'stdout' in error) {
+      return { status: Number(error.status), stdout: String(error.stdout) };
+    }
+    throw error;
+  }
+}
+
+/** Repoints the consumer's manifest at another bank ref. */
+function pin(consumer: string, ref: string) {
+  const manifest: unknown = JSON.parse(read(consumer, 'bank.manifest.json'));
+  write(
+    consumer,
+    'bank.manifest.json',
+    `${JSON.stringify({ ...(manifest as object), ref }, null, 2)}\n`,
+  );
+  commit(consumer, `consumer: pin ${ref}`);
+}
+
 /** Runs a sync expected to fail, returning its exit code and stderr. */
 function syncFailure(consumer: string) {
   try {
@@ -300,5 +332,120 @@ describe('bank:sync builds the vendor branch', () => {
     expect(status).not.toBe(0);
     expect(stderr).toContain('bank/nope');
     expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(vendorBefore);
+  });
+});
+
+describe('bank:sync --check reports drift', () => {
+  /** Pins the consumer to a tag, syncs and merges it, then moves the bank on. */
+  function fallBehind(sandbox: Sandbox) {
+    const { bank, consumer } = sandbox;
+    git(bank, ['tag', 'bank/2026-01-01']);
+    pin(consumer, 'bank/2026-01-01');
+    sync(consumer);
+    merge(consumer, ['--allow-unrelated-histories']);
+
+    write(bank, 'tooling/prettier.js', 'export default { semi: false };\n');
+    write(bank, 'turbo.json', '{ "tasks": { "build": {} } }\n');
+    commit(bank, 'bank: prettier semi and a build task');
+  }
+
+  it('exits 0 with a one-line all clear when up to date and unmodified', () => {
+    const { consumer } = setup();
+    sync(consumer);
+    merge(consumer, ['--allow-unrelated-histories']);
+
+    const { status, stdout } = check(consumer);
+
+    expect(status).toBe(0);
+    expect(stdout.trim().split('\n')).toHaveLength(1);
+    expect(stdout).toContain('Up to date with main');
+  });
+
+  it('exits 2 naming the unpulled commit count and the include paths that moved', () => {
+    const sandbox = setup();
+    fallBehind(sandbox);
+
+    const { status, stdout } = check(sandbox.consumer);
+
+    expect(status).toBe(2);
+    expect(stdout).toContain('Behind by 1 bank commit.');
+    expect(stdout).toContain('tooling (1 file)');
+    expect(stdout).toContain('turbo.json (1 file)');
+  });
+
+  it('leaves the vendor branch, the working tree and the history untouched', () => {
+    const sandbox = setup();
+    fallBehind(sandbox);
+    const { consumer } = sandbox;
+
+    const before = {
+      head: git(consumer, ['rev-parse', 'HEAD']),
+      vendor: git(consumer, ['rev-parse', 'vendor/trellis']),
+      commits: git(consumer, ['rev-list', '--count', '--all']),
+    };
+
+    expect(check(consumer).status).toBe(2);
+
+    expect(git(consumer, ['rev-parse', 'HEAD'])).toBe(before.head);
+    expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(before.vendor);
+    expect(git(consumer, ['rev-list', '--count', '--all'])).toBe(
+      before.commits,
+    );
+    expect(git(consumer, ['status', '--porcelain'])).toBe('');
+  });
+
+  it('lists a locally modified vendored path with the prompt to contribute it back', () => {
+    const { consumer } = setup();
+    sync(consumer);
+    merge(consumer, ['--allow-unrelated-histories']);
+
+    write(
+      consumer,
+      'tooling/eslint.js',
+      numberedLines('bank first', 'consumer changed the last line'),
+    );
+    commit(consumer, 'consumer: tweak the tail');
+
+    const { status, stdout } = check(consumer);
+
+    // Still up to date with the bank — a local edit is a report, not a pull.
+    expect(status).toBe(0);
+    expect(stdout).toContain('Locally modified vendored paths:');
+    expect(stdout).toContain('tooling/eslint.js');
+    expect(stdout).toContain('contributing them back');
+    // The consumer's own file is outside `include`, so it is not drift.
+    expect(stdout).not.toContain('apps/consumer/own.ts');
+  });
+
+  it('does not mistake an unmerged sync for a local modification', () => {
+    const { bank, consumer } = setup();
+    sync(consumer);
+    merge(consumer, ['--allow-unrelated-histories']);
+
+    write(bank, 'tooling/prettier.js', 'export default { semi: false };\n');
+    commit(bank, 'bank: prettier semi');
+    sync(consumer);
+
+    const { stdout } = check(consumer);
+
+    expect(stdout).not.toContain('Locally modified vendored paths:');
+  });
+
+  it('exits 2 saying the vendor branch is missing when nothing has synced', () => {
+    const { consumer } = setup();
+
+    const { status, stdout } = check(consumer);
+
+    expect(status).toBe(2);
+    expect(stdout).toContain('vendor/trellis does not exist');
+  });
+
+  it('exits 1 on an error, distinct from both other outcomes', () => {
+    const { consumer } = setup();
+    sync(consumer);
+    merge(consumer, ['--allow-unrelated-histories']);
+    pin(consumer, 'bank/nope');
+
+    expect(check(consumer).status).toBe(1);
   });
 });

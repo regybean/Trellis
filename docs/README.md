@@ -9,6 +9,7 @@ Contents — every doc in the repo, in reading order.
 | [Project README](../README.md)                 | The big idea, the layered architecture, the apps, quickstart.                                                                                                                                            |
 | [Getting started](getting-started.md)          | Step-by-step first run: install → infra → env → db → run → verify.                                                                                                                                       |
 | [What you get with Trellis](whats-included.md) | Full inventory: features, shared primitives, platform, tooling, the dev flow, the complete command reference, and [what's malleable vs load-bearing](whats-included.md#whats-malleable-vs-load-bearing). |
+| [The bank](bank.md)                            | Consuming Trellis packages in another repo: pinning a tag, syncing, resolving conflicts, reading a drift report.                                                                                         |
 
 ## Mounting a package into an app
 

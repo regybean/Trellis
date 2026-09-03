@@ -1,0 +1,311 @@
+# The bank: consuming Trellis packages
+
+Trellis is a **bank** other repos take packages from and keep taking from, so a
+fix made once reaches every repo that took it. This guide is for the maintainer
+of one of those repos. It covers setting one up from nothing, keeping it
+current, and resolving the conflicts a merge raises.
+
+The mechanism is a vendored git subset updated by three-way merge
+([ADR 0037](adr/0037-vendored-git-subset-three-way-merge.md)). Git is the only
+distribution format that ships the **merge base** along with the content, which
+is the whole reason for the choice. npm can only replace a package wholesale,
+and copy-and-own gives you the files with no way to update them.
+
+## What the bank holds
+
+[`bank.paths.json`](../bank.paths.json) at the repo root is the source of truth.
+It lists three things.
+
+- **`packages`.** The selectable workspace packages: `tooling/*`, everything
+  under `packages/platform/`, the generic `packages/shared/*`, and the feature
+  slices. Each entry carries its layer, and some carry a note explaining why it
+  is in.
+- **`bundles`.** Named groups of content that cannot be a package, because the
+  tools that read it require it at a fixed repo-relative path. `root` is always
+  included and holds `turbo.json`, `pnpm-workspace.yaml`, `patches/`, `scripts/`
+  and the lint and hook configs. The rest are `scaffolding`, `agents`, `ci`,
+  `docs` and `infra`.
+- **`exclude`.** What is left out, with a reason each. The root `package.json`,
+  `pnpm-lock.yaml`, `README.md`, `LICENSE` and `apps/` are all consumer
+  identity. The bank distributes packages and configuration, never an
+  application and never your front page.
+
+`include` in your manifest is the flat union of the paths behind your selection.
+It is **path-uniform**. Any repo-relative path may appear in it, and the bank
+makes no per-path promise about how well a given path merges. Subscribing to a
+feature slice is allowed, and you own whatever conflicts it produces.
+
+Two paths arrive as **seeds** rather than as shared code: `packages/platform/env`
+and `tooling/tailwind`'s `theme.css`. Nearly every package depends on them, so
+excluding them leaves an uninstallable selection. They are yours to rewrite on
+arrival. Three-way merge is what makes that safe. Your edits survive every later
+sync and conflict only where both sides touched the same lines.
+
+## Setting up a consumer repo
+
+### 1. Write `bank.manifest.json`
+
+At the root of your repo:
+
+```json
+{
+  "upstream": "https://github.com/regybean/Trellis.git",
+  "ref": "bank/2026-08-26",
+  "include": [
+    "turbo.json",
+    "pnpm-workspace.yaml",
+    "patches",
+    "scripts",
+    "lefthook.yml",
+    "knip.jsonc",
+    ".kniprc.json",
+    ".gitleaks.toml",
+    ".syncpackrc.ts",
+    ".jscpd.json",
+    ".nvmrc",
+    ".prettierignore",
+    ".dockerignore",
+    ".gitignore",
+    "tooling/eslint",
+    "tooling/prettier",
+    "tooling/typescript",
+    "packages/platform/logger"
+  ],
+  "contributable": []
+}
+```
+
+- **`upstream`.** The bank's git URL. It is public, so cloning or fetching it
+  needs no credentials, including from a private host.
+- **`ref`.** The bank tag you are pinned to. See [Pinning](#2-pin-a-bank-tag).
+- **`include`.** The paths you take, assembled from `bank.paths.json`. The `root`
+  bundle is not optional. Without it `pnpm install` does not work.
+- **`contributable`.** The paths allowed to flow **back** to the bank. Default
+  empty, so forgetting to maintain it fails closed.
+
+### 2. Pin a bank tag
+
+The bank's canonical branch is `main`, and known-good sync points are tagged
+`bank/YYYY-MM-DD`. Pin a tag rather than a branch or a sha. A branch moves under
+you, and a sha means choosing between hundreds of them.
+
+```bash
+git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
+```
+
+### 3. Vendor the sync script
+
+`scripts/bank-sync.mjs` lives in the `root` bundle, so after your first sync it
+arrives, and updates itself, like anything else. The first sync needs the script
+before it exists, so copy it in by hand once. Then add the script entry to your
+root `package.json`. The root manifest is yours, and the bank never writes it.
+
+```json
+{ "scripts": { "bank:sync": "node scripts/bank-sync.mjs" } }
+```
+
+### 4. Sync and merge
+
+```bash
+pnpm bank:sync
+git merge --allow-unrelated-histories vendor/trellis
+```
+
+The first merge needs `--allow-unrelated-histories` because your repo and the
+vendor branch have no shared commit yet. Every merge after it is ordinary, and
+the script prints the right command for you.
+
+## Running a sync
+
+Updating is two commands, and they stay two commands forever:
+
+```bash
+pnpm bank:sync                 # rewrites vendor/trellis; merges nothing
+git merge vendor/trellis       # your call, your conflicts
+```
+
+`bank:sync` fetches the bank at `ref` and rewrites your local `vendor/trellis`
+branch so its tree is bank@ref filtered down to `include` and nothing else,
+committed on top of the previous vendor commit. Then it stops. It does not check
+anything out and does not touch your working tree or index, so it is safe to run
+on a dirty branch.
+
+Three rules keep the mechanism working.
+
+- **`vendor/trellis` is pristine.** It holds upstream content only. Never commit
+  to it. Edit it and you have destroyed the merge base, which is the only thing
+  it exists to be.
+- **Don't delete it.** It is state you cannot afford to lose. Recovery means
+  re-syncing at the last ref you merged, then syncing forward again.
+- **Merge is yours.** The sync never merges, so nothing lands in your history
+  without you running `git merge`.
+
+To take a newer bank, bump `ref` in the manifest and run the same two commands.
+
+## Reading and resolving a conflict
+
+Because the previous vendor commit is a genuine merge base, `git merge` replays
+what changed upstream, keeps your local edits, and raises a conflict **only**
+where both sides touched the same lines. Independent edits to different regions
+of the same file merge silently.
+
+A conflict looks like any other:
+
+```
+<<<<<<< HEAD
+export const timeout = 30_000; // ours: raised for the slow ingest path
+=======
+export const timeout = 10_000; // theirs: bank@a1b2c3d4
+>>>>>>> vendor/trellis
+```
+
+`HEAD` is your repo. `vendor/trellis` is the bank. Resolve it as you would any
+merge:
+
+```bash
+git status                     # what is unmerged
+git diff --diff-filter=U       # the conflicted hunks
+$EDITOR <file>                 # resolve
+git add <file>
+git commit                     # completes the merge
+```
+
+Two things to check while you resolve:
+
+- **Why the bank changed the line.** `git log -p <bank-sha-range> -- <path>` in a
+  bank clone gives the reasoning, and the ADRs under `docs/adr/` cover the
+  decisions that are hard to reverse.
+- **Whether you resolve it the same way every sync.** If you do, either your
+  version is generic and belongs back in the bank (see
+  [Drift](#what-to-do-when---check-reports-drift)), or the path is yours and
+  should come out of `include`.
+
+`git merge --abort` backs out without touching the vendor branch, so you can
+retry whenever.
+
+## Checking for drift
+
+The bank cannot see its consumers and never will, so both drift questions run on
+your side:
+
+```bash
+pnpm bank:sync --check
+```
+
+It writes nothing. No commits, no move of `vendor/trellis`, no change to your
+working tree. It fetches objects and reads refs, and that is all.
+
+```
+bank:     https://github.com/regybean/Trellis.git
+pinned:   bank/2026-08-26 (a1b2c3d4)
+bank tip: main (e5f6a7b8)
+
+Behind by 14 bank commits. "include" paths that changed in them:
+  scripts (3 files)
+  tooling/eslint (1 file)
+  packages/shared/ui (9 files)
+
+To take them: point "ref" in bank.manifest.json at the newest bank tag, then run pnpm bank:sync.
+
+Locally modified vendored paths:
+  M  packages/shared/hooks/src/base-url.ts
+  A  scripts/deploy-ado.sh
+
+Review these and consider contributing them back to the bank — anything generic
+here is a fix every other consumer is currently missing.
+```
+
+`--check` rolls upstream changes up to the `include` entry that owns them,
+because a package-level answer stays readable where nine months of file names
+does not. It lists your own modifications per file with their git status,
+because those are what you review one by one.
+
+It measures those modifications against the merge base of `HEAD` and
+`vendor/trellis`, the last vendor commit you actually merged. So a sync you have
+not merged yet does not show up as your drift.
+
+When everything is current:
+
+```
+Up to date with bank/2026-08-26 (a1b2c3d4) — nothing unpulled, no locally modified vendored paths.
+```
+
+### Exit codes
+
+| Code | Outcome        | Meaning                                                                                  |
+| ---- | -------------- | ---------------------------------------------------------------------------------------- |
+| `0`  | **up to date** | Nothing unpulled. Locally modified paths may still be reported. Those are yours to keep. |
+| `1`  | **error**      | Bad manifest, unreachable bank, or a `ref` that does not resolve.                        |
+| `2`  | **behind**     | The bank has commits you have not taken, or `vendor/trellis` is not at the pinned `ref`. |
+
+Three outcomes, three codes, so any CI can gate on them.
+
+## What to do when `--check` reports drift
+
+**Behind by N commits.** Read the `include` paths it listed, bump `ref` to the
+newest `bank/YYYY-MM-DD` tag, run `pnpm bank:sync`, and merge. Nine months of
+drift arriving in one merge is the failure this command exists to prevent. Pull
+on a rhythm, not on discovery.
+
+**Locally modified vendored paths.** Read each one and decide which it is.
+
+- **Generic.** A fix or improvement with nothing to do with your domain.
+  Contribute it back: add the path to `contributable` in the manifest, then open
+  a PR against the bank with the diff. Back-flow never runs automatically and
+  always needs a human reading the diff first.
+- **Yours.** Domain-specific, or a deliberate divergence. Leave it. It survives
+  every sync, and it conflicts only if the bank edits the same lines.
+- **Accidental.** A local hack nobody remembers. Revert it and take the bank's
+  version back.
+
+Before contributing anything from client work, confirm with the engagement owner
+that publishing generic infrastructure code to a public repo is permitted. Then
+read the diff for context that is not a secret but is still not yours to
+publish: internal ticket numbers, client domain terms, hostnames. `gitleaks`
+catches credentials, not those.
+
+**`vendor/trellis` does not hold the pinned ref.** You changed `include` or `ref`
+without syncing. Run `pnpm bank:sync`.
+
+## Why no CI workflow ships with the bank
+
+`--check` is a command rather than a GitHub Actions workflow, and that is
+deliberate. [#219](https://github.com/regybean/Trellis/issues/219) originally
+asked for two CI jobs, but the known consumer runs on Azure DevOps, where GitHub
+workflow YAML is dead weight. Shipping a workflow that one consumer must delete
+and another must translate is worse than shipping neither.
+
+So the bank ships behaviour with documented exit codes and each consumer wires
+its own CI. Nothing was forgotten. Don't add a workflow here on the assumption
+that it was. A scheduled job that runs `pnpm bank:sync --check` and fails on a
+non-zero exit is a handful of lines in whatever CI you already have.
+
+## Maintainer side: cutting a bank tag
+
+For maintainers of Trellis itself.
+
+- **`main` is canonical.** There is no release branch and no separate bank repo.
+- **Tag by hand when something worth pulling lands.** Cut `bank/YYYY-MM-DD` at
+  that commit. It is a judgement call, not a schedule. The tag says the bank was
+  worth syncing from at that commit, which a nightly tag would not.
+
+```bash
+git tag bank/$(date +%F) main
+git push origin bank/$(date +%F)
+```
+
+Consumers pin those tags, so a tag promises that `main` was green at that commit.
+Cut it after the gate passes, not before.
+
+Nothing else on `main` changes for the bank. Trellis stores nothing about who
+consumes it. No consumer list, no per-consumer export, no automation beyond the
+tag.
+
+## Related
+
+- [ADR 0037](adr/0037-vendored-git-subset-three-way-merge.md) covers the
+  distribution model, and what was considered and rejected.
+- [ADR 0038](adr/0038-acme-scope-is-a-distribution-constraint.md) covers why
+  renaming the `@acme` scope breaks the mechanism.
+- [`bank.paths.json`](../bank.paths.json) is what is on offer.
+- [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) is the implementation.
