@@ -52,7 +52,7 @@
     },
     {
       "name": "docs",
-      "description": "The ADRs and the agent protocol docs — the reasoning behind the packages, which AGENTS.md and CLAUDE.md link into by relative path, so taking the agents bundle without this one leaves those links dangling.",
+      "description": "The repo-wide ADRs and the agent protocol docs, which AGENTS.md and CLAUDE.md link into by relative path, so taking the agents bundle without this one leaves those links dangling. Package-scoped reasoning is not here: it travels with the package, in its own docs/adr.",
       "paths": ["docs"]
     },
     {

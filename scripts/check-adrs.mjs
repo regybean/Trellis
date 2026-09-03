@@ -274,7 +274,10 @@ for (const path of tracked) {
   if (lstatSync(join(ROOT, path)).isSymbolicLink()) continue;
 
   const raw = readFileSync(join(ROOT, path), "utf8");
-  const text = /^(md|mdx|hbs)$/.test(extension) ? withoutCodeFences(raw) : raw;
+  // Handlebars conditionals sit in front of a template's closing fences, so its
+  // fence pairing does not survive being read as plain text. Scan it whole.
+  const isTemplate = extension === "hbs";
+  const text = /^(md|mdx)$/.test(extension) ? withoutCodeFences(raw) : raw;
   const from = dirname(path);
 
   /**
@@ -288,9 +291,19 @@ for (const path of tracked) {
   for (let dir = from; dir !== "."; dir = posix.dirname(dir))
     enclosing.push(dir);
 
+  /**
+   * A template's links are relative to where the generator will write the file,
+   * which does not exist yet — so only the tail past the `../` prefix is
+   * meaningful, and it is resolved from the root.
+   */
+  const linkRoots = isTemplate ? [".", ...enclosing] : [from];
+
   const references = [];
   for (const [, target] of text.matchAll(MARKDOWN_LINK)) {
-    references.push({ target, roots: [from] });
+    references.push({
+      target: isTemplate ? target.replace(/^(\.\.\/)+/, "") : target,
+      roots: linkRoots,
+    });
   }
   for (const [, target] of text.matchAll(BARE_PATH)) {
     references.push({ target, roots: [".", ...enclosing] });

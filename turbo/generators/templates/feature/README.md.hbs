@@ -90,3 +90,12 @@ const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Provi
 {{/if}}
 4. Register the schema for migrations (drizzle config `schema` glob), then `pnpm db:push`.
 {{/if}}
+
+## Domain docs
+
+This package may own ADRs. A decision that dies when this package is deleted
+goes in a `docs/adr/` directory **here**, numbered from `0001` in its own
+sequence; anything repo-wide goes at the root. Add the package's row to
+`CONTEXT-MAP.md` when that directory appears — `pnpm lint` checks for it.
+`CONTEXT.md` is a glossary and nothing else. The rules are in
+[docs/agents/domain.md](../../../docs/agents/domain.md).

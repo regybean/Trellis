@@ -5,10 +5,9 @@ This monorepo uses per-package `CONTEXT.md` files for domain language and `docs/
 ## System-wide
 
 Repo-wide decisions live in [`docs/adr/`](docs/adr/). A package's own decisions
-live in its `docs/adr/` and are listed per row below. Placement is the deletion
-test — if deleting the package takes the decision with it, the ADR belongs to the
-package. Numbering is **per directory**: the same number in root and in a package
-is normal.
+live in its `docs/adr/` and are listed per row below. The rules for which is
+which, how they are numbered and what a status line may say are in
+[docs/agents/domain.md](docs/agents/domain.md).
 
 | ADR                                                                             | Decision                                                                                                                 |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |

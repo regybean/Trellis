@@ -66,7 +66,7 @@ The architecture is only as honest as the tooling that keeps it that way. A few 
 - **Dev infra derived from the dependency graph.** `pnpm dev [app]` starts only the Docker services its targets actually need — the **union of `acme.infra` over each app's transitive package closure**, waits for them healthy, pushes schema, then runs the dev servers. There's no `core` always-on set: a slim app that doesn't depend on `@acme/billing` derives no Stripe container _because the graph says so_, not because anyone maintained a list ([ADR 0009](docs/adr/0009-graph-derived-dev-infra.md)).
 - **A test gate you can trust.** Every package declares a `testClass` capability in `package.json`; `pnpm test:policy` (in `quality-gate`) asserts each one ships the tests it owes, and tracked gaps are explicit `testStatus: "todo"` — so a green `pnpm test` means "coverage intent satisfied", not "the packages that happen to have tests passed" ([ADR 0007](docs/adr/0007-package-test-policy.md)).
 - **One identity partitions every shared datastore.** A single `NEXT_PUBLIC_WEBAPP` value namespaces each app's Postgres schema _and_ its Redis keyspace (the latter via an invisible client `Proxy`), so the four apps share one Postgres + one Redis without clobbering each other — fail-loud if unset ([ADR 0008](docs/adr/0008-per-app-redis-namespace.md)).
-- **One composite gate.** `pnpm quality-gate` is a **read-only, parallel** verify — one combined `turbo run` (lint + format + typecheck + build + test) alongside check-exports + boundaries + workspace-lint + dep-lint + test-policy + gitleaks. The same checks CI runs. Auto-fix lives in a separate `pnpm tidy` you run first ([ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md)).
+- **One composite gate.** `pnpm quality-gate` is a **read-only, parallel** verify — one combined `turbo run` (lint + format + typecheck + build + test) alongside check-exports + check-bank-paths + check-adrs + boundaries + workspace-lint + dep-lint + test-policy + gitleaks. The same checks CI runs. Auto-fix lives in a separate `pnpm tidy` you run first ([ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md)).
 
 More in [**DX & tooling**](docs/whats-included.md#dx--developer-experience).
 
@@ -89,7 +89,7 @@ The guide — set-up, syncing, resolving conflicts, reading a drift report — i
 
 Trellis is built to be navigated and **extended** by coding agents as much as by humans.
 
-- [CONTEXT-MAP.md](CONTEXT-MAP.md) indexes the domain language, pointing to per-package `CONTEXT.md` files; [docs/adr/](docs/adr/) records the decisions that are hard to reverse.
+- [CONTEXT-MAP.md](CONTEXT-MAP.md) indexes the domain language, pointing to per-package `CONTEXT.md` files. Decisions that are hard to reverse are recorded as ADRs, living with what they govern — repo-wide in [docs/adr/](docs/adr/), a package's own in its `docs/adr/` ([the rules](docs/agents/domain.md)).
 - **The workflow:** `/grill-with-docs` plans a change against the domain language and updates `CONTEXT.md` + ADRs inline → launch `claude --worktree <slug>` and `/implement` builds it in an isolated worktree → PR. The point is **multiple agents in parallel, one window per task**, with a **human making the engineering calls** and reviewing every PR — agents never auto-merge.
 
 Full agent brief in [CLAUDE.md](CLAUDE.md); workflow details in [docs/agents/](docs/agents/).

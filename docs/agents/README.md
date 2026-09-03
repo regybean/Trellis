@@ -22,8 +22,8 @@ human ──┼─ window 2 ─ claude --worktree ─ /grill-with-docs ─→ /i
 Before exploring, agents consult the repo's own documentation — domain language first, decisions second:
 
 - [**CONTEXT-MAP.md**](../../CONTEXT-MAP.md) — index of per-package `CONTEXT.md` files (the ubiquitous language).
-- [**docs/adr/**](../adr/) — architectural decision records: the choices that are hard to reverse and would otherwise be surprising.
-- [**domain.md**](domain.md) — how the skills should consume the above when exploring.
+- [**docs/adr/**](../adr/) — repo-wide architectural decision records: the choices that are hard to reverse and would otherwise be surprising. A package's own decisions live in its `docs/adr/`.
+- [**domain.md**](domain.md) — how the skills consume the above when exploring, and the rules for writing to it: ADR placement, per-directory numbering, the status vocabulary, and the glossary-only rule for `CONTEXT.md`.
 - [**feature-anatomy.md**](feature-anatomy.md) — how a `packages/features/*` package is laid out: the slice contract, the two contracts (procedure / hook), exports, and the test taxonomy.
 - [**testing.md**](testing.md) — how tests work: the unit / integration(api·service) taxonomy, the frontend doctrine ([ADR 0018](../adr/0018-frontend-test-doctrine.md)), "test the contract not the internals", and the mocking rules (full detail in [docs/TESTING.md](../TESTING.md)).
 

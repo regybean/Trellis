@@ -205,6 +205,22 @@ describe('citations', () => {
     expect(code, output).toBe(0);
   });
 
+  it('resolves a generator template link from the root, past its ../ prefix', () => {
+    const template = 'turbo/generators/templates/feature/README.md.hbs';
+    const resolving = check({
+      'docs/adr/0001-first.md': adr('First'),
+      [template]: 'Doctrine: [ADR 0001](../../../docs/adr/0001-first.md).\n',
+    });
+    const dead = check({
+      'docs/adr/0001-first.md': adr('First'),
+      [template]: 'Doctrine: [ADR 0009](../../../docs/adr/0009-nowhere.md).\n',
+    });
+
+    expect(resolving.code, resolving.output).toBe(0);
+    expect(dead.code).toBe(1);
+    expect(dead.output).toContain('0009-nowhere.md');
+  });
+
   it('ignores an illustrative path inside a fenced code block', () => {
     const { code, output } = check({
       'docs/adr/0001-first.md': adr('First'),

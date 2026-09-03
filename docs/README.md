@@ -43,10 +43,10 @@ Contents — every doc in the repo, in reading order.
 
 ## Architectural decision records
 
-An ADR lives with what it governs. If deleting the package would take the decision
-with it, the ADR is in that package's `docs/adr/`; otherwise it is here in
-[`adr/`](adr/). Numbering is **per directory** — `@acme/auth` 0001 and root 0001
-are different decisions and that is normal.
+An ADR lives with what it governs: a package's own decisions sit in its
+`docs/adr/`, everything repo-wide is here in [`adr/`](adr/). The placement rule,
+per-directory numbering and the status vocabulary are in
+[agents/domain.md](agents/domain.md).
 
 ### System-wide
 

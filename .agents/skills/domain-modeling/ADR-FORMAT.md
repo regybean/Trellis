@@ -1,8 +1,12 @@
 # ADR Format
 
-ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
+ADRs live in a `docs/adr/` directory and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
 
-Create the `docs/adr/` directory lazily — only when the first ADR is needed.
+Create the directory lazily — only when the first ADR is needed.
+
+## Placement
+
+A decision that dies with the thing it governs lives in that thing's own `docs/adr/`; a decision that outlives it lives in the root one. If deleting the context, module or package would take the decision with it, the ADR belongs to that context.
 
 ## Template
 
@@ -24,7 +28,7 @@ Only include these when they add genuine value. Most ADRs won't need them.
 
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and increment by one.
+Scan the directory you are writing into for the highest existing number and increment by one. Sequences are **per directory** — the root's and a context's are independent, so the same number appearing in both is normal, not a collision.
 
 ## When to offer an ADR
 
