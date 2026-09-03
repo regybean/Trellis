@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository. We highly encourage the autonomous use of the inbuilt skills in the repo, they will help you do your work correctly.
 
 ## Navigation protocol — read before you search or edit
 
