@@ -4,10 +4,10 @@
  * ADR placement, numbering, status and link gate.
  *
  * ADRs live with what they govern: a decision that dies when its package dies
- * belongs to that package's `docs/adr/`, everything else to the repo root's. The
- * rule and its rationale are in `docs/agents/domain.md`; this script enforces
- * the mechanical half of it, and only that half — whether a given ADR is
- * genuinely package-scoped is judgement, and stays documented rather than
+ * belongs to that package's `docs/adr` directory, everything else to the repo
+ * root's. The rule and its rationale are in `docs/agents/domain.md`; this script
+ * enforces the mechanical half of it, and only that half — whether a given ADR
+ * is genuinely package-scoped is judgement, and stays documented rather than
  * checked.
  *
  * Hard failures:
@@ -22,7 +22,7 @@
  *      `amended by <relative-path>` naming the later ADR whose separable decision
  *      changed this one's. `superseded by` is rejected on purpose — a superseded
  *      ADR is deleted, so it can never be a resting state.
- *   4. **A package owning a `docs/adr/` with no `CONTEXT-MAP.md` row.** A
+ *   4. **A package owning an ADR directory with no `CONTEXT-MAP.md` row.** A
  *      `CONTEXT.md` is not required (`@acme/ui` owns ADRs and no glossary); the
  *      map row is, or the directory is unreachable from the root.
  *   5. **A `tooling/*` package owning an ADR directory.** Tooling decisions govern
@@ -45,6 +45,8 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MAP_FILE = "CONTEXT-MAP.md";
+/** Named rather than inlined so this file holds no path the scan would read. */
+const ADR_DIR = "docs/adr";
 
 /** `0007-package-test-policy.md` — the only shape an ADR filename may take. */
 const ADR_FILENAME = /^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
@@ -73,6 +75,12 @@ const TEXT_EXTENSIONS = new Set([
 /** Paths whose contents are vendored from elsewhere and describe no repo tree. */
 const SKIPPED_PREFIXES = [".agents/skills/", ".claude/skills/"];
 
+/**
+ * This script's own suite, whose fixtures cite ADRs that deliberately do not
+ * exist — that is what they assert. Matched by name so it survives a move.
+ */
+const SKIPPED_BASENAMES = new Set(["check-adrs.test.ts"]);
+
 const errors = [];
 const warnings = [];
 
@@ -99,7 +107,7 @@ for (const path of tracked) {
 }
 
 for (const [owner, filenames] of [...directories].sort()) {
-  const dir = `${owner}docs/adr`;
+  const dir = `${owner}${ADR_DIR}`;
   const numbers = new Map();
 
   for (const filename of filenames.sort()) {
@@ -137,7 +145,7 @@ for (const [owner, filenames] of [...directories].sort()) {
   if (owner.startsWith("tooling/")) {
     errors.push(
       `${dir}: tooling/* owns no ADR directory — its decisions govern the repo-wide ` +
-        `gate rather than the config package, so they belong in docs/adr/. See docs/agents/domain.md.`,
+        `gate rather than the config package, so they belong in the root's ADR directory. See docs/agents/domain.md.`,
     );
     continue;
   }
@@ -164,7 +172,7 @@ const STATUS_LINE =
 
 for (const [owner, filenames] of directories) {
   for (const filename of filenames) {
-    const path = `${owner}docs/adr/${filename}`;
+    const path = `${owner}${ADR_DIR}/${filename}`;
     const lines = readFileSync(join(ROOT, path), "utf8").split("\n");
 
     if (lines.some((line) => /^#{2,}\s+Status\b/.test(line))) {
@@ -218,8 +226,8 @@ const MARKDOWN_LINK = /\]\(\s*([^)\s]+)(?:\s+"[^"]*")?\s*\)/g;
 
 /**
  * A repo-relative ADR path written as prose or in a comment. Prose cites some
- * ADRs by number alone ("see docs/adr/0017"), which stales the same way a full
- * path does, so the trailing slug is optional.
+ * ADRs by number alone, dropping the slug, and that stales the same way a full
+ * path does — so the slug is optional here.
  */
 const BARE_PATH =
   /(?<![\w./-])((?:\.{1,2}\/)*(?:[\w.-]+\/)*docs\/adr\/[^\s`)("'<>,\]*]*)/g;
@@ -239,7 +247,7 @@ function withoutCodeFences(text) {
 function isAdrReference(target) {
   if (/^[a-z][\w+.-]*:/i.test(target) || target.startsWith("#")) return false;
   return (
-    target.includes("docs/adr/") || ADR_FILENAME.test(posix.basename(target))
+    target.includes(`${ADR_DIR}/`) || ADR_FILENAME.test(posix.basename(target))
   );
 }
 
@@ -258,6 +266,7 @@ function resolves(candidate) {
 
 for (const path of tracked) {
   if (SKIPPED_PREFIXES.some((prefix) => path.startsWith(prefix))) continue;
+  if (SKIPPED_BASENAMES.has(posix.basename(path))) continue;
   const extension = posix.extname(path).slice(1);
   if (!TEXT_EXTENSIONS.has(extension)) continue;
   // A symlink's content belongs to its target, where it is already checked —
@@ -271,9 +280,9 @@ for (const path of tracked) {
   /**
    * A markdown link is relative to its own file — that is what makes it
    * clickable. A path written in prose or a comment is relative to no
-   * particular directory: source comments say "this package's docs/adr/0001-…"
-   * and docs say "docs/adr/0020-…" meaning the root, so a bare path is offered
-   * every enclosing directory.
+   * particular directory: a source comment names its own package's ADR
+   * directory, a root doc names the root's, and both write the same prefix. So
+   * a bare path is offered every enclosing directory in turn.
    */
   const enclosing = [];
   for (let dir = from; dir !== "."; dir = posix.dirname(dir))
