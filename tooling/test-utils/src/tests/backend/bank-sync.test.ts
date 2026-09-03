@@ -266,6 +266,18 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
     expect(paths).not.toContain('deploy/compose.yaml');
   });
 
+  it('takes a bundle path that names a nested file, and only that file', () => {
+    const { consumer } = setup({ packages: [], bundles: ['agents'] });
+
+    sync(consumer);
+
+    // `.claude/settings.json` is authored and travels; the generated symlinks
+    // beside it are not named, so the prefix filter leaves them upstream.
+    const paths = treePaths(consumer, 'vendor/trellis');
+    expect(paths).toContain('.claude/settings.json');
+    expect(paths).not.toContain('.claude/skills/generated.md');
+  });
+
   it('takes the root bundle even for an empty selection', () => {
     const { consumer } = setup({ packages: [], bundles: [] });
 
@@ -312,6 +324,18 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
     expect(packageDirs(consumer)).toEqual(['packages/db', 'tooling/eslint']);
     expect(run.stderr).toContain('packages/logger');
     expect(run.stderr).toContain('will not install unaided');
+  });
+
+  it('subtracts an omitted bundle file, the escape for a root file you already have', () => {
+    const { consumer } = setup({ packages: [], omit: ['turbo.json'] });
+
+    const run = runScript(consumer, 'scripts/bank-sync.mjs');
+
+    expect(run.status).toBe(0);
+    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
+      'pnpm-workspace.yaml',
+    ]);
+    expect(run.stderr).toContain('turbo.json');
   });
 });
 
