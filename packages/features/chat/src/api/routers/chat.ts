@@ -43,7 +43,6 @@ import {
 import {
   adminProcedure,
   createTRPCRouter,
-  db,
   existingConversationProcedure,
   ownedConversationByIdProcedure,
   ownedConversationProcedure,
@@ -361,7 +360,7 @@ export const chatRouter = createTRPCRouter({
       // asserted through the folders module so `chat_folder` is only ever
       // queried there — no naked Drizzle query in this router body.
       if (input.folderId) {
-        await assertFolderOwned(db, input.folderId, userId);
+        await assertFolderOwned(input.folderId, userId);
       }
 
       try {

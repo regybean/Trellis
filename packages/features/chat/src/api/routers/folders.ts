@@ -16,12 +16,8 @@ import { createTRPCRouter, db, protectedProcedure } from '../trpc';
 // `chat_folder` table is only ever queried through this module — `setFolder`
 // asserts ownership through this helper rather than a naked Drizzle query in the
 // router body. Throws NOT_FOUND when the Folder does not exist for the caller.
-export async function assertFolderOwned(
-  database: typeof db,
-  folderId: string,
-  userId: string,
-) {
-  const [folder] = await database
+export async function assertFolderOwned(folderId: string, userId: string) {
+  const [folder] = await db
     .select({ id: chatFolder.id })
     .from(chatFolder)
     .where(and(eq(chatFolder.id, folderId), eq(chatFolder.userId, userId)))

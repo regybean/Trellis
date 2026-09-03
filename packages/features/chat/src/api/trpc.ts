@@ -43,9 +43,7 @@ const t = initTRPC.context<ChatContext>().create(trpcConfig);
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );
-const timing = t.middleware(({ next, path }) =>
-  withTimingLog(path, t._config.isDev, next),
-);
+const timing = t.middleware(({ next, path }) => withTimingLog(path, next));
 const authed = t.middleware(({ next, ctx }) =>
   next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
 );
@@ -55,7 +53,7 @@ const admin = t.middleware(({ next, ctx }) =>
 
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
-export const publicProcedure = t.procedure.use(telemetry).use(timing);
+const publicProcedure = t.procedure.use(telemetry).use(timing);
 export const protectedProcedure = publicProcedure.use(authed);
 export const adminProcedure = publicProcedure.use(admin);
 

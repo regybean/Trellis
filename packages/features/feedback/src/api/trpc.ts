@@ -4,7 +4,6 @@ import type { BaseContext } from '@acme/trpc';
 import { createDb } from '@acme/db';
 import { instrumentDrizzleClient } from '@acme/telemetry';
 import {
-  requireAdmin,
   requirePrincipal,
   trpcConfig,
   withProcedureSpan,
@@ -34,22 +33,19 @@ const t = initTRPC.context<FeedbackContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against feedback's own concrete
 // context. The bodies live once in `@acme/trpc` as plain async helpers; only
-// this wiring is per-feature (#264).
+// this wiring is per-feature (#264). No admin gate — every feedback procedure
+// acts on the caller's own rating, so there is nothing here an admin reads that
+// a user doesn't. Add one the way chat and ingest do (`requireAdmin`, three
+// lines) if a moderation procedure ever earns it.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );
-const timing = t.middleware(({ next, path }) =>
-  withTimingLog(path, t._config.isDev, next),
-);
+const timing = t.middleware(({ next, path }) => withTimingLog(path, next));
 const authed = t.middleware(({ next, ctx }) =>
   next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
-);
-const admin = t.middleware(({ next, ctx }) =>
-  next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
 );
 
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
-export const publicProcedure = t.procedure.use(telemetry).use(timing);
+const publicProcedure = t.procedure.use(telemetry).use(timing);
 export const protectedProcedure = publicProcedure.use(authed);
-export const adminProcedure = publicProcedure.use(admin);

@@ -6,9 +6,7 @@ import type {
   SubscriptionTier,
 } from '@acme/entitlements';
 import type { BaseContext } from '@acme/trpc';
-import { createDb } from '@acme/db';
 import { isTierAtLeast } from '@acme/entitlements';
-import { instrumentDrizzleClient } from '@acme/telemetry';
 import {
   requireAdmin,
   requirePrincipal,
@@ -16,15 +14,6 @@ import {
   withProcedureSpan,
   withTimingLog,
 } from '@acme/trpc';
-
-/**
- * Billing's Drizzle client, instrumented for tracing once at module load.
- * Billing keeps its state in Redis and queries no table of its own today, but
- * the client is still the feature's to own and instrument (#264).
- */
-export const db = createDb();
-
-instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
 
 /**
  * Billing's request context — the neutral base the app adapter injects, plus
@@ -50,9 +39,7 @@ const t = initTRPC.context<BillingContext>().create(trpcConfig);
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );
-const timing = t.middleware(({ next, path }) =>
-  withTimingLog(path, t._config.isDev, next),
-);
+const timing = t.middleware(({ next, path }) => withTimingLog(path, next));
 const authed = t.middleware(({ next, ctx }) =>
   next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
 );
@@ -62,7 +49,7 @@ const admin = t.middleware(({ next, ctx }) =>
 
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
-export const publicProcedure = t.procedure.use(telemetry).use(timing);
+const publicProcedure = t.procedure.use(telemetry).use(timing);
 export const protectedProcedure = publicProcedure.use(authed);
 export const adminProcedure = publicProcedure.use(admin);
 
