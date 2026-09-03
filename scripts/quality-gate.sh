@@ -156,7 +156,7 @@ done
 echo ""
 echo "──────── quality-gate summary ────────"
 for name in "${order[@]}"; do
-  printf '  %-4s %-13s %8s\n' \
+  printf '  %-4s %-16s %8s\n' \
     "$(stage_status "$name")" "$name" "$(fmt_dur "$(stage_ms "$name")")"
 done
 
