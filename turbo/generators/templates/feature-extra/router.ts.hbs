@@ -11,18 +11,12 @@ import {
   items,
   selectItemSchema,
 } from '../schemas/item-schema';
-import {
-  adminProcedure,
-  createTRPCRouter,
-  protectedProcedure,
-  rateLimit,
-} from '../trpc';
+import { adminProcedure, createTRPCRouter, protectedProcedure } from '../trpc';
 
 /**
  * Sample CRUD router demonstrating the patterns used across this monorepo:
  * - `protectedProcedure` / `adminProcedure` for auth (tested once via middleware)
  * - the caller read off `ctx.session.user` — never off an input
- * - `rateLimit()` to consume tier credits
  * - telemetry is ambient (ADR 0023): the platform owns the per-procedure span
  * - ownership checks before mutating user-owned rows
  *
@@ -61,10 +55,9 @@ export const {{ camelCase name }}Router = createTRPCRouter({
       return selectItemSchema.parse(row);
     }),
 
-  // Create an item for the caller. Consumes one rate-limit credit.
+  // Create an item for the caller.
   create: protectedProcedure
     .input(CreateItemRequest)
-    .use(rateLimit())
     .mutation(async ({ ctx, input }) => {
       const { id: userId } = ctx.session.user;
 

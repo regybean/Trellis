@@ -13,7 +13,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { createFeatureTRPC } from '@acme/trpc';
-import { createTestContext } from '@acme/trpc/testing';
+import { createMockSession, createTestContext } from '@acme/trpc/testing';
 
 import {
   readSessionRole,
@@ -202,11 +202,7 @@ function callerFor(session: Parameters<typeof toPrincipal>[0]) {
   if (!user) throw new Error('expected a signed-in session');
 
   return adminOnly.createCaller(
-    createTestContext({
-      user,
-      tier: 'Basic',
-      credits: { remaining: 250, limit: 250, resetAt: Date.now() },
-    }),
+    createTestContext({ session: createMockSession(user) }),
   );
 }
 

@@ -20,7 +20,9 @@ at all.
 > ids an injected argument, so a direct import would no longer demand Stripe keys
 > of anyone. The seam still holds, for two different reasons. See the
 > [#250 amendment](#amendment-250--the-substrate-stops-reading-billing) before
-> concluding the decision has expired.
+> concluding the decision has expired — and the
+> [#256 amendment](#amendment-256--the-context-extension-is-the-features-to-declare)
+> for where the provider is declared now, which is no longer `@acme/trpc`.
 
 Two decisions are load-bearing, mirroring the auth seam:
 
@@ -204,3 +206,110 @@ Keeping the distinction straight is what makes this amendment coherent: the
 provider is injected once per request because that is where the request is, and
 resolution happens at the procedures that need it because that is where the read
 is. Nothing in between needs to do either.
+
+## Amendment (#256) — the context extension is the feature's to declare
+
+The seam holds and the injection point still does not move: a provider reaches
+procedures as `ctx.entitlements`, and a deployment still chooses between
+`subscriptionsEntitlements` and `unlimitedEntitlements` at its edge. What changes
+is **who declares that the context has that field**.
+
+`@acme/trpc` used to. `entitlements: EntitlementsProvider` was a required field on
+`createTRPCContext`'s options, so constructing _any_ context meant naming the
+billing contract. That reached `@acme/feedback` and `@acme/ingest`, which have
+neither a tier to gate on nor a credit to spend, and both slim apps. It also put
+`SubscriptionTier`, `CreditBalance` and `isTierAtLeast` in `@acme/trpc/testing`,
+which meant all 14 `createTestContext` call sites set a tier — including the ones
+whose feature has no concept of one.
+
+The #250 amendment above had already removed every _read_. What was left was
+type-level residue. It was still enough to force the coupling on every consumer.
+
+- **The context extension is a type parameter.** `createTRPCContext<TExtension>`,
+  `createFeatureTRPC<TExtension>` and `createFeatureTRPCWithDb<TDb, TExtension>`
+  take the feature's own per-request additions and merge them into every
+  procedure's `ctx`. It defaults to `object` — no extension — which is the
+  common case. `@acme/billing` declares `BillingContext` and `@acme/chat`
+  declares `ChatContext`, both `{ entitlements: EntitlementsProvider }`;
+  `@acme/feedback` and `@acme/ingest` declare nothing and name no billing type
+  anywhere.
+- **`@acme/entitlements` leaves `@acme/trpc`'s dependencies**, and no file under
+  its `src/` imports it. That dependency edge is the one this change deleted by hand; this
+  removes the reason it existed.
+- **The mock provider moves to `@acme/entitlements/testing`**, beside the contract
+  it implements — the only package that can name the tier vocabulary without
+  acquiring a billing dependency, which is the same argument that puts
+  `unlimitedEntitlements` there. `@acme/trpc/testing` keeps `createTestContext`
+  and `createMockSession` and takes the same extension type parameter, so a test
+  builds its context the way an app adapter builds a real one.
+- **`createTestContext` takes `session` rather than a bare `user`.** Every key a
+  test passes is now a key the real context has, so the extension merges straight
+  through instead of the builder picking the principal back out. It also keeps the
+  return type nameable as `BaseContext & TExtension`, which turns out to matter: an
+  inferred `headers` resolves `Headers` against the _consuming_ package's lib, and
+  they do not all agree. `@acme/auth` reads one whose iterators differ from
+  `@acme/trpc`'s, and the context stops matching `createCaller`.
+
+- **The apps inject per mount, not per app.** Each app's route seam exports two
+  builders over one resolver each — `createTRPCRouteHandlers` (the base context)
+  and `createTRPCRouteHandlersWithEntitlements` (base + provider), named
+  `createTRPCServerHandlers*` in the TanStack apps. The chat and billing mounts
+  use the second; `feedback`, `ingest` and `notifications` use the first and are
+  handed no provider at all. One shared resolver used to inject `entitlements`
+  into every context, which meant the field arrived at features that could not
+  name it — passed through untyped, since the pass-through no longer rejects extra
+  keys. Binding the resolver at the builder makes the wiring load-bearing in both
+  directions: a mount whose feature declares an extension its builder does not
+  produce is a compile error (verified: pointing chat's mount at the plain builder
+  fails with TS2322).
+
+Behaviour is unchanged for every mount that reads entitlements. The three that
+never did stop receiving a provider they ignored.
+
+### Two corrections to the spec this came from
+
+The spec (#219) prescribed exposing the tier gate behind an
+`@acme/entitlements/trpc` export. #250 landed it in `@acme/billing` instead, and
+billing owning tiers is the better shape, so it stays there.
+
+The spec also made this a prerequisite of the bank sync. It isn't — the runtime
+coupling was already gone, and this stands on its own.
+
+### What did not change, and why the slim apps still inject a provider
+
+`apps/nextjs-slim` and `apps/tanstack-slim` still construct
+`unlimitedEntitlements` and inject it. That is correct rather than residue. They
+mount `@acme/chat`, which meters credits, so they are choosing _unmetered_, which
+is exactly the per-deployment decision the original decision above exists to make
+explicit.
+
+What is narrower than it sounds: an app mounting only `feedback`, `ingest` and
+`notifications` would now import no billing package at all, but nobody has written
+that app, so "a no-billing app needs no billing types" is untested end to end.
+What is demonstrated today is one step short of it — those three features name no
+billing type, none of the four apps hands them a provider, and the compiler
+enforces both halves.
+
+### Why not a generic context, as the old comment said
+
+`@acme/trpc` carried a note that a generic context parameter "makes tRPC's
+middleware conditional types explode". That was true of what it described but not
+of the parameter itself. With a generic context, tRPC's `ContextCallback`
+conditionals stay unresolved, and the `MiddlewareBuilder` a standalone
+`t.middleware(fn)` produces stops being assignable to what `.use` expects — the
+two only agree once the context is concrete. Passed _inline_ to `.use`, the arrow
+is contextually typed by `.use` itself and the two are never compared.
+
+So the middlewares are now inline one-liners delegating to plain helpers
+(`withProcedureSpan`, `withTimingLog`, `requirePrincipal`, `requireAdmin`). That
+is the whole cost of the type parameter, and it reads better than what it
+replaced. The span lifecycle and the auth gates are ordinary functions now, with
+no tRPC types in them. The base half of the context stays concrete, so those gates
+still narrow `ctx.session.user` against a real type rather than a type parameter.
+
+One further cost worth recording, because it looks like a mistake: `src/index.ts`
+imports a type from `@trpc/server/unstable-core-do-not-import`. Generic in the
+extension, the builder type the two factories return is declared only in that
+internal module, and declaration emit fails with TS2742 unless some import names
+it by a path. The alternative is hand-annotating both factories with several
+hundred characters of tRPC internals.

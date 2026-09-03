@@ -25,7 +25,7 @@ packages/features/<name>/
   CONTEXT.md              # domain language for this feature (ubiquitous terms)
   src/
     api/
-      trpc.ts             # per-feature tRPC context + middleware (auth, rate limit, telemetry, db)
+      trpc.ts             # per-feature tRPC context + extension + middleware (auth, telemetry, db)
       root.ts             # appRouter — aggregates this feature's routers
       routers/<name>.ts   # the procedures (the BACKEND contract)
       schemas/*-schema.ts # drizzle tables + zod schemas
@@ -115,7 +115,7 @@ tests/backend/
   integration/service/         # a service/lib against real infra
 ```
 
-- Test shared middleware (auth, rate limit) **once**; cover procedures with the
+- Test shared middleware (auth) **once**; cover procedures with the
   **zero / one / many** pattern.
 - Mock only what you can't run (Stripe, S3, Bedrock); exercise real
   persistence. Env is real, validated, never mocked ([ADR 0014](../adr/0014-tests-validate-real-env.md)).

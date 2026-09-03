@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { createTRPCOptionsProxy } from '@trpc/tanstack-react-query';
 
-import type { EntitlementsProvider, InjectedSession } from '@acme/trpc';
+import type { InjectedSession } from '@acme/trpc';
 
 import type { AppRouter } from '../api/root';
 import { appRouter } from '../api/root';
@@ -13,16 +13,19 @@ import { createTRPCContext } from '../api/trpc';
 import { createAppQueryClient } from '@acme/hooks';
 
 /**
- * Framework-neutral RSC server caller. The session + billing seams: the *app*
- * resolves whoever is calling and chooses an entitlements provider at its
- * boundary, then injects both here. This feature depends on no auth SDK and no
- * billing provider. See docs/adr/0003-framework-agnostic-auth-seam.md and
- * docs/adr/0006-entitlements-injection-seam.md.
+ * Framework-neutral RSC server caller. The session seam: the *app* resolves
+ * whoever is calling at its boundary and injects the result here, so this
+ * feature depends on no auth SDK. See
+ * docs/adr/0003-framework-agnostic-auth-seam.md.
+ *
+ * A generated feature declares no tRPC context extension, so the session is all
+ * there is to inject. If you add one in `api/trpc.ts`, extend it here too —
+ * `@acme/chat`'s `ServerTRPCOptions extends ChatContext` is the worked example
+ * (#256, ADR 0006).
  */
 export interface ServerTRPCOptions {
   headers: Headers;
   session: InjectedSession;
-  entitlements: EntitlementsProvider;
 }
 
 // The RSC half's own client — a fresh one per request, from the same factory the
@@ -39,7 +42,6 @@ export function createServerTRPC(opts: ServerTRPCOptions) {
     return createTRPCContext({
       headers: heads,
       session: opts.session,
-      entitlements: opts.entitlements,
     });
   });
 

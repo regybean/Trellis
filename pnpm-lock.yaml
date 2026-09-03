@@ -1240,9 +1240,6 @@ importers:
       '@acme/auth':
         specifier: workspace:*
         version: link:../../shared/auth
-      '@acme/entitlements':
-        specifier: workspace:*
-        version: link:../../platform/entitlements
       '@acme/eslint-config':
         specifier: workspace:*
         version: link:../../../tooling/eslint
@@ -1761,9 +1758,6 @@ importers:
 
   packages/platform/trpc:
     dependencies:
-      '@acme/entitlements':
-        specifier: workspace:*
-        version: link:../entitlements
       '@acme/logger':
         specifier: workspace:*
         version: link:../logger

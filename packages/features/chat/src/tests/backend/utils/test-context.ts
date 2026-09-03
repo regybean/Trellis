@@ -7,24 +7,33 @@
  * Redis DB.
  */
 
+import type { TestEntitlementsOptions } from '@acme/entitlements/testing';
 import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
+import { createMockEntitlements } from '@acme/entitlements/testing';
 import { mastraMessages, mastraThreads } from '@acme/rag/schema';
 import { flushTestDb } from '@acme/redis/testing';
-import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
+import {
+  createTestContext as createBaseTestContext,
+  createMockSession,
+} from '@acme/trpc/testing';
 
 import { db } from '../../../api/trpc';
 
 /**
- * The knobs chat's backend tests vary. Identical for every feature; only the
- * principal differs, which is why building it is the feature's job.
+ * The knobs chat's backend tests vary: the principal, plus the tier and credits
+ * its mock provider resolves to — chat meters credits, so `ChatContext` names an
+ * entitlements provider and these knobs are what a test sets it to (#256).
  */
-export type TestContextOptions = FeatureTestContextOptions;
+export interface TestContextOptions
+  extends FeatureTestContextOptions, TestEntitlementsOptions {}
 
 /**
  * Build the tRPC caller context. The one canonical builder lives in
  * `@acme/trpc/testing`; this wrapper turns chat's `userId`/`role` knobs into the
- * `InjectedUser` principal it wants — identity and role, nothing more.
+ * `InjectedUser` principal it wants — identity and role, nothing more — and
+ * supplies `ChatContext`'s entitlements provider, the way an app edge supplies
+ * the real one.
  */
 export function createTestContext({
   userId,
@@ -32,7 +41,10 @@ export function createTestContext({
   ...entitlements
 }: TestContextOptions) {
   const user: InjectedUser = { id: userId, role };
-  return createBaseTestContext({ user, ...entitlements });
+  return createBaseTestContext({
+    session: createMockSession(user),
+    entitlements: createMockEntitlements(entitlements),
+  });
 }
 
 /**

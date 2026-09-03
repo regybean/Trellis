@@ -9,11 +9,15 @@
 import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
 import { flushTestDb } from '@acme/redis/testing';
-import { createTestContext as createBaseTestContext } from '@acme/trpc/testing';
+import {
+  createTestContext as createBaseTestContext,
+  createMockSession,
+} from '@acme/trpc/testing';
 
 /**
- * The knobs ingest's backend tests vary. Identical for every feature; only the
- * principal differs, which is why building it is the feature's job.
+ * The knobs ingest's backend tests vary: the principal, and nothing else. Ingest
+ * declares no context extension — it neither gates on a tier nor spends a credit
+ * — so it sets no tier or credit balance either (#256).
  */
 export type TestContextOptions = FeatureTestContextOptions;
 
@@ -22,13 +26,9 @@ export type TestContextOptions = FeatureTestContextOptions;
  * `@acme/trpc/testing`; this wrapper turns ingest's `userId`/`role` knobs into the
  * `InjectedUser` principal it wants — identity and role, nothing more.
  */
-export function createTestContext({
-  userId,
-  role,
-  ...entitlements
-}: TestContextOptions) {
+export function createTestContext({ userId, role }: TestContextOptions) {
   const user: InjectedUser = { id: userId, role };
-  return createBaseTestContext({ user, ...entitlements });
+  return createBaseTestContext({ session: createMockSession(user) });
 }
 
 /** Flush this suite's isolated Redis DB (the per-user progress streams). */

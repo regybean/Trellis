@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import type { EntitlementsProvider } from '@acme/entitlements';
 import { createDb } from '@acme/db';
 import { assertOwnedThreadForTRPC } from '@acme/rag/ownership-trpc';
 import { createFeatureTRPCWithDb } from '@acme/trpc';
@@ -10,13 +11,23 @@ const _db = createDb();
 export const db = _db;
 export type db = typeof _db;
 
+/**
+ * Chat's tRPC context extension — the injected `EntitlementsProvider`. Chat
+ * meters credits inline in `send` and refunds through the same seam in
+ * `reconcileTurn` (ADR 0006, #109 amendment), so it declares the provider it
+ * resolves against. The substrate no longer does that for every feature (#256).
+ */
+export interface ChatContext {
+  entitlements: EntitlementsProvider;
+}
+
 export const {
   createTRPCContext,
   createTRPCRouter,
   createCallerFactory,
   protectedProcedure,
   adminProcedure,
-} = createFeatureTRPCWithDb(_db);
+} = createFeatureTRPCWithDb<db, ChatContext>(_db);
 
 const conversationInput = z.object({ sessionId: z.uuid() });
 

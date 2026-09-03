@@ -14,7 +14,7 @@ Stripe across two frameworks.
 
 **Constant principal** (`src/lib/trpc-route.ts`):
 The fixed `InjectedSession` injected in place of a resolved session —
-`{ user: { id: 'local', role: 'admin' } }`, alongside `unlimitedEntitlements`. The
+`{ user: { id: 'local', role: 'admin' } }`. The
 TanStack Start analogue of
 `apps/nextjs-slim`'s constant principal. See
 [ADR 0010](../../docs/adr/0010-slim-no-auth-apps.md).
@@ -22,9 +22,13 @@ _Avoid_: "fake user", "mock auth".
 
 **Server route handler**:
 A file route bridging a feature's tRPC router to `/api/trpc/{feature}/$` via
-`createFileRoute(...)({ server: { handlers } })` and `fetchRequestHandler`. The shared
-`createTRPCServerHandlers` (`src/lib/trpc-route.ts`) injects the constant principal +
-unlimited entitlements for every feature mount.
+`createFileRoute(...)({ server: { handlers } })` and `fetchRequestHandler`. Two
+builders in `src/lib/trpc-route.ts`, one per context shape this app composes:
+`createTRPCServerHandlers` injects the constant principal, and
+`createTRPCServerHandlersWithEntitlements` adds `unlimitedEntitlements` for the
+chat mount — the only feature here that declares them (#256). `@acme/ingest` and
+`@acme/notifications` are handed none, and a mount wired to the wrong builder
+does not compile.
 
 **Telemetry bootstrap** (Nitro startup plugin, `src/nitro/telemetry.ts`):
 The app-owned hook that calls `initTelemetry()` (`trellis-tanstack-slim`) once at
@@ -56,7 +60,7 @@ DDL at runtime — see [ADR 0002](../../docs/adr/0002-mastra-rag-and-memory.md).
 | `src/routes/documents.tsx`               | Documents page — renders `@acme/ingest` upload UI + list              |
 | `src/routes/api/trpc/{chat,ingest}.$.ts` | Server route handlers per feature router                              |
 | `src/routes/api/health.ts`               | Health check endpoint                                                 |
-| `src/lib/trpc-route.ts`                  | Shared route handler — injects the constant principal + entitlements  |
+| `src/lib/trpc-route.ts`                  | Two route-handler builders — constant principal, ± entitlements       |
 | `src/server/app-schema.ts`               | App-owned `pgSchema` (named off `NEXT_PUBLIC_WEBAPP`)                 |
 | `src/server/db/schema.ts`                | drizzle-kit entrypoint — exports only `appSchema`                     |
 | `src/components/console-shell.tsx`       | App-local dark console shell (app-owned, no auth UI; ADR 0011)        |

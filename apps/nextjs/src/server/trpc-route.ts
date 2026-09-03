@@ -47,7 +47,7 @@ const resolveSession = async (req: Request) => ({
 });
 
 /**
- * Shape the neutral context input the feature `createTRPCContext` expects.
+ * Shape the neutral base context every mount receives — and nothing more.
  * `origin` is the app's own public origin (its `PORT` in dev, deploy origin in
  * prod), read off the incoming request and threaded in so billing can build the
  * absolute Stripe checkout redirect URLs (ADR 0026 follow-up).
@@ -57,6 +57,17 @@ const resolveContext = async (req: Request) => ({
   req,
   origin: new URL(req.url).origin,
   session: await resolveSession(req),
+});
+
+/**
+ * The base context plus the entitlements provider — the **context extension**
+ * `@acme/chat` and `@acme/billing` declare (#256, ADR 0006). Injected per mount
+ * rather than into every context, so the mounts that meter credits or gate tiers
+ * get a provider and the mounts that do neither (`feedback`, `ingest`,
+ * `notifications`) are handed nothing they cannot name.
+ */
+const resolveContextWithEntitlements = async (req: Request) => ({
+  ...(await resolveContext(req)),
   entitlements,
 });
 
@@ -64,15 +75,39 @@ const resolveContext = async (req: Request) => ({
 const handleOptions = () =>
   new Response(null, { status: 204, headers: corsPreflightHeaders });
 
-type ContextInput = Awaited<ReturnType<typeof resolveContext>>;
-
-interface TRPCRouteOptions<TRouter extends AnyRouter> {
+interface TRPCRouteOptions<TRouter extends AnyRouter, TContextInput> {
   /** The tRPC endpoint path, e.g. `/api/trpc/chat`. */
   endpoint: string;
   /** The feature's aggregated app router. */
   router: TRouter;
   /** The feature's `createTRPCContext` (re-exported from the platform seam). */
-  createContext: (input: ContextInput) => Promise<unknown>;
+  createContext: (input: TContextInput) => Promise<unknown>;
+}
+
+/**
+ * Build a route-handler factory bound to one context resolver. Currying is what
+ * pins `TContextInput` before a feature's `createTRPCContext` is checked against
+ * it: a mount whose feature declares a context extension the bound resolver does
+ * not produce fails to compile, which is the whole point of injecting the
+ * provider per mount.
+ */
+function routeHandlersFor<TContextInput>(
+  resolver: (req: Request) => TContextInput | Promise<TContextInput>,
+) {
+  return <TRouter extends AnyRouter>({
+    endpoint,
+    router,
+    createContext,
+  }: TRPCRouteOptions<TRouter, TContextInput>) => {
+    const handler = createTRPCFetchHandler({
+      endpoint,
+      router,
+      createContext,
+      resolver,
+    });
+
+    return { GET: handler, POST: handler, OPTIONS: handleOptions };
+  };
 }
 
 /**
@@ -80,17 +115,13 @@ interface TRPCRouteOptions<TRouter extends AnyRouter> {
  * handler serves both GET and POST (the latter for mutations, the former also
  * carrying `httpSubscriptionLink` SSE streams such as `chat.stream`).
  */
-export function createTRPCRouteHandlers<TRouter extends AnyRouter>({
-  endpoint,
-  router,
-  createContext,
-}: TRPCRouteOptions<TRouter>) {
-  const handler = createTRPCFetchHandler({
-    endpoint,
-    router,
-    createContext,
-    resolver: resolveContext,
-  });
+export const createTRPCRouteHandlers = routeHandlersFor(resolveContext);
 
-  return { GET: handler, POST: handler, OPTIONS: handleOptions };
-}
+/**
+ * As `createTRPCRouteHandlers`, for a feature whose context extension is the
+ * entitlements provider — `@acme/chat` (meters credits) and `@acme/billing`
+ * (gates tiers). Every other mount uses the plain builder.
+ */
+export const createTRPCRouteHandlersWithEntitlements = routeHandlersFor(
+  resolveContextWithEntitlements,
+);

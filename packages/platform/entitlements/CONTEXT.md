@@ -1,10 +1,12 @@
 # Entitlements (`@acme/entitlements`)
 
 Pure contract package — no Redis, no Stripe, no env, no IO. Defines the neutral
-seam the platform tRPC substrate (`@acme/trpc`) uses for billing decisions
-(rate limiting + tier gating), with zero knowledge of how those entitlements are
-sourced. A full deployment injects the Stripe/Redis-backed adapter from
-`@acme/subscriptions`; a no-billing deployment injects `unlimitedEntitlements`.
+seam a feature that meters or gates on billing (`@acme/billing`, `@acme/chat`)
+names in its tRPC context extension, with zero knowledge of how those
+entitlements are sourced. A full deployment injects the Stripe/Redis-backed
+adapter from `@acme/subscriptions`; a no-billing deployment injects
+`unlimitedEntitlements`. The tRPC substrate itself no longer names this contract
+at all (#256).
 See [`docs/adr/0006-entitlements-injection-seam.md`](../../../docs/adr/0006-entitlements-injection-seam.md).
 
 ## Language
@@ -66,6 +68,7 @@ _Avoid_: "free tier", "dev provider", a new `Unlimited` tier
 - `EntitlementsProvider.isTierAtLeast(tier, minTier)` → tier-ordering test, part of the contract every provider implements
 - `unlimitedEntitlements` → the no-billing `EntitlementsProvider`
 - `subscriptionsEntitlements` (in `@acme/subscriptions`) → the Stripe/Redis-backed `EntitlementsProvider`
+- `createMockEntitlements({ tier, credits })` (`@acme/entitlements/testing`) → the test `EntitlementsProvider`: `resolve` echoes the knobs with a tier-faithful subscription, `consume`/`refund` no-op, `isTierAtLeast` is the real ordering
 
 ## Design decisions
 
@@ -75,9 +78,9 @@ that keeps `@acme/trpc` (and therefore every feature) free of billing
 infrastructure. The two providers live elsewhere: the Stripe adapter in
 `@acme/subscriptions`, the unlimited one here (because it has no dependencies).
 
-**Required injection, no default**: `createTRPCContext` requires an
-`EntitlementsProvider`. There is deliberately no implicit `unlimited` fallback —
-a forgotten provider would silently grant every caller Pro, the billing
+**Required injection, no default**: a feature whose context extension names an
+`EntitlementsProvider` requires one. There is deliberately no implicit `unlimited`
+fallback — a forgotten provider would silently grant every caller Pro, the billing
 equivalent of a silent unauthenticated context. The deployment must choose.
 
 **Top tier, not a new tier**: `unlimitedEntitlements` returns the existing `Pro`
@@ -85,8 +88,16 @@ tier rather than introducing an `Unlimited` member, so billing's tier gate admit
 every caller without a new enum rippling through the ordering, the Stripe
 adapter, and billing's UI.
 
-**Nothing in the substrate calls `resolve`** (#250): `@acme/trpc` names this
-contract, types `ctx.entitlements` with it, and passes the provider through
-without ever invoking it. The gate that used to live there (`requireTier`) is now
-`@acme/billing`'s, built on the same contract — which is the point of the
-contract being a package rather than a platform export.
+**The substrate doesn't call `resolve` — or name this contract at all** (#250,
+#256): `@acme/trpc` first stopped invoking the provider, then stopped typing a
+context field with it. `ctx.entitlements` is now billing's and chat's own context
+extension; `@acme/trpc` doesn't depend on this package. The gate that used to live
+there (`requireTier`) is `@acme/billing`'s, built on the same contract — which is
+the point of the contract being a package rather than a platform export.
+
+**The test double ships beside the contract** (`./testing`, #256): the mock
+`EntitlementsProvider` used to live in `@acme/trpc/testing`, which meant every
+feature's test context imported a tier and a credit balance to build a caller —
+including the two with neither. It belongs here for the same reason
+`unlimitedEntitlements` does: this is the only package that can name
+`SubscriptionTier` and `CreditBalance` without acquiring a billing dependency.

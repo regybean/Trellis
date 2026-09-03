@@ -1,7 +1,10 @@
 import { trace } from '@opentelemetry/api';
 import { TRPCError } from '@trpc/server';
 
-import type { SubscriptionTier } from '@acme/entitlements';
+import type {
+  EntitlementsProvider,
+  SubscriptionTier,
+} from '@acme/entitlements';
 import { createDb } from '@acme/db';
 import { isTierAtLeast } from '@acme/entitlements';
 import { createFeatureTRPCWithDb } from '@acme/trpc';
@@ -11,13 +14,29 @@ const _db = createDb();
 export const db = _db;
 export type db = typeof _db;
 
+/**
+ * Billing's tRPC context extension — the injected `EntitlementsProvider`, on
+ * top of the neutral session + request the substrate supplies.
+ *
+ * It is declared here, by the one feature whose whole job is billing, rather
+ * than in `@acme/trpc` where it used to be a required field on every context.
+ * The substrate hasn't read it since #250, so all that field bought was making
+ * `@acme/feedback`, `@acme/ingest` and both slim apps import the billing
+ * contract to construct a context (#256, ADR 0006 amendment). An app still
+ * chooses the provider at its edge; this type is just how billing says it needs
+ * one.
+ */
+export interface BillingContext {
+  entitlements: EntitlementsProvider;
+}
+
 export const {
   createTRPCContext,
   createTRPCRouter,
   createCallerFactory,
   protectedProcedure,
   adminProcedure,
-} = createFeatureTRPCWithDb(_db);
+} = createFeatureTRPCWithDb<db, BillingContext>(_db);
 
 /**
  * Hierarchical tier gate: admits the caller only if their tier is at least

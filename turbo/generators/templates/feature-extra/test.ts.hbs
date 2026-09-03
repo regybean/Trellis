@@ -2,7 +2,7 @@
  * {{ pascalCase name }} router tests.
  *
  * Philosophy (mirrors the rest of the monorepo):
- * - Test shared middleware (auth, rate limit) ONCE.
+ * - Test shared middleware (auth) ONCE.
  * - Focus on business logic against a REAL database (testcontainers).
  * - Use the "zero / one / many" pattern for collections.
  * - Build callers with `createTestContext` to simulate different sessions.
@@ -20,21 +20,8 @@ import { db } from '../../../api/trpc';
 import { createTestItem, createTestItems, createTestUserId } from '../utils/fixtures';
 import { cleanupTestData, createTestContext } from '../utils/test-context';
 
-const baseCredits = {
-  remaining: 100,
-  limit: 100,
-  resetAt: Date.now() + 86_400_000,
-};
-
 function caller(opts: Partial<TestContextOptions> & { userId: string }) {
-  return appRouter.createCaller(
-    createTestContext({
-      role: 'user',
-      tier: 'Basic',
-      credits: baseCredits,
-      ...opts,
-    }),
-  );
+  return appRouter.createCaller(createTestContext({ role: 'user', ...opts }));
 }
 
 describe('{{ camelCase name }}Router', () => {
@@ -49,16 +36,6 @@ describe('{{ camelCase name }}Router', () => {
       await expect(
         api.{{ camelCase name }}.adminList({ userId: createTestUserId() }),
       ).rejects.toMatchObject({ code: 'UNAUTHORIZED' });
-    });
-
-    it('rejects mutations when rate-limit credits are exhausted', async () => {
-      const api = caller({
-        userId: createTestUserId(),
-        credits: { ...baseCredits, remaining: 0 },
-      });
-      await expect(
-        api.{{ camelCase name }}.create({ text: 'nope' }),
-      ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
     });
   });
 

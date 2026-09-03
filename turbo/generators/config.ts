@@ -71,9 +71,11 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
 
   const dependencies: Record<string, string> = {};
   if (o.api) {
-    // No auth SDK and no billing implementation: the session and the
-    // entitlements provider are injected by the app (ADR 0003 / ADR 0006), and
-    // every procedure is built by `@acme/trpc`.
+    // No auth SDK and no billing contract: the session is injected by the app
+    // (ADR 0003) and every procedure is built by `@acme/trpc`. A generated
+    // feature declares no tRPC context extension, so it needs neither
+    // `@acme/entitlements` nor anything else beyond the substrate — adding one
+    // is a deliberate edit to `api/trpc.ts` plus a dependency here (#256).
     Object.assign(dependencies, {
       "@acme/db": "workspace:*",
       "@acme/env": "workspace:*",

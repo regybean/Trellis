@@ -13,18 +13,29 @@ The per-feature tRPC instance (router, procedures, context) produced by one call
 _Avoid_: "the tRPC setup", "the router config"
 
 **Base context**:
-The request context every procedure receives — the app-injected `session` and the
-injected `entitlements` provider, passed through. Assembling it does no I/O.
-There is no `telemetry` on the context: telemetry is ambient (ADR 0023), and no
-resolved billing state either (#250).
+The neutral half of the request context every procedure receives — the request
+plus the app-injected `session`, passed through (`BaseContext`). Assembling it
+does no I/O. There is no `telemetry` on the context: telemetry is ambient
+(ADR 0023). There is no billing on it either, resolved or otherwise (#250, #256).
 _Avoid_: "the request object", "the tRPC context object"
 
+**Context extension**:
+The per-request values one feature needs beyond the **Base context**, declared by
+that feature as a type parameter to `createFeatureTRPC` / `createFeatureTRPCWithDb`
+and merged into every one of its procedures' `ctx`. The substrate carries it and
+names none of its fields. `@acme/billing`'s `BillingContext` and `@acme/chat`'s
+`ChatContext` are both `{ entitlements: EntitlementsProvider }`; `@acme/feedback`
+and `@acme/ingest` declare none, and the parameter defaults to that (#256, ADR 0006
+amendment).
+_Avoid_: "the custom context", "extra ctx fields"
+
 **Entitlements provider**:
-The `EntitlementsProvider` (`@acme/entitlements`) injected into `createTRPCContext`
-as `ctx.entitlements` — the billing seam. Required, with no implicit default
-(ADR 0006): the full apps inject `@acme/subscriptions`'s `subscriptionsEntitlements`
-(Stripe/Redis-backed), a no-billing build injects `unlimitedEntitlements`. The
-substrate names no billing implementation — it depends only on the neutral contract.
+The `EntitlementsProvider` (`@acme/entitlements`) a feature that meters or gates
+names in its **Context extension**, reaching `ctx.entitlements` — the billing
+seam. Required by those features, with no implicit default (ADR 0006): the full
+apps inject `@acme/subscriptions`'s `subscriptionsEntitlements` (Stripe/Redis-backed),
+a no-billing build injects `unlimitedEntitlements`. This package names neither the
+implementation nor the contract — it doesn't depend on `@acme/entitlements` at all.
 _Avoid_: "the billing service", "the subscription client"
 
 **Entitlements resolution**:
@@ -77,7 +88,7 @@ policy; the trivial 204 `Response` is built at each app's `OPTIONS` seam.
 - `createFeatureTRPCWithDb` instruments the Drizzle client for OpenTelemetry and
   injects it as `ctx.db` (typed to the feature's schema `TDb`) via a middleware on
   every procedure
-- Every procedure receives the **Base context**
+- Every procedure receives the **Base context**, plus its feature's **Context extension**
 - **Admin procedure** and **Protected procedure** build on the public procedure (telemetry + timing middleware)
 - The telemetry middleware creates and _activates_ the per-procedure span; the other
   middlewares emit their events through the active span read ambiently via
@@ -88,13 +99,24 @@ policy; the trivial 204 `Response` is built at each app's `OPTIONS` seam.
 
 ## Design decisions
 
-**Billing is injected, not imported** (ADR 0006): `createTRPCContext` takes a required
-`entitlements` provider rather than importing `@acme/subscriptions` (and its Redis
-connections) directly. This keeps the substrate — and therefore every feature that
-reuses it — free of a billing dependency, so a no-billing app injects
-`unlimitedEntitlements` and gets unmetered chat rather than a Basic tier's 250
-credits against a Stripe account it does not have. A missing provider is a type
+**Billing is injected, not imported** (ADR 0006): a feature that meters or gates
+takes an `entitlements` provider on its context rather than importing
+`@acme/subscriptions` (and its Redis connections) directly. So a no-billing app
+injects `unlimitedEntitlements` and gets unmetered chat rather than a Basic tier's
+250 credits against a Stripe account it does not have. A missing provider is a type
 error, not a silent default (mirroring the auth seam).
+
+**Whose context it is, is the feature's call** (#256): the provider used to be a
+required field _here_, on every context. Constructing one therefore meant importing
+the billing contract, in `@acme/feedback`, in `@acme/ingest`, in both slim apps,
+none of which has a tier or a credit. Nothing in the substrate had read it since
+#250, so the field bought nothing but the coupling. It is now a **Context
+extension**. Billing and chat declare the provider they resolve against, the other
+two declare nothing, and `@acme/entitlements` is not a dependency of this package.
+The apps inject to match, per mount rather than per app: each app's route seam
+binds one resolver per context shape it composes (`createTRPCRouteHandlers` vs
+`…WithEntitlements`), so a mount whose feature declares an extension its builder
+does not produce is a compile error.
 
 **The substrate passes entitlements through and never reads them** (#250): it used
 to `await entitlements.resolve()` for every request, so a `feedback` mutation or a
@@ -109,11 +131,20 @@ everything else reads it via `trace.getActiveSpan()`. This removes the `BaseCont
 blocker that a threaded telemetry object once imposed, with no generic and no
 conditional-type explosion.
 
-**Two factories instead of one generic**: a generic context parameter
-(`initTRPC.context<TContext>()`) makes tRPC's middleware conditional types explode.
-The core tRPC instance is built against a _concrete_ `BaseContext`; the DB variant
-layers `ctx.db` on via a middleware whose only generic surface is a simple `{ db: TDb }`
-context override. This keeps the type machinery shallow and the build fast.
+**Generic in the extension, concrete in the base, every middleware inline**:
+`initTRPC.context<BaseContext & TExtension>()` leaves tRPC's `ContextCallback`
+conditionals unresolved, and the `MiddlewareBuilder` a standalone `t.middleware(fn)`
+produces then stops being assignable to what `.use` wants. The two only agree once
+the context is concrete. Passed _inline_ to `.use`, the arrow is contextually typed
+and the two are never compared, so the middleware bodies live in plain helpers
+(`withProcedureSpan`, `withTimingLog`, `requirePrincipal`, `requireAdmin`) that the
+one-line arrows delegate to. That is the whole cost of the type parameter, and it
+reads better than what it replaced: the span lifecycle and the auth gates are
+ordinary functions now, with no tRPC types in them. The base half stays concrete so
+those gates still narrow `ctx.session.user` against a real type. Declaration emit
+needs one more thing, a type import naming
+`@trpc/server/unstable-core-do-not-import`, without which the builder type is
+unnameable (TS2742).
 
 **DB is caller-created**: features instantiate their own Drizzle client (from their own
 env/schema) and pass it to `createFeatureTRPCWithDb`. The factory instruments it and
@@ -129,21 +160,23 @@ whole handler. The 204 `Response` is built in each app because the `Response` gl
 framework-runtime-provided (Next vs TanStack/Nitro) and crosses a Node-vs-DOM type
 boundary if constructed in the platform package.
 
-**`@acme/trpc/testing` is the one home for a test caller context**: `createTestContext`
-(+ `createMockEntitlements`, `createMockSession`)
-live here — beside the `BaseContext` they must match — so every feature builds a caller
-from the real platform types, not the structural `as any` a tooling package below
-`platform` was forced into. It's a tree-shaken export subpath; prod never imports it.
-The context carries exactly what production's carries — session + provider, nothing
-resolved — and the tier/credit knobs feed the mock provider a test's procedure
-resolves through, so a test context cannot drift from production. See
+**`@acme/trpc/testing` is the one home for a test caller context**:
+`createTestContext` (+ `createMockSession`) lives here — beside the `BaseContext`
+it must match — so every feature builds a caller from the real platform types, not
+the structural `as any` a tooling package below `platform` was forced into. It's a
+tree-shaken export subpath; prod never imports it. It takes the same **Context
+extension** type parameter `createTRPCContext` does and merges it the same way, so
+a test context cannot drift from production. The mock `EntitlementsProvider` moved
+out with the contract, to `@acme/entitlements/testing` (#256). See
 [docs/TESTING.md](../../../docs/TESTING.md).
 
-**The feature supplies the principal, this package supplies everything else**:
-`createTestContext` takes `user: InjectedUser` whole rather than a `userId` +
-`role` it fakes a principal from, because which fields matter is the feature's
-knowledge — billing's tests need an `email` for the Stripe customer lookup; the
-other three need identity and role. Each feature's
-`tests/backend/utils/test-context.ts` wraps this builder and maps the
-`FeatureTestContextOptions` its tests pass (`userId`, `role`, `tier`, `credits`)
-onto its own principal.
+**The feature supplies the session, this package supplies the defaults**:
+`createTestContext` takes `session` whole rather than a `userId` + `role` it fakes
+a principal from, because which fields matter is the feature's knowledge — billing's
+tests need an `email` for the Stripe customer lookup; the other three need identity
+and role. It is nested under `session` rather than a bare `user` so that every key
+a test passes is a key the real context has, which is what lets the extension merge
+straight through. Each feature's `tests/backend/utils/test-context.ts` wraps this
+builder, maps the `FeatureTestContextOptions` its tests pass (`userId`, `role`) onto
+its own principal, and adds its extension — for chat and billing that means
+`entitlements: createMockEntitlements({ tier, credits })`.

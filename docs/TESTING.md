@@ -176,34 +176,32 @@ different from mocking `env` for _shape_ — the latter is what ADR 0014 forbids
 
 There is **one** canonical context builder, shipped from `@acme/trpc/testing` (a
 dedicated export subpath — prod code never imports it). It is typed against the
-real platform contract and carries exactly what production's context carries: the
-session and the entitlements provider, with nothing resolved up front (#250). The
-`tier`/`credits` knobs feed the mock `EntitlementsProvider`, which is what a
-procedure under test resolves through — the same call it makes in production.
+real platform contract and builds a context exactly the way an app adapter builds
+a real one: the session, plus the feature's own **context extension** passed
+through untouched, with nothing resolved up front (#250, #256).
 
-The builder takes the principal (`user: InjectedUser`) whole, not a `userId` +
-`role` it fabricates one from, because which fields matter is the feature's
-knowledge: billing's tests set the `email` its Stripe customer lookup reads; the
-other three need identity and role. So each feature's `test-context.ts` wraps the
-builder and maps the four knobs its tests pass onto its own principal:
+The builder takes the `session` whole, not a `userId` + `role` it fabricates one
+from, because which fields matter is the feature's knowledge: billing's tests set
+the `email` its Stripe customer lookup reads; the other three need identity and
+role. So each feature's `test-context.ts` wraps the builder, maps the knobs its
+tests pass onto its own principal, and supplies whatever its extension declares.
+
+Most features declare no extension, and their wrapper is the whole of it:
 
 ```typescript
 // src/tests/backend/utils/test-context.ts wraps it + owns feature cleanup:
 import type { InjectedUser } from "@acme/trpc";
 import {
+  createMockSession,
   createTestContext as createBaseTestContext,
   type FeatureTestContextOptions,
 } from "@acme/trpc/testing";
 
 export type TestContextOptions = FeatureTestContextOptions;
 
-export function createTestContext({
-  userId,
-  role,
-  ...entitlements
-}: TestContextOptions) {
+export function createTestContext({ userId, role }: TestContextOptions) {
   const user: InjectedUser = { id: userId, role };
-  return createBaseTestContext({ user, ...entitlements });
+  return createBaseTestContext({ session: createMockSession(user) });
 }
 
 // In a test:
@@ -217,9 +215,37 @@ function createCaller(opts: TestContextOptions) {
 const caller = createCaller({
   userId: createTestUserId(),
   role: "user", // 'user' | 'admin'
-  tier: "Basic", // 'Basic' | 'Standard' | 'Pro' → derives the subscription
-  credits: { remaining: 250, limit: 250, resetAt: Date.now() },
 });
+```
+
+`@acme/chat` and `@acme/billing` do declare one — an `EntitlementsProvider`,
+because they meter credits and gate on tier — so their wrappers take the tier and
+credit knobs too and hand over a mock provider. That mock ships from
+`@acme/entitlements/testing`, beside the contract it implements, so a feature with
+no tier never imports one:
+
+```typescript
+import {
+  createMockEntitlements,
+  type TestEntitlementsOptions,
+} from "@acme/entitlements/testing";
+
+export interface TestContextOptions
+  extends FeatureTestContextOptions, TestEntitlementsOptions {}
+
+export function createTestContext({
+  userId,
+  role,
+  ...entitlements
+}: TestContextOptions) {
+  const user: InjectedUser = { id: userId, role };
+  return createBaseTestContext({
+    session: createMockSession(user),
+    // `tier` derives a tier-faithful subscription; `consume`/`refund` no-op, and
+    // `isTierAtLeast` is the real ordering — so a tier gate behaves as in prod.
+    entitlements: createMockEntitlements(entitlements),
+  });
+}
 ```
 
 `db` is **not** passed in the context — it's bound at the feature tRPC instance

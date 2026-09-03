@@ -13,9 +13,9 @@ import type {
   SubscriptionTier,
 } from '@acme/entitlements';
 import type { Job } from '@acme/queue';
+import { createMockEntitlements } from '@acme/entitlements/testing';
 import { memory } from '@acme/rag';
 import { redis } from '@acme/redis';
-import { createMockEntitlements } from '@acme/trpc/testing';
 
 import type { GenerationJob } from '../../../../api/services/chat-queue';
 import {
