@@ -20,8 +20,10 @@
 # Never fail-fast: every stage runs, each into its own log, concatenated in a
 # fixed order into logs/quality-gate.log with a per-stage PASS/FAIL summary —
 # so on failure an agent reads one file and sees exactly which stages failed.
-# The summary also reports total wall time and the turbo cache breakdown
-# (how many tasks were cached vs actually ran).
+# The summary also reports each stage's own duration, the slowest stage, total
+# wall time and the turbo cache breakdown (how many tasks were cached vs
+# actually ran). Stage durations overlap — only `build` runs serial-before the
+# rest — so the column is for finding the long pole, not for summing.
 #
 # Run this ONCE at the end of a task (e.g. before opening a PR) — not per-commit.
 # Commits only tidy (see lefthook.yml); CI is the hard backstop.
@@ -32,6 +34,26 @@ cd "$ROOT"
 
 SECONDS=0 # wall-clock stopwatch (bash builtin), reported in the summary.
 
+# Per-stage stopwatch. macOS ships bash 3.2 (no $EPOCHREALTIME), so millisecond
+# resolution comes from perl where it exists and whole seconds otherwise — the
+# stages that lose precision are the sub-second ones that don't matter.
+now_ms() {
+  if command -v perl >/dev/null 2>&1; then
+    perl -MTime::HiRes=time -e 'printf "%d", time() * 1000'
+  else
+    echo $(($(date +%s) * 1000))
+  fi
+}
+
+fmt_dur() {
+  local ms="${1:-0}"
+  if [ "$ms" -ge 60000 ]; then
+    printf '%dm%02ds' "$((ms / 60000))" "$((ms % 60000 / 1000))"
+  else
+    printf '%d.%02ds' "$((ms / 1000))" "$((ms % 1000 / 10))"
+  fi
+}
+
 # The assembled log lands in the root logs/ dir — the agent-readable location
 # (ADR 0028 §1). .cache is claudeignored, so a gate log there is unreadable by
 # the agent that has to act on it. Per-stage scratch stays in .cache: it is
@@ -39,7 +61,7 @@ SECONDS=0 # wall-clock stopwatch (bash builtin), reported in the summary.
 LOG="logs/quality-gate.log"
 STAGE_DIR=".cache/quality-gate.d"
 mkdir -p "$STAGE_DIR" logs
-rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc 2>/dev/null || true
+rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc "$STAGE_DIR"/*.ms 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
 order=(build turbo test check:exports boundaries lint:ws deps:lint test:policy gitleaks audit)
@@ -69,10 +91,13 @@ launch() {
 
 # Same, in the foreground — for a stage the later ones depend on.
 run_stage() {
-  local name="$1"
+  local name="$1" start rc
   shift
+  start=$(now_ms)
   "$@" >"$STAGE_DIR/$name.log" 2>&1
-  echo $? >"$STAGE_DIR/$name.rc"
+  rc=$?
+  echo $(($(now_ms) - start)) >"$STAGE_DIR/$name.ms"
+  echo "$rc" >"$STAGE_DIR/$name.rc"
 }
 
 # The standalone checks first — none of them depend on `build`, so they overlap
@@ -107,6 +132,11 @@ stage_status() {
   [ "$rc" = "0" ] && echo PASS || echo FAIL
 }
 
+# Same for the stage's own duration, in milliseconds (missing → 0).
+stage_ms() {
+  cat "$STAGE_DIR/$1.ms" 2>/dev/null || echo 0
+}
+
 # Assemble the single legible log in fixed order, behind the same dated
 # freshness header every logs/*.log file carries (ADR 0028 §1), so staleness
 # reads the same way here as for the dev-/infra- files.
@@ -124,7 +154,8 @@ done
 echo ""
 echo "──────── quality-gate summary ────────"
 for name in "${order[@]}"; do
-  printf '  %-4s %s\n' "$(stage_status "$name")" "$name"
+  printf '  %-4s %-13s %8s\n' \
+    "$(stage_status "$name")" "$name" "$(fmt_dur "$(stage_ms "$name")")"
 done
 
 # Turbo cache breakdown — the bulk of the work runs through turbo, which reports
@@ -147,6 +178,12 @@ if [ "$total" -gt 0 ]; then
   printf '  cache:   %s/%s turbo tasks cached (%s ran)\n' \
     "$cached" "$total" "$((total - cached))"
 fi
+slowest=$(for name in "${order[@]}"; do
+  printf '%s %s\n' "$(stage_ms "$name")" "$name"
+done | sort -rn | head -1)
+printf '  slowest: %s (%s) — most stages run in parallel, so the column above\n' \
+  "${slowest#* }" "$(fmt_dur "${slowest%% *}")"
+echo "           does not sum to elapsed; only 'build' is serial-before the rest"
 printf '  elapsed: %dm%02ds\n' "$((SECONDS / 60))" "$((SECONDS % 60))"
 echo "  full log: $LOG"
 if [ "$failed" -ne 0 ]; then
