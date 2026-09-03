@@ -12,7 +12,7 @@ don't re-test middleware per-procedure, don't unit-test a private helper the
 owning service already covers, don't give a platform module its own suite when
 its contract is observable through a consuming feature.
 
-## Where a test goes (backend, under `src/tests/backend/`)
+## Where a test goes (backend, under `src/tests/backend/` — every package, single-sided included)
 
 Filed by **test type**, then **seam**. `unit/` is solitary; `integration/` is
 sociable:
@@ -44,7 +44,7 @@ service test that owns the outcome.
    `drizzle-kit/api` `generateMigration` in `setup.ts` (see `feedback`).
 4. **Isolation is per-suite:** a dedicated Postgres schema (`webapp`) + Redis
    logical DB (`redisDb`), configured via `backendProject(...)`. Flush Redis with
-   `flushTestDb` from `@acme/redis/testing`. Use `infra: false` for suites that
+   `flushTestDb` from `@acme/redis/testing`. Omit `globalSetup` for suites that
    touch no DB/Redis.
 5. **Style:** test middleware once; zero/one/many; assert real state; don't test
    the framework.
@@ -52,8 +52,14 @@ service test that owns the outcome.
 ## Config
 
 `vitest.config.backend.ts` = `backendProject({ webapp, redisDb?, setupFiles?,
-infra? })` from `@acme/test-utils/vitest`. Static env is `staticTestEnv`; live
-DB/Redis details are hydrated by `@acme/test-utils/hydrate-env`.
+globalSetup? })` and `vitest.config.frontend.ts` = `frontendProject({
+setupFiles? })`, both from `@acme/test-utils/vitest`. Static env is
+`staticTestEnv`; live DB/Redis details are hydrated by
+`@acme/test-utils/hydrate-env`.
+
+Neither factory takes an `include`: every package files tests under
+`src/tests/<layer>/<kind>[/<group>]/`, layer segment present even in a
+single-sided package, and the factory owns the glob.
 
 Every backend suite **starts its own** throwaway Postgres/Redis and pushes its
 schema — one path, identical on the primary checkout, in a worktree and in CI

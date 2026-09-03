@@ -62,6 +62,23 @@ _`globalSetup`_ points at the suite's per-suite `global-setup.ts` (see
 externals are all mocked and that touches no DB/Redis (e.g. `ingest`): env is
 still real, satisfied by `staticTestEnv` alone.
 
+**`frontendProject(...)`** (`@acme/test-utils/vitest`):
+The frontend counterpart. Folds the react plugin, `environment: 'jsdom'` and the
+`staticTestEnv` spread behind one call, so a package's
+`vitest.config.frontend.ts` declares only its setup file. There is no
+`globalSetup` analogue: MSW is the frontier, so nothing is provisioned (ADR
+0018).
+
+**Canonical test layout**:
+`src/tests/<layer>/<kind>[/<group>]/` — layer is `backend` or `frontend`, kind is
+`unit` or `integration`, group is the seam segment (`api`, `service`,
+`components`, `hooks`). The layer segment is present even in a single-sided
+package, so one glob works across all of them and the path prefix is a filter
+axis tooling can trust. Both factories own the `include` glob and neither accepts
+an override: `passWithNoTests` means a misplaced file would be collected by
+nothing and reported by nothing.
+_Avoid_: "the test folder" (name the layer)
+
 **Infra descriptor** (`InfraDescriptor`, `@acme/test-utils/infra`):
 A plain object describing one test container — image, `containerPort`, container
 env, wait strategy, repo-relative bind mounts, and `provides(host, port)` (a
@@ -92,8 +109,10 @@ _Avoid_: "the test schema" (be specific: schema vs Redis DB)
 - `backendProject` imports `@acme/vitest-config/base` (a runtime dependency,
   since it is imported from shipped `src`) and layers the backend concerns on
   top; the base config is domain-free and holds only `NODE_ENV`.
-- Frontend configs don't hydrate (all their env is static) and run in jsdom =
-  client mode, so `env.ts` validates only client + shared vars.
+- `frontendProject` doesn't hydrate (all its env is static) and runs in jsdom =
+  client mode, so `env.ts` validates only client + shared vars. It pulls
+  `@vitejs/plugin-react` in as a runtime dependency of this package, for the same
+  reason `@acme/vitest-config/base` is one: it is imported from shipped `src`.
 
 ## Design decisions
 
