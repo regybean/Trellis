@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { unlimitedEntitlements } from '../../unlimited';
+import { unlimitedEntitlements } from '../../../unlimited';
 
 /**
  * Pure (unit) tests for the no-billing provider. No Redis, no mocks — the whole

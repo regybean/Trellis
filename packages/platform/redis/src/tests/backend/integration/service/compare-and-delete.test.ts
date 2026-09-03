@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { nsKey, redis } from '../../../client';
-import { flushTestDb } from '../../../testing';
+import { nsKey, redis } from '../../../../client';
+import { flushTestDb } from '../../../../testing';
 
 /**
  * `compareAndDelete` — integration test against a REAL Redis (this suite's

@@ -2,8 +2,8 @@ import { createEnv } from '@t3-oss/env-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 
-import type { AppEnv } from '../../app-env';
-import { withProfiles } from '../../profiles';
+import type { AppEnv } from '../../../app-env';
+import { withProfiles } from '../../../profiles';
 
 /**
  * `withProfiles` is exercised through a real `createEnv` call, because that is

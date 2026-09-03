@@ -6,5 +6,4 @@ import { backendProject } from '@acme/test-utils/vitest';
 // contract is covered against a real Redis in `@acme/subscriptions`.
 export default backendProject({
   webapp: 'entitlements_test',
-  include: ['src/tests/**/*.test.ts'],
 });

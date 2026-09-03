@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import { flushTestDb } from '@acme/redis/testing';
 
-import { createSubscriptionsEntitlements } from '../../../entitlements-adapter';
+import { createSubscriptionsEntitlements } from '../../../../entitlements-adapter';
 
 // Plan ids the provider maps products to (billing-env values, injected at the
 // app edge in production — supplied directly here since config is pure).

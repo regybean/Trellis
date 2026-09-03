@@ -2,8 +2,8 @@ import { createEnv } from '@t3-oss/env-core';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod/v4';
 
-import { jsonEnv } from '../../json-env';
-import { withProfiles } from '../../profiles';
+import { jsonEnv } from '../../../json-env';
+import { withProfiles } from '../../../profiles';
 
 /**
  * `jsonEnv` is exercised through a real `createEnv` call for the same reason

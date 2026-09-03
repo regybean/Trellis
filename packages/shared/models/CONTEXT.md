@@ -69,7 +69,7 @@ carries the Ollama-only `baseUrl` into the merged object and the union strips it
 (dispatched via the `.provider` discriminant) rather than a bare provider string —
 and thin caps (`chatModel`, `titleModel`, `embedModel`, `embedProviderOptions`)
 that bind the env-selected variant and delegate. The split makes the provider
-matrix table-testable (see `src/tests/unit/resolve.test.ts`) without a per-provider
+matrix table-testable (see `src/tests/backend/unit/resolve.test.ts`) without a per-provider
 secret for every branch. The caps stay eager at import (a missing/invalid secret
 for an active provider still fails there, per ADR 0014 / 0024) — the build and
 test infra rely on it.

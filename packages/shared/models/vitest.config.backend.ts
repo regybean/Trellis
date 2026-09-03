@@ -6,5 +6,4 @@ import { backendProject } from '@acme/test-utils/vitest';
 // this is an infra-less suite (no testcontainers, no hydrate-env).
 export default backendProject({
   webapp: 'models_test',
-  include: ['src/tests/**/*.test.ts'],
 });

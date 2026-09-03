@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { shouldSkipEnvValidation } from '../../should-skip-env-validation';
+import { shouldSkipEnvValidation } from '../../../should-skip-env-validation';
 
 // vitest sets VITEST in every worker, so cases that exercise the non-test
 // branches stub it to '' — the predicate only reads truthiness, so an empty

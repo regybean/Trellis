@@ -1516,6 +1516,9 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript

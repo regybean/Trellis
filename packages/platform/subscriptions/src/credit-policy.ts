@@ -5,8 +5,8 @@ import { env } from './env';
  * The pure Credit policy: per-tier limits and the billing-window that bounds a
  * balance. No Redis, no I/O — just the numbers and dates the storage layer in
  * `credits.ts` reads and writes. Split out so it can be unit-tested in isolation
- * (`tests/unit`) while the storage operations are tested against real Redis
- * (`tests/integration/service`).
+ * (`tests/backend/unit`) while the storage operations are tested against real Redis
+ * (`tests/backend/integration/service`).
  *
  * The tier limits are authored config (@acme/env ADR 0001): resolved from the
  * deploy-target profile in `env.ts`, where a same-named variable can retune them
