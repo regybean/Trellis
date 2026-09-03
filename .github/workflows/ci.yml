@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Lint
         run: pnpm lint && pnpm lint:ws
@@ -38,7 +38,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Typecheck
         # Stubs satisfy module-level infrastructure client constructors without
@@ -68,7 +68,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Boundaries
         run: pnpm boundaries
@@ -79,7 +79,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Format
         run: pnpm format
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Test policy
         run: pnpm test:policy
@@ -101,7 +101,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Deps lint (syncpack)
         run: pnpm deps:lint
@@ -114,7 +114,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Dead code / unused deps (knip)
         run: pnpm deps:check
@@ -127,7 +127,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Duplication (jscpd)
         run: pnpm dup
@@ -139,7 +139,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       # The bank:contribute suite asserts that the outbound secret scan really
       # blocks a leaking diff, so it needs the real binary rather than a skip.
@@ -160,7 +160,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: Build
         # Stubs — see ADR 0024 and typecheck job above.
@@ -206,7 +206,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Setup
-        uses: ./tooling/github/setup
+        uses: ./.github/actions/setup
 
       - name: pnpm audit
         run: pnpm audit --audit-level=high

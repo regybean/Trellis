@@ -65,15 +65,14 @@ There is no compositions layer ([ADR 0011](adr/0011-remove-compositions-layer.md
 
 `tooling/` · depend on tooling only. Packages extend these, never redefine.
 
-| Package                                         | What it is                      |
-| ----------------------------------------------- | ------------------------------- |
-| [`@acme/eslint-config`](../tooling/eslint/)     | ESLint config                   |
-| [`@acme/prettier-config`](../tooling/prettier/) | Prettier config                 |
-| [`@acme/tsconfig`](../tooling/typescript/)      | Base TypeScript configs         |
-| [`@acme/tailwind-config`](../tooling/tailwind/) | Tailwind config                 |
-| [`@acme/vitest-config`](../tooling/vitest/)     | Vitest config                   |
-| [`@acme/test-utils`](../tooling/test-utils/)    | Shared test helpers             |
-| [`tooling/github`](../tooling/github/)          | Shared GitHub Actions workflows |
+| Package                                         | What it is              |
+| ----------------------------------------------- | ----------------------- |
+| [`@acme/eslint-config`](../tooling/eslint/)     | ESLint config           |
+| [`@acme/prettier-config`](../tooling/prettier/) | Prettier config         |
+| [`@acme/tsconfig`](../tooling/typescript/)      | Base TypeScript configs |
+| [`@acme/tailwind-config`](../tooling/tailwind/) | Tailwind config         |
+| [`@acme/vitest-config`](../tooling/vitest/)     | Vitest config           |
+| [`@acme/test-utils`](../tooling/test-utils/)    | Shared test helpers     |
 
 ---
 

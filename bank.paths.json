@@ -9,11 +9,6 @@
       "layer": "tooling"
     },
     {
-      "name": "@acme/github",
-      "path": "tooling/github",
-      "layer": "tooling"
-    },
-    {
       "name": "@acme/prettier-config",
       "path": "tooling/prettier",
       "layer": "tooling"
@@ -180,8 +175,8 @@
     },
     {
       "name": "ci",
-      "description": "The workflows and the dependency-update configuration. Narrowed to these two paths rather than `.github/` wholesale, because taking the directory ships FUNDING.yml and points a consumer's sponsor button at this repo.",
-      "paths": [".github/workflows", ".github/renovate.json"]
+      "description": "The workflows, the composite setup action every job calls, and the dependency-update configuration. These live under `.github/` rather than in a tooling package because GitHub only loads workflows from that fixed repo-relative path — the reason this is a bundle and not a package. `.github/actions/setup` is the one path-flexible piece (`uses:` takes any repo path) and is kept beside the workflows that are its only consumer. Named as three paths rather than `.github/` wholesale so the directory splits by concern: the only other thing in it is copilot-instructions.md, a per-harness entry point belonging to the `agents` bundle.",
+      "paths": [".github/workflows", ".github/actions", ".github/renovate.json"]
     },
     {
       "name": "docs",
@@ -222,22 +217,6 @@
     {
       "path": "apps",
       "reason": "An app is the consumer's own. The bank distributes packages and configuration and never an app — `pnpm prune <app>` is the separate path for starting from a Trellis app, and #240 puts producing a runnable application out of scope."
-    },
-    {
-      "path": ".github/FUNDING.yml",
-      "reason": "Points the sponsor button at this repo. The reason the `ci` bundle names two paths instead of `.github/`."
-    },
-    {
-      "path": ".github/ISSUE_TEMPLATE",
-      "reason": "This repo's tracker conventions, not a consumer's."
-    },
-    {
-      "path": ".github/DISCUSSION_TEMPLATE",
-      "reason": "This repo's tracker conventions, not a consumer's."
-    },
-    {
-      "path": ".github/temp",
-      "reason": "A stray committed symlink into .agents/skills/, referenced by nothing in the repo. Not bank content; it should be deleted rather than distributed."
     },
     {
       "path": ".claude",
