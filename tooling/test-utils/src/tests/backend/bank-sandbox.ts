@@ -185,12 +185,21 @@ export function setup({
         bundles: [
           {
             name: 'root',
+            description: 'The workspace itself.',
             alwaysIncluded: true,
             paths: ['turbo.json', 'pnpm-workspace.yaml'],
           },
-          { name: 'docs', paths: ['docs'] },
+          {
+            name: 'docs',
+            description: 'The guide. Everything a reader needs.',
+            paths: ['docs'],
+          },
           { name: 'agents', paths: ['.claude/settings.json'] },
-          { name: 'infra', paths: ['deploy'] },
+          {
+            name: 'infra',
+            description: 'The local dev stack.',
+            paths: ['deploy'],
+          },
         ],
         exclude: [
           { path: 'apps', reason: "An app is the consumer's own." },
@@ -309,6 +318,37 @@ export function runScript(
     stdout: result.stdout,
     stderr: result.stderr,
   };
+}
+
+/**
+ * Evaluate an expression over the bank's own derivation, inside the consumer.
+ *
+ * `bankOffer` and `closurePreview` read git objects at a bank sha, so they
+ * cannot be called from the vitest process: it is not in the sandbox and has
+ * never fetched the bank. Running them where the scripts run — same vendored
+ * libs, same repo, same fetch — keeps the assertion on the real derivation
+ * rather than on a re-implementation of it.
+ *
+ * `sha` and `offer` are in scope for the expression.
+ */
+export function derive<T>(
+  { bank, consumer }: Sandbox,
+  ref: string,
+  expression: string,
+): T {
+  const run = runScript(consumer, '--input-type=module', [
+    '-e',
+    [
+      "import { fetchBank } from './scripts/lib/bank.mjs';",
+      "import { bankOffer, closurePreview } from './scripts/lib/bank-closure.mjs';",
+      `const sha = fetchBank(${JSON.stringify(bank)}, ${JSON.stringify(ref)});`,
+      'const offer = bankOffer(sha);',
+      `console.log(JSON.stringify(${expression}));`,
+    ].join('\n'),
+  ]);
+  if (run.status !== 0)
+    throw new Error(`expected the derivation to succeed: ${run.stderr}`);
+  return JSON.parse(run.stdout) as T;
 }
 
 export function sync(consumer: string) {
