@@ -34,7 +34,7 @@ Before exploring, agents consult the repo's own documentation — domain languag
 
 ## The skills
 
-Skills are **vendored** into `.agents/skills/` (committed; pinned by [skills-lock.json](../../skills-lock.json), sourced from `mattpocock/skills` and `mastra-ai/skills`). Claude only discovers a skill once it's symlinked into `.claude/skills/` — which is gitignored, so the symlinks don't survive a clone. [`scripts/register-skills.sh`](../../scripts/register-skills.sh) recreates them idempotently and runs on `postinstall`; run **`pnpm skills:register`** manually after adding or removing a skill.
+Skills are **vendored** into `.agents/skills/` (committed; pinned by [skills-lock.json](../../skills-lock.json), sourced from `mattpocock/skills` and `mastra-ai/skills`). Claude only discovers a skill once it's symlinked into `.claude/skills/`; those symlinks are committed too (only `.claude/worktrees/` is gitignored). [`scripts/register-skills.sh`](../../scripts/register-skills.sh) recreates them idempotently from `.agents/skills/` and runs on `postinstall`; run **`pnpm skills:register`** manually after adding or removing a skill, then commit the resulting link.
 
 **Skills stay code-agnostic.** A skill describes _what_ to do and delegates the
 _how_ — concrete commands, script paths, tool names, file layouts — to
