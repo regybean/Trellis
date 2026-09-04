@@ -13,6 +13,7 @@ pnpm --filter @acme/chat test:frontend   # frontend only
 pnpm --filter @acme/chat test:backend:watch
 pnpm test                                # everything (turbo)
 pnpm test:inventory                      # list every test without running one
+pnpm test:inventory nextjs-slim          # …or just what one app's closure covers
 ```
 
 Backend suites need Postgres + Redis, and they **always start their own**. The
@@ -358,7 +359,9 @@ excluded by the push config's `tablesFilter` and created lazily at runtime. See
 ## Seeing what the suite covers
 
 ```bash
-pnpm test:inventory        # markdown, on stdout, seconds, no containers
+pnpm test:inventory                  # everything, markdown on stdout, no containers
+pnpm test:inventory @acme/chat       # one package
+pnpm test:inventory nextjs-slim      # one app's whole closure
 pnpm test:inventory > inventory.md
 ```
 
@@ -379,6 +382,30 @@ testcontainers and push a schema purely to print names. So the tool sets
 `VITEST_LIST_ONLY`, which `backendProject` reads to omit `globalSetup`.
 Collection needs no infra — every reachable `env.ts` still validates against
 `staticTestEnv` — so the inventory runs anywhere, with no container runtime.
+
+### Targets
+
+A target narrows the report. A **package** name lists that package. An **app**
+name expands to the app's full transitive workspace closure, tooling included —
+so the answer is what that deployable's suite actually covers, not just the
+slices it mounts. Nothing is trimmed: platform packages are where low-value
+tests hide, and `@acme/redis`'s durable-stream tests are load-bearing for chat.
+
+Short names work, and mean the same thing they do to `pnpm dev` — both resolve
+through `scripts/lib/workspace-targets.ts`. A token that names nothing, or that
+two packages answer to, exits non-zero rather than printing an empty report.
+
+Comparing a full app with its slim counterpart is the useful trick:
+
+```bash
+pnpm test:inventory nextjs      > /tmp/full.md
+pnpm test:inventory nextjs-slim > /tmp/slim.md
+diff /tmp/full.md /tmp/slim.md
+```
+
+The slim closure carries no auth, billing or subscriptions tests. That makes the
+subsetting claim ([ADR 0010](adr/0010-slim-no-auth-apps.md)) observable rather than
+asserted, which is why a test pins it.
 
 Nothing is written to the repo and nothing enters the quality gate: this is an
 ad-hoc read, not an artifact.
