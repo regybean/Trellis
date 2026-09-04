@@ -421,6 +421,27 @@ carries an `acme` block, enforced by `pnpm test:policy`
 The checker also warns when a `none` package ships `.tsx` (UI) or `src/api` (a
 router) — a contradiction signalling it's mis-classified.
 
+### The layout is enforced here too
+
+`pnpm test:policy` fails, naming the package and the path, when:
+
+- a test file sits **anywhere but `src/tests/<layer>/`** — colocated with its
+  source, or under `src/tests/` with the layer segment dropped;
+- the file is one the layer's glob doesn't collect (`.test.tsx` under
+  `backend/`, or a `*.spec.*` anywhere);
+- the layers a package carries contradict its class — a `backend-library` with a
+  `src/tests/frontend/`, a `frontend-library` with a `src/tests/backend/`. Only
+  `full-stack` carries both.
+
+A `testStatus: "todo"` package is exempt — the todo already records that nothing
+is filed yet.
+
+The rule lives in the checker rather than the vitest projects because
+`passWithNoTests` stays on: a package that legitimately collects nothing must
+pass, so a misplaced file is collected by nothing and fails nowhere. Flipping
+`passWithNoTests` to `false` was considered and rejected — it fails at the wrong
+moment, with a message that doesn't say what moved.
+
 ## Adding tests to a new package
 
 > New packages scaffolded via `pnpm turbo gen` already include a compliant

@@ -61,6 +61,12 @@ Neither factory takes an `include`: every package files tests under
 `src/tests/<layer>/<kind>[/<group>]/`, layer segment present even in a
 single-sided package, and the factory owns the glob.
 
+`pnpm test:policy` enforces that layout — a test outside `src/tests/<layer>/`
+(or one the layer's glob can't collect, like `.test.tsx` under `backend/`) fails
+the gate naming the package and the path, rather than being silently uncollected.
+The layers a package may carry follow its class: `backend-library` → `backend/`,
+`frontend-library` → `frontend/`, `full-stack` → both.
+
 Every backend suite **starts its own** throwaway Postgres/Redis and pushes its
 schema — one path, identical on the primary checkout, in a worktree and in CI
 ([ADR 0034](../adr/0034-backend-tests-always-self-provision.md)). A reachable
