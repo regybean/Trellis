@@ -11,7 +11,7 @@
  * `bank:contribute` bases its patch on is the one `bank:sync` recorded.
  */
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 export const MANIFEST = "bank.manifest.json";
@@ -125,14 +125,30 @@ export function repoRelative(entry, what) {
  * @returns {Manifest}
  */
 export function readManifest(root) {
+  return (
+    readManifestIfAny(root) ??
+    fail(`no ${MANIFEST} at ${root} — a consumer repo pins its bank there.`)
+  );
+}
+
+/**
+ * The same read, but `undefined` rather than an abort when there is no manifest
+ * at all — the state whatever authors one starts from. A manifest that *is*
+ * there and malformed still aborts: "absent" and "unreadable" are different
+ * answers, and only one of them is safe to write over.
+ *
+ * @param {string} root
+ * @returns {Manifest | undefined}
+ */
+export function readManifestIfAny(root) {
   const path = join(root, MANIFEST);
   let raw;
   try {
     raw = readFileSync(path, "utf8");
-  } catch {
-    return fail(
-      `no ${MANIFEST} at ${root} — a consumer repo pins its bank there.`,
-    );
+  } catch (error) {
+    if (/** @type {NodeJS.ErrnoException} */ (error).code === "ENOENT")
+      return undefined;
+    return fail(`cannot read ${path}: ${String(error)}`);
   }
 
   /** @type {Record<string, unknown>} */
@@ -184,6 +200,51 @@ export function readManifest(root) {
       repoRelative(entry, `${MANIFEST}: "contributable" entry`),
     ),
   };
+}
+
+/**
+ * Write the manifest, refusing rather than clobbering one already there.
+ *
+ * The six fields are enumerated here, in this order, so the shape sits beside
+ * the validation that reads it back rather than in every caller that authors
+ * one.
+ *
+ * `wx` makes "already there" the write itself rather than a stat followed by a
+ * write: there is no window between the check and the create, so nothing can
+ * appear in it. `replace` is the caller's deliberate overwrite, which needs no
+ * check at all.
+ *
+ * @param {string} root
+ * @param {Manifest} manifest
+ * @param {{ replace?: boolean }} [options]
+ * @returns {string} The path written.
+ */
+export function writeManifest(root, manifest, { replace = false } = {}) {
+  const path = join(root, MANIFEST);
+  const body = `${JSON.stringify(
+    {
+      upstream: manifest.upstream,
+      ref: manifest.ref,
+      packages: manifest.packages,
+      bundles: manifest.bundles,
+      omit: manifest.omit,
+      contributable: manifest.contributable,
+    },
+    null,
+    2,
+  )}\n`;
+
+  try {
+    writeFileSync(path, body, { flag: replace ? "w" : "wx" });
+  } catch (error) {
+    if (/** @type {NodeJS.ErrnoException} */ (error).code !== "EEXIST")
+      throw error;
+    return fail(
+      `${MANIFEST} already exists at ${root} — edit it, or re-run with --force to replace it. Nothing has been written.`,
+    );
+  }
+
+  return path;
 }
 
 /**

@@ -246,6 +246,10 @@ export function setup({
     mkdirSync(dirname(target), { recursive: true });
     cpSync(join(repoRoot, source), target);
   }
+  // Written here rather than through `writeManifest` in `scripts/lib/bank.mjs`
+  // on purpose: this is the fixture the scripts are asserted against, and a
+  // fixture built by the code under test cannot catch that code agreeing with
+  // itself on the wrong field set.
   if (manifest) {
     write(
       consumer,

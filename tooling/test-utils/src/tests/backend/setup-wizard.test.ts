@@ -224,6 +224,27 @@ describe('setup:wizard refuses before it writes', () => {
     expect(manifest.packages).toEqual(['@acme/db']);
   });
 
+  it('replaces the selection on --force but keeps omit and contributable', () => {
+    const { bank, consumer } = setup({
+      packages: ['@acme/db'],
+      omit: ['packages/logger'],
+      contributable: ['packages/db'],
+    });
+
+    const manifest = author(consumer, {
+      upstream: bank,
+      packages: ['@acme/logger'],
+      extra: ['--force'],
+    });
+
+    // A selection passed as arguments says nothing about either field, and both
+    // are maintained by hand — an allowlist reviewed path by path especially.
+    // Resetting them would be a silent loss on a re-run.
+    expect(manifest.packages).toEqual(['@acme/logger']);
+    expect(manifest.omit).toEqual(['packages/logger']);
+    expect(manifest.contributable).toEqual(['packages/db']);
+  });
+
   it('names an argument it does not understand', () => {
     const { bank, consumer } = fresh();
 

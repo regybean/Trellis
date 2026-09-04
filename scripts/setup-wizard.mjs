@@ -37,27 +37,22 @@
  *   0  bank.manifest.json written
  *   1  refused — nothing was written
  */
-import { existsSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { parseArgs } from "node:util";
 
-import { bankBundles, resolveInclude } from "./lib/bank-closure.mjs";
+import { chosenBundles, resolveInclude } from "./lib/bank-closure.mjs";
 import {
   BankError,
   MANIFEST,
   enterRepoRoot,
   fail,
   fetchBank,
+  readManifestIfAny,
+  writeManifest,
 } from "./lib/bank.mjs";
 
 const EXIT_ERROR = 1;
 
-const USAGE = `usage: setup:wizard --upstream <git url> --ref <bank tag> [--packages <names>] [--bundles <names>] [--force]`;
-
-/** Flags taking one value. */
-const VALUE_FLAGS = ["--upstream", "--ref"];
-
-/** Flags taking a comma-separated list, repeatable. */
-const LIST_FLAGS = ["--packages", "--bundles"];
+const USAGE = `usage: node scripts/setup-wizard.mjs --upstream <git url> --ref <bank tag> [--packages <names>] [--bundles <names>] [--force]`;
 
 /**
  * @typedef {object} Options
@@ -67,6 +62,36 @@ const LIST_FLAGS = ["--packages", "--bundles"];
  * @property {string[]} bundles
  * @property {boolean} force
  */
+
+/**
+ * The flags, off `node:util`'s `parseArgs`.
+ *
+ * `--flag=value`, a repeated flag and rejecting one nobody declared are all its
+ * behaviour, and it is stdlib, so the "no dependencies, nothing installed yet"
+ * constraint holds. Its errors are `TypeError`s aimed at the caller, so they are
+ * re-raised as the phrased-for-a-human refusal every other abort path gives.
+ *
+ * @param {string[]} args
+ */
+function parseFlags(args) {
+  try {
+    return parseArgs({
+      args,
+      allowPositionals: false,
+      options: {
+        upstream: { type: "string" },
+        ref: { type: "string" },
+        packages: { type: "string", multiple: true },
+        bundles: { type: "string", multiple: true },
+        force: { type: "boolean" },
+      },
+    }).values;
+  } catch (error) {
+    return fail(
+      `${error instanceof Error ? error.message : String(error)} — ${USAGE}`,
+    );
+  }
+}
 
 /**
  * Parse the selection off the command line.
@@ -80,124 +105,82 @@ const LIST_FLAGS = ["--packages", "--bundles"];
  * @param {string[]} argv
  * @returns {Options}
  */
-function parseArgs(argv) {
-  /** @type {Record<string, string>} */
-  const values = {};
-  /** @type {Record<string, string[]>} */
-  const lists = { "--packages": [], "--bundles": [] };
-  let force = false;
+function parseSelection(argv) {
+  const flags = parseFlags(argv);
 
-  for (let i = 0; i < argv.length; i += 1) {
-    const arg = argv[i];
-    // `--flag=value` and `--flag value` are the same thing to everything below.
-    const split = arg.indexOf("=");
-    const flag = split === -1 ? arg : arg.slice(0, split);
-    const inline = split === -1 ? undefined : arg.slice(split + 1);
+  /**
+   * @param {string} flag
+   * @param {string | undefined} value
+   */
+  const required = (flag, value) =>
+    value?.trim() || fail(`--${flag} is required — ${USAGE}`);
 
-    if (flag === "--force") {
-      force = true;
-      continue;
-    }
-
-    if (!VALUE_FLAGS.includes(flag) && !LIST_FLAGS.includes(flag))
-      return fail(`unknown argument ${arg} — ${USAGE}`);
-
-    const value = inline ?? argv[++i];
-    if (value === undefined) return fail(`${flag} needs a value — ${USAGE}`);
-
-    if (LIST_FLAGS.includes(flag))
-      lists[flag].push(...value.split(",").map((entry) => entry.trim()));
-    else values[flag] = value.trim();
-  }
-
-  /** @param {string} flag */
-  const required = (flag) =>
-    values[flag] || fail(`${flag} is required — ${USAGE}`);
-
-  /** @param {string} flag */
-  const list = (flag) => [...new Set(lists[flag].filter(Boolean))].sort();
+  /** @param {string[] | undefined} entries */
+  const names = (entries) =>
+    [
+      ...new Set(
+        (entries ?? [])
+          .flatMap((entry) => entry.split(","))
+          .map((name) => name.trim())
+          .filter(Boolean),
+      ),
+    ].sort();
 
   return {
-    upstream: required("--upstream"),
-    ref: required("--ref"),
-    packages: list("--packages"),
-    bundles: list("--bundles"),
-    force,
+    upstream: required("upstream", flags.upstream),
+    ref: required("ref", flags.ref),
+    packages: names(flags.packages),
+    bundles: names(flags.bundles),
+    force: flags.force === true,
   };
 }
 
-/**
- * The bundle names worth recording: the ones that were a choice.
- *
- * A bundle the bank marks `alwaysIncluded` arrives whether or not the manifest
- * names it, so naming it is noise that reads like an opt-in — and would read
- * like an opt-*out* were it ever removed. Selecting one is not an error, since
- * asking for what you were getting anyway is a reasonable thing to type; it is
- * dropped and said aloud. Which bundles those are is read from the bank at
- * `sha`, so nothing here hardcodes `root`.
- *
- * Unknown names are left in place for `resolveInclude` to reject, so the "no
- * such bundle" message stays in one file.
- *
- * @param {string} sha
- * @param {string[]} selected
- * @returns {string[]}
- */
-function chosenBundles(sha, selected) {
-  const always = bankBundles(sha)
-    .filter((bundle) => bundle.alwaysIncluded)
-    .map((bundle) => bundle.name);
+function main() {
+  const options = parseSelection(process.argv.slice(2));
+  const root = enterRepoRoot();
 
-  const dropped = selected.filter((name) => always.includes(name));
+  // `--force` replaces a *selection*. `omit` and `contributable` are the two
+  // fields a consumer maintains by hand as it matures, and no selection passed
+  // here can reconstruct either, so they are carried across rather than reset —
+  // otherwise a re-run silently drops an allowlist someone reviewed path by
+  // path. Without `--force` there is nothing to carry: the write refuses.
+  const existing = options.force ? readManifestIfAny(root) : undefined;
+
+  const sha = fetchBank(options.upstream, options.ref);
+  const { bundles, dropped } = chosenBundles(sha, options.bundles);
   if (dropped.length)
     console.log(
       `Not recording ${dropped.join(", ")} — always included, so it cannot be a choice.`,
     );
 
-  return selected.filter((name) => !always.includes(name));
-}
-
-function main() {
-  const options = parseArgs(process.argv.slice(2));
-  const root = enterRepoRoot();
-
-  const path = join(root, MANIFEST);
-  if (existsSync(path) && !options.force)
-    return fail(
-      `${MANIFEST} already exists at ${root} — edit it, or pass --force to replace it. Nothing has been written.`,
-    );
-
-  const sha = fetchBank(options.upstream, options.ref);
-  const selection = {
+  const manifest = {
+    upstream: options.upstream,
+    ref: options.ref,
     packages: options.packages,
-    bundles: chosenBundles(sha, options.bundles),
-    omit: [],
+    bundles,
+    omit: existing?.omit ?? [],
+    // Back-flow stays a decision a human makes while reading a diff, so the
+    // allowlist is never seeded — see docs/bank.md.
+    contributable: existing?.contributable ?? [],
   };
 
   // Strict: a name that does not resolve aborts here, naming it, with no file
   // written. Resolving is also the only way to know what the selection covers,
   // which is worth showing before the sync goes and fetches it.
-  const { include } = resolveInclude(sha, selection);
+  const { include, warnings } = resolveInclude(sha, manifest);
+  for (const warning of warnings) console.log(warning);
 
-  writeFileSync(
-    path,
-    `${JSON.stringify(
-      {
-        upstream: options.upstream,
-        ref: options.ref,
-        ...selection,
-        // Back-flow stays a decision a human makes while reading a diff, so the
-        // allowlist is never seeded — see docs/bank.md.
-        contributable: [],
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  writeManifest(root, manifest, { replace: options.force });
 
+  const kept = manifest.omit.length + manifest.contributable.length;
   console.log(
     [
-      `${MANIFEST} written: ${selection.packages.length} package(s), ${selection.bundles.length} chosen bundle(s).`,
+      `${MANIFEST} written: ${manifest.packages.length} package(s), ${manifest.bundles.length} chosen bundle(s).`,
+      ...(kept
+        ? [
+            `Kept "omit" (${manifest.omit.length}) and "contributable" (${manifest.contributable.length}) from the manifest it replaced — a selection cannot reconstruct either.`,
+          ]
+        : []),
       `At ${options.ref} (${sha.slice(0, 8)}) that selection covers ${include.length} path(s), resolved again on every sync.`,
       "",
       "Nothing has been copied. To take the files:",
