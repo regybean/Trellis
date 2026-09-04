@@ -23,6 +23,22 @@ _Avoid_: "API route", "endpoint file"
 | `app/api/trpc/ingest/[trpc]/`  | Route handler for `@acme/ingest` router                                         |
 | `app/api/stripe/`              | Stripe webhook receiver                                                         |
 | `app/api/health/`              | Health check endpoint                                                           |
+| `src/server/deps.ts`           | **Composition root** — every implementation this app injects, built once        |
+| `src/server/trpc-route.ts`     | Route-handler builders + the context resolvers each mount names                 |
+| `worker.ts`                    | Generation + ingest worker entrypoint                                           |
+
+## Composition root (`src/server/deps.ts`)
+
+Everything this app injects into a seam is constructed here, once, and both entry
+points — `src/server/trpc-route.ts` and `worker.ts` — import the result. Today
+that is the Stripe/Redis entitlements provider,
+`createSubscriptionsEntitlements(toPlanIds(billingEnv))`.
+
+Two independently built providers typecheck and still disagree about which one
+charged and which one refunds, so there is only one, and lint keeps the factories
+out of every other file in this app ([ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md)).
+Auth is the exception, and stays in the route seam: only one entry point resolves
+a principal.
 
 ## Relationships
 

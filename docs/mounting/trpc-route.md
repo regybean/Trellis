@@ -28,10 +28,12 @@ export const resolveContext = async (req: Request) => ({
   session: { user: /* your provider's user, mapped onto InjectedSession */ },
 });
 
-// …and one for the features that meter or gate.
+// …and one for the features that meter or gate. The provider is imported, not
+// built here: your composition root builds it, and your worker reads the same
+// one (ADR 0006).
 export const resolveContextWithEntitlements = async (req: Request) => ({
   ...(await resolveContext(req)),
-  entitlements: /* your EntitlementsProvider */,
+  entitlements,
 });
 
 export function createRouteHandlers<TContext extends BaseContext>(
@@ -82,6 +84,12 @@ a constant principal and an unlimited provider — see
 [ADR 0010](../adr/0010-slim-no-auth-apps.md). Which features want more than
 `BaseContext` is theirs to say, not the platform's
 ([ADR 0006](../adr/0006-entitlements-injection-seam.md)).
+
+Injected implementations are **built once per app**, in `src/server/deps.ts`, and
+this file imports them. The seam has a second consumer — the worker
+([worker.md](worker.md)) — and two independently built providers typecheck while
+disagreeing about which one charged and which one refunds. Lint keeps the
+factories out of every file but that one.
 
 ## 3. Per-feature routes
 

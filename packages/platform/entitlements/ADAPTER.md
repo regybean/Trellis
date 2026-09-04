@@ -21,12 +21,15 @@ has billing at all
 
 ## Wiring
 
-- Inject a provider in your route seam. It is required with no default, so a
-  deployment has to state whether it meters or not —
-  [trpc-route.md](../../../docs/mounting/trpc-route.md).
-- Inject the **same** provider in your worker entrypoint, or a failed job
-  refunds a ledger nothing is reading —
-  [worker.md](../../../docs/mounting/worker.md).
+- Choose a provider **once**, in your app's composition root
+  (`src/server/deps.ts`). It is required with no default, so a deployment has to
+  state whether it meters or not
+  ([ADR 0006](../../../docs/adr/0006-entitlements-injection-seam.md)).
+- Import it from there in your route seam
+  ([trpc-route.md](../../../docs/mounting/trpc-route.md)) and your worker
+  entrypoint ([worker.md](../../../docs/mounting/worker.md)). A worker holding a
+  second provider refunds a ledger nothing is reading, and it typechecks just as
+  well as the right one — one file is what rules it out.
 - To meter for real, supply your own implementation of the interface, or mount a
   billing-backed one. Nothing else in your app changes: features already read
   the seam.

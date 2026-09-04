@@ -20,7 +20,7 @@ resolves a provider, which is the point: the platform's session type names none.
 [ADR 0010](../../docs/adr/0010-slim-no-auth-apps.md).
 _Avoid_: "fake user", "mock auth".
 
-**Unlimited entitlements**:
+**Unlimited entitlements** (`src/server/deps.ts`):
 `unlimitedEntitlements` from `@acme/entitlements` — the no-billing entitlements
 provider (top tier, infinite credits, no-op consume) injected in place of the
 Stripe/Redis-backed `subscriptionsEntitlements`. This app needs it because it
@@ -33,9 +33,22 @@ See [ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md).
 A Next.js `route.ts` that bridges a feature's tRPC router to
 `/api/trpc/{feature}/[trpc]`. Two builders in `src/server/trpc-route.ts`, one per
 context shape this app composes: `createTRPCRouteHandlers` injects the constant
-principal, and `createTRPCRouteHandlersWithEntitlements` adds
-`unlimitedEntitlements` for the one mount whose feature declares it. A mount
-wired to the wrong one does not compile.
+principal, and `createTRPCRouteHandlersWithEntitlements` adds the provider from
+`src/server/deps.ts` for the one mount whose feature declares it. A mount wired
+to the wrong one does not compile.
+
+## Composition root (`src/server/deps.ts`)
+
+Everything this app injects into a seam is constructed here, once, and both entry
+points — `src/server/trpc-route.ts` and `worker.ts` — import the result. Two
+independently built providers typecheck and still disagree about which one
+charged and which one refunds, so there is only one, and lint keeps the providers
+out of every other file in this app
+([ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md)).
+
+For a slim app it is also where the absence of Stripe is _readable_ rather than
+inferred from a missing dependency: one line choosing `unlimitedEntitlements`,
+with `@acme/subscriptions` nowhere in it (ADR 0010).
 
 ## Structure
 
@@ -46,7 +59,9 @@ wired to the wrong one does not compile.
 | `app/api/trpc/chat/[trpc]/`               | Route handler for `@acme/chat` router                                     |
 | `app/api/trpc/ingest/[trpc]/`             | Route handler for `@acme/ingest` router                                   |
 | `app/api/health/`                         | Health check endpoint                                                     |
+| `src/server/deps.ts`                      | **Composition root** — every implementation this app injects, built once  |
 | `src/server/trpc-route.ts`                | Two route-handler builders — constant principal, ± unlimited entitlements |
+| `worker.ts`                               | Generation + ingest worker entrypoint                                     |
 | `src/components/pages/layout/sidebar.tsx` | App-local minimal sidebar (app-owned shell, ADR 0011)                     |
 
 ## Relationships

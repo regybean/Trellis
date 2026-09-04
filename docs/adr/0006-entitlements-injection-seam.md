@@ -369,3 +369,57 @@ judgement here is that twenty generator-templated lines that typecheck are a
 smaller risk surface than a private tRPC subpath plus an inline-arrow rule nothing
 enforces. Everything that _can't_ typecheck its way out of drift — the fetch
 handler, `logTRPCError`, the CORS policy — still lives in `@acme/trpc/handler`.
+
+## Amendment (#295) — seam implementations are constructed in one file per app
+
+The seam is unchanged for a fourth time. A provider still reaches procedures as
+`ctx.entitlements`, still chosen at the app edge, still required with no
+default. What this records is a rule about _where_ the choosing happens, and it
+generalises past entitlements.
+
+**Seam implementations are constructed in exactly one file per app** — its
+composition root, `src/server/deps.ts` — and every entry point imports the
+result.
+
+Each app had two entry points that needed a provider: the tRPC route seam and
+the generation worker. Both built their own, from identical code, under a
+hand-written comment at each site asking the next person to keep them the same.
+The amendment above makes TypeScript check that a mount naming `entitlements`
+_gets_ one (#264). Nothing checked, or could check, that the two constructed
+values were the same value — two calls to `createSubscriptionsEntitlements`
+typecheck perfectly while disagreeing about which provider charged and which one
+refunds. That invariant existed only in prose, in chat's `ADAPTER.md`, and
+breaking it leaks Credits silently.
+
+- **One module scope is the check.** There is one provider per app because there
+  is one place it can be built. The route seam and the worker import the same
+  binding, so "the same value" is not a property anyone has to verify.
+- **Lint confines the construction, not the package.** A per-app
+  `containmentOverride({ compositionRoot })` bans
+  `createSubscriptionsEntitlements` and `unlimitedEntitlements` outside that one
+  file, with a message stating the general principle rather than naming
+  entitlements — the next seam should read correctly against it. Names, not whole
+  packages: `@acme/subscriptions` also exports ordinary reads
+  (`getStripeCustomerId`, which `apps/tanstack-start` calls from its Stripe
+  success handler) and confining those would push unrelated functions into a file
+  that is meant to hold built values only.
+- **Four independent files, free to differ.** No module shared across apps —
+  that would reintroduce the compositions layer [ADR 0011](0011-remove-compositions-layer.md)
+  removed. The full apps build the Stripe/Redis provider from the plan ids
+  `@acme/billing/env` resolves; the slim apps export `unlimitedEntitlements`,
+  which puts the absence of Stripe from their graph in one readable line instead
+  of leaving it inferred from a missing dependency
+  ([ADR 0010](0010-slim-no-auth-apps.md)).
+- **Construction and resolution are different concerns, and now different
+  directories.** Selection is per deployment; resolution is per request — the
+  #250 amendment above draws that line. Construction lives in `src/server/`,
+  request-time resolution stays where the framework wants it, which in the
+  TanStack apps is `src/lib/` importing across.
+
+Auth stays in the route seam. Only one entry point resolves a principal today,
+so there is no second site to disagree with; the rule applies when there is.
+
+**No behaviour changes.** Chat's backend integration suite already covers the
+refund path end to end, including the double-refund race between the worker error
+path and `reconcileTurn`. It passes unmodified, and that is the guarantee this
+refactor rests on rather than a new test of the wiring.

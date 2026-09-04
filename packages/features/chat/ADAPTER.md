@@ -33,9 +33,11 @@ substrate at once, so mounting it touches every recipe.
   and the provider with a server-resolved `scopeKey`
   ([trpc-route.md](../../../docs/mounting/trpc-route.md),
   [provider.md](../../../docs/mounting/provider.md)).
-- Run the generation processor in your worker entrypoint, injecting the **same**
-  entitlements provider your route seam injects, or a failed turn refunds
-  nothing — [worker.md](../../../docs/mounting/worker.md).
+- Run the generation processor in your worker entrypoint, injecting the
+  entitlements provider from your app's composition root — the one file that
+  builds it, which your route seam imports too
+  ([worker.md](../../../docs/mounting/worker.md)). A worker that builds its own
+  refunds a ledger nobody is reading.
 - Re-export the folder table from your schema barrel, and compose the env
   factory with a chat model selected
   ([schema.md](../../../docs/mounting/schema.md),
