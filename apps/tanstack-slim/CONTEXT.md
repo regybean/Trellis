@@ -6,9 +6,9 @@ with **all auth and billing (Stripe) stripped out**. It wires only the
 behind an app-local dark "developer console" shell. Owns no business logic. Runs on
 port 3003.
 
-Together with `apps/nextjs-slim` it proves the platform seams (auth seam ADR 0003,
-entitlements seam ADR 0006) decouple the features from the auth provider and
-Stripe across two frameworks.
+Together with `apps/nextjs-slim` it proves the auth seam and the entitlements
+seam decouple the features from the auth provider and Stripe across two
+frameworks.
 
 ## Language
 
@@ -16,8 +16,7 @@ Stripe across two frameworks.
 The fixed `InjectedSession` injected in place of a resolved session —
 `{ user: { id: 'local', role: 'admin' } }`. The
 TanStack Start analogue of
-`apps/nextjs-slim`'s constant principal. See
-[ADR 0010](../../docs/adr/0010-slim-no-auth-apps.md).
+`apps/nextjs-slim`'s constant principal.
 _Avoid_: "fake user", "mock auth".
 
 **Server route handler**:
@@ -26,15 +25,22 @@ A file route bridging a feature's tRPC router to `/api/trpc/{feature}/$` via
 builders in `src/lib/trpc-route.ts`, one per context shape this app composes:
 `createTRPCServerHandlers` injects the constant principal, and
 `createTRPCServerHandlersWithEntitlements` adds the provider from
-`~/server/deps` for the chat mount — the only feature here that declares them
-(#256). `@acme/ingest` and
-`@acme/notifications` are handed none, and a mount wired to the wrong builder
-does not compile.
+`~/server/deps` for the chat mount — the only feature here that declares them.
+`@acme/ingest` and `@acme/notifications` are handed none, and a mount wired to
+the wrong builder does not compile.
+
+**Composition root** (`src/server/deps.ts`):
+The one file where every implementation this app injects into a seam is
+constructed, and both entry points — `src/lib/trpc-route.ts` and `worker.ts` —
+import the result. Lint keeps the providers out of every other file in this app.
+Construction lives in `src/server/`; request-time resolution stays in `src/lib/`
+and imports across. For a slim app it is also where the absence of Stripe is
+_readable_ rather than inferred from a missing dependency: one line choosing
+`unlimitedEntitlements`, with `@acme/subscriptions` nowhere in it.
 
 **Telemetry bootstrap** (Nitro startup plugin, `src/nitro/telemetry.ts`):
 The app-owned hook that calls `initTelemetry()` (`trellis-tanstack-slim`) once at
-server startup. The per-app half of the telemetry seam — see
-[ADR 0023](../../docs/adr/0023-ambient-telemetry-no-context-object.md).
+server startup. The per-app half of the telemetry seam.
 
 **Console shell** (`src/components/console-shell.tsx`):
 The app-local dark/dense "developer console" chrome (left rail + top bar + status
@@ -46,42 +52,12 @@ from `apps/nextjs-slim` (indigo/violet).
 The per-app `pgSchema` named off `NEXT_PUBLIC_WEBAPP` (falls back to `tanstack-slim`).
 `src/server/db/schema.ts` is the drizzle-kit entrypoint and exports only `appSchema`
 (no app-owned tables) so `db:push` owns `CREATE SCHEMA`. Mastra owns its `mastra_*`
-DDL at runtime — see [@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md). Run
+DDL at runtime. Run
 `db:push` (dev) or `db:migrate` (deploy) before booting on a fresh DB.
 
-## Structure
-
-| Path                                     | Purpose                                                               |
-| ---------------------------------------- | --------------------------------------------------------------------- |
-| `src/start.ts`                           | `createStart()` with the CSRF guard only (no auth middleware)         |
-| `src/router.tsx`                         | Router + `setupRouterSsrQueryIntegration` (SSR react-query hydration) |
-| `src/routes/__root.tsx`                  | theme (forced dark) → Chat/Ingest providers → console shell           |
-| `src/routes/index.tsx`                   | App-owned console landing home                                        |
-| `src/routes/chat-assistant.tsx`          | Chat UI page — renders `ChatAssistant` (no auth guard)                |
-| `src/routes/documents.tsx`               | Documents page — renders `@acme/ingest` upload UI + list              |
-| `src/routes/api/trpc/{chat,ingest}.$.ts` | Server route handlers per feature router                              |
-| `src/routes/api/health.ts`               | Health check endpoint                                                 |
-| `src/lib/trpc-route.ts`                  | Two route-handler builders — constant principal, ± entitlements       |
-| `src/server/deps.ts`                     | **Composition root** — every implementation this app injects, once    |
-| `worker.ts`                              | Generation + ingest worker entrypoint                                 |
-| `src/server/app-schema.ts`               | App-owned `pgSchema` (named off `NEXT_PUBLIC_WEBAPP`)                 |
-| `src/server/db/schema.ts`                | drizzle-kit entrypoint — exports only `appSchema`                     |
-| `src/components/console-shell.tsx`       | App-local dark console shell (app-owned, no auth UI; ADR 0011)        |
-
-## Composition root (`src/server/deps.ts`)
-
-Everything this app injects into a seam is constructed here, once, and both entry
-points — `src/lib/trpc-route.ts` and `worker.ts` — import the result. Two
-independently built providers typecheck and still disagree about which one
-charged and which one refunds, so there is only one, and lint keeps the providers
-out of every other file in this app
-([ADR 0006](../../docs/adr/0006-entitlements-injection-seam.md)). Construction
-lives in `src/server/`; request-time resolution stays in `src/lib/` and imports
-across.
-
-For a slim app it is also where the absence of Stripe is _readable_ rather than
-inferred from a missing dependency: one line choosing `unlimitedEntitlements`,
-with `@acme/subscriptions` nowhere in it (ADR 0010).
+**Worker entrypoint** (`worker.ts`):
+The generation + ingest worker's process entrypoint, and the second consumer of
+the composition root alongside the route handlers.
 
 ## Relationships
 
@@ -89,9 +65,14 @@ with `@acme/subscriptions` nowhere in it (ADR 0010).
   `/api/trpc/{feature}` endpoint.
 - The app's **one** `QueryClient` is created in `src/router.tsx` and mounted by the
   router's `Wrap`. The feature providers above are tRPC providers — they render no
-  `QueryClientProvider` of their own and read this one from context
-  ([ADR 0036](../../docs/adr/0036-one-app-owned-query-client.md)).
+  `QueryClientProvider` of their own and read this one from context.
 - No auth middleware, no `@acme/auth`, `@acme/billing`, `@acme/subscriptions`,
   or `@acme/redis`.
+- `src/start.ts` registers the CSRF guard only — there is no auth middleware to
+  install.
 - `src/routeTree.gen.ts` is regenerated by the TanStack Start vite plugin on
   `dev`/`build`.
+
+## Decisions
+
+See [`docs/adr/`](../../docs/adr/).

@@ -1,34 +1,9 @@
 # Notifications (`@acme/notifications`)
 
 A generic per-user notification primitive: a background job tells a user "your
-work finished," and a toast appears on whatever page they have open. The first
-`shared` package to own a tRPC router and a cross-cutting per-user subscription
-(see [ADR 0030](docs/adr/0001-notifications-seam.md)). Ingest (spec #185)
-is its first consumer; the primitive is the durable win.
-
-The core owns the **envelope**, never the **kinds** — a feature adds a
-notification kind with zero change here.
-
-## Layout
-
-- `./schema` (isomorphic) — the envelope zod schema + types.
-- `./server` (`server-only`) — `publish` (the sole writer) and the `appRouter`.
-  A worker/server importing this never pulls the `'use client'` React connectors.
-- `.` (client) — the `<NotificationsProvider>` an app mounts, plus
-  `dispatchNotification` + `defaultToastRenderer` for assembling a `renderers` map.
-  It needs the app's `QueryClientProvider` above it ([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md))
-  and renders none of its own. Subscription-only means it has no queries, so there
-  is no `staleTime`, no persister, and nothing it would have configured on a
-  `QueryClient` — the client it used to mint existed purely to satisfy
-  `TRPCProvider`.
-
-  The mount stays identical in all four apps, but the tail is **not**
-  unconditional: `stream` is a `protectedProcedure`, so it waits for a resolved
-  signed-in session read through `useOptionalAuthStatus` (`@acme/hooks`).
-  Subscribing while signed out only earned a retried UNAUTHORIZED and a burst of
-  error-level server logs on pages like `/sign-in`. An app with no
-  `AuthStatusProvider` at all is the slim case (ADR 0010) and stays enabled,
-  since those apps inject a synthetic session server-side.
+work finished," and a toast appears on whatever page they have open. The core
+owns the **envelope**, never the **kinds** — a feature adds a notification kind
+with zero change here.
 
 ## Language
 
@@ -70,22 +45,20 @@ appends it with an atomically-restamped rolling 1h TTL. _Avoid_: "emit", "send".
 
 **Notification stream** (`notification-stream.ts`):
 The per-user stream at `notificationKey(userId) = nsKey('notifications', userId)`,
-on the shared `@acme/redis` **Durable stream** primitive (#196) — the transport
-(poll loop, abort-aware `delay`, atomic append-with-TTL, the `lastId` read) lives
-there, not here. What stays local is the wire codec (`payload` JSON ⇄ envelope) and
-the **Tail-from-now** seed policy. Rolling 1h TTL, no `MAXLEN`; nothing ever deletes
+on the shared `@acme/redis` **Durable stream** primitive — the transport (poll
+loop, abort-aware `delay`, atomic append-with-TTL, the `lastId` read) lives there,
+not here. What stays local is the wire codec (`payload` JSON ⇄ envelope) and the
+**Tail-from-now** seed policy. Rolling 1h TTL, no `MAXLEN`; nothing ever deletes
 it. _Avoid_: "queue", "channel", "inbox".
 
 **Tail-from-now**:
 The fresh-connect seed policy (`tailNotifications`): seed the cursor to the stream's
 **actual last id** (`lastId()` via `xRevRange`), captured eagerly at attach, so the
 whole backlog is skipped and only entries published _after_ the reader attaches are
-delivered. A leave-and-return therefore shows nothing (no durability — accepted,
-ADR 0001). _Fixed (#196)_: the seed was `${Date.now()}-0` — the app clock, while
-Redis assigns ids from its own; under podman-VM drift that landed in Redis' future
-and silently dropped live entries (the same skew class ingest's #194 killed). A real
-Redis id can't skew; a regression test injects skew and asserts delivery. _Avoid_:
-"replay", "catch-up".
+delivered. The seed is always a real Redis-assigned id, never the app clock, which
+cannot skew against the ids Redis mints. A leave-and-return therefore shows nothing
+— there is **no durability**, and that cost is accepted. _Avoid_: "replay",
+"catch-up".
 
 **`toastId` dedup**:
 The default renderer passes `toastId: n.id` so react-toastify collapses a
@@ -95,4 +68,25 @@ toast — transport-level dedup with zero client state. _Avoid_: "idempotency ke
 **Slim `'local'` bleed**:
 In the no-auth slim apps, `userId` collapses to the constant `'local'` principal
 at the tRPC route seam, so all slim visitors share one `notifications:local`
-stream. Accepted and documented (ADR 0001) — the same collapse chat/ingest accept.
+stream. An accepted cost — the same collapse chat and ingest accept.
+
+## Relationships
+
+- **It needs the app's `QueryClientProvider` above it.** The provider renders its
+  own tRPC provider but no `QueryClient`: subscription-only means no queries, so
+  there is no `staleTime`, no persister, and nothing it would have configured.
+- **It rides `@acme/redis`' Durable stream primitive.** The poll loop, the
+  exclusive cursor and the atomic append-with-TTL are that package's; only the
+  codec and the seed policy are notifications'.
+- **The app owns the `kind`→renderer registry** and mounts the
+  `<NotificationsProvider>`, because feature payload schemas are only importable
+  at the app. It renders no `<ToastContainer />` of its own.
+- **`@acme/hooks` supplies the auth-status gate.** `stream` is a
+  `protectedProcedure`, so the tail waits on a resolved signed-in session read
+  through `useOptionalAuthStatus`. An app with no `AuthStatusProvider` at all is
+  the slim case and stays enabled, since those apps inject a synthetic session
+  server-side.
+
+## Decisions
+
+See [`docs/adr/`](docs/adr/).

@@ -134,7 +134,9 @@ values are authored, so they can never be missing and never need skipping; the
 only thing a lint/build/CI run cannot supply is a secret, and that is the only
 thing relaxed. This is not a new permission — it is the pre-existing env-validation skip, made
 precise, and it adds a **run-context axis** to the two existing axes of secret
-requiredness (value, composition). Config always validates, unchanged.
+requiredness (value, composition), all three of which
+[ADR 0002](0002-secret-requiredness-is-derived-never-declared.md) states.
+Config always validates, unchanged.
 
 The skip predicate itself is one policy this package owns —
 `shouldSkipEnvValidation()`, never a copy in each slice's `env.ts`:
@@ -229,8 +231,8 @@ typos and on keys in no schema at all. **Accepted cost.**
 
 - `server` — server-only. Reading it in browser code throws.
 - `shared` — browser-safe, readable both sides. This is where a browser-safe
-  _authored_ value goes (Clerk's route URLs and publishable key, billing's plan
-  ids and portal URL, the models provider selection), because `client` keys must
+  _authored_ value goes (billing's plan ids and portal URL, the models provider
+  selection), because `client` keys must
   carry the `NEXT_PUBLIC_` prefix — a prefix that would be a lie on a value that
   is never read from the environment.
 - `client` — actual `NEXT_PUBLIC_*` variables.
@@ -255,22 +257,23 @@ satisfy every slice's selectors just to read a port. Overriding `DB_NAME`
 therefore points a _connection_ at a different database; it does not rename the
 one compose provisions.
 
-### 6a. The two bent cases: `@acme/auth` and `@acme/models`
+### 6a. The one bent case: `@acme/models`
 
-One call per slice is the rule; two slices split their call, and in both the
-reason is that **something other than the config/secret line** forces a subset to
-be demandable on its own. Neither is a second config mechanism — every call still
-routes through `withProfiles`, and `skipValidation` is still never passed.
+One call per slice is the rule; one slice splits its call, and the reason is that
+**something other than the config/secret line** forces a subset to be demandable
+on its own. It is not a second config mechanism — every call still routes through
+`withProfiles`, and `skipValidation` is still never passed.
 
-**`@acme/auth` — split by runtime.** `clerkWiringEnv()` carries the five
-browser-safe authored keys and no secret; `authEnv()` `extends` it and adds
-`CLERK_SECRET_KEY`, and is what the full apps compose. `apps/nextjs`'s
-`middleware.ts` runs in the Edge runtime and needs only the publishable key; a
-call that also declared the secret would demand it from a `process.env` that is a
-build-time snapshot there, so a correctly configured deploy would 500 on every
-request (the same hazard the pre-existing "resolve just the auth slice here, NOT
-`~/env`" comment guarded against). `<ClerkProvider>` in both apps reads the same
-subset, which is also what keeps an isomorphic route from touching a server key.
+> This section originally recorded a second bent case, `@acme/auth` **split by
+> runtime**: `clerkWiringEnv()` carried the five browser-safe authored Clerk keys
+> that `apps/nextjs`'s Edge `middleware.ts` needed, and `authEnv()` extended it
+> with `CLERK_SECRET_KEY` for the full apps — a split whose whole purpose was to
+> keep the secret out of a call the Edge runtime resolves from a build-time
+> `process.env` snapshot. Moving to self-hosted Better Auth
+> ([@acme/auth ADR 0001](../../../../shared/auth/docs/adr/0001-self-hosted-better-auth.md))
+> deleted the reason rather than the rule: `betterAuthEnv()` declares one key,
+> `BETTER_AUTH_SECRET`, and there are no browser-safe wiring keys left to demand
+> apart from it. What changed is the count of exceptions, not §1.
 
 **`@acme/models` — split by conditional secrets.** Three calls: `env` holds the
 two authored provider selections (`MODELS_CHAT`, `MODELS_EMBED`), and

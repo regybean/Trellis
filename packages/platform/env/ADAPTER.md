@@ -9,6 +9,9 @@ env composition uses. You mount it by writing that composition
 - `withProfiles` — layers per-deploy-target defaults onto an env schema through
   a documented extension point, so no key needs a hand-written default and
   nothing is forked or patched.
+- `secretsOnly` — `withProfiles` with an empty profile, for a call whose shape is
+  all secrets. Use it to say the emptiness is deliberate: these keys are
+  credentials by construction, not config someone forgot to author.
 - `resolveAppEnv` — resolves the deploy-target selector. Each package resolves
   the same selector at its own edge, so profiles agree without a context object
   being threaded anywhere.
@@ -18,6 +21,10 @@ env composition uses. You mount it by writing that composition
   Postgres schema and Redis namespace.
 - `jsonEnv` — parses a structured value out of a single environment variable,
   for config that is a shape rather than a scalar.
+- `shouldSkipEnvValidation` — whether the current run (lint step, Next build,
+  vitest, CI) can supply secrets at all. `withProfiles` already consults it, so
+  you need it only if you construct something whose own guards run at import and
+  must be handed a stand-in on those runs.
 
 ## Surface
 

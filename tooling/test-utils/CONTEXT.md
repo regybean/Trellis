@@ -1,14 +1,13 @@
 # Test Utils (`@acme/test-utils`)
 
 Shared testing substrate: a generic testcontainer **engine** and the env
-plumbing that lets suites validate real `env.ts` instead of mocking it (ADR
-0014). It owns the _mechanism_ — turning a descriptor into a running container
-and a populated `process.env` — not the knowledge of _which_ package needs what
-infra (that's the suite) or _how_ each infra is built (that's the owner, via a
-descriptor). See ADR 0017.
+plumbing that lets suites validate real `env.ts` instead of mocking it. It owns
+the _mechanism_ — turning a descriptor into a running container and a populated
+`process.env` — not the knowledge of _which_ package needs what infra (that's
+the suite) or _how_ each infra is built (that's the owner, via a descriptor).
 
 This package is **infra-only** and carries no per-infra knowledge: no pinned
-Postgres/Redis image, no credentials, and (since ADR 0017) not even the
+Postgres/Redis image, no credentials, and not even the
 `@testcontainers/*` typed subpackages — it drives everything through
 `testcontainers`' `GenericContainer` from descriptor data. The tRPC caller
 context + mocks live in `@acme/trpc/testing`, the Redis flush helper +
@@ -38,7 +37,7 @@ Returns a Vitest `globalSetup` function that starts exactly the named infra as
 throwaway testcontainers, publishes the merged connection env as one `infraEnv`
 record, and tears the containers down. A suite calls it from a ~5-line per-suite
 `global-setup.ts` that imports its descriptors as live objects. There is **one
-path** — a suite self-provisions on every run, everywhere (ADR 0034); the old
+path** — a suite self-provisions on every run, everywhere; the old
 "infra mode" / "local vs CI path" vocabulary is retired, and so are `localPort`,
 the port probe and `inLinkedWorktree()`.
 _Avoid_: "the setup harness", "the container bootstrap", "the testcontainers path"
@@ -66,8 +65,7 @@ still real, satisfied by `staticTestEnv` alone.
 The frontend counterpart. Folds the react plugin, `environment: 'jsdom'` and the
 `staticTestEnv` spread behind one call, so a package's
 `vitest.config.frontend.ts` declares only its setup file. There is no
-`globalSetup` analogue: MSW is the frontier, so nothing is provisioned (ADR
-0018).
+`globalSetup` analogue: MSW is the frontier, so nothing is provisioned.
 
 **Canonical test layout**:
 `src/tests/<layer>/<kind>[/<group>]/` — layer is `backend` or `frontend`, kind is
@@ -95,7 +93,7 @@ _Avoid_: "the container config", "the infra registry"
 dedicated Redis logical DB), set per package. turbo runs feature backend suites
 concurrently against one shared DB/Redis; these keep a parallel suite's
 cleanup/`flushDb` from wiping another's data. `NEXT_PUBLIC_WEBAPP` is the same
-app-identity value that names the schema in prod (ADR 0008).
+app-identity value that names the schema in prod.
 _Avoid_: "the test schema" (be specific: schema vs Redis DB)
 
 ## Relationships
@@ -114,21 +112,6 @@ _Avoid_: "the test schema" (be specific: schema vs Redis DB)
   `@vitejs/plugin-react` in as a runtime dependency of this package, for the same
   reason `@acme/vitest-config/base` is one: it is imported from shipped `src`.
 
-## Design decisions
+## Decisions
 
-**Validate, don't skip** (ADR 0014): env mocks existed only because connection
-details lived in `inject()`, not `process.env`. Hydration removes the reason to
-mock, so every `env.ts` runs for real and a missing var fails loud at the seam.
-
-**No `@acme/models` mock _for env reasons_**: ai-sdk provider factories build
-config objects at import with no network, so `resolve.ts` constructs fine from
-`staticTestEnv`; an env-shaped mock would only re-hide a seam that works under
-real validation. A _behavioral_ mock is a different thing and still allowed — a
-suite avoiding a real Bedrock call mocks the model's behavior (`@acme/rag`'s
-fixed-vector embed model). The line: never mock `env` or in-repo infra; do mock
-true externals for behavior.
-
-**Static env is a plain string map, not derived from schemas**: `staticTestEnv`
-is a hand-maintained record. Under loud validation (ADR 0014) drift is
-self-correcting — a missing var fails the suite immediately — so deriving it
-from each `env.ts` would add machinery for no safety gain.
+See [`docs/adr/`](../../docs/adr/).

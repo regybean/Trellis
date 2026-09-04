@@ -35,8 +35,10 @@ framework code that may be bundled for either side, while `.` is server-only.
 
 - Write the route seam once, then one route file per feature —
   [trpc-route.md](../../../docs/mounting/trpc-route.md).
-- Resolve `session` and `entitlements` in the seam. Both are required with no
-  default, so a deployment states whether it has auth and whether it meters.
+- Resolve `session` in every resolver. Add `entitlements` to the resolver you
+  hand to mounts whose feature meters or gates on billing — those features name
+  it on their own context. Neither has a default, so a deployment states whether
+  it has auth and whether it meters.
 - Construct the `Response` for the CORS preflight in your app, not here — the
   global belongs to your framework's runtime.
 - Serve GET as well as POST. Streaming procedures arrive over GET, so a

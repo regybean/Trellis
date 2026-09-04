@@ -67,6 +67,40 @@ connection, and with it moved persistence off the reader:
   each Redis entry re-emitted under its Stream entry id as the SSE
   `Last-Event-ID`.
 
+### The two save sites, and the ordering they guarantee
+
+There are exactly two explicit saves, both through the chat-memory adapter
+(ADR [0003](0003-conversation-ownership-as-middleware.md) — nothing else may call
+`memory`):
+
+- **`chat.send` persists the user Message**, inside `beginTurn`, before the job
+  is enqueued. So a user's Message is durable and readable from `chat.get`
+  before the first token exists, and a worker that never runs still leaves a
+  retryable Conversation — the property the original decision got from Mastra's
+  auto-persist, now explicit.
+- **The worker persists the assistant Message on terminal**, through
+  `persistAssistantMessage` — the single `saveMessages` envelope the
+  user-Message save also uses. It **returns the id it minted**, which is the
+  same id `chat.get` reports, so the `done` / `cancelled` terminal can carry
+  `messageId` without a full-thread recall scan to find it.
+
+**The save happens before the terminal is published.** That ordering is the
+guarantee, not an implementation detail: any client that can observe a terminal
+can already read the Message that terminal names. A client acting on
+`messageId` — per-message actions key off it — never races the write.
+
+The worker also **generates and persists the thread title on a Conversation's
+first Turn**, concurrently with the stream and independent of it: a failed title
+does not fail the Turn. First-Turn detection is the pure predicate
+`isFirstTurn(title)`, keyed on one shared `NEW_CONVERSATION_TITLE` sentinel that
+thread creation, summary rendering and folder-preserving updates also read — so
+"is this the first Turn" has one definition rather than one per call site.
+
+The single Mastra call the worker still makes outside the adapter is
+`chatAgent.stream` with `readOnly` memory. That is generation, not a Memory
+transform, and it is the worker's whole reason to exist (ADR
+[0004](0004-generation-worker-and-queue.md)).
+
 What survives from the original decision: Mastra Memory still owns the
 Conversation store and its DDL, ownership is still enforced in the procedure
 (now via `ownedConversationByIdProcedure`), and there is still no public `save`

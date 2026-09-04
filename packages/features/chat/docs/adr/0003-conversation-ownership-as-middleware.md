@@ -46,7 +46,8 @@ unguarded path to a thread" actually true rather than just conventional.
 
 - Ownership is checked _before_ the credit gate. There is no rate-limiting
   middleware: chat meters credits inline in `send`, inside the `beginTurn` closure
-  the ownership builder has already admitted (ADR 0006 amendment), so a
+  the ownership builder has already admitted (ADR
+  [0006](0006-credits-metered-in-the-turn-control-plane.md)), so a
   `FORBIDDEN`/`NOT_FOUND` request consumes no credits.
 - `stream` and `create` run on `ownedConversationProcedure` and tolerate an absent
   thread (`ctx.conversation` is null): Mastra Memory stamps `resourceId = userId` on
@@ -66,6 +67,32 @@ unguarded path to a thread" actually true rather than just conventional.
   `conversationId` instead of `sessionId`), so the "no unguarded path to a thread"
   guarantee extends to the new procedures for free. `send` tolerates an absent thread
   (like `create`/`stream`), the first Turn stamping it.
+
+## The adapter is what makes the guarantee total
+
+The middleware makes an unguarded procedure unwritable; the **chat-memory
+adapter** (`chat-memory.ts`) makes an unguarded _path_ unreachable, and the two
+together are the decision. Every thread↔Conversation and stored-message↔Message
+transform, and every Mastra-backed mutation, lives in that one module. Neither
+the router nor the generation worker imports `memory`.
+
+Two things follow that are easy to lose:
+
+- **The Mastra vocabulary stops at the adapter.** `thread` and `resource` are
+  named inside it and inside the Redis key builders; everything above speaks
+  Conversation. That is what makes the mapping an anti-corruption seam rather
+  than a leaked field name, and it is why a Mastra Memory replacement is a
+  one-module change instead of a router rewrite.
+- **The worker goes through it too.** The carve-out below is about the
+  _ownership assertion_, not about data access: the worker still reaches Mastra
+  only via `persistAssistantMessage` and `generateThreadTitle` (ADR
+  [0002](0002-mastra-memory-owns-conversation-persistence.md)). Had the worker
+  been allowed its own `memory` calls, "the adapter is the only seam" would have
+  become "the adapter is where the router happens to go".
+
+The unguarded reads that must exist are named rather than hidden:
+`getConversationUnchecked` and `listConversations` are the admin paths, and
+their names are the audit trail.
 
 ## The request-less executor carve-out
 

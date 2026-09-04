@@ -95,5 +95,12 @@ decisions are load-bearing:
   schema name; an app on a different schema regenerates with its own value.
 - Document parsing is now local (`officeparser`: `.pdf`/`.docx`, native read for
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.
+- **Every app that mounts a rag consumer must keep `officeparser` unbundled**
+  (`serverExternalPackages` in Next, SSR-externalised node_modules in Vite).
+  Its ESM wrapper destructures named exports off the CJS default import, so a
+  bundler that resolves that default to `exports.default` leaves `convert`
+  undefined and indexing fails at runtime rather than at build. The obligation
+  is stated at each of the four app configs; this is the record that it is an
+  obligation rag imposes, not per-app incidental config.
 - Fresh start: old `acme_documents` vector data and `chats`/`messages` history are
   not migrated.

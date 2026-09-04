@@ -24,38 +24,33 @@ _Avoid_: "account", "tenant"
 
 **Per-app schema**:
 The Postgres schema (`= NEXT_PUBLIC_WEBAPP`) every Mastra-owned table is namespaced
-under, giving each app DB-level separation. Set via Mastra's `schemaName` option.
+under, giving each app DB-level separation.
 _Avoid_: "table prefix", "namespace prefix"
 
 **Mastra-owned table**:
 A table whose DDL Mastra creates at runtime (`PgVector`, `PostgresStore`). By
 invariant every one is `mastra_`-prefixed — `mastra_documents` (the knowledge base),
-`mastra_threads`, `mastra_messages`, `mastra_resources`. Drizzle only _mirrors_ these;
-`db:push` is blacklisted from them. _Avoid_: "drizzle table", "our table"
+`mastra_threads`, `mastra_messages`, `mastra_resources`.
+_Avoid_: "drizzle table", "our table"
 
 **App-owned table**:
 Any non-`mastra_` table in the per-app schema — the app, via Drizzle, owns its DDL.
-`db:push` manages these freely (no migrations in dev); Mastra never touches them.
-The first is `message_feedback`, defined in [`@acme/feedback`](../../features/feedback/CONTEXT.md)
-and re-exported through the app's `db/schema.ts` so drizzle-kit manages it. It carries
-Mastra-owned ids (`messageId`, `threadId`) by value with no foreign key. _Avoid_: "custom table"
+The first is `message_feedback`, defined in
+[`@acme/feedback`](../../features/feedback/CONTEXT.md). _Avoid_: "custom table"
 
 **Thread ownership**:
 The fact that a Mastra **thread** belongs to a **resource** (`thread.resourceId ===
 userId`). Mastra rows carry no row-level auth, so this is a rule, not a constraint:
 `assertThreadOwned(threadId, userId)` reads the thread and either returns it, returns
-`null` (absent), or throws `ThreadOwnershipError` (owned by someone else). Transport-
-agnostic — callers map the outcomes onto their own errors (chat → `FORBIDDEN`/`NOT_FOUND`
-middleware; feedback → the same tRPC codes). _Avoid_: "auth check", "guard" (it's a
-domain rule any feature can reuse)
+`null` (absent), or throws `ThreadOwnershipError` (owned by someone else).
+_Avoid_: "auth check", "guard" (it's a domain rule any feature can reuse)
 
 **Embed purpose**:
 Whether an embedding is for a stored document or a query — `document` when indexing,
 `query` when retrieving. The uploader and vector query tool pass this to
 `embedProviderOptions(purpose)` in [`@acme/models`](../models/CONTEXT.md), which
-turns it into provider-specific options (Bedrock's Cohere `inputType`; nothing for
-Ollama). The provider detail no longer lives here. _Avoid_: "input type" (that's a
-Cohere-only detail), "mode", "direction"
+turns it into provider-specific options. _Avoid_: "input type" (that's a Cohere-only
+detail), "mode", "direction"
 
 ## Relationships
 
@@ -64,88 +59,12 @@ Cohere-only detail), "mode", "direction"
   `@acme/models` → upserts into `PgVector` with deterministic UUIDv5 ids.
 - `PostgresStore` backs Mastra `Memory`; together they own thread/message/resource
   persistence in the app database.
-- Mastra creates every table at runtime; `@acme/rag/schema` exposes Drizzle mirrors
-  of them so the data stays queryable. The matching migrations are generated but
-  marked applied — see [system ADR 0002](docs/adr/0001-mastra-rag-and-memory.md).
+- Mastra creates every `mastra_*` table at runtime; `@acme/rag/schema` exposes
+  Drizzle mirrors of them so the data stays queryable.
 - `assertThreadOwned` is the shared **thread ownership** rule: chat's ownership
   middleware and feedback's `submit` mutation both call it rather than re-reading
-  `resourceId` inline, so the ownership fact has one definition across features.
+  `resourceId` inline.
 
-## Design decisions
+## Decisions
 
-**Models live in `@acme/models`, not here**: chat and embedding models are resolved
-by `@acme/models` from an env-selected provider (Bedrock / OpenRouter / Ollama) and
-passed to Mastra as AI-SDK instances. This package is provider-agnostic — it consumes
-`embedModel` / `embedProviderOptions` and never names a provider. See
-[@acme/models ADR 0001](../models/docs/adr/0001-multi-provider-models.md).
-
-**Mastra owns DDL; Drizzle mirrors are read models**: Mastra's stores create their
-tables (all `mastra_*`-prefixed); the Drizzle mirrors exist only so the data is
-queryable with Drizzle. Letting both own DDL would race and drift. `db:push` is
-scoped off `mastra_*` so it can only manage app-owned tables — see [ADR 0002](docs/adr/0001-mastra-rag-and-memory.md).
-
-**Per-app separation via `schemaName`**: Mastra exposes no table-prefix hook, so
-each app's tables live in a Postgres schema named after `NEXT_PUBLIC_WEBAPP`.
-
-**Knowledge-base table created at boot, not on first upload**: PgVector creates
-`mastra_documents` lazily (on the first upsert), so a freshly-pushed vector DB has
-no table and reads (`listDocuments`) throw `relation … does not exist`. The app
-calls `ensureVectorIndex()` at boot (Next.js `instrumentation.ts`) so the table
-exists before any read; `uploadDoc` keeps its own (memoized) call as a backstop. Reads stay
-pure (no DDL on a read), and an unreachable vector DB fails at startup rather than
-on the first request — the same contract as provider resolution. Still Mastra-owned
-DDL, consistent with [ADR 0002](docs/adr/0001-mastra-rag-and-memory.md).
-
-**Single-file `uploadDoc`, stage reporting injected**: indexing is exposed as
-`uploadDoc(file, { onStage })` — one file's `parse → chunk → embed → upsert`,
-idempotent by construction (`deriveChunkId` = `uuidv5(text+filename)` + upsert, so a
-re-upload overwrites in place). It emits ONLY `parsing` / `embedding` through a
-generic injected `StageReporter<TStage>`, and stays ignorant of the stream / tRPC /
-`uploadId` / wire shape the caller maps onto — the `queued` / `done` / `failed`
-stages and the bounded parallel fan-out belong to the ingest processor
-(`@acme/ingest`), the accepted price of per-file progress (1 batched `embedMany` → N
-per-file). The empty/unparseable case throws a tagged `DocumentParseError` so a
-caller can classify it as a _content_ failure (isolate the file, keep the batch
-green) rather than an infra failure; everything else propagates raw. There is no
-batch helper: the bounded parallel fan-out over files is the ingest processor's
-job (`@acme/ingest`), which calls `uploadDoc` per file.
-
-**Boundary**: the Mastra `Agent`/`Mastra` instance is _not_ here — the shared layer
-cannot import features. This package exports primitives; `@acme/chat` assembles the
-agent and the root Mastra CLI scripts point at `packages/features/chat/src/mastra`.
-
-**Embedding dimension is configured, not baked in**: the embed model determines the
-vector dimension, so `EMBED_DIMENSIONS` is env-driven — defined in `@acme/models`
-(imported from `@acme/models/env`, not its root, so this schema never triggers
-provider resolution) and the single source of truth for both the `PgVector` index
-(vector.ts) and the Drizzle mirror (documents-schema.ts). Switching embed model
-means changing the dimension and
-`db:push`-ing the schema again — acceptable because the dev DB is ephemeral with no
-data worth migrating. A dimension mismatch against an existing index must fail with
-an actionable error ("re-push the schema" / drop the index), never a raw pgvector
-error.
-
-**Every runtime entry is server-only, the root included**: this package has no
-client-safe runtime. `pgVector` / `postgresStore` / `memory` open a Postgres
-connection with credentials at import; the uploader and the ownership rule read
-through one. So `.`, `./server` and `./ownership-trpc` all carry
-`import 'server-only'`, and a stray import from a client component fails the
-build instead of shipping vector machinery to the browser. `.` being guarded is
-not a contradiction of [ADR 0015](../../../docs/adr/0015-package-exports-convention.md)'s
-role vocabulary: `.` is the _main_ entry, not the _client-safe_ entry. The two
-unguarded subpaths are exceptions with a stated reason — `./schema` (Drizzle
-mirrors, which drizzle-kit must load outside any bundler) and `./env`.
-
-The split between `.` and `./server` is by cost, not by safety: `.` is the
-long-lived primitives (vector store, memory storage, the ownership rule) and
-`./server` is the document pipeline (`uploadDoc`, `extractText`,
-`ensureVectorIndex`). Importing one must not construct the other — `@acme/ingest`
-uploads documents without instantiating Mastra `Memory`, so `memory` stays out of
-`./server` and `ensureVectorIndex` (which the pipeline and each app's boot both
-call) has its single home there.
-
-Server consumers that are not an RSC/SSR bundle have to say so: `server-only`
-resolves to a module that throws unless the `react-server` condition is set.
-Each app's `dev:worker` passes `tsx --conditions=react-server`; chat's `studio`
-script passes it through `NODE_OPTIONS` for `mastra dev`; backend suites
-`vi.mock('server-only', () => ({}))` in their setup file.
+See [`docs/adr/`](docs/adr/).
