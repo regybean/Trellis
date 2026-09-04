@@ -106,10 +106,10 @@ export const chatRouter = createTRPCRouter({
   // step; the begin-step ordering and the failure-path lock unwind live in the
   // Turn lifecycle's `beginTurn` (the lock is taken FIRST, so a duplicate tab
   // returns `alreadyInflight` without persisting a Message, enqueuing a job, or
-  // spending a credit). The credit gate + consume stays inline here (ADR 0006
-  // amendment + chat CONTEXT): a rejected send consumes nothing, and `beginTurn`
-  // runs this closure after the lock is won and the user Message is persisted,
-  // before enqueue — so the race can never double-charge.
+  // spending a credit). The credit gate + consume stays inline here (@acme/chat
+  // ADR 0006): a rejected send consumes nothing, and `beginTurn` runs this
+  // closure after the lock is won and the user Message is persisted, before
+  // enqueue — so the race can never double-charge.
   send: ownedConversationByIdProcedure
     .input(SendChatRequest)
     .mutation(async ({ ctx, input }) => {

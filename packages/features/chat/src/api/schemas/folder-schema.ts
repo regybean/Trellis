@@ -11,7 +11,7 @@ import { env } from '../../env';
 // Folder). There is NO foreign key from the Mastra thread metadata to this table:
 // deleting a Folder leaves member threads with a dangling `folderId` that simply
 // stops resolving, returning those Conversations to their Date Bucket with no
-// per-Conversation write (lazy delete). See the chat CONTEXT.md.
+// per-Conversation write (lazy delete). See @acme/chat ADR 0005.
 
 // Same per-app Postgres schema Mastra and the knowledge base namespace under
 // (NEXT_PUBLIC_WEBAPP). Declaring it here is idempotent — drizzle-kit dedupes by

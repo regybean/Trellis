@@ -45,8 +45,8 @@ export interface GroupedConversations {
 // for whatever is left. A Conversation belongs to a Folder only if its
 // `folderId` still resolves to a known Folder in `folderIds`; a dangling id (a
 // deleted Folder) falls through to the buckets — the lazy-deletion fallback
-// (see CONTEXT.md "Folder storage is split; deletion is lazy"), with no
-// per-Conversation write. `conversations` is assumed to arrive sorted
+// (see @acme/chat ADR 0005), with no per-Conversation write.
+// `conversations` is assumed to arrive sorted
 // `updatedAt DESC` (the server sorts), so per-group and per-bucket order is
 // simply preserved. `now` is injected so the function stays pure and testable.
 export function groupConversations(

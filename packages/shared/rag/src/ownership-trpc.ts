@@ -14,7 +14,7 @@ import { assertThreadOwned, ThreadOwnershipError } from './ownership';
 // It is boundary-legal for `@acme/rag` (shared) to depend on `@acme/trpc`'s
 // transport error type here: shared may depend on platform. Only `assertThreadOwned`
 // (the rule) is transport-free; this adapter is the deliberate, named seam that
-// consumes it — see chat CONTEXT.md ("the ownership rule itself lives in @acme/rag").
+// consumes it. See @acme/rag ADR 0004.
 
 // Maps a caught error onto tRPC: a `ThreadOwnershipError` becomes FORBIDDEN;
 // anything else is rethrown unchanged. Absence (a null thread) is NOT decided

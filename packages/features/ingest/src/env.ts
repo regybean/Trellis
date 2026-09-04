@@ -66,8 +66,7 @@ export function ingestEnv() {
       // `@acme/models` also declares this pair (as pure secrets, for Bedrock).
       // Same variable, one value per process: they agree on staging/production,
       // where both are unauthored. They can only diverge in development, and only
-      // if Bedrock is selected there — see "When two slices declare the same key"
-      // in @acme/env's CONTEXT.md. The names are the AWS SDK provider chain's, so
+      // if Bedrock is selected there. The names are the AWS SDK provider chain's, so
       // aliasing them apart would validate a variable the SDK never reads.
       AWS_ACCESS_KEY_ID: z.string().nonempty(),
       AWS_SECRET_ACCESS_KEY: z.string().nonempty(),

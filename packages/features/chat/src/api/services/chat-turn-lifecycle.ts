@@ -58,10 +58,10 @@ export interface TurnRef {
 }
 
 // Steps `chat.send` still authors but `beginTurn` orders and guards. `consume` is
-// the credit gate + consume closure: it stays inline in `chat.send` (ADR 0006
-// amendment + chat CONTEXT) so a rejected send consumes nothing, and `beginTurn`
-// runs it at the one correct point in the ordering — after ownership + lock and
-// the user-Message persist, before enqueue.
+// the credit gate + consume closure: it stays inline in `chat.send` (@acme/chat
+// ADR 0006) so a rejected send consumes nothing, and `beginTurn` runs it at the
+// one correct point in the ordering — after ownership + lock and the
+// user-Message persist, before enqueue.
 export interface BeginTurnInput extends TurnRef {
   userId: string;
   tier: SubscriptionTier;
