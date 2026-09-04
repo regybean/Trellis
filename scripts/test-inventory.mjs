@@ -25,12 +25,13 @@
  * markdown pipes cleanly. Nothing is written to the repo — this is an ad-hoc
  * read, not an artifact, so it stays out of the quality gate.
  *
- * `--layer` and `--kind` narrow the report to path segments under `src/tests/`
- * — the canonical layout makes that prefix a filter axis rather than a guess.
- * They compose as an intersection, and the headings and counts are computed
- * after the narrowing, so a filtered report reads as a report of its own subset.
- * `--out` writes it to a file instead of stdout. The group segment stays a
- * heading only: three axes to name a test is more than an audit needs.
+ * `--layer` and `--kind` narrow the report to the path segments under
+ * `src/tests/`; the canonical layout makes that prefix a filter axis rather than
+ * a guess. They compose as an intersection, and every heading and count is
+ * computed after the narrowing, so a count counts what survived the filter and a
+ * package that keeps nothing loses its heading. `--out` writes the report to a
+ * file instead of stdout. The group segment stays a heading and never becomes a
+ * third flag: three ways to name a test is more than an audit needs.
  *
  * Usage:
  *   node scripts/test-inventory.mjs        # or: pnpm test:inventory
@@ -322,9 +323,14 @@ const USAGE =
  * same phrased-for-a-human refusal as before.
  */
 function parseFlags() {
+  // `pnpm test:inventory -- --kind unit` forwards the separator too, and
+  // parseArgs reads a bare `--` as "everything after this is positional". Both
+  // spellings mean the same thing to a caller, so drop it.
+  const args = process.argv.slice(2);
+  if (args[0] === "--") args.shift();
   try {
     return parseArgs({
-      args: process.argv.slice(2),
+      args,
       allowPositionals: false,
       options: {
         layer: { type: "string", multiple: true },

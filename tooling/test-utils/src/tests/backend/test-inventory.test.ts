@@ -53,6 +53,8 @@ let inventory: string;
 /** The same sandbox, narrowed by the filter flags. One run each, in setup. */
 let byLayer: string;
 let byKind: string;
+/** The same `--kind unit`, spelled the way `pnpm run -- …` forwards it. */
+let byKindViaPnpm: string;
 let byBoth: string;
 let byEveryLayerAndKind: string;
 /** The `--out` run: what reached stdout, and what landed in the file. */
@@ -260,6 +262,7 @@ beforeAll(() => {
   inventory = runInventory();
   byLayer = runInventory('--layer', 'backend');
   byKind = runInventory('--kind', 'unit');
+  byKindViaPnpm = runInventory('--', '--kind', 'unit');
   byBoth = runInventory('--layer', 'backend', '--kind', 'unit');
   byEveryLayerAndKind = runInventory(
     '--layer',
@@ -428,6 +431,10 @@ describe('pnpm test:inventory narrows to the layers and kinds asked for', () => 
         .map((h) => h.split(' (')[0])
         .sort(),
     ).toEqual(['backend/unit', 'frontend/unit']);
+  });
+
+  it('reads the separator pnpm forwards as no argument at all', () => {
+    expect(byKindViaPnpm).toBe(byKind);
   });
 
   it('reads a comma-separated list as every name in it', () => {

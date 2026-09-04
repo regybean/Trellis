@@ -72,6 +72,7 @@ pnpm test:watch          # Run tests in watch mode
 pnpm turbo run test -F <pkg>  # Run tests for a single package (turbo isn't global)
 pnpm test:policy         # Enforce per-package acme.testClass coverage
 pnpm test:inventory      # Markdown list of every collected test — runs none, starts nothing
+pnpm test:inventory -- --layer backend --kind unit  # narrow by path segment under src/tests/ (--out <path> to write it)
 ```
 
 Tests split into `test:backend` (real Postgres/Redis via testcontainers) and

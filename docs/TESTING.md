@@ -358,8 +358,10 @@ excluded by the push config's `tablesFilter` and created lazily at runtime. See
 ## Seeing what the suite covers
 
 ```bash
-pnpm test:inventory        # markdown, on stdout, seconds, no containers
-pnpm test:inventory > inventory.md
+pnpm test:inventory                        # markdown, on stdout, seconds, no containers
+pnpm test:inventory -- --layer backend     # one side of the stack
+pnpm test:inventory -- --kind unit         # the solitary tests, where internals-level ones hide
+pnpm test:inventory -- --out inventory.md  # written, not printed
 ```
 
 Test names in this repo read as behaviour, but a passing run's scrollback is the
@@ -368,6 +370,16 @@ test:inventory` prints every collected test grouped by package — layer
 directories in dependency order (tooling, platform, shared, features),
 alphabetical within each, the path under `src/tests/` as the group heading, a
 count in every heading and a total at the end.
+
+`--layer` and `--kind` narrow it to the path segments under `src/tests/`. The
+canonical layout is what makes that prefix a filter axis rather than a guess.
+Each takes a comma-separated list (or repeats), each defaults to everything, and
+together they intersect, so `--layer backend --kind unit` is the backend's
+solitary tests and nothing else. Every heading and count is computed after the
+narrowing: a count counts what survived the filter, and a package that keeps
+nothing loses its heading. The group segment stays a heading and never becomes a
+third flag. `--out <path>` writes the report to a file instead of printing it,
+for diffing or sharing.
 
 It reads from `vitest list --json`, run per package config, so it honours each
 package's real `include` and resolves computed (`it.each`) names — the report is
@@ -380,8 +392,8 @@ testcontainers and push a schema purely to print names. So the tool sets
 Collection needs no infra — every reachable `env.ts` still validates against
 `staticTestEnv` — so the inventory runs anywhere, with no container runtime.
 
-Nothing is written to the repo and nothing enters the quality gate: this is an
-ad-hoc read, not an artifact.
+Nothing enters the quality gate. This is an ad-hoc read, not an artifact, and
+`--out` writes only where you point it.
 
 ## Package test policy
 
