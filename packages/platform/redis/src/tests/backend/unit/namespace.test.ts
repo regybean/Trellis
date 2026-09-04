@@ -34,7 +34,7 @@ const loadClient = async (webapp?: string) => {
     vi.stubEnv('NEXT_PUBLIC_WEBAPP', webapp);
   }
 
-  return import('../../client');
+  return import('../../../client');
 };
 
 afterEach(() => {

@@ -1,9 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { StreamCodec, StreamEntry } from '../../../durable-stream';
-import { nsKey } from '../../../client';
-import { createDurableStream, HEAD_CURSOR } from '../../../durable-stream';
-import { flushTestDb } from '../../../testing';
+import type { StreamCodec, StreamEntry } from '../../../../durable-stream';
+import { nsKey } from '../../../../client';
+import { createDurableStream, HEAD_CURSOR } from '../../../../durable-stream';
+import { flushTestDb } from '../../../../testing';
 
 /**
  * Durable-stream primitive — integration test against a REAL Redis (the isolated

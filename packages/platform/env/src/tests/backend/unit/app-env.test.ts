@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { resolveAppEnv } from '../../app-env';
+import { resolveAppEnv } from '../../../app-env';
 
 describe('resolveAppEnv', () => {
   it('defaults to development when unset (dev-is-base)', () => {

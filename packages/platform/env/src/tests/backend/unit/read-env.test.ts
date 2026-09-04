@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { readEnv } from '../../read-env';
+import { readEnv } from '../../../read-env';
 
 afterEach(() => {
   vi.unstubAllEnvs();

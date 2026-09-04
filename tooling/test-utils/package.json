@@ -46,6 +46,7 @@
   "dependencies": {
     "@acme/vitest-config": "workspace:*",
     "@opentelemetry/api": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
     "testcontainers": "^10.25.0",
     "vitest": "catalog:"
   },

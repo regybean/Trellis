@@ -45,8 +45,15 @@ contract owned upstream, never reaches past the seam to check a mechanism.**
 
 ## The test taxonomy: unit / integration(api · service)
 
+Every package files its tests under **`src/tests/<layer>/<kind>[/<group>]/`** —
+layer is `backend` or `frontend`, kind is `unit` or `integration`, group is the
+optional seam segment below. The layer segment is there even in a package that
+only has one side, so one glob works everywhere and the path prefix is a filter
+axis tooling can trust; the two project factories own that glob, so no package
+declares an `include`.
+
 Backend tests are filed by **test type**, then by **the seam under test**. Two
-top-level folders under `src/tests/backend/` (`src/tests/` for platform packages):
+top-level folders under `src/tests/backend/`:
 
 | Folder                 | Type                                   | Seam under test                                                                                       | Infra                   | Examples                                                                                |
 | ---------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------- | --------------------------------------------------------------------------------------- |
@@ -138,7 +145,7 @@ and `trpcMsw` (a `createTRPCMsw<AppRouter>` bound to the feature's tRPC endpoint
 — plus `import '@acme/test-utils/jsdom'`, the shared side-effect module holding
 the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture,
 `scrollIntoView`). The config is `vitest.config.frontend.ts`
-(`environment: 'jsdom'`, `staticTestEnv`, `@vitejs/plugin-react`). `feedback`'s
+— one call to `frontendProject` (see below). `feedback`'s
 setup + `feedback-buttons` / `use-feedback` tests are the reference; `ingest`'s
 `documents-list` is the worked example of the MSW-over-shallow-mock rewrite.
 
@@ -262,10 +269,12 @@ Call it in `beforeEach`/`afterEach`. Per-suite isolation makes this safe: each
 backend suite gets a **dedicated Postgres schema** (`webapp`) and a **dedicated
 Redis logical DB** (`redisDb`), so a parallel suite's flush can't wipe yours.
 
-## The vitest backend preset
+## The vitest project presets
 
-`backendProject` (`@acme/test-utils/vitest`) folds the shared backend wiring into
-one call; a package's `vitest.config.backend.ts` declares only what's unique:
+`backendProject` and `frontendProject` (`@acme/test-utils/vitest`) fold the
+shared per-side wiring into one call each; a package's
+`vitest.config.<side>.ts` declares only what's unique. Neither takes an
+`include` — the layout above is the factory's to own, not a caller's.
 
 ```typescript
 import { backendProject } from "@acme/test-utils/vitest";
@@ -274,8 +283,7 @@ export default backendProject({
   webapp: "chat", // Postgres schema + Redis key namespace for the suite
   redisDb: "2", // dedicated Redis logical DB (isolation)
   setupFiles: ["./src/tests/backend/setup.ts"],
-  // infra: false,             // opt out of containers entirely (see below)
-  // globalSetup: './src/tests/backend/global-setup.ts', // override only if you need custom provisioning
+  globalSetup: "./src/tests/backend/global-setup.ts", // omit for an infra-less suite (see below)
 });
 ```
 
@@ -285,9 +293,25 @@ into `process.env` before any `env.ts` loads), the shared testcontainer
 `globalSetup`, and a single non-isolated forked worker with generous timeouts (a
 real DB means tests share one deterministic connection space).
 
-**`infra: false`** — for a suite whose externals are all mocked and touches no
-DB/Redis (e.g. `ingest`): no containers start and env isn't hydrated, so it runs
-anywhere. Env is still real, satisfied by `staticTestEnv`.
+**Omitting `globalSetup`** — for a suite whose externals are all mocked and
+which touches no DB/Redis (e.g. `@acme/models`): no containers start and env
+isn't hydrated, so it runs anywhere. Env is still real, satisfied by
+`staticTestEnv`.
+
+The frontend side takes only its setup files — there is no infra to provision,
+because MSW is the frontier (ADR 0018):
+
+```typescript
+import { frontendProject } from "@acme/test-utils/vitest";
+
+export default frontendProject({
+  setupFiles: ["./src/tests/frontend/setup.tsx"],
+});
+```
+
+It sets: the react plugin, `environment: 'jsdom'`, and the `staticTestEnv`
+spread so jsdom's client mode validates every reachable `env.ts` against real
+values (ADR 0014).
 
 ## Provisioning app-owned tables (DDL)
 
@@ -374,13 +398,13 @@ router) — a contradiction signalling it's mis-classified.
 1. Add a dev dependency on `@acme/test-utils` (and `@acme/trpc` if you build a
    tRPC caller context).
 2. Create `vitest.config.backend.ts` with `backendProject({ webapp, redisDb? })`
-   — pick an unused `redisDb` and a valid-identifier `webapp`. Use
-   `infra: false` if the suite touches no DB/Redis.
+   — pick an unused `redisDb` and a valid-identifier `webapp`. Omit
+   `globalSetup` if the suite touches no DB/Redis.
 3. Create `src/tests/backend/setup.ts` for behavioral mocks (LLM/Stripe/S3,
    `server-only`) and any DDL provisioning. Do **not** mock `env`.
 4. Create `src/tests/backend/utils/test-context.ts` re-exporting
    `createTestContext` from `@acme/trpc/testing` and owning `cleanupTestData`.
-5. Place tests under `unit/`, `integration/api/`, or `integration/service/` per
-   the taxonomy above.
+5. Place tests under `src/tests/backend/` in `unit/`, `integration/api/`, or
+   `integration/service/` per the taxonomy above.
 6. Add the class's `test*` scripts to `package.json` and drop any
    `acme.testStatus`/`reason` once real tests exist.

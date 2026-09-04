@@ -952,9 +952,6 @@ importers:
       '@trpc/tanstack-react-query':
         specifier: 'catalog:'
         version: 11.8.1(@tanstack/react-query@5.90.16(react@19.2.3))(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       framer-motion:
         specifier: 'catalog:'
         version: 12.23.26(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
@@ -1091,9 +1088,6 @@ importers:
       '@trpc/tanstack-react-query':
         specifier: 'catalog:'
         version: 11.8.1(@tanstack/react-query@5.90.16(react@19.2.3))(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.6)(kysely@0.29.5)(pg@8.21.0)(postgres@3.4.7)
@@ -1273,9 +1267,6 @@ importers:
       '@testing-library/user-event':
         specifier: 'catalog:'
         version: 14.6.1(@testing-library/dom@10.4.1)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
@@ -1415,9 +1406,6 @@ importers:
       '@testing-library/user-event':
         specifier: 'catalog:'
         version: 14.6.1(@testing-library/dom@10.4.1)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       ai:
         specifier: 'catalog:'
         version: 6.0.204(zod@4.4.3)
@@ -1528,6 +1516,9 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
@@ -1905,6 +1896,9 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
@@ -1914,9 +1908,6 @@ importers:
       '@testing-library/react':
         specifier: 'catalog:'
         version: 16.3.1(@testing-library/dom@10.4.1)(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
@@ -2020,9 +2011,6 @@ importers:
       '@trpc/tanstack-react-query':
         specifier: 'catalog:'
         version: 11.8.1(@tanstack/react-query@5.90.16(react@19.2.3))(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       react:
         specifier: 'catalog:'
         version: 19.2.3
@@ -2284,9 +2272,6 @@ importers:
       '@types/react-syntax-highlighter':
         specifier: ^15.5.13
         version: 15.5.13
-      '@vitejs/plugin-react':
-        specifier: 'catalog:'
-        version: 5.1.2(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
@@ -2422,6 +2407,9 @@ importers:
       '@opentelemetry/api':
         specifier: 'catalog:'
         version: 1.9.0
+      '@vitejs/plugin-react':
+        specifier: 'catalog:'
+        version: 5.1.2(vite@7.3.5(@types/node@24.10.4)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
       testcontainers:
         specifier: ^10.25.0
         version: 10.28.0

@@ -44,7 +44,6 @@
     "@types/react": "catalog:react19",
     "@types/react-dom": "catalog:react19",
     "@types/react-syntax-highlighter": "^15.5.13",
-    "@vitejs/plugin-react": "catalog:",
     "eslint": "catalog:",
     "jsdom": "catalog:",
     "prettier": "catalog:",

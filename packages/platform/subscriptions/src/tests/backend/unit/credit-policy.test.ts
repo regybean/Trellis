@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import type {
   SubscriptionCache,
   SubscriptionTier,
-} from '../../subscription-cache';
-import { billingWindow, creditLimitFor } from '../../credit-policy';
+} from '../../../subscription-cache';
+import { billingWindow, creditLimitFor } from '../../../credit-policy';
 
 /**
  * Domain (pure) tests for the Credit policy. No Redis, no mocks — just the

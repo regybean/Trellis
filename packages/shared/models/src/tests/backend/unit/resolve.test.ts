@@ -4,14 +4,14 @@ import { describe, expect, it } from 'vitest';
 import type { AppEnv } from '@acme/env';
 import { jsonEnv, withProfiles } from '@acme/env';
 
-import { env } from '../../env';
-import { chatConfigSchema, embedConfigSchema } from '../../model-schemas';
+import { env } from '../../../env';
+import { chatConfigSchema, embedConfigSchema } from '../../../model-schemas';
 import {
   embedProviderOptionsFor,
   resolveChatModel,
   resolveEmbedModel,
   resolveTitleModel,
-} from '../../resolve';
+} from '../../../resolve';
 
 /**
  * Domain (pure) tests for the @acme/models provider resolver + selection schemas.
