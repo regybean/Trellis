@@ -1,8 +1,8 @@
-# 0004 — Generation Worker and Queue
+# Generation runs in a worker behind a queue, decoupled from the client connection
 
-**Status:** Accepted  
-**Supersedes:** —  
-**Related:** ADR 0002 (Mastra Memory), ADR 0003 (Ownership middleware), system-wide ADR 0008 (ioredis)
+**Status:** accepted
+
+**Related:** [ADR 0002](0002-mastra-memory-owns-conversation-persistence.md) (Mastra Memory owns persistence), [ADR 0003](0003-conversation-ownership-as-middleware.md) (ownership middleware), [ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md) (per-app Redis namespace)
 
 ## Context
 

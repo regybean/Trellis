@@ -1,5 +1,7 @@
 # localstripe for dependency-free local-dev billing
 
+**Status:** accepted
+
 Local development runs billing against [localstripe](https://github.com/adrienverge/localstripe)
 — a fake, stateful Stripe server — instead of the real Stripe API. It is the
 **default** dev configuration: a fresh `.env` (copied from `.env.example`) points
@@ -42,10 +44,6 @@ no API keys, and no network. Five decisions are load-bearing:
    `host.docker.internal`, signed with `STRIPE_WEBHOOK_SECRET`. `setUserTier`
    _also_ calls `syncStripeDataToKV` directly so the admin UI updates
    deterministically without depending on webhook delivery timing.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

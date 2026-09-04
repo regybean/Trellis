@@ -37,6 +37,8 @@ If a `CONTEXT-MAP.md` exists at the root, the repo has multiple contexts. The ma
 │       └── docs/adr/
 ```
 
+Each `docs/adr/` numbers from `0001` independently, and a decision lives with what it governs — see [ADR-FORMAT.md](./ADR-FORMAT.md#where-the-adr-goes).
+
 Create files lazily — only when you have something to write. If no `CONTEXT.md` exists, create one when the first term is resolved. If no `docs/adr/` exists, create it when the first ADR is needed.
 
 ## During the session

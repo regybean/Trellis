@@ -98,7 +98,7 @@ pnpm preview [app...]    # Serve the COMPILED build locally (no HMR) for true pa
 
 ```bash
 pnpm tidy                # Auto-fix first (lint:fix + format:fix) — the gate is read-only
-pnpm quality-gate        # READ-ONLY verify, parallel: build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + boundaries + lint:ws + deps:lint + test:policy + gitleaks
+pnpm quality-gate        # READ-ONLY verify, parallel: build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + check:adrs + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 
 How and when to run these — incremental per-package checks and the end-of-task
@@ -176,7 +176,7 @@ See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT.md` files; `docs/adr/` for system-wide decisions. See `docs/agents/domain.md`.
+Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT.md` files. ADRs live with what they govern: repo-wide decisions in `docs/adr/`, a package's own in its `docs/adr/`, numbered **per directory** so the same number in both is normal. Placement, numbering, the status vocabulary and what a `CONTEXT.md` may hold are stated once in [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives) — don't restate them elsewhere. `scripts/check-adrs.mjs` enforces what can be enforced, via `pnpm lint`.
 
 ### Worktree workflow
 

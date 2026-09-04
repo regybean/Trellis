@@ -1,5 +1,7 @@
 # One app-owned QueryClient; cache policy declared per query
 
+**Status:** accepted
+
 Each feature minted its own `QueryClient` and nested its own `QueryClientProvider`
 (`createFeatureClient`, `@acme/hooks`). A full app stacked four of them, so a bare
 `useQuery` bound to whichever provider happened to be innermost — [#82](https://github.com/regybean/Trellis/issues/82).
@@ -130,7 +132,7 @@ whole (well, their own) cache and one store.
 
 ## What this changes in @acme/hooks ADR 0001
 
-[ADR 0025](0025-per-query-indexeddb-persister.md) is otherwise intact — per-query
+[@acme/hooks ADR 0001](../../packages/shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md) is otherwise intact — per-query
 persistence, IndexedDB via `idb-keyval`, per-feature `rq-<keyPrefix>` stores,
 app-supplied `scopeKey`, the `buster`, the pinned patch and the `query-core`
 override all stand. Three sentences in it assumed a per-feature client and are
@@ -179,10 +181,6 @@ its transport links, its `keyPrefix`, and its persister scope.
   `createAppQueryClient()` / `AppQueryClientProvider` in `@acme/hooks` is one
   source of truth; apps still own _mounting_ it, which is the part that differs
   (Next root layout vs. the TanStack router's `Wrap`).
-
-## Status
-
-accepted
 
 ## Consequences
 

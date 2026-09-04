@@ -1,5 +1,12 @@
 # Mastra owns RAG + Memory; Drizzle mirrors are query-only read models
 
+**Status:** amended by ../../../models/docs/adr/0001-multi-provider-models.md
+
+> **Decision 3 amended by [@acme/models ADR 0001](../../../models/docs/adr/0001-multi-provider-models.md).** "Bedrock
+> via an AI-SDK provider instance" still holds as a mechanism, but the instance
+> is produced by `@acme/models` — one of three selectable providers — rather than
+> constructed here.
+
 RAG and conversation persistence run on Mastra (`@mastra/core`, `@mastra/rag`,
 `@mastra/pg`, `@mastra/memory`), wrapped by a new shared package `@acme/rag`.
 `@acme/llamaindex` is left intact but is no longer wired into any feature. Three
@@ -58,10 +65,6 @@ decisions are load-bearing:
    approach stands, but the instance is now resolved by `@acme/models` (one of
    Bedrock / OpenRouter / Ollama, Ollama default) rather than constructed in
    `@acme/rag`. Bedrock is no longer the only — or default — provider.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

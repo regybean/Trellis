@@ -1,5 +1,7 @@
 # Better Auth replaces Clerk, self-hosted, with sessions in Postgres
 
+**Status:** accepted
+
 Auth was Clerk: an external identity service, `@acme/auth` a wrapper around it
 (the client barrel re-exports `@clerk/clerk-react`'s prebuilt components behind
 `'use client'`; the server half maps `@clerk/backend`'s `User` to a serializable
@@ -50,10 +52,6 @@ database; that is inherent to self-hosting identity, not an accident.
 Clerk's `CustomJwtSessionClaims`. The admin plugin puts `role` on the user row
 (along with `banned`/`banReason`/`banExpires`), which is where the app's
 `isAdmin` checks will read it.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

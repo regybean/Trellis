@@ -1,5 +1,7 @@
 # Dependency-audit gate and suppression policy
 
+**Status:** accepted
+
 The CI `audit` job (`pnpm audit --audit-level=high`) ran with
 `continue-on-error: true` — report-only. Report-only rots: 132 advisories
 accumulated (3 critical / 67 high) with nothing forcing them down. We make the
@@ -64,10 +66,6 @@ test` stay green — forcing a version into a deep tree (e.g. `protobufjs` under
   dev-only ones (vitest, minimatch/@babel under eslint) have patches anyway.
 - **Hard-fail the local audit stage offline.** Would block PR prep on a plane /
   flaky registry. CI is the authoritative gate; local is a fast-feedback mirror.
-
-## Status
-
-accepted
 
 ## Consequences
 

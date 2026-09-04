@@ -1,5 +1,17 @@
 # The selection is the contract: neither side of the bank enumerates paths
 
+**Status:** accepted
+
+> Implements [#267](https://github.com/regybean/Trellis/issues/267), and amends
+> [ADR 0037](0037-vendored-git-subset-three-way-merge.md) — the mechanism stands
+> unchanged; what a manifest holds and what `bank.paths.json` lists do not.
+>
+> It also shrinks [#240](https://github.com/regybean/Trellis/issues/240), the
+> setup wizard: with the package set derived and the closure resolved at sync
+> time, the wizard owns no closure resolver, no gate check and no `include`
+> authoring. What is left is a picker over a derived list that writes `packages`
+> and `bundles`.
+
 [ADR 0037](0037-vendored-git-subset-three-way-merge.md) gave the bank a
 distribution mechanism and left two hand-written lists behind it. The bank listed
 its own packages in `bank.paths.json` — 26 entries of name, path and layer. Each
@@ -102,19 +114,6 @@ the root entry is `turbo`.
 - **Deriving the exclusions too**, from `.gitignore` or a naming rule. `exclude`
   carries _why_ a path is withheld, and every reason on it is a judgement about
   consumer identity that no rule expresses.
-
-## Status
-
-accepted
-
-Implements [#267](https://github.com/regybean/Trellis/issues/267), and supersedes
-in part [ADR 0037](0037-vendored-git-subset-three-way-merge.md) — the mechanism
-stands unchanged; what a manifest holds and what `bank.paths.json` lists do not.
-
-It also shrinks [#240](https://github.com/regybean/Trellis/issues/240), the setup
-wizard: with the package set derived and the closure resolved at sync time, the
-wizard owns no closure resolver, no gate check and no `include` authoring. What
-is left is a picker over a derived list that writes `packages` and `bundles`.
 
 ## Consequences
 

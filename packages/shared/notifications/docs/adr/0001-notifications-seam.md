@@ -1,6 +1,7 @@
 # `@acme/notifications`: a `shared` package that owns a tRPC router
 
-**Status:** accepted (authored on package creation, per spec #185 / ticket #186).
+**Status:** accepted — authored on package creation, per spec #185 / ticket #186
+
 **Amended #196** — Decision 2's reader is now the shared `@acme/redis`
 durable-stream primitive ([@acme/redis ADR 0001](../../../../platform/redis/docs/adr/0001-durable-redis-stream-primitive.md)),
 not a hand-copied `xRange` poll loop. Two specifics are **superseded**: the

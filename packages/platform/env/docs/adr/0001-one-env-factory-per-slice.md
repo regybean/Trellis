@@ -1,6 +1,15 @@
 # One env factory per slice — profiles ride `createFinalSchema`, every key is overridable
 
-**Status:** accepted.
+**Status:** accepted
+
+> `@acme/config` and its ADR are gone; this ADR is the whole record. The
+> mechanism that ADR described — a second `createConfig` call, the purity seam,
+> the arg-injection of `{ appEnv, isServer }` — is replaced by §§1–3 below. What
+> it got right and this keeps: the classification of which values are secrets,
+> restated here as the mechanical "has a profile value" rule; the closed
+> `{development, staging, production}` profile set with `development` as the
+> base; the `APP_ENV` resolution rule; and the guarantee that config always
+> validates.
 
 ## Context
 
@@ -364,15 +373,3 @@ resolved `{ appEnv, isServer }` once and threaded it in. A single
   whose deploy targets are unknown would ship profiles nobody can fill in.
 - **Dynamic/remote runtime config** — rejected when config-as-code was designed,
   and still rejected.
-
-## Status
-
-accepted.
-
-`@acme/config` and its ADR are gone; this ADR is the whole record. The mechanism
-that ADR described — a second `createConfig` call, the purity seam, the
-arg-injection of `{ appEnv, isServer }` — is replaced by §§1–3 above. What it got
-right and this keeps: the classification of which values are secrets, restated
-here as the mechanical "has a profile value" rule; the closed
-`{development, staging, production}` profile set with `development` as the base;
-the `APP_ENV` resolution rule; and the guarantee that config always validates.

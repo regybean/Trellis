@@ -1,5 +1,7 @@
 # Every package declares a test class so the root test gate is trustworthy
 
+**Status:** accepted
+
 The root `pnpm test` task looks like a repo-wide quality gate, but most
 workspace packages ship no `test` script at all. A missing script is
 ambiguous: it could mean "this package needs no tests" (a config package) or
@@ -31,10 +33,6 @@ Two decisions are load-bearing:
 
 The `turbo gen` feature/shared generators emit a compliant `acme` block for new
 packages, so the policy is self-perpetuating rather than a one-off cleanup.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 

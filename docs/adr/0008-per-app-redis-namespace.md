@@ -1,5 +1,7 @@
 # Each app gets its own Redis key namespace, prefixed from `NEXT_PUBLIC_WEBAPP`
 
+**Status:** accepted
+
 The two apps (`nextjs`, `tanstack-start`) share one Redis instance the same way
 they share one Postgres instance. Postgres isolation already exists and is
 invisible: each app writes to a per-app schema created with
@@ -42,10 +44,6 @@ Tests mock `@acme/redis/env`*without* a`NEXT_PUBLIC_WEBAPP`field, so the
 namespace is absent and keys stay raw. This is deliberate: tests are
 app-agnostic and must pass regardless of prefix, and a no-prefix test keyspace
 keeps the test harness's own isolation (per-package logical DB`/N`+`flushDb`) independent of the app-identity mock.
-
-## Status
-
-accepted
 
 ## Considered and rejected
 
@@ -229,4 +227,4 @@ The exception is narrow and deliberate: it applies to `user`, `session`,
 `account` and `verification`, and to nothing else. Every other app-owned table,
 and the Redis keyspace in its entirety, still partition on `NEXT_PUBLIC_WEBAPP`.
 Rationale, costs and the rejected alternatives are in
-[ADR 0035](0035-auth-tables-in-a-dedicated-schema.md).
+[@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md).

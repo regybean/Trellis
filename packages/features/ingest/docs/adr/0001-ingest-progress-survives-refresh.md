@@ -1,6 +1,6 @@
 # Ingest progress survives a refresh: snapshot → resume-from-lastId
 
-**Status:** accepted (ticket #194, follow-up to #189 / epic #171).
+**Status:** accepted — ticket #194, follow-up to #189 / epic #171
 
 ## Context
 

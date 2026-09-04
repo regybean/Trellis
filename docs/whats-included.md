@@ -95,7 +95,7 @@ What the monorepo gives you out of the box, beyond the packages themselves.
 - **Database** — [Drizzle](https://orm.drizzle.team) over Postgres + pgvector; `pnpm db:push` / `pnpm db:generate`.
 - **Observability** — OpenTelemetry spans on every tRPC procedure, viewable in Jaeger.
 - **Mastra** — `pnpm studio` opens the Mastra dev studio against the chat agent; `pnpm lint:mastra` validates the Mastra wiring.
-- **AI-native** — `CONTEXT.md` per package, `docs/adr/` for decisions, and an [agent workflow](agents/) (planning + parallel isolated build agents). See below.
+- **AI-native** — `CONTEXT.md` per package, ADRs living with what they govern ([placement rule](agents/domain.md#where-an-adr-lives)), and an [agent workflow](agents/) (planning + parallel isolated build agents). See below.
 
 ### The intended development flow
 
@@ -134,7 +134,7 @@ After pulling others' changes, re-run whatever changed: `pnpm i` (deps), `pnpm d
 
 ```bash
 pnpm tidy                    # auto-fix first: lint:fix + format:fix
-pnpm quality-gate            # then verify (read-only, parallel): build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + boundaries + lint:ws + deps:lint + test:policy + gitleaks
+pnpm quality-gate            # then verify (read-only, parallel): build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + check:adrs + boundaries + lint:ws + deps:lint + test:policy + gitleaks
 ```
 
 (lefthook also runs prettier + a secret scan on staged files at commit time.)
@@ -187,7 +187,7 @@ Every script in [package.json](../package.json), grouped. ⚠️ = **manual-only
 | `pnpm deps:lint` / `pnpm deps:format` / `pnpm deps:update` | Version alignment (syncpack)                                                                                                                                                                                                                                            |
 | `pnpm gitleaks`                                            | Secret scan (CI enforces; skips gracefully if not installed)                                                                                                                                                                                                            |
 | `pnpm tidy`                                                | Auto-fix: `lint:fix` + `format:fix` (run before the gate)                                                                                                                                                                                                               |
-| `pnpm quality-gate`                                        | The full pre-push gate — **read-only, parallel**: build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + boundaries + test-policy + lint:ws + deps:lint + gitleaks                                                                            |
+| `pnpm quality-gate`                                        | The full pre-push gate — **read-only, parallel**: build + turbo(lint+format+typecheck) + test + check:exports + check:bank-paths + check:adrs + boundaries + test-policy + lint:ws + deps:lint + gitleaks                                                               |
 | `pnpm turbo gen`                                           | Scaffold a new package/feature                                                                                                                                                                                                                                          |
 | `pnpm ui-add`                                              | Add a shadcn UI component                                                                                                                                                                                                                                               |
 | `pnpm skills:register`                                     | Re-link vendored agent skills (`.agents/skills/` → `.claude/skills/`); runs on `postinstall`                                                                                                                                                                            |

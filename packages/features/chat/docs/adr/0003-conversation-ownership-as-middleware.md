@@ -1,5 +1,7 @@
 # Conversation ownership is a tRPC middleware seam, not a per-procedure check
 
+**Status:** accepted — amends [ADR 0002](0002-mastra-memory-owns-conversation-persistence.md), whose "ownership is enforced in the procedure" consequence this replaces
+
 Thread ownership was enforced by every procedure calling a shared `getOwnedThread`
 helper — a security invariant that depended on each procedure _remembering_ to call
 it. We moved the rule into two feature-local procedure builders
@@ -10,10 +12,6 @@ without going through a builder, so an unguarded procedure is structurally
 impossible rather than merely discouraged. The check itself, and all
 thread↔Conversation transforms, live behind one chat-memory adapter; the router no
 longer imports `memory`.
-
-## Status
-
-accepted (refines [0002-mastra-memory-owns-conversation-persistence](0002-mastra-memory-owns-conversation-persistence.md), whose "ownership is enforced in the procedure" consequence this replaces)
 
 ## Why
 

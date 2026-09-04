@@ -1,8 +1,14 @@
 # ADR Format
 
-ADRs live in `docs/adr/` and use sequential numbering: `0001-slug.md`, `0002-slug.md`, etc.
+ADRs use sequential numbering within a `docs/adr/` directory: `0001-slug.md`, `0002-slug.md`, etc.
 
-Create the `docs/adr/` directory lazily — only when the first ADR is needed.
+Create the directory lazily — only when the first ADR is needed.
+
+## Where the ADR goes
+
+A decision lives with what it governs, and the test is deletion: **if deleting the package would take the decision with it, the ADR belongs in that package's `docs/adr/`.** Otherwise it belongs in the repo-root `docs/adr/`. Citation counts are a tiebreak, never the rule.
+
+Each directory owns its own sequence, **starting at `0001`**. Root and package numbering are independent, so the same number appearing in both is normal and correct — never renumber to avoid it.
 
 ## Template
 
@@ -18,13 +24,24 @@ That's it. An ADR can be a single paragraph. The value is in recording _that_ a 
 
 Only include these when they add genuine value. Most ADRs won't need them.
 
-- **Status** frontmatter (`proposed | accepted | deprecated | superseded by ADR-NNNN`) — useful when decisions are revisited
 - **Considered Options** — only when the rejected alternatives are worth remembering
 - **Consequences** — only when non-obvious downstream effects need to be called out
 
+## When a decision changes
+
+**Edit the ADR in place.** Write a new one only when the new decision is separable from the old — a genuinely different call, not a revision of this one.
+
+An ADR that has been wholly overtaken is **deleted**, not archived as a tombstone. The reasoning behind the reversal survives in version control; a tree full of dead files does not help the next reader, and stub files re-collide with future numbers. The accepted trade-off: an ADR is not an append-only record.
+
+If a project wants a machine-readable status, keep the vocabulary to `accepted` and `amended by <path>`. Deliberately omit `superseded by` — a superseded ADR is deleted, so it can never be a resting state.
+
+"Stale" means superseded or never-built. It does **not** mean "the vendor named throughout is gone": if the ADR is still the only explanation of why the code is shaped the way it is, rewrite the vendor out of the prose rather than deleting the file.
+
 ## Numbering
 
-Scan `docs/adr/` for the highest existing number and increment by one.
+Scan **the directory you are writing into** for the highest existing number and increment by one. Don't look at any other `docs/adr/` — sequences are per directory.
+
+A gap in a sequence is fine. It is what a deleted ADR leaves behind, and closing it would break every link that points past it.
 
 ## When to offer an ADR
 
