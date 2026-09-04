@@ -77,9 +77,64 @@ touched the same lines.
 
 ## Setting up a consumer repo
 
-### 1. Write `bank.manifest.json`
+### 1. Vendor the bank scripts
 
-At the root of your repo:
+`scripts/` lives in the `root` bundle, so after your first sync the bank
+commands arrive, and update themselves, like anything else. Setting up needs
+them before they exist, so copy four files in by hand once:
+
+```
+scripts/setup-wizard.mjs
+scripts/bank-sync.mjs
+scripts/lib/bank.mjs
+scripts/lib/bank-closure.mjs
+```
+
+`scripts/lib/bank.mjs` is the manifest reading and writing, ref resolving and
+vendor-commit format the bank commands share; `scripts/lib/bank-closure.mjs`
+turns a selection into paths. Neither the wizard nor the sync runs without both.
+They need nothing installed — plain node and git are enough, which is why setup
+works in a repo with no `node_modules`. `scripts/bank-contribute.mjs` arrives
+with your first sync; you do not need it to pull.
+
+### 2. Pin a bank tag
+
+The bank's canonical branch is `main`, and known-good sync points are tagged
+`bank/YYYY-MM-DD`. Pin a tag rather than a branch or a sha. A branch moves under
+you, and a sha means choosing between hundreds of them.
+
+```bash
+git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
+```
+
+### 3. Author `bank.manifest.json`
+
+`setup:wizard` writes it, from the selection you pass it:
+
+```bash
+node scripts/setup-wizard.mjs \
+  --upstream https://github.com/regybean/Trellis.git \
+  --ref bank/2026-08-26 \
+  --packages @acme/logger,@acme/ui \
+  --bundles docs
+```
+
+It fetches the bank at `--ref`, checks every name you gave exists there, and
+writes the manifest — so a typo is a refusal that names it rather than a sync
+that fails three steps later. It copies nothing; `bank:sync` below is still the
+only thing that moves files. Both list flags repeat and accept `a,b`, so a
+scripted setup can build them up either way, and `root` is dropped rather than
+recorded, since it cannot be a choice.
+
+A manifest already there is refused. `--force` replaces the **selection** and
+keeps your `omit` and `contributable`, because a selection passed as arguments
+says nothing about either.
+
+Only this non-interactive form exists today. The picker over the bank's package
+list is [#291](https://github.com/regybean/Trellis/issues/291).
+
+What it writes, and what you would otherwise write by hand at the root of your
+repo:
 
 ```json
 {
@@ -112,35 +167,6 @@ still has one is refused by name.
 - **`contributable`.** The paths allowed to flow **back** to the bank. Default
   empty, so forgetting to maintain it fails closed. See
   [Contributing back to the bank](#contributing-back-to-the-bank).
-
-### 2. Pin a bank tag
-
-The bank's canonical branch is `main`, and known-good sync points are tagged
-`bank/YYYY-MM-DD`. Pin a tag rather than a branch or a sha. A branch moves under
-you, and a sha means choosing between hundreds of them.
-
-```bash
-git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
-```
-
-### 3. Vendor the sync script
-
-`scripts/` lives in the `root` bundle, so after your first sync the bank
-commands arrive, and update themselves, like anything else. The first sync needs
-them before they exist, so copy three files in by hand once:
-
-```
-scripts/bank-sync.mjs
-scripts/lib/bank.mjs
-scripts/lib/bank-closure.mjs
-```
-
-`scripts/lib/bank.mjs` is the manifest reading, ref resolving and vendor-commit
-format both bank commands share; `scripts/lib/bank-closure.mjs` turns your
-selection into paths. The sync does not run without either. They need nothing
-installed — plain node and git are enough, which is why the first sync works in a
-repo with no `node_modules`. `scripts/bank-contribute.mjs` arrives with your
-first sync; you do not need it to pull.
 
 ### 4. Sync and merge
 
@@ -518,8 +544,10 @@ tag.
   enumerates paths.
 - [`bank.paths.json`](../bank.paths.json) is the bundles and the exclusions; the
   package set is the `pnpm-workspace.yaml` globs.
-- [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) pulls;
+- [`scripts/setup-wizard.mjs`](../scripts/setup-wizard.mjs) authors the manifest;
+  [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) pulls;
   [`scripts/bank-contribute.mjs`](../scripts/bank-contribute.mjs) is the guarded
-  path back. Both run over [`scripts/lib/bank.mjs`](../scripts/lib/bank.mjs), and
-  the sync over [`scripts/lib/bank-closure.mjs`](../scripts/lib/bank-closure.mjs)
-  for the selection.
+  path back. All three run over
+  [`scripts/lib/bank.mjs`](../scripts/lib/bank.mjs), and the wizard and the sync
+  over [`scripts/lib/bank-closure.mjs`](../scripts/lib/bank-closure.mjs) for the
+  selection.

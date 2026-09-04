@@ -228,6 +228,35 @@ function readBankPaths(sha) {
 }
 
 /**
+ * Split selected bundle names into the ones worth recording and the ones that
+ * were never a choice — for whatever authors a manifest.
+ *
+ * A bundle the bank marks `alwaysIncluded` arrives whether or not the manifest
+ * names it, so recording it is noise that reads like an opt-in — and would read
+ * like an opt-*out* were it ever removed. Selecting one is not an error, since
+ * asking for what you were getting anyway is a reasonable thing to type; it is
+ * dropped, and the caller says so. The flag is read off the bank at `sha`, which
+ * is why this lives here and why nothing hardcodes `root`.
+ *
+ * Unknown names are left in both lists' input for `resolveInclude` to reject, so
+ * the "no such bundle" message stays in one place.
+ *
+ * @param {string} sha
+ * @param {string[]} selected
+ * @returns {{ bundles: string[], dropped: string[] }}
+ */
+export function chosenBundles(sha, selected) {
+  const always = readBankPaths(sha)
+    .bundles.filter((bundle) => bundle.alwaysIncluded)
+    .map((bundle) => bundle.name);
+
+  return {
+    bundles: selected.filter((name) => !always.includes(name)),
+    dropped: selected.filter((name) => always.includes(name)),
+  };
+}
+
+/**
  * The paths behind the selected bundles, plus the ones no selection can opt out
  * of, plus `infra` when the closure asks for it.
  *

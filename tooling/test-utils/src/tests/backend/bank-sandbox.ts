@@ -29,13 +29,14 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../../../../');
 
 /**
- * What a consumer vendors to get the bank commands: the two scripts and the two
- * libs they share. All four live under `scripts/`, so after the first sync they
+ * What a consumer vendors to get the bank commands: the three scripts and the two
+ * libs they share. All five live under `scripts/`, so after the first sync they
  * arrive, and update themselves, like anything else in the `root` bundle.
  */
 const scriptSources = [
   'scripts/bank-sync.mjs',
   'scripts/bank-contribute.mjs',
+  'scripts/setup-wizard.mjs',
   'scripts/lib/bank.mjs',
   'scripts/lib/bank-closure.mjs',
 ];
@@ -116,6 +117,11 @@ export interface SetupOptions {
   omit?: string[];
   /** Manifest `contributable` — empty by default, exactly like a real one. */
   contributable?: string[];
+  /**
+   * Write the manifest at all. `false` leaves the consumer without one, which
+   * is the state `setup:wizard` runs in — it is the thing that authors it.
+   */
+  manifest?: boolean;
 }
 
 /**
@@ -145,14 +151,16 @@ export function writePackage(
  * those (`agents`) naming a nested *file* rather than a directory, the way the
  * real inventory names `.claude/settings.json`.
  *
- * The consumer gets its own file, a manifest naming a selection, and the scripts
- * vendored under `scripts/`.
+ * The consumer gets its own file, the scripts vendored under `scripts/`, and a
+ * manifest naming a selection — unless `manifest: false`, which is the
+ * never-synced state `setup:wizard` runs in.
  */
 export function setup({
   packages = ['@acme/eslint-config', '@acme/prettier-config'],
   bundles = [],
   omit = [],
   contributable = [],
+  manifest = true,
 }: SetupOptions = {}): Sandbox {
   const root = mkdtempSync(join(tmpdir(), 'bank-sandbox-'));
   sandboxes.push(root);
@@ -238,15 +246,21 @@ export function setup({
     mkdirSync(dirname(target), { recursive: true });
     cpSync(join(repoRoot, source), target);
   }
-  write(
-    consumer,
-    'bank.manifest.json',
-    `${JSON.stringify(
-      { upstream: bank, ref: 'main', packages, bundles, omit, contributable },
-      null,
-      2,
-    )}\n`,
-  );
+  // Written here rather than through `writeManifest` in `scripts/lib/bank.mjs`
+  // on purpose: this is the fixture the scripts are asserted against, and a
+  // fixture built by the code under test cannot catch that code agreeing with
+  // itself on the wrong field set.
+  if (manifest) {
+    write(
+      consumer,
+      'bank.manifest.json',
+      `${JSON.stringify(
+        { upstream: bank, ref: 'main', packages, bundles, omit, contributable },
+        null,
+        2,
+      )}\n`,
+    );
+  }
   write(consumer, 'apps/consumer/own.ts', 'export const mine = true;\n');
   commit(consumer, 'consumer: initial');
 
