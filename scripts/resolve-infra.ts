@@ -21,46 +21,40 @@
 // Run via `pnpm exec tsx` (not `node`) so the TS config imports resolve,
 // mirroring scripts/resolve-compose-env.ts.
 //
+// App-token resolution and the closure query are shared with
+// `scripts/test-inventory.ts` via scripts/lib/workspace-targets.ts, so a short
+// name means the same thing to `pnpm dev` as it does to the inventory.
+//
 // Usage:  resolve-infra.ts [app ...]      (no args => every app under apps/*)
 //         app may be a full name (@acme/nextjs) or short (nextjs).
 // Output: comma-separated profile list (possibly empty) on stdout.
-import { execFileSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { BILLING_DEVELOPMENT_PROFILE } from "../packages/features/billing/src/development-profile";
 import { MODELS_DEVELOPMENT_PROFILE } from "../packages/shared/models/src/development-profile";
+import {
+  resolveAppToken,
+  workspaceApps,
+  workspaceClosure,
+} from "./lib/workspace-targets";
 
 // `import.meta.dirname` is undefined under tsx's CJS transform; derive it from
 // the module URL, which tsx shims.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-const readPkg = (dir: string) =>
-  JSON.parse(readFileSync(path.join(dir, "package.json"), "utf8"));
+const apps = workspaceApps(root);
 
-// Every workspace package under apps/* — the default "run everything" set.
-const appDirs = readdirSync(path.join(root, "apps"), { withFileTypes: true })
-  .filter((e) => e.isDirectory())
-  .map((e) => path.join(root, "apps", e.name))
-  .filter((dir) => {
-    try {
-      readPkg(dir);
-      return true;
-    } catch {
-      return false;
-    }
-  });
-const appsByName = new Map(appDirs.map((dir) => [readPkg(dir).name, dir]));
-
-// Resolve a CLI token (full or short name) to a workspace app name.
+// Keep the script's own prefix on the failure: it is what the operator sees.
 const toAppName = (token: string) => {
-  if (appsByName.has(token)) return token;
-  const qualified = `@acme/${token}`;
-  if (appsByName.has(qualified)) return qualified;
-  const byDir = appDirs.find((dir) => path.basename(dir) === token);
-  if (byDir) return readPkg(byDir).name;
-  throw new Error(`resolve-infra: unknown app "${token}"`);
+  try {
+    return resolveAppToken(token, apps);
+  } catch (error) {
+    throw new Error(
+      `resolve-infra: ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
 };
 
 const argv = process.argv.slice(2);
@@ -70,26 +64,20 @@ const namesMode = argv.includes("--names");
 const tokens = argv.filter((a) => a !== "--names");
 
 const targets =
-  tokens.length > 0 ? tokens.map(toAppName) : [...appsByName.keys()];
+  tokens.length > 0 ? tokens.map(toAppName) : apps.map((app) => app.name);
 
 if (namesMode) {
   process.stdout.write(targets.join("\n"));
   process.exit(0);
 }
 
-// One pnpm call: the union of every target's transitive workspace closure.
-const filters = targets.flatMap((name) => ["--filter", `${name}...`]);
-const raw = execFileSync(
-  "pnpm",
-  [...filters, "ls", "--only-projects", "--depth", "-1", "--json"],
-  { cwd: root, encoding: "utf8" },
-);
-const projects = JSON.parse(raw);
-
 const profiles = new Set<string>();
-for (const proj of projects) {
-  const infra = readPkg(proj.path).acme?.infra;
-  if (Array.isArray(infra)) for (const p of infra) profiles.add(p);
+for (const project of workspaceClosure(root, targets)) {
+  const manifest: { acme?: { infra?: unknown } } = JSON.parse(
+    readFileSync(path.join(project.path, "package.json"), "utf8"),
+  );
+  const infra = manifest.acme?.infra;
+  if (Array.isArray(infra)) for (const p of infra) profiles.add(p as string);
 }
 
 // Profile prunes (see header). Infra is a local dev/test concern, so both read

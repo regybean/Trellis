@@ -28,7 +28,6 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "@acme/auth": "workspace:*",
     "@acme/db": "workspace:*",
     "@acme/eslint-config": "workspace:*",
     "@acme/models": "workspace:*",

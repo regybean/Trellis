@@ -77,7 +77,9 @@ Every package declares an `acme.testClass` block; `pnpm test:policy` enforces it
 
 To read what the suite covers without running it: `pnpm test:inventory` prints
 every collected test as markdown, grouped and counted by package, in seconds and
-with no containers ([docs/TESTING.md](../TESTING.md#seeing-what-the-suite-covers)).
+with no containers. Pass a package name for one slice, or an app name for that
+deployable's whole closure — `pnpm test:inventory nextjs-slim`
+([docs/TESTING.md](../TESTING.md#seeing-what-the-suite-covers)).
 
 ## Frontend (under `src/tests/frontend/`)
 

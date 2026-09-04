@@ -77,7 +77,7 @@
     "test:nextjs": "scripts/test.sh test",
     "test:backend": "scripts/test.sh test:backend",
     "test:frontend": "scripts/test.sh test:frontend",
-    "test:inventory": "node scripts/test-inventory.mjs",
+    "test:inventory": "pnpm exec tsx scripts/test-inventory.ts",
     "test:policy": "node scripts/check-test-policy.mjs",
     "test:watch": "scripts/test.sh test:watch",
     "tidy": "pnpm lint:fix && pnpm format:fix",
