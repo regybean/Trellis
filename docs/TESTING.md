@@ -359,10 +359,12 @@ excluded by the push config's `tablesFilter` and created lazily at runtime. See
 ## Seeing what the suite covers
 
 ```bash
-pnpm test:inventory                  # everything, markdown on stdout, no containers
-pnpm test:inventory @acme/chat       # one package
-pnpm test:inventory nextjs-slim      # one app's whole closure
-pnpm test:inventory > inventory.md
+pnpm test:inventory                        # everything, markdown on stdout, no containers
+pnpm test:inventory @acme/chat             # one package
+pnpm test:inventory nextjs-slim            # one app's whole closure
+pnpm test:inventory -- --layer backend     # one side of the stack
+pnpm test:inventory -- --kind unit         # the solitary tests, where internals-level ones hide
+pnpm test:inventory -- --out inventory.md  # written, not printed
 ```
 
 Test names in this repo read as behaviour, but a passing run's scrollback is the
@@ -407,8 +409,20 @@ The slim closure carries no auth, billing or subscriptions tests. That makes the
 subsetting claim ([ADR 0010](adr/0010-slim-no-auth-apps.md)) observable rather than
 asserted, which is why a test pins it.
 
-Nothing is written to the repo and nothing enters the quality gate: this is an
-ad-hoc read, not an artifact.
+### Filters
+
+`--layer` and `--kind` narrow it to the path segments under `src/tests/`. The
+canonical layout is what makes that prefix a filter axis rather than a guess.
+Each takes a comma-separated list (or repeats), each defaults to everything, and
+together they intersect, so `--layer backend --kind unit` is the backend's
+solitary tests and nothing else. Every heading and count is computed after the
+narrowing: a count counts what survived the filter, and a package that keeps
+nothing loses its heading. The group segment stays a heading and never becomes a
+third flag. `--out <path>` writes the report to a file instead of printing it,
+for diffing or sharing.
+
+Nothing enters the quality gate: this is an ad-hoc read, not an artifact, and
+`--out` writes only where you point it.
 
 ## Package test policy
 

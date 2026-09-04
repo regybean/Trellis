@@ -36,15 +36,25 @@
  * markdown pipes cleanly. Nothing is written to the repo — this is an ad-hoc
  * read, not an artifact, so it stays out of the quality gate.
  *
+ * `--layer` and `--kind` narrow the report to the path segments under
+ * `src/tests/`; the canonical layout makes that prefix a filter axis rather than
+ * a guess. They compose as an intersection, and every heading and count is
+ * computed after the narrowing, so a count counts what survived the filter and a
+ * package that keeps nothing loses its heading. `--out` writes the report to a
+ * file instead of stdout. The group segment stays a heading and never becomes a
+ * third flag: three ways to name a test is more than an audit needs.
+ *
  * Usage:
- *   pnpm test:inventory                  # every package with tests
- *   pnpm test:inventory @acme/chat       # one package
- *   pnpm test:inventory nextjs-slim      # an app's whole closure
+ *   pnpm test:inventory                          # every package with tests
+ *   pnpm test:inventory @acme/chat               # one package
+ *   pnpm test:inventory nextjs-slim              # an app's whole closure
+ *   pnpm test:inventory --layer backend --kind unit
+ *   pnpm test:inventory --kind unit,integration --out inventory.md
  *
  * Exit codes:
  *   0  inventory printed
  *   1  a package's collection failed (its stderr is reported)
- *   2  bad usage — a target naming nothing, or naming two things
+ *   2  bad usage — a bad flag, or a target naming nothing or two things
  */
 import { execFile } from "node:child_process";
 import {
@@ -54,12 +64,13 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { parseArgs, promisify } from "node:util";
 
 import {
   matchToken,
@@ -278,22 +289,53 @@ async function mapLimit<T, R>(
 }
 
 /**
- * The directory a test file sits in, relative to the package's `src/tests/` —
- * `backend/integration/api`, `frontend/unit`. That path *is* the taxonomy
- * (layer / kind / group), so it is the group heading verbatim rather than
- * something re-derived from a table this tool would then have to keep in step.
+ * The directories a test file sits under, relative to the package's
+ * `src/tests/` — `["backend", "integration", "api"]`. That path *is* the
+ * taxonomy (layer / kind / group), so it is both the group heading and the
+ * filter axes, rather than something re-derived from a table this tool would
+ * then have to keep in step.
+ *
+ * `null` for a test outside `src/tests/`: unconventional but real, and worth
+ * seeing in the report even though it sits under no layer and no kind.
  *
  * @param file absolute path, as `vitest list` reports it
  */
-function groupOf(file: string, pkgDir: string) {
+function segmentsOf(file: string, pkgDir: string) {
   const rel = relative(join(pkgDir, "src", "tests"), file).replaceAll(sep, "/");
-  const dir = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
-  // A test outside src/tests is unconventional but real (and worth seeing);
-  // fall back to its path relative to the package.
-  if (rel.startsWith("../")) {
+  if (rel.startsWith("../")) return null;
+  return rel.split("/").slice(0, -1);
+}
+
+/**
+ * The group heading for a test file — its `segmentsOf` path, or, for one
+ * outside `src/tests/`, its directory relative to the package.
+ */
+function groupOf(file: string, pkgDir: string) {
+  const segments = segmentsOf(file, pkgDir);
+  if (segments === null) {
     return relative(pkgDir, dirname(file)).replaceAll(sep, "/");
   }
-  return dir === "" ? "." : dir;
+  return segments.length === 0 ? "." : segments.join("/");
+}
+
+/** The narrowing the caller asked for; an unset axis means everything. */
+interface Filters {
+  layer?: Set<string>;
+  kind?: Set<string>;
+}
+
+/**
+ * Whether a test file is one the caller asked for: its layer segment in
+ * `--layer`, its kind segment in `--kind`, each unset meaning everything. A
+ * file outside the canonical layout has neither segment, so any explicit filter
+ * excludes it — it can't answer the question that was asked.
+ */
+function matches(file: string, pkgDir: string, filters: Filters) {
+  if (filters.layer === undefined && filters.kind === undefined) return true;
+  const [layer, kind] = segmentsOf(file, pkgDir) ?? [];
+  if (filters.layer !== undefined && !filters.layer.has(layer)) return false;
+  if (filters.kind !== undefined && !filters.kind.has(kind)) return false;
+  return true;
 }
 
 /** `12 tests` / `1 test` — every heading carries its count. */
@@ -356,12 +398,59 @@ function render(collected: (Suite & { entries: Entry[] })[]) {
   return lines.join("\n");
 }
 
+const USAGE =
+  "Usage: pnpm test:inventory [package|app ...] [--layer <names>] [--kind <names>] [--out <path>]";
+
+/**
+ * The targets and flags, off `node:util`'s `parseArgs` — `--flag=value`, a
+ * repeated flag and rejecting one nobody declared are all its behaviour, and it
+ * is stdlib. Its errors are `TypeError`s aimed at the caller, so they are
+ * re-raised as the same phrased-for-a-human refusal as before. Positionals are
+ * the package/app targets, left for `expandTargets` to resolve.
+ */
+function parseFlags() {
+  // `pnpm test:inventory nextjs-slim -- --kind unit` forwards the separator
+  // too, and parseArgs reads a bare `--` as "everything after this is
+  // positional" — which would turn the flags into targets. No target and no
+  // flag value is ever `--`, so drop every one of them.
+  const args = process.argv.slice(2).filter((arg) => arg !== "--");
+  try {
+    return parseArgs({
+      args,
+      allowPositionals: true,
+      options: {
+        layer: { type: "string", multiple: true },
+        kind: { type: "string", multiple: true },
+        out: { type: "string" },
+      },
+    });
+  } catch (error) {
+    console.error(
+      `test-inventory: ${error instanceof Error ? error.message : String(error)}\n\n${USAGE}`,
+    );
+    process.exit(2);
+  }
+}
+
+/**
+ * One axis's selection. `a,b` and a repeated flag both mean the same set, so a
+ * generated invocation can build it up either way; unset means everything.
+ */
+function selection(values: string[] | undefined) {
+  const names = (values ?? []).flatMap((value) => value.split(","));
+  return names.length === 0 ? undefined : new Set(names);
+}
+
 /**
  * tsx transforms this to CJS (the root manifest is not `"type": "module"`), so
  * the entry is a function rather than top-level await.
  */
 async function main() {
-  const tokens = process.argv.slice(2);
+  const { values: flags, positionals: tokens } = parseFlags();
+  const filters: Filters = {
+    layer: selection(flags.layer),
+    kind: selection(flags.kind),
+  };
   const packages = findPackages();
 
   let targets: Set<string> | undefined;
@@ -369,9 +458,7 @@ async function main() {
     targets = tokens.length > 0 ? expandTargets(tokens, packages) : undefined;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    console.error(
-      `test-inventory: ${reason}\n\nUsage: pnpm test:inventory [package|app ...]`,
-    );
+    console.error(`test-inventory: ${reason}\n\n${USAGE}`);
     process.exit(2);
   }
 
@@ -416,7 +503,20 @@ async function main() {
       process.exit(1);
     }
 
-    process.stdout.write(render(listed));
+    const report = render(
+      listed.map((suite) => ({
+        ...suite,
+        entries: suite.entries.filter((entry) =>
+          matches(entry.file, suite.dir, filters),
+        ),
+      })),
+    );
+    if (flags.out === undefined) {
+      process.stdout.write(report);
+    } else {
+      writeFileSync(flags.out, report);
+      process.stderr.write(`Wrote ${flags.out}\n`);
+    }
   } finally {
     rmSync(scratch, { recursive: true, force: true });
   }

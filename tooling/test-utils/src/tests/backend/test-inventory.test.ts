@@ -14,6 +14,10 @@
  * two things. App targets do need a resolved graph, so they are next door in
  * test-inventory-app-targets.test.ts, against the real repo.
  *
+ * The `--layer`/`--kind`/`--out` flags are here too: the sandbox's layout is
+ * the taxonomy those flags filter on, and a package that is frontend-only is
+ * what makes "a package that keeps nothing loses its heading" assertable.
+ *
  * The container assertion is the one worth explaining. A sandbox package's
  * `globalSetup` writes a marker file; the suite first runs `vitest list`
  * directly, without `VITEST_LIST_ONLY`, to prove the marker really is written
@@ -56,6 +60,16 @@ const MARKER = 'packages/platform/p-one/global-setup-ran';
 let sandbox: string;
 /** The inventory the tool printed for the sandbox — the subject of every test. */
 let inventory: string;
+/** The same sandbox, narrowed by the filter flags. One run each, in setup. */
+let byLayer: string;
+let byKind: string;
+/** The same `--kind unit`, spelled the way `pnpm run -- …` forwards it. */
+let byKindViaPnpm: string;
+let byBoth: string;
+let byEveryLayerAndKind: string;
+/** The `--out` run: what reached stdout, and what landed in the file. */
+let outStdout: string;
+let outFile: string;
 /** What `vitest list` reports for one sandbox package, run directly. */
 let directNames: string[];
 /** Whether that direct run — no carve-out — wrote the marker. The control. */
@@ -105,19 +119,19 @@ function childEnv() {
  * the same reason the tool runs vitest on this node: a package-manager startup
  * per invocation is time spent proving nothing.
  */
-function collect(...targets: string[]) {
+function collect(...args: string[]) {
   return execFileSync(
     process.execPath,
-    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...targets],
+    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...args],
     { cwd: sandbox, env: childEnv(), encoding: 'utf8', stdio: 'pipe' },
   );
 }
 
 /** The same, for the cases where the failure is the subject. */
-function collectFailing(...targets: string[]) {
+function collectFailing(...args: string[]) {
   return spawnSync(
     process.execPath,
-    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...targets],
+    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...args],
     { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
   );
 }
@@ -279,16 +293,29 @@ beforeAll(() => {
   rmSync(join(sandbox, MARKER), { force: true });
 
   inventory = collect();
-}, 180_000);
+  byLayer = collect('--layer', 'backend');
+  byKind = collect('--kind', 'unit');
+  byKindViaPnpm = collect('--', '--kind', 'unit');
+  byBoth = collect('--layer', 'backend', '--kind', 'unit');
+  byEveryLayerAndKind = collect(
+    '--layer',
+    'backend,frontend',
+    '--kind',
+    'unit,integration',
+  );
+  const outPath = join(sandbox, 'inventory.md');
+  outStdout = collect('--out', outPath);
+  outFile = readFileSync(outPath, 'utf8');
+}, 300_000);
 
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
 
 /** The `## `/`### `/`#### ` headings, in the order they were printed. */
-function headings(level: number) {
+function headings(level: number, report = inventory) {
   const prefix = `${'#'.repeat(level)} `;
-  return inventory
+  return report
     .split('\n')
     .filter((line) => line.startsWith(prefix))
     .map((line) => line.slice(prefix.length));
@@ -445,5 +472,92 @@ describe('pnpm test:inventory rejects a target it cannot resolve', () => {
     const run = collectFailing('@sandbox/redis', '@sandbox/nope');
     expect(run.status).not.toBe(0);
     expect(run.stdout).toBe('');
+  });
+});
+
+describe('pnpm test:inventory narrows to the layers and kinds asked for', () => {
+  it('keeps only the layer named, dropping a package that has none of it', () => {
+    expect(headings(4, byLayer).every((h) => h.startsWith('backend/'))).toBe(
+      true,
+    );
+    // @sandbox/ui is frontend-only, so the narrowed report has no place for it.
+    expect(headings(3, byLayer).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/entitlements',
+      '@sandbox/redis',
+      '@sandbox/chat',
+    ]);
+    expect(headings(2, byLayer).map((h) => h.split(' (')[0])).toEqual([
+      'platform',
+      'features',
+    ]);
+  });
+
+  it('recounts every heading against the narrowed set', () => {
+    // chat has one test on each side; under --layer backend it is worth one.
+    const chat = headings(3, byLayer).find((h) =>
+      h.startsWith('@sandbox/chat'),
+    );
+    expect(chat).toBe('@sandbox/chat (1 test)');
+    const bullets = byLayer
+      .split('\n')
+      .filter((l) => l.startsWith('- ')).length;
+    expect(byLayer).toContain(`**Total: ${bullets} tests in 3 packages.**`);
+  });
+
+  it('keeps only the kind named, across both layers', () => {
+    expect(
+      headings(4, byKind)
+        .map((h) => h.split(' (')[0])
+        .sort(),
+    ).toEqual(['backend/unit', 'frontend/unit']);
+  });
+
+  it('reads the separator pnpm forwards as no argument at all', () => {
+    expect(byKindViaPnpm).toBe(byKind);
+  });
+
+  it('reads that separator between a target and a flag too', () => {
+    // `pnpm test:inventory chat -- --kind unit` puts it mid-argv, where
+    // parseArgs would otherwise read the flags after it as more targets.
+    expect(collect('@sandbox/chat', '--', '--kind', 'unit')).toBe(
+      collect('@sandbox/chat', '--kind', 'unit'),
+    );
+  });
+
+  it('intersects a target with a filter', () => {
+    // The target picks the packages, the filter picks the tests within them.
+    const chatBackend = collect('@sandbox/chat', '--layer', 'backend');
+    expect(headings(3, chatBackend).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/chat',
+    ]);
+    expect(headings(4, chatBackend).map((h) => h.split(' (')[0])).toEqual([
+      'backend/integration/api',
+    ]);
+  });
+
+  it('reads a comma-separated list as every name in it', () => {
+    expect(byEveryLayerAndKind).toBe(inventory);
+  });
+
+  it('composes the two flags as an intersection', () => {
+    expect(headings(3, byBoth).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/redis',
+    ]);
+    expect(headings(4, byBoth).map((h) => h.split(' (')[0])).toEqual([
+      'backend/unit',
+    ]);
+  });
+
+  it('reports an empty inventory for a name nothing sits under', () => {
+    const run = collectFailing('--layer', 'sideways');
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('**Total: 0 tests in 0 packages.**');
+  });
+});
+
+describe('pnpm test:inventory writes to a file when asked', () => {
+  it('puts the report in the file instead of on stdout', () => {
+    expect(outStdout).toBe('');
+    expect(outFile).toBe(inventory);
   });
 });
