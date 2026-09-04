@@ -1,18 +1,29 @@
 # Multi-provider models behind a single `@acme/models` package
 
-**Status:** accepted
+**Status:** amended by 0002-one-authored-value-per-role.md (the env keys below no longer exist)
 
 > **Amends decision 3 of [@acme/rag ADR 0001](../../../rag/docs/adr/0001-mastra-rag-and-memory.md)** ("Bedrock via
 > an AI-SDK provider instance"). The AI-SDK-instance approach stands, but the
 > instance is now produced by `@acme/models`, one of three providers, not
 > constructed in `@acme/rag`.
 
+> **Amended by [ADR 0002](0002-one-authored-value-per-role.md) on how a selection
+> is expressed.** The `LLM_PROVIDER` / `EMBED_PROVIDER` enums, the separate
+> `EMBED_DIMENSIONS`, and per-provider validation _inside_ each factory (decisions
+> 1, 2 and 4 below) were replaced by one authored value per role — a discriminated
+> union keyed by `provider` — plus a single selection-derived secret check. Which
+> providers ship, that each gets one file, that the two roles are chosen
+> independently, and that an active provider's missing credential fails at import
+> are all unchanged.
+
 Chat (LLM) and embedding models are no longer hard-wired to AWS Bedrock. A new
 shared package `@acme/models` owns provider selection and hands resolved AI-SDK
 model instances to `@acme/rag` (embeddings) and `@acme/chat` (chat + retrieval).
 Three providers ship: **Bedrock**, **OpenRouter** (chat only), and **Ollama**
 (local, CPU-only, chat + embeddings). Ollama is the default so the repo runs with
-no cloud credentials. Four decisions are load-bearing:
+no cloud credentials; it speaks the OpenAI-compatible API on `/v1` for both chat
+and embeddings, so one `@ai-sdk/openai-compatible` instance serves both roles and
+no Ollama-specific SDK is needed. Four decisions are load-bearing:
 
 1. **One package, one file per provider — not a package per provider.** Provider
    factories live in sibling files (`bedrock.ts`, `openrouter.ts`, `ollama.ts`)
@@ -70,7 +81,9 @@ starts only when a provider is `ollama`, gated by `scripts/infra.sh` via
 - **Ollama embeddings are degraded in dev.** Asymmetric models like
   `nomic-embed-text` expect `search_document:` / `search_query:` _text prefixes_
   (not a provider option); we do not inject them, so dev-time recall is weaker.
-  Accepted — Ollama is dev/test only.
+  `embedProviderOptions` returns `{}` for Ollama and cannot carry a text prefix.
+  Accepted — Ollama is dev/test only. If it ever needs production-grade recall,
+  the prefixes go on the text in the uploader and query paths, not here.
 - `scripts/infra.sh` now fronts the `infra:*` scripts (via `with-env`) to gate the
   `ollama` profile on provider selection; `pnpm infra:up` no longer passes a literal
   `--profile infra`.

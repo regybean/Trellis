@@ -60,10 +60,12 @@ which would replay an hour of completed jobs and worsen the duplicate.
    completion is signalled by the existing notification toast. This kills the
    duplicate (symptom #2).
 
-The IndexedDB persister (@acme/hooks ADR 0001) is deliberately **not** used: progress is a
-subscription-fed reducer, not a query; the server-side fold is multi-tab correct
-and reuses durable data the stream already holds. The persister stays for
-`documents.list`.
+The IndexedDB persister
+([@acme/hooks ADR 0001](../../../../shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md))
+is deliberately **not** used: progress is a subscription-fed reducer, not a
+query; the server-side fold is multi-tab correct and reuses durable data the
+stream already holds. The persister stays for `documents.list`
+([ADR 0005](0005-documents-list-is-the-only-persisted-query.md)).
 
 ## Consequences
 
@@ -73,11 +75,11 @@ and reuses durable data the stream already holds. The persister stays for
   "stuck at queued" cannot recur (a regression test injects an hour of skew and
   asserts events still deliver). No new persistence — the stream's 1h TTL is the
   only durability boundary.
-- **Retired invariants.** This supersedes two entries in `packages/features/ingest/
-CONTEXT.md`: the reader's _"tail-from-now… no cross-mount resume"_ (now
-  snapshot → resume-from-lastId) and the framing of the Job as having no durable
-  progress (its stream rows are now folded back on mount). The Job is still
-  **derived, never persisted as a row**.
+- **Retired invariants.** Two earlier ones are gone. The reader no longer
+  _tails from now with no cross-mount resume_ — it is snapshot →
+  resume-from-`lastId`. And the Job no longer has _no durable progress_: its
+  stream rows are folded back on mount. The Job is still **derived, never
+  persisted as a row** — what became durable is the progress, not the Job.
 - **Accepted — `done`-but-Job-incomplete files blink out on refresh.** The
   snapshot drops `done`, and `documents.list` only refreshes on whole-Job
   completion, so a file that finished while its siblings are still in-flight

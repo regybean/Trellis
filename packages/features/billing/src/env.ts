@@ -12,7 +12,7 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
 /**
  * How the Stripe SDK connects — a discriminated union so illegal states are
  * unrepresentable. `apiBase` exists *only* in `localstripe` mode (local dev
- * against the fake stateful Stripe server, ADR 0003/0004); the `real` variant
+ * against the fake stateful Stripe server, @acme/billing ADR 0001); the `real` variant
  * carries no URL at all, so a staging/production build can never hold a stray
  * localhost address.
  *

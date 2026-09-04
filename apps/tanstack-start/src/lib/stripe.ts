@@ -8,7 +8,7 @@ import { getStripeCustomerId } from '@acme/subscriptions';
 import { auth } from '~/lib/auth-server';
 
 /**
- * Server-derived localstripe mode (ADR 0003/0004), surfaced to the client
+ * Server-derived localstripe mode (@acme/billing ADR 0001), surfaced to the client
  * through the root route context → `BillingConfigProvider` seam so the client
  * reads one mode value instead of proxying it through `NODE_ENV`. A server
  * function guarantees the Stripe connection (billing env, server side, @acme/env ADR 0001

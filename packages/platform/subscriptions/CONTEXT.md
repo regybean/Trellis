@@ -2,7 +2,7 @@
 
 Server-only package. Single source of truth for reading a user's Subscription state and Credit balance from Redis. No Stripe API calls — that is `@acme/billing`'s job. This package only reads what `@acme/billing` has already synced.
 
-It is the **Stripe/Redis-backed adapter** for the `@acme/entitlements` contract: it implements `EntitlementsProvider` as `subscriptionsEntitlements` and re-exports the relocated contract types (`SubscriptionTier`, `SubscriptionCache`). The neutral types live in `@acme/entitlements`; the tier ordering (`isTierAtLeast`) is imported from `@acme/entitlements` directly, not re-exported here. The Zod `SubscriptionCacheSchema` that validates the Stripe-shaped variant stays here, guarded by a conformance assertion against the contract type. See [`docs/adr/0006-entitlements-injection-seam.md`](../../../docs/adr/0006-entitlements-injection-seam.md).
+It is the **Stripe/Redis-backed adapter** for the `@acme/entitlements` contract: it implements `EntitlementsProvider` as `subscriptionsEntitlements` and re-exports the relocated contract types (`SubscriptionTier`, `SubscriptionCache`). The neutral types live in `@acme/entitlements`; the tier ordering (`isTierAtLeast`) is imported from `@acme/entitlements` directly, not re-exported here. The Zod `SubscriptionCacheSchema` that validates the Stripe-shaped variant stays here, guarded by a conformance assertion against the contract type.
 
 ## Language
 
@@ -34,12 +34,6 @@ A `{ start, end }` pair of Unix timestamps. For active subscriptions: the Stripe
 
 The `reset`/`maxOut`/`overrideExpiry`/`status` operations fetch the **Subscription cache** and derive the **Subscription tier** themselves, because their callers (the billing admin router) target an arbitrary user rather than the request's own context.
 
-## Design decisions
+## Decisions
 
-**Read-only by design**: This package never writes Stripe data to Redis — that is done by the Stripe webhook handler in `@acme/billing`. Separation ensures the read path is fast and the write path is controlled.
-
-**Eager credit initialisation**: If `credits:{userId}:{tier}` does not exist when `credits.read()` is called, it is created immediately with the full limit and set to expire at the end of the billing window. This avoids a separate "provision credits" step on first use.
-
-**Atomic set + expiry**: Every credit write (`read` eager-init, `reset`, `maxOut`, the missing-key branch of `overrideExpiry`) sets the value and its expiry in a single Redis command (`SET … EXAT`). A value written without an expiry would be an immortal key that never resets — so the value and expiry are never two separate round-trips.
-
-**Pure policy split from storage** (`credit-policy.ts`): the per-tier limits and the billing-window computation are pure functions with no Redis, extracted so they can be unit-tested in isolation (`tests/backend/unit`) while the Redis-backed operations in `credits.ts` are tested against a real Redis (`tests/backend/integration/service`) — the unit / integration(api·service) taxonomy in [docs/TESTING.md](../../../docs/TESTING.md). `credits.ts` remains the sole owner of the key format and every mutation.
+See [`docs/adr/`](../../../docs/adr/).

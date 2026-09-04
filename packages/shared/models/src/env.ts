@@ -50,8 +50,8 @@ export const env = createEnv({
   emptyStringAsUndefined: true,
 });
 
-// Provider *secrets*, validated declaratively from the resolved selection (ADR
-// 0033, value axis). Called once, eagerly, in `resolve.ts` so a provider-active
+// Provider *secrets*, validated declaratively from the resolved selection
+// (@acme/env ADR 0002, value axis). Called once, eagerly, in `resolve.ts` so a provider-active
 // app fails fast at import on missing credentials instead of on the first request —
 // exactly which secrets are required is a function of the selected providers,
 // never a permissive `.optional()`:
@@ -77,8 +77,7 @@ export const env = createEnv({
 // `@acme/ingest` declares this same pair for S3, where development authors the
 // LocalStack dummies. One variable, one value per process: the two agree on
 // staging/production (both unauthored), and can only diverge in development with
-// Bedrock selected — see "When two slices declare the same key" in @acme/env's
-// CONTEXT.md.
+// Bedrock selected.
 function awsSecretEnv() {
   return createEnv({
     clientPrefix: 'NEXT_PUBLIC_',

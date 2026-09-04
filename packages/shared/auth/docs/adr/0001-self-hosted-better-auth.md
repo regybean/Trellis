@@ -12,7 +12,11 @@ server instance lives in `@acme/auth/server` as `initAuth(options)` — a factor
 not a module singleton, because `baseUrl` differs per app and a shared-layer
 package must not read app env. `@acme/auth/schema` holds the four tables
 (`user`, `session`, `account`, `verification`) as Drizzle tables;
-`@acme/auth/env` demands `BETTER_AUTH_SECRET`.
+`@acme/auth/env` demands `BETTER_AUTH_SECRET` — and only that. The other
+key, `BETTER_AUTH_URL`, stays app-owned for the same reason `baseUrl` is a
+parameter rather than env: it differs per app, so a shared-layer package can
+neither hold the value nor default it. The slice owns the secret; the app owns
+the origin.
 
 ## Why
 

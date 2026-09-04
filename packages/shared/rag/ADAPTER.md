@@ -2,7 +2,7 @@
 
 Retrieval and conversational memory. Features use it to store and search
 document chunks and to recall prior turns
-([ADR 0002](docs/adr/0001-mastra-rag-and-memory.md)). Your app provides
+([ADR 0001](docs/adr/0001-mastra-rag-and-memory.md)). Your app provides
 the database, creates the index at boot, and keeps the runtime-owned tables away
 from its migration tool.
 
@@ -31,7 +31,8 @@ from its migration tool.
 ## Wiring
 
 - Call `ensureVectorIndex` at boot, in the same place you initialise telemetry,
-  and in your worker entrypoint too.
+  and in your worker entrypoint too — reads do not create the index
+  ([ADR 0002](docs/adr/0002-knowledge-base-index-provisioned-at-boot.md)).
 - Do **not** re-export the memory tables from your schema barrel. The library
   owns their DDL and creates them at runtime; handing them to your migration
   tool makes the next push drop them. Exclude them by name pattern in your

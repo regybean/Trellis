@@ -54,7 +54,7 @@ export interface BillingRedirectMessages {
 }
 
 /**
- * The Billing redirect module (billing CONTEXT.md): the single home for the
+ * The Billing redirect module: the single home for the
  * create-session → redirect-URL → navigate flow. It owns both create-session
  * mutations (Checkout session and Billing portal), the loading toast, the typed
  * billing-error → toast mapping (reusing the `BillingErrorCode` seam), and ONE

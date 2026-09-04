@@ -8,7 +8,7 @@ isolated across apps sharing one Redis instance — not _what_ any feature store
 **Namespace**:
 The per-app key prefix, sourced from `NEXT_PUBLIC_WEBAPP` via `@acme/redis/env`.
 Mirrors the per-app Postgres schema: one app-identity value partitions every
-shared datastore (ADR 0008). Empty in tests, which yields raw keys.
+shared datastore. Empty in tests, which yields raw keys.
 _Avoid_: "the prefix env", "the app name"
 
 **Namespaced key** (`NamespacedKey`):
@@ -43,7 +43,7 @@ calls.
 
 **Durable stream** (`createDurableStream`, `durable-stream.ts`):
 The one per-user (or per-conversation) Redis-Stream primitive behind chat's
-token stream, ingest's progress stream, and the notifications stream (#196). It
+token stream, ingest's progress stream, and the notifications stream. It
 owns the transport those three used to hand-copy: `write` (the atomic
 append-with-rolling-TTL `xAddWithTtl`), `lastId` (the "actual last stream id"
 read via `xRevRange` — a real Redis-assigned id, so a fresh tail-from-now seed
@@ -67,37 +67,8 @@ _Avoid_: "the stream helper", "the reader" (which half?).
   `@acme/redis` owns only `nsKey` and the clients.
 - The **Namespace** value is the same `NEXT_PUBLIC_WEBAPP` that names the Postgres
   schema in `@acme/rag`; the two are surfaced through separate envs so tests can
-  mock them independently (ADR 0008).
+  mock them independently.
 
-## Design decisions
+## Decisions
 
-**Prefixing is type-enforced, not allow-listed**: the prefix lives in `nsKey` and
-the client demands a `NamespacedKey`, so a forgotten prefix won't compile. This
-replaced an earlier `Proxy` that rewrote known commands from a hand-maintained
-allow-list — which silently leaked unprefixed keys for any unlisted command (the
-`expireAt` bug). See the amendment to ADR 0008.
-
-**The facade does no runtime work — except where atomicity demands it**: `nsKey`
-already applied the prefix, so the client wrapper only narrows the key parameter's
-type and delegates. The exposed surface is the small set of commands actually in
-use plus infra pass-throughs. The exceptions are the ops that exist _because_ a
-multi-step sequence must not be interleaved — `xAddWithTtl` (append + restamp TTL
-in one `MULTI`) and **compare-and-delete** (one `EVAL`). Those belong here rather
-than in the caller: a read-then-act pair assembled at a call site is only correct
-by luck, and every caller would have to re-derive the same guarantee.
-
-**One sanctioned cast**: branding is nominal typing and needs a single
-`as NamespacedKey` inside `nsKey`, isolated to that one constructor.
-
-**`REDIS_URL` is authored config, and this is its home** (`env.ts`, @acme/env ADR 0001 /
-#124): the whole DSN is authored in the development profile as
-`redis://localhost:6379`, so dev needs no `.env` row, and a same-named variable
-retunes it — which is what the _dynamic_ cases need (a testcontainer's mapped
-port, an infra-injected prod endpoint), re-validated as a URL rather than passed
-through raw. `src/development-profile.ts` holds the literal so
-`scripts/resolve-compose-env.ts` can parse the local port out of it without
-evaluating this slice's env. `REDIS_URL` is a `server` key (reading it in browser
-code throws). Other Redis-touching packages don't
-re-declare it: `@acme/queue` imports the resolved value from `@acme/redis/env`
-(as `@acme/rag` imports `@acme/db/env`); the app's remaining slices carry no
-`REDIS_URL` env row at all.
+See [`docs/adr/`](docs/adr/).

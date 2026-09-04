@@ -54,7 +54,9 @@ The names above are stale. `@acme/trpc/server` no longer exists, and neither doe
 `createTRPCContext` itself. Each feature now builds its own tRPC instance on its
 own concrete context in `api/trpc.ts`, and writes its own `trpc/server.tsx` RSC
 caller against it; `@acme/trpc` exports `trpcConfig` plus four middleware bodies
-and owns no `initTRPC` call (see the package `CONTEXT.md` and ADR 0006's #264
+and owns no `initTRPC` call (see
+[ADR 0002](0002-export-the-pieces-not-the-instance.md) and root
+[ADR 0006](../../../../../docs/adr/0006-entitlements-injection-seam.md)'s #264
 amendment for why the generic had to go).
 
 The rejection recorded here still holds, and is why nothing was consolidated

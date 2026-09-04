@@ -95,7 +95,7 @@ services:
 
   localstripe:
     # Fake stateful Stripe server for local dev — no real Stripe account/network.
-    # Pinned (tracks the latest PyPI release 1.15.10). See docs/adr/0004.
+    # Pinned (tracks the latest PyPI release 1.15.10). See @acme/billing ADR 0001.
     image: adrienverge/localstripe:1.15.10
     container_name: trellis-localstripe
     ports:

@@ -3,7 +3,7 @@
 The one connection factory. Features import it rather than declaring a database
 connection of their own, so an app configures Postgres once and every mounted
 package uses that configuration
-([ADR 0016](docs/adr/0001-db-connection-platform-package.md)).
+([ADR 0001](docs/adr/0001-db-connection-platform-package.md)).
 
 ## What it gives you
 

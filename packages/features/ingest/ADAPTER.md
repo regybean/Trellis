@@ -2,7 +2,7 @@
 
 Document upload and indexing. Files go to object storage, a background job
 extracts and indexes them, and the browser watches progress that survives a
-reload ([ADR 0031](docs/adr/0001-ingest-progress-survives-refresh.md)).
+reload ([ADR 0001](docs/adr/0001-ingest-progress-survives-refresh.md)).
 
 ## What it gives you
 

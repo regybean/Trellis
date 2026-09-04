@@ -16,7 +16,7 @@ _Avoid_: "the chat queue", "the worker queue"
 Factory that returns a `Queue` instance wired to the shared internal connection. Adds an error listener that routes to the logger. Callers: enqueue-side code (`enqueueGenerationTurn` in `@acme/chat`).
 
 **`createWorker(name, processor, options?)`**:
-Factory that returns a `Worker` instance wired to the same connection. `processor` is the job handler (built in `@acme/chat` by the `createChatGenerationProcessor(entitlements)` factory, which closes over the app-injected `EntitlementsProvider`). Callers: app-owned `worker.ts` entry points, which import the provider from their app's composition root (`src/server/deps.ts`) — the same value the route handler reads, because it is built exactly once (ADR 0006).
+Factory that returns a `Worker` instance wired to the same connection. `processor` is the job handler (built in `@acme/chat` by the `createChatGenerationProcessor(entitlements)` factory, which closes over the app-injected `EntitlementsProvider`). Callers: app-owned `worker.ts` entry points, which import the provider from their app's composition root (`src/server/deps.ts`) — the same value the route handler reads, because it is built exactly once.
 
 ## Relationships
 
@@ -24,12 +24,6 @@ Factory that returns a `Worker` instance wired to the same connection. `processo
 - The connection BullMQ uses is a separate ioredis instance from `@acme/redis`'s `redis` / `redisPub` / `redisSub` — BullMQ creates and manages it internally via plain connection options derived from `REDIS_URL`.
 - Queue names live here (not in `@acme/chat`) so both producer and consumer reference the same constant without a circular dependency.
 
-## Design decisions
+## Decisions
 
-**Per-app BullMQ prefix**: `createQueue` / `createWorker` set `prefix: NEXT_PUBLIC_WEBAPP`, so app `nextjs` owns `nextjs:generation:*` and `tanstack_slim` owns `tanstack_slim:generation:*`. All apps share one Redis instance; without the prefix every app's worker would drain the same `bull:generation` list and could process a foreign app's job — then persist under the wrong Redis namespace and Postgres schema. This mirrors the per-app partitioning `@acme/redis` applies via `nsKey` and `@acme/rag` via the Postgres schema. Producer (`chat.send`) and consumer (app `worker.ts`) both run under their app's env, so they resolve the same prefix without coordination. The queue _name_ stays a shared constant (`QUEUE_NAMES.GENERATION`); isolation is the prefix, not the name.
-
-**Plain connection options, not an ioredis instance**: BullMQ v5 bundles its own ioredis internally. Passing an externally-created ioredis instance causes structural type conflicts between the two ioredis copies. Passing plain options (`{ host, port, password?, db?, maxRetriesPerRequest: null }`) lets BullMQ create and own its connections, which is also the approach the BullMQ docs recommend.
-
-**`maxRetriesPerRequest: null`**: Required for BullMQ Workers. Without it, ioredis times out blocking commands (e.g. `BRPOPLPUSH`) used by BullMQ's job-draining loop. Queues don't technically need it but we apply it uniformly.
-
-**Queue names in `@acme/queue`, not `@acme/chat`**: The producer (`@acme/chat`) and consumer (app `worker.ts`) both need the queue name. Centralising it here avoids either: (a) the consumer importing `@acme/chat` (wrong direction — feature → platform), or (b) duplicating string literals that can silently diverge.
+See [`docs/adr/`](../../../docs/adr/).

@@ -39,12 +39,35 @@ per-Conversation write, no scan.
   structural rather than enforced.
 - Lazy delete keeps the delete O(1) and pairs with an optimistic client cache
   edit: dropping the Folder from the cache re-groups its Conversations into Date
-  Buckets instantly, with the server staying lazy (the convention in the chat
-  CONTEXT.md and the optimistic-mutation pattern).
+  Buckets instantly, with the server staying lazy. Every Folder list-mutation
+  (`create` / `delete` / `setFolder`) is optimistic in `useConversations` —
+  cancel in-flight refetches, snapshot, patch the cache, roll back on error,
+  reconcile on settle — so the lazy server and the instant UI are two halves of
+  one decision, not two independent ones.
 
 The cost: a deleted Folder leaves dangling `folderId` values in thread metadata
 forever. They are harmless (they resolve to nothing) but they accumulate. We
 accept that for v1 rather than paying a write per member Conversation on delete.
+
+## Folder ids are minted by the client
+
+`chat.folders.create` takes the `id` as **input** rather than returning a
+server-generated one, and the server inserts that id.
+
+This is what lets the optimistic edit above be honest. A Folder the client
+appends to the sidebar needs an identity immediately — to render, to be
+`setFolder`'d into, and to be deleted — and if the server minted it, the
+optimistic row would carry a placeholder that has to be swapped on settle. Two
+things break with a placeholder: the row does not reconcile 1:1 (it is a remove
+plus an insert, which the list rendering can see), and a `delete` issued before
+the `create` settles has no real id to target, so it either no-ops or races.
+With a client-minted id the same value is used end to end, so the optimistic and
+settled states are literally the same row.
+
+The cost is that `id` is caller-supplied on a write path, so it is validated as
+a UUID and scoped to the caller like every other Folder operation; a client
+cannot name another user's Folder because `userId` comes from the session, never
+the input.
 
 ## Considered and rejected
 

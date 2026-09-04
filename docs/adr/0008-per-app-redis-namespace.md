@@ -228,3 +228,25 @@ The exception is narrow and deliberate: it applies to `user`, `session`,
 and the Redis keyspace in its entirety, still partition on `NEXT_PUBLIC_WEBAPP`.
 Rationale, costs and the rejected alternatives are in
 [@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md).
+
+## Amendment — the BullMQ keyspace partitions via BullMQ's `prefix`, not `nsKey`
+
+`@acme/queue` is a shared datastore this construct governs, but the enforcement
+above cannot reach it. BullMQ owns its own ioredis connection and builds its own
+keys, so the branded `NamespacedKey` that makes the rule a compile error never
+touches them. The partitioning rides BullMQ's own option instead:
+`createQueue` / `createWorker` set `prefix: NEXT_PUBLIC_WEBAPP`, so `nextjs`
+owns `nextjs:generation:*` and `tanstack-slim` owns `tanstack-slim:generation:*`.
+
+This is recorded rather than left to the code because **the reversal is silent.**
+Dropping the prefix compiles and passes every single-app test; what it buys is
+one app's worker draining another's `bull:generation` list and persisting the
+result under the wrong Redis namespace and the wrong Postgres schema.
+
+**Isolation is the prefix, not the name.** The queue name stays a shared constant
+(`QUEUE_NAMES.GENERATION`) because producer and consumer identify a BullMQ queue
+by name and must agree on it — partitioning the name instead would break that
+agreement while appearing to achieve the same thing. Producer (`chat.send`) and
+consumer (the app's `worker.ts`) both run under their app's env, so they resolve
+the same prefix with no coordination: the same property that makes the `nsKey`
+namespace work.

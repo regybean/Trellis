@@ -42,9 +42,16 @@ substrate at once, so mounting it touches every recipe.
   factory with a chat model selected
   ([schema.md](../../../docs/mounting/schema.md),
   [env.md](../../../docs/mounting/env.md)).
-- Give the UI a route carrying an optional session id, passed in as a prop, and
-  change the URL on selection so a conversation is linkable —
-  [ui.md](../../../docs/mounting/ui.md).
+- Give the UI a route carrying an optional session id, passed in as a prop,
+  plus the base path it lives under — [ui.md](../../../docs/mounting/ui.md).
+  The feature keeps the address bar in sync itself, with the History API rather
+  than your router, so a conversation is linkable without tearing the live
+  stream ([ADR 0008](docs/adr/0008-deep-link-url-via-history-api.md)). Don't
+  navigate on selection.
+- Pass `renderMessageActions` if you want per-message UI — feedback buttons,
+  copy, retry. Chat renders whatever you return beneath each settled assistant
+  message and depends on none of it
+  ([ADR 0007](docs/adr/0007-message-actions-render-slot.md)).
 - Invalidate your credit display after a turn if you also mount billing. The
   features do not know about each other; your page wires the two together.
 

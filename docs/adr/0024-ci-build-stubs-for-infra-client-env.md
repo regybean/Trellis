@@ -45,27 +45,32 @@ valid — they satisfy constructor-level validation without making any network c
 
 Stubs declared in CI:
 
-| Var                  | Stub value               | Why needed                                                |
-| -------------------- | ------------------------ | --------------------------------------------------------- |
-| `DB_HOST`            | `localhost`              | PgVector / PostgresStore validate non-empty host          |
-| `DB_PORT`            | `5432`                   | Passed to constructor; accepts string with skipValidation |
-| `DB_USER`            | `stub`                   | PgVector / PostgresStore constructor param                |
-| `DB_PASSWORD`        | `stub`                   | PgVector / PostgresStore constructor param                |
-| `DB_NAME`            | `stub`                   | PostgresStore `database` param                            |
-| `DB_VECTOR_NAME`     | `stub`                   | PgVector `database` param (rag env)                       |
-| `NEXT_PUBLIC_WEBAPP` | `stub`                   | PgVector `schemaName` = `RAG_SCHEMA`                      |
-| `LLM_PROVIDER`       | `ollama`                 | `resolveChatModel()` switch falls through on undefined    |
-| `EMBED_PROVIDER`     | `ollama`                 | `resolveEmbedModel()` switch falls through on undefined   |
-| `EMBED_DIMENSIONS`   | `768`                    | Avoids undefined in vector index dimension                |
-| `OLLAMA_BASE_URL`    | `http://localhost:11434` | ollama provider URL; must be valid URL format             |
-| `OLLAMA_CHAT_MODEL`  | `stub`                   | ollama chat model id                                      |
-| `OLLAMA_EMBED_MODEL` | `stub`                   | ollama embed model id                                     |
+| Var                  | Stub value  | Why needed                                                |
+| -------------------- | ----------- | --------------------------------------------------------- |
+| `DB_HOST`            | `localhost` | PgVector / PostgresStore validate non-empty host          |
+| `DB_PORT`            | `5432`      | Passed to constructor; accepts string with skipValidation |
+| `DB_USER`            | `stub`      | PgVector / PostgresStore constructor param                |
+| `DB_PASSWORD`        | `stub`      | PgVector / PostgresStore constructor param                |
+| `DB_NAME`            | `stub`      | PostgresStore `database` param                            |
+| `DB_VECTOR_NAME`     | `stub`      | PgVector `database` param (rag env)                       |
+| `NEXT_PUBLIC_WEBAPP` | `stub`      | PgVector `schemaName` = `RAG_SCHEMA`                      |
+
+**The model-provider keys are no longer in this set.** `LLM_PROVIDER`,
+`EMBED_PROVIDER`, `EMBED_DIMENSIONS` and the three `OLLAMA_*` vars were listed
+here while `@acme/models` declared a provider enum plus per-provider keys. It
+now declares two keys — `MODELS_CHAT` and `MODELS_EMBED`, each a `jsonEnv`
+discriminated union — and both carry an authored profile value, so by the rule
+in the blockquote above they need no stub. (`OLLAMA_CHAT_MODEL` /
+`OLLAMA_EMBED_MODEL` still exist, but as values
+`scripts/resolve-compose-env.ts` _derives_ for the Ollama pull list in compose;
+no slice's `createEnv` reads them, so no constructor guard depends on them at
+import.)
 
 These stubs exist to satisfy Mastra/AI-SDK constructor guards, which run at module
 import whatever env validation does. (As noted at the top: since @acme/env ADR 0001 §3 they are
 also coerced and validated by the slice's schema rather than bypassing it, so each one
-has to be a legal value for its key — the reason `OLLAMA_BASE_URL` above is a
-well-formed URL and not `stub`.) All stub
+has to be a legal value for its key — which is why `DB_PORT` is `5432` and not
+`stub`.) All stub
 vars are also listed in `turbo.json` `globalEnv` — turbo filters subprocess env to declared
 vars only, so CI step env vars are silently dropped unless listed there.
 
