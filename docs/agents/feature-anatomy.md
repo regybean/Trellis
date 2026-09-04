@@ -149,6 +149,12 @@ tests/frontend/
 ### Test policy
 
 Every package declares an `acme.testClass` block in `package.json`
-(`full-stack` | `backend-library` | `none`); `pnpm test:policy` enforces that a
-conforming package actually ships the suites its class requires, and that unit
-folders stay mock-free.
+(`full-stack` | `backend-library` | `frontend-library` | `app` | `none`);
+`pnpm test:policy` enforces that a conforming package actually ships the suites
+its class requires, and that unit folders stay mock-free.
+
+It also enforces the layout above: a test that isn't under
+`src/tests/<layer>/<kind>[/<group>]/` — layer segment included, even in a
+single-sided package — fails the gate, naming the package and the path. A
+`backend-library` carries `src/tests/backend/` only and a `frontend-library`
+`src/tests/frontend/` only; both layers means `full-stack`.

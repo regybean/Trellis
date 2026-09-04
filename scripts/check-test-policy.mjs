@@ -17,15 +17,26 @@
  * `testStatus: "todo"` + a reason. This removes the ambiguity of a missing
  * `test` script meaning either "not needed" or "missing".
  *
+ * It also asserts the **layout**: every test file sits under
+ * `src/tests/<layer>/`, and the layers a package carries follow its class.
+ * That rule lives here rather than in the vitest projects because
+ * `passWithNoTests` stays on — a misplaced file is collected by nothing and
+ * would otherwise fail nowhere at all.
+ *
  * Usage:
  *   node scripts/check-test-policy.mjs           # enforce policy (exit 1 on violation)
  *   node scripts/check-test-policy.mjs --todos   # list tracked test gaps, exit 0
+ *   node scripts/check-test-policy.mjs <root>    # check that workspace root instead
  */
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, sep } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+/** First non-flag argument wins, so `--todos` can be passed with or without it. */
+const rootArg = process.argv.slice(2).find((a) => !a.startsWith("--"));
+const ROOT = rootArg
+  ? resolve(rootArg)
+  : join(dirname(fileURLToPath(import.meta.url)), "..");
 
 /** Workspace globs, mirrored from pnpm-workspace.yaml (each is `<dir>/*`). */
 const WORKSPACE_DIRS = [
@@ -85,11 +96,21 @@ function findPackages() {
   return out;
 }
 
+/** Build output and caches — never source, so never a misplaced test. */
+const SKIP_DIRS = new Set([
+  "node_modules",
+  "dist",
+  ".turbo",
+  ".cache",
+  ".next",
+  "coverage",
+]);
+
 /** Recursively test whether any file under `dir` matches `predicate`. */
 function hasFile(dir, predicate) {
   if (!existsSync(dir)) return false;
   for (const entry of readdirSync(dir)) {
-    if (entry === "node_modules" || entry === "dist" || entry === ".turbo") {
+    if (SKIP_DIRS.has(entry)) {
       continue;
     }
     const full = join(dir, entry);
@@ -107,7 +128,7 @@ function hasFile(dir, predicate) {
 function collectFiles(dir, predicate, out = []) {
   if (!existsSync(dir)) return out;
   for (const entry of readdirSync(dir)) {
-    if (entry === "node_modules" || entry === "dist" || entry === ".turbo") {
+    if (SKIP_DIRS.has(entry)) {
       continue;
     }
     const full = join(dir, entry);
@@ -115,6 +136,42 @@ function collectFiles(dir, predicate, out = []) {
     else if (predicate(full)) out.push(full);
   }
   return out;
+}
+
+/**
+ * The two test layers. `src/tests/<layer>/` is the only place a test may sit
+ * (docs/TESTING.md): the layer segment is present even in a single-sided
+ * package, so the vitest projects can own one glob each and the path prefix
+ * stays a filter axis tooling can trust.
+ */
+const TEST_LAYERS = ["backend", "frontend"];
+
+/**
+ * Which layers a package may carry, by capability class. Only the library
+ * classes declare a side, so only they are constrained here; `app` / `none`
+ * still owe the layer segment, they just aren't told which side to pick.
+ */
+const CLASS_LAYERS = {
+  "full-stack": ["backend", "frontend"],
+  "backend-library": ["backend"],
+  "frontend-library": ["frontend"],
+};
+
+/** Anything a reader would call a test — see `isCollectible` for what runs. */
+const TEST_FILE = /\.(test|spec)\.tsx?$/;
+
+/**
+ * Whether the vitest projects would actually collect `rel` (a package-relative
+ * POSIX path). Mirrors the two globs in `@acme/test-utils/vitest`: backend is
+ * `.test.ts` only, frontend takes `.test.ts` and `.test.tsx`, and neither
+ * matches `*.spec.*`. A test file the globs miss is the silent failure this
+ * whole rule exists to catch.
+ */
+function isCollectible(rel) {
+  if (rel.startsWith("src/tests/backend/")) return rel.endsWith(".test.ts");
+  if (rel.startsWith("src/tests/frontend/"))
+    return rel.endsWith(".test.ts") || rel.endsWith(".test.tsx");
+  return false;
 }
 
 /**
@@ -207,6 +264,52 @@ for (const pkg of findPackages()) {
     }
   }
 
+  const testsDir = join(pkg.dir, "src", "tests");
+
+  // Layout: one place a test can live — `src/tests/<layer>/`. Every package,
+  // every class; a tracked gap (`testStatus: todo`) is exempt, since it has
+  // nothing filed yet and the todo is the record of that. The check is on the
+  // *path*, because the vitest projects can't make this failure: their globs
+  // simply don't match a misplaced file, and `passWithNoTests` (which stays on
+  // — a package that legitimately collects nothing must still pass) turns that
+  // into silence.
+  if (testStatus !== "todo") {
+    for (const file of collectFiles(pkg.dir, (f) => TEST_FILE.test(f))) {
+      const rel = file.slice(pkg.dir.length + 1).replaceAll(sep, "/");
+      const layer = TEST_LAYERS.find((l) => rel.startsWith(`src/tests/${l}/`));
+      if (!layer) {
+        errors.push(
+          `${name}: test outside the layout: ${rel} — every test lives under src/tests/backend/ or src/tests/frontend/, layer segment included`,
+        );
+      } else if (!isCollectible(rel)) {
+        errors.push(
+          `${name}: test the ${layer} project never collects: ${rel} — its glob is src/tests/${layer}/**/*.test.${layer === "backend" ? "ts" : "{ts,tsx}"}, so this file runs nowhere`,
+        );
+      }
+    }
+
+    // Sidedness: the layer directories a package carries follow its class. A
+    // frontend/ tree under a backend-library is either mis-filed tests or a
+    // package that has quietly become full-stack — both need a decision.
+    const classLayers = CLASS_LAYERS[testClass];
+    const layerDirs = existsSync(testsDir)
+      ? readdirSync(testsDir).filter((e) =>
+          statSync(join(testsDir, e)).isDirectory(),
+        )
+      : [];
+    for (const dir of layerDirs) {
+      if (!TEST_LAYERS.includes(dir)) {
+        errors.push(
+          `${name}: unknown test layer src/tests/${dir}/ — the layer segment is ${TEST_LAYERS.join(" or ")}`,
+        );
+      } else if (classLayers && !classLayers.includes(dir)) {
+        errors.push(
+          `${name}: ${testClass} package carries src/tests/${dir}/ — a ${testClass} has ${classLayers.map((l) => `src/tests/${l}/`).join(" + ")} only (move the tests, or change "acme.testClass")`,
+        );
+      }
+    }
+  }
+
   // Taxonomy filing: every backend test in a runtime layer must sit under
   // unit/ or integration/{api,service}/ (docs/TESTING.md). Catches a test left
   // in a stray old-name folder or loose under src/tests. Scoped to the runtime
@@ -215,7 +318,6 @@ for (const pkg of findPackages()) {
     pkg.rel.startsWith("packages/platform/") ||
     pkg.rel.startsWith("packages/shared/") ||
     pkg.rel.startsWith("packages/features/");
-  const testsDir = join(pkg.dir, "src", "tests");
   const backendTests = isRuntimeLayer
     ? collectFiles(
         testsDir,
