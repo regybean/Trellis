@@ -228,6 +228,20 @@ function readBankPaths(sha) {
 }
 
 /**
+ * The bundles the bank offers at `sha`.
+ *
+ * Exported for whatever authors a manifest: a bundle marked `alwaysIncluded`
+ * arrives whether or not it is named, so recording it in a selection would
+ * imply it was a choice. That flag is only readable here.
+ *
+ * @param {string} sha
+ * @returns {Bundle[]}
+ */
+export function bankBundles(sha) {
+  return readBankPaths(sha).bundles;
+}
+
+/**
  * The paths behind the selected bundles, plus the ones no selection can opt out
  * of, plus `infra` when the closure asks for it.
  *

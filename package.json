@@ -69,6 +69,7 @@
     "quality-gate": "bash scripts/quality-gate.sh",
     "gitleaks": "if command -v gitleaks >/dev/null 2>&1; then gitleaks git --no-banner --redact --config .gitleaks.toml .; else echo '⚠️  gitleaks not installed; skipping (CI enforces). Install: brew install gitleaks'; fi",
     "seed:localstripe": "pnpm with-env pnpm --filter @acme/billing seed:localstripe",
+    "setup:wizard": "node scripts/setup-wizard.mjs",
     "studio": "pnpm with-env pnpm --filter @acme/chat studio",
     "predev": "scripts/check-remote-cache.sh",
     "preview": "pnpm with-env ./scripts/preview.sh",
