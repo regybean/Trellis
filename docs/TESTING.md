@@ -13,6 +13,7 @@ pnpm --filter @acme/chat test:frontend   # frontend only
 pnpm --filter @acme/chat test:backend:watch
 pnpm test                                # everything (turbo)
 pnpm test:inventory                      # list every test without running one
+pnpm test:inventory nextjs-slim          # …or just what one app's closure covers
 ```
 
 Backend suites need Postgres + Redis, and they **always start their own**. The
@@ -358,7 +359,9 @@ excluded by the push config's `tablesFilter` and created lazily at runtime. See
 ## Seeing what the suite covers
 
 ```bash
-pnpm test:inventory                        # markdown, on stdout, seconds, no containers
+pnpm test:inventory                        # everything, markdown on stdout, no containers
+pnpm test:inventory @acme/chat             # one package
+pnpm test:inventory nextjs-slim            # one app's whole closure
 pnpm test:inventory -- --layer backend     # one side of the stack
 pnpm test:inventory -- --kind unit         # the solitary tests, where internals-level ones hide
 pnpm test:inventory -- --out inventory.md  # written, not printed
@@ -371,16 +374,6 @@ directories in dependency order (tooling, platform, shared, features),
 alphabetical within each, the path under `src/tests/` as the group heading, a
 count in every heading and a total at the end.
 
-`--layer` and `--kind` narrow it to the path segments under `src/tests/`. The
-canonical layout is what makes that prefix a filter axis rather than a guess.
-Each takes a comma-separated list (or repeats), each defaults to everything, and
-together they intersect, so `--layer backend --kind unit` is the backend's
-solitary tests and nothing else. Every heading and count is computed after the
-narrowing: a count counts what survived the filter, and a package that keeps
-nothing loses its heading. The group segment stays a heading and never becomes a
-third flag. `--out <path>` writes the report to a file instead of printing it,
-for diffing or sharing.
-
 It reads from `vitest list --json`, run per package config, so it honours each
 package's real `include` and resolves computed (`it.each`) names — the report is
 what runs, not what a glob guesses. The corollary is that a `.skip` or `.todo`
@@ -392,7 +385,43 @@ testcontainers and push a schema purely to print names. So the tool sets
 Collection needs no infra — every reachable `env.ts` still validates against
 `staticTestEnv` — so the inventory runs anywhere, with no container runtime.
 
-Nothing enters the quality gate. This is an ad-hoc read, not an artifact, and
+### Targets
+
+A target narrows the report. A **package** name lists that package. An **app**
+name expands to the app's full transitive workspace closure, tooling included —
+so the answer is what that deployable's suite actually covers, not just the
+slices it mounts. Nothing is trimmed: platform packages are where low-value
+tests hide, and `@acme/redis`'s durable-stream tests are load-bearing for chat.
+
+Short names work, and mean the same thing they do to `pnpm dev` — both resolve
+through `scripts/lib/workspace-targets.ts`. A token that names nothing, or that
+two packages answer to, exits non-zero rather than printing an empty report.
+
+Comparing a full app with its slim counterpart is the useful trick:
+
+```bash
+pnpm test:inventory nextjs      > /tmp/full.md
+pnpm test:inventory nextjs-slim > /tmp/slim.md
+diff /tmp/full.md /tmp/slim.md
+```
+
+The slim closure carries no auth, billing or subscriptions tests. That makes the
+subsetting claim ([ADR 0010](adr/0010-slim-no-auth-apps.md)) observable rather than
+asserted, which is why a test pins it.
+
+### Filters
+
+`--layer` and `--kind` narrow it to the path segments under `src/tests/`. The
+canonical layout is what makes that prefix a filter axis rather than a guess.
+Each takes a comma-separated list (or repeats), each defaults to everything, and
+together they intersect, so `--layer backend --kind unit` is the backend's
+solitary tests and nothing else. Every heading and count is computed after the
+narrowing: a count counts what survived the filter, and a package that keeps
+nothing loses its heading. The group segment stays a heading and never becomes a
+third flag. `--out <path>` writes the report to a file instead of printing it,
+for diffing or sharing.
+
+Nothing enters the quality gate: this is an ad-hoc read, not an artifact, and
 `--out` writes only where you point it.
 
 ## Package test policy

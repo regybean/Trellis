@@ -4,11 +4,12 @@ set -euo pipefail
 # Register vendored skills so Claude Code can discover them.
 #
 # Source of truth: .agents/skills/<name>/  (committed to git)
-# Registration:    .claude/skills/<name>   (gitignored; symlink into .agents)
+# Registration:    .claude/skills/<name>   (tracked symlink into .agents)
 #
-# .claude is gitignored, so the symlinks don't survive a clone. This script
-# recreates them idempotently from whatever is in .agents/skills. Run after
-# clone / pnpm install, or any time skills are added or removed.
+# Only .claude/worktrees/ is gitignored — the skill symlinks are tracked, so
+# they survive a clone. This script recreates them idempotently from whatever
+# is in .agents/skills. Run after clone / pnpm install, or any time skills are
+# added or removed, then commit the resulting links.
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 src="$repo_root/.agents/skills"

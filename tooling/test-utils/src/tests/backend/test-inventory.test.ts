@@ -8,6 +8,16 @@
  * `frontendProject` and real test files — so the assertions are about a
  * workspace's shape rather than about this month's test count.
  *
+ * Package targets belong here for the same reason: naming a package needs no
+ * dependency graph, so the sandbox can hold every case, including the two the
+ * tool must refuse — a token that names nothing, and a short name that names
+ * two things. App targets do need a resolved graph, so they are next door in
+ * test-inventory-app-targets.test.ts, against the real repo.
+ *
+ * The `--layer`/`--kind`/`--out` flags are here too: the sandbox's layout is
+ * the taxonomy those flags filter on, and a package that is frontend-only is
+ * what makes "a package that keeps nothing loses its heading" assertable.
+ *
  * The container assertion is the one worth explaining. A sandbox package's
  * `globalSetup` writes a marker file; the suite first runs `vitest list`
  * directly, without `VITEST_LIST_ONLY`, to prove the marker really is written
@@ -104,12 +114,25 @@ function childEnv() {
   );
 }
 
-/** The tool, run against the sandbox — its stdout is the whole contract. */
-function runInventory(...args: string[]) {
+/**
+ * The CLI, as the sandbox sees it. `--import tsx` rather than `pnpm exec` for
+ * the same reason the tool runs vitest on this node: a package-manager startup
+ * per invocation is time spent proving nothing.
+ */
+function collect(...args: string[]) {
   return execFileSync(
     process.execPath,
-    [join(sandbox, 'scripts/test-inventory.mjs'), ...args],
+    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...args],
     { cwd: sandbox, env: childEnv(), encoding: 'utf8', stdio: 'pipe' },
+  );
+}
+
+/** The same, for the cases where the failure is the subject. */
+function collectFailing(...args: string[]) {
+  return spawnSync(
+    process.execPath,
+    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...args],
+    { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
   );
 }
 
@@ -123,10 +146,16 @@ beforeAll(() => {
   // One resolution point, exactly as in this repo: every dependency (vitest
   // included) is found through the root node_modules.
   symlinkSync(join(repoRoot, 'node_modules'), join(sandbox, 'node_modules'));
-  mkdirSync(join(sandbox, 'scripts'));
+  mkdirSync(join(sandbox, 'scripts/lib'), { recursive: true });
   cpSync(
-    join(repoRoot, 'scripts/test-inventory.mjs'),
-    join(sandbox, 'scripts/test-inventory.mjs'),
+    join(repoRoot, 'scripts/test-inventory.ts'),
+    join(sandbox, 'scripts/test-inventory.ts'),
+  );
+  // The CLI resolves targets through the module it shares with resolve-infra,
+  // so the sandbox needs that too.
+  cpSync(
+    join(repoRoot, 'scripts/lib/workspace-targets.ts'),
+    join(sandbox, 'scripts/lib/workspace-targets.ts'),
   );
 
   // Two platform packages whose directory order (p-one, p-two) is the reverse
@@ -203,6 +232,10 @@ beforeAll(() => {
       '',
     ].join('\n'),
   });
+  // No vitest config, so it never reaches the report — it is here only so the
+  // token `redis` names two packages and the matcher has to refuse to guess.
+  writePackage('packages/shared/redis', '@other/redis', {});
+
   // Both sides, so one package heading has to carry two group headings.
   writePackage('packages/features/chat', '@sandbox/chat', {
     'vitest.config.backend.ts': [
@@ -259,19 +292,19 @@ beforeAll(() => {
   globalSetupRanDirectly = existsSync(join(sandbox, MARKER));
   rmSync(join(sandbox, MARKER), { force: true });
 
-  inventory = runInventory();
-  byLayer = runInventory('--layer', 'backend');
-  byKind = runInventory('--kind', 'unit');
-  byKindViaPnpm = runInventory('--', '--kind', 'unit');
-  byBoth = runInventory('--layer', 'backend', '--kind', 'unit');
-  byEveryLayerAndKind = runInventory(
+  inventory = collect();
+  byLayer = collect('--layer', 'backend');
+  byKind = collect('--kind', 'unit');
+  byKindViaPnpm = collect('--', '--kind', 'unit');
+  byBoth = collect('--layer', 'backend', '--kind', 'unit');
+  byEveryLayerAndKind = collect(
     '--layer',
     'backend,frontend',
     '--kind',
     'unit,integration',
   );
   const outPath = join(sandbox, 'inventory.md');
-  outStdout = runInventory('--out', outPath);
+  outStdout = collect('--out', outPath);
   outFile = readFileSync(outPath, 'utf8');
 }, 300_000);
 
@@ -383,15 +416,61 @@ describe('pnpm test:inventory starts no infrastructure', () => {
   });
 });
 
-describe('pnpm test:inventory rejects what it does not accept', () => {
-  it('exits non-zero on an argument it has no meaning for', () => {
-    const run = spawnSync(
-      process.execPath,
-      [join(sandbox, 'scripts/test-inventory.mjs'), '@sandbox/redis'],
-      { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
+describe('pnpm test:inventory narrows to the packages named', () => {
+  it('lists one package and nothing else when given its full name', () => {
+    const only = collect('@sandbox/redis');
+    expect(only).toContain('### @sandbox/redis');
+    for (const other of [
+      '@sandbox/entitlements',
+      '@sandbox/ui',
+      '@sandbox/chat',
+    ]) {
+      expect(only).not.toContain(`### ${other}`);
+    }
+  });
+
+  it('accepts the unscoped tail, as pnpm dev does for an app', () => {
+    expect(collect('entitlements')).toBe(collect('@sandbox/entitlements'));
+  });
+
+  it('accepts the directory name too', () => {
+    expect(collect('p-two')).toBe(collect('@sandbox/entitlements'));
+  });
+
+  it('takes several targets at once', () => {
+    const both = collect('@sandbox/redis', '@sandbox/ui');
+    expect(both).toContain('### @sandbox/redis');
+    expect(both).toContain('### @sandbox/ui');
+    expect(both).not.toContain('### @sandbox/chat');
+  });
+
+  it('counts only what the target contributed', () => {
+    const total = /\*\*Total: (\d+) tests in (\d+) packages\.\*\*/.exec(
+      collect('@sandbox/redis'),
     );
+    expect(total?.[2]).toBe('1');
+  });
+});
+
+describe('pnpm test:inventory rejects a target it cannot resolve', () => {
+  it('exits non-zero naming the token, rather than printing an empty report', () => {
+    const run = collectFailing('@sandbox/nope');
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain('@sandbox/nope');
+    expect(run.stdout).toBe('');
+  });
+
+  it('refuses to guess when a short name could mean two packages', () => {
+    const run = collectFailing('redis');
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain('@sandbox/redis');
+    expect(run.stderr).toContain('@other/redis');
+    expect(run.stdout).toBe('');
+  });
+
+  it('fails the whole run on one bad token among good ones', () => {
+    const run = collectFailing('@sandbox/redis', '@sandbox/nope');
+    expect(run.status).not.toBe(0);
     expect(run.stdout).toBe('');
   });
 });
@@ -437,6 +516,25 @@ describe('pnpm test:inventory narrows to the layers and kinds asked for', () => 
     expect(byKindViaPnpm).toBe(byKind);
   });
 
+  it('reads that separator between a target and a flag too', () => {
+    // `pnpm test:inventory chat -- --kind unit` puts it mid-argv, where
+    // parseArgs would otherwise read the flags after it as more targets.
+    expect(collect('@sandbox/chat', '--', '--kind', 'unit')).toBe(
+      collect('@sandbox/chat', '--kind', 'unit'),
+    );
+  });
+
+  it('intersects a target with a filter', () => {
+    // The target picks the packages, the filter picks the tests within them.
+    const chatBackend = collect('@sandbox/chat', '--layer', 'backend');
+    expect(headings(3, chatBackend).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/chat',
+    ]);
+    expect(headings(4, chatBackend).map((h) => h.split(' (')[0])).toEqual([
+      'backend/integration/api',
+    ]);
+  });
+
   it('reads a comma-separated list as every name in it', () => {
     expect(byEveryLayerAndKind).toBe(inventory);
   });
@@ -451,11 +549,7 @@ describe('pnpm test:inventory narrows to the layers and kinds asked for', () => 
   });
 
   it('reports an empty inventory for a name nothing sits under', () => {
-    const run = spawnSync(
-      process.execPath,
-      [join(sandbox, 'scripts/test-inventory.mjs'), '--layer', 'sideways'],
-      { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
-    );
+    const run = collectFailing('--layer', 'sideways');
     expect(run.status).toBe(0);
     expect(run.stdout).toContain('**Total: 0 tests in 0 packages.**');
   });

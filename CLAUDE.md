@@ -71,7 +71,7 @@ pnpm test:frontend       # Frontend tests only (jsdom + MSW at HTTP boundary)
 pnpm test:watch          # Run tests in watch mode
 pnpm turbo run test -F <pkg>  # Run tests for a single package (turbo isn't global)
 pnpm test:policy         # Enforce per-package acme.testClass coverage
-pnpm test:inventory      # Markdown list of every collected test — runs none, starts nothing
+pnpm test:inventory [pkg|app...]  # Markdown list of collected tests — an app expands to its closure; runs none, starts nothing
 pnpm test:inventory -- --layer backend --kind unit  # narrow by path segment under src/tests/ (--out <path> to write it)
 ```
 
