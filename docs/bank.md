@@ -109,7 +109,26 @@ git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
 
 ### 3. Author `bank.manifest.json`
 
-`setup:wizard` writes it, from the selection you pass it:
+`setup:wizard` writes it. With no arguments it walks you through:
+
+```bash
+node scripts/setup-wizard.mjs
+```
+
+It asks for the bank URL and the ref, then opens a menu of everything that bank
+offers at that ref — packages grouped by layer, bundles alongside them. Arrow
+keys move, space toggles, enter confirms. Under the rows it shows what your
+selection pulls in and which choice pulled it, so selecting `@acme/billing`
+visibly brings `@acme/auth` and `@acme/subscriptions` with billing named against
+each. `root` shows as always included and cannot be toggled, and `infra` selects
+itself once something in your closure declares `acme.infra`. Nothing is written
+until you say yes at the review step.
+
+The menu needs a terminal. Piped, or in CI, a bare run refuses and names the
+argument form rather than half-rendering a menu into a pipe.
+
+The argument form takes the same selection without the menu, which is what makes
+a scripted setup repeatable:
 
 ```bash
 node scripts/setup-wizard.mjs \
@@ -119,19 +138,25 @@ node scripts/setup-wizard.mjs \
   --bundles docs
 ```
 
-It fetches the bank at `--ref`, checks every name you gave exists there, and
-writes the manifest — so a typo is a refusal that names it rather than a sync
-that fails three steps later. It copies nothing; `bank:sync` below is still the
-only thing that moves files. Both list flags repeat and accept `a,b`, so a
+Either way it fetches the bank at the ref, checks every name exists there, and
+writes the same manifest — so a typo is a refusal that names it rather than a
+sync that fails three steps later. It copies nothing; `bank:sync` below is still
+the only thing that moves files. Both list flags repeat and accept `a,b`, so a
 scripted setup can build them up either way, and `root` is dropped rather than
 recorded, since it cannot be a choice.
 
-A manifest already there is refused. `--force` replaces the **selection** and
-keeps your `omit` and `contributable`, because a selection passed as arguments
-says nothing about either.
+To read the offer without opening the menu — the answer to "what is that package
+called?" — `--list` prints it and exits, writing nothing:
 
-Only this non-interactive form exists today. The picker over the bank's package
-list is [#291](https://github.com/regybean/Trellis/issues/291).
+```bash
+node scripts/setup-wizard.mjs --list \
+  --upstream https://github.com/regybean/Trellis.git \
+  --ref bank/2026-08-26
+```
+
+A manifest already there is refused. `--force` replaces the **selection** and
+keeps your `omit` and `contributable`, because no selection — typed or toggled —
+says anything about either.
 
 What it writes, and what you would otherwise write by hand at the root of your
 repo:

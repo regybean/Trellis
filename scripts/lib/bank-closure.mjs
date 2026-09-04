@@ -125,7 +125,21 @@ const globToRegExp = (glob) =>
  * @property {string} path Repo-relative package directory.
  * @property {string[]} deps Every declared dependency name, workspace or not.
  * @property {boolean} infra Whether the package declares `acme.infra`.
+ * @property {string} layer The workspace glob's directory — `packages/shared`,
+ *   `tooling`. The layer a package sits in is where the bank puts it, so this is
+ *   read off the glob that matched rather than mapped from a list here.
+ * @property {number} layerRank That glob's position in `pnpm-workspace.yaml`,
+ *   which is the order the layers are offered in.
  */
+
+/**
+ * The directory a workspace glob covers — `packages/shared/*` is
+ * `packages/shared`. A glob with no `*` is its own directory.
+ *
+ * @param {string} glob
+ * @returns {string}
+ */
+const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, "");
 
 /**
  * Every package the bank offers at `sha`, indexed by name.
@@ -139,19 +153,21 @@ const globToRegExp = (glob) =>
  * @returns {Map<string, BankPackage>}
  */
 function packageIndex(sha, exclude) {
-  const globs = workspaceGlobs(sha).map(globToRegExp);
+  const globs = workspaceGlobs(sha);
+  const matchers = globs.map(globToRegExp);
   const dirs = git(["ls-tree", "-r", "--name-only", "-z", sha], {
     maxBuffer: 256 * 1024 * 1024,
   })
     .split("\0")
     .filter((path) => path.endsWith("/package.json"))
     .map((path) => path.slice(0, -"/package.json".length))
-    .filter((dir) => globs.some((glob) => glob.test(dir)))
-    .filter((dir) => !exclude.some((prefix) => under(dir, prefix)));
+    .map((dir) => ({ dir, rank: matchers.findIndex((glob) => glob.test(dir)) }))
+    .filter(({ rank }) => rank !== -1)
+    .filter(({ dir }) => !exclude.some((prefix) => under(dir, prefix)));
 
   /** @type {Map<string, BankPackage>} */
   const index = new Map();
-  for (const dir of dirs) {
+  for (const { dir, rank } of dirs) {
     const pkg = readJson(sha, `${dir}/package.json`);
     if (typeof pkg.name !== "string" || pkg.name === "") continue;
     const deps = DEPENDENCY_FIELDS.flatMap((field) => {
@@ -166,38 +182,63 @@ function packageIndex(sha, exclude) {
       path: dir,
       deps,
       infra: Array.isArray(acme?.infra) && acme.infra.length > 0,
+      layer: globDir(globs[rank]),
+      layerRank: rank,
     });
   }
   return index;
 }
 
 /**
- * The transitive workspace closure of `names`. A dependency outside the index is
- * an ordinary npm dependency and stops the walk; only workspace edges are
- * followed, because only workspace packages are paths in the bank.
+ * The transitive workspace closure of `names`, each member carrying the selected
+ * packages that reached it. A dependency outside the index is an ordinary npm
+ * dependency and stops the walk; only workspace edges are followed, because only
+ * workspace packages are paths in the bank.
+ *
+ * The walk restarts per selected package rather than running once over all of
+ * them, because "who dragged this in" is the question the picker's preview
+ * answers, and a single shared visited-set cannot answer it: whichever root
+ * happened to reach a package first would be the only one credited.
+ *
+ * @param {Map<string, BankPackage>} index
+ * @param {string[]} names
+ * @returns {Map<string, { pkg: BankPackage, reasons: Set<string> }>}
+ */
+function closureWithReasons(index, names) {
+  /** @type {Map<string, { pkg: BankPackage, reasons: Set<string> }>} */
+  const reached = new Map();
+  for (const root of names) {
+    const seen = new Set();
+    const queue = [root];
+    while (queue.length) {
+      const name = /** @type {string} */ (queue.pop());
+      if (seen.has(name)) continue;
+      seen.add(name);
+      const pkg = index.get(name);
+      if (!pkg) continue;
+      const entry = reached.get(name) ?? { pkg, reasons: new Set() };
+      if (name !== root) entry.reasons.add(root);
+      reached.set(name, entry);
+      for (const dep of pkg.deps) if (index.has(dep)) queue.push(dep);
+    }
+  }
+  return reached;
+}
+
+/**
+ * The same closure, flattened — for the callers that only need the members.
  *
  * @param {Map<string, BankPackage>} index
  * @param {string[]} names
  * @returns {BankPackage[]}
  */
-function closure(index, names) {
-  /** @type {Map<string, BankPackage>} */
-  const reached = new Map();
-  const queue = [...names];
-  while (queue.length) {
-    const name = /** @type {string} */ (queue.pop());
-    if (reached.has(name)) continue;
-    const pkg = index.get(name);
-    if (!pkg) continue;
-    reached.set(name, pkg);
-    for (const dep of pkg.deps) if (index.has(dep)) queue.push(dep);
-  }
-  return [...reached.values()];
-}
+const closure = (index, names) =>
+  [...closureWithReasons(index, names).values()].map((entry) => entry.pkg);
 
 /**
  * @typedef {object} Bundle
  * @property {string} name
+ * @property {string} description What the bank says the bundle is for.
  * @property {boolean} alwaysIncluded
  * @property {string[]} paths
  */
@@ -220,6 +261,8 @@ function readBankPaths(sha) {
   return {
     bundles: list("bundles").map((entry) => ({
       name: String(entry.name),
+      description:
+        typeof entry.description === "string" ? entry.description : "",
       alwaysIncluded: entry.alwaysIncluded === true,
       paths: Array.isArray(entry.paths) ? entry.paths.map(String) : [],
     })),
@@ -228,31 +271,124 @@ function readBankPaths(sha) {
 }
 
 /**
- * Split selected bundle names into the ones worth recording and the ones that
- * were never a choice — for whatever authors a manifest.
+ * @typedef {object} OfferBundle
+ * @property {string} name
+ * @property {string} description
+ * @property {boolean} alwaysIncluded Arrives whether or not it is chosen.
+ */
+
+/**
+ * @typedef {object} OfferLayer
+ * @property {string} layer
+ * @property {BankPackage[]} packages Sorted by name.
+ */
+
+/**
+ * @typedef {object} Offer
+ * @property {OfferLayer[]} layers Every selectable package, grouped and ordered
+ *   the way `pnpm-workspace.yaml` groups and orders them.
+ * @property {OfferBundle[]} bundles
+ */
+
+/**
+ * What the bank offers at `sha`: every package a selection may name, grouped by
+ * layer, and every bundle with the flag saying whether choosing it means
+ * anything.
  *
- * A bundle the bank marks `alwaysIncluded` arrives whether or not the manifest
- * names it, so recording it is noise that reads like an opt-in — and would read
- * like an opt-*out* were it ever removed. Selecting one is not an error, since
- * asking for what you were getting anyway is a reasonable thing to type; it is
- * dropped, and the caller says so. The flag is read off the bank at `sha`, which
- * is why this lives here and why nothing hardcodes `root`.
- *
- * Unknown names are left in both lists' input for `resolveInclude` to reject, so
- * the "no such bundle" message stays in one place.
+ * This is the one derivation the picker, `--list` and the manifest write all
+ * read, and it is derived at the ref from the same index `resolveInclude`
+ * builds — so a package added, moved or renamed upstream changes the menu with
+ * no list here to edit. Which is also why `alwaysIncluded` is read through this
+ * rather than through a second entry point beside it: whatever authors a
+ * manifest needs the flag to know that naming `root` records a choice nobody
+ * made, and it already has the offer in hand.
  *
  * @param {string} sha
- * @param {string[]} selected
- * @returns {{ bundles: string[], dropped: string[] }}
+ * @returns {Offer}
  */
-export function chosenBundles(sha, selected) {
-  const always = readBankPaths(sha)
-    .bundles.filter((bundle) => bundle.alwaysIncluded)
-    .map((bundle) => bundle.name);
+export function bankOffer(sha) {
+  const { bundles, exclude } = readBankPaths(sha);
+  const index = packageIndex(sha, exclude);
+
+  /** @type {Map<string, { layer: string, rank: number, packages: BankPackage[] }>} */
+  const layers = new Map();
+  for (const pkg of index.values()) {
+    const layer = layers.get(pkg.layer) ?? {
+      layer: pkg.layer,
+      rank: pkg.layerRank,
+      packages: [],
+    };
+    layer.packages.push(pkg);
+    layers.set(pkg.layer, layer);
+  }
 
   return {
-    bundles: selected.filter((name) => !always.includes(name)),
-    dropped: selected.filter((name) => always.includes(name)),
+    layers: [...layers.values()]
+      .sort((a, b) => a.rank - b.rank || a.layer.localeCompare(b.layer))
+      .map(({ layer, packages }) => ({
+        layer,
+        packages: packages.sort((a, b) => a.name.localeCompare(b.name)),
+      })),
+    bundles: bundles.map(({ name, description, alwaysIncluded }) => ({
+      name,
+      description,
+      alwaysIncluded,
+    })),
+  };
+}
+
+/**
+ * @typedef {object} PulledPackage
+ * @property {string} name
+ * @property {string} path
+ * @property {string} layer
+ * @property {string[]} reasons The selected packages that required it, sorted.
+ */
+
+/**
+ * @typedef {object} Preview
+ * @property {PulledPackage[]} pulled What the selection drags in behind it —
+ *   the closure minus the packages that were chosen outright.
+ * @property {boolean} infra Whether the closure declares `acme.infra`, which is
+ *   what selects the `infra` bundle without anyone asking for it.
+ */
+
+/**
+ * What a selection pulls in, and which choice pulled each one.
+ *
+ * Pure over an `Offer` rather than reading the ref itself: the picker calls this
+ * on every keystroke, and re-reading forty `package.json` blobs out of git per
+ * toggle would make the menu feel broken. The offer already carries the
+ * dependency edges, so this is a walk over memory.
+ *
+ * A name the offer does not know is ignored rather than rejected — this renders
+ * a menu, and `resolveInclude` is where a selection is held to existing.
+ *
+ * @param {Offer} offer
+ * @param {string[]} packages Selected package names.
+ * @returns {Preview}
+ */
+export function closurePreview(offer, packages) {
+  const index = new Map(
+    offer.layers.flatMap(({ packages: members }) =>
+      members.map((pkg) => [pkg.name, pkg]),
+    ),
+  );
+  const selected = packages.filter((name) => index.has(name));
+  const reached = closureWithReasons(index, selected);
+  const chosen = new Set(selected);
+
+  return {
+    pulled: [...reached.values()]
+      .filter(({ pkg }) => !chosen.has(pkg.name))
+      .map(({ pkg, reasons }) => ({
+        name: pkg.name,
+        path: pkg.path,
+        layer: pkg.layer,
+        reasons: [...reasons].sort(),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    infra: [...reached.values()].some(({ pkg }) => pkg.infra),
   };
 }
 
