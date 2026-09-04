@@ -12,6 +12,7 @@ pnpm --filter @acme/chat test:backend    # backend only
 pnpm --filter @acme/chat test:frontend   # frontend only
 pnpm --filter @acme/chat test:backend:watch
 pnpm test                                # everything (turbo)
+pnpm test:inventory                      # list every test without running one
 ```
 
 Backend suites need Postgres + Redis, and they **always start their own**. The
@@ -351,6 +352,34 @@ excluded by the push config's `tablesFilter` and created lazily at runtime. See
   re-assert a pure helper the owning service already covers by input shape.
 - **Don't test the framework** (tRPC routing, Zod internals) or mocked services
   (Stripe API, LLM output).
+
+## Seeing what the suite covers
+
+```bash
+pnpm test:inventory        # markdown, on stdout, seconds, no containers
+pnpm test:inventory > inventory.md
+```
+
+Test names in this repo read as behaviour, but a passing run's scrollback is the
+only place they appear, which makes them impossible to audit. `pnpm
+test:inventory` prints every collected test grouped by package — layer
+directories in dependency order (tooling, platform, shared, features),
+alphabetical within each, the path under `src/tests/` as the group heading, a
+count in every heading and a total at the end.
+
+It reads from `vitest list --json`, run per package config, so it honours each
+package's real `include` and resolves computed (`it.each`) names — the report is
+what runs, not what a glob guesses. The corollary is that a `.skip` or `.todo`
+appears nowhere: `vitest list` collects only what would run.
+
+Listing normally fires `globalSetup`, which would start every backend suite's
+testcontainers and push a schema purely to print names. So the tool sets
+`VITEST_LIST_ONLY`, which `backendProject` reads to omit `globalSetup`.
+Collection needs no infra — every reachable `env.ts` still validates against
+`staticTestEnv` — so the inventory runs anywhere, with no container runtime.
+
+Nothing is written to the repo and nothing enters the quality gate: this is an
+ad-hoc read, not an artifact.
 
 ## Package test policy
 

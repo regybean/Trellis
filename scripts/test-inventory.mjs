@@ -8,9 +8,11 @@
  * them all, grouped and counted, without running a single one.
  *
  * The data source is `vitest list --json`, run once per package vitest config.
- * That matters: it honours each package's real `include`, resolves computed
- * names (`it.each`) and reflects skips, so the output is what actually runs
- * rather than what a filesystem glob guesses. Nothing here parses a test file.
+ * That matters: it honours each package's real `include` and resolves computed
+ * names (`it.each`), so the output is what actually runs rather than what a
+ * filesystem glob guesses. Nothing here parses a test file. Note the corollary:
+ * `vitest list` reports only what would run, so a `.skip` or `.todo` appears
+ * nowhere in the inventory.
  *
  * `vitest list` normally runs `globalSetup`, which for a backend suite means
  * starting testcontainers and pushing a schema purely to print names. So this

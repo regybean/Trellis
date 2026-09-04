@@ -1,0 +1,369 @@
+/**
+ * `pnpm test:inventory` — asserted at its stdout, which is its only contract.
+ *
+ * The tool is a repo script, so it is exercised the way the bank and secrets
+ * suites exercise theirs: copied into a throwaway workspace and run. The
+ * sandbox is a miniature of this repo — four packages across three layer
+ * directories, each with a real vitest config built by `backendProject` /
+ * `frontendProject` and real test files — so the assertions are about a
+ * workspace's shape rather than about this month's test count.
+ *
+ * The container assertion is the one worth explaining. A sandbox package's
+ * `globalSetup` writes a marker file; the suite first runs `vitest list`
+ * directly, without `VITEST_LIST_ONLY`, to prove the marker really is written
+ * when globalSetup fires, then deletes it. If the carve-out ever regressed, the
+ * inventory run would recreate it — which in the real repo is a testcontainer
+ * and a schema push.
+ *
+ * One vitest behaviour is pinned here rather than assumed: `vitest list`
+ * reports only the tests that would run, so a `.skip` never reaches the
+ * inventory. The sandbox carries a skipped test to hold that fact still — if a
+ * later vitest starts listing them, this suite says so.
+ *
+ * Structure is the contract, whitespace is not: nothing here asserts a literal
+ * block of markdown.
+ */
+
+import { execFileSync, spawnSync } from 'node:child_process';
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+
+const here = dirname(fileURLToPath(import.meta.url));
+// src/tests/backend -> repo root is five levels up.
+const repoRoot = resolve(here, '../../../../../');
+
+/** Where the sandbox's marker lands if `globalSetup` runs. */
+const MARKER = 'packages/platform/p-one/global-setup-ran';
+
+let sandbox: string;
+/** The inventory the tool printed for the sandbox — the subject of every test. */
+let inventory: string;
+/** What `vitest list` reports for one sandbox package, run directly. */
+let directNames: string[];
+/** Whether that direct run — no carve-out — wrote the marker. The control. */
+let globalSetupRanDirectly: boolean;
+
+function write(path: string, content: string) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, content);
+}
+
+/**
+ * A sandbox package: manifest, vitest config(s) and test files, plus the
+ * `@acme/test-utils` link a real package resolves its config factory through.
+ */
+function writePackage(
+  dir: string,
+  name: string,
+  files: Record<string, string>,
+) {
+  const pkgDir = join(sandbox, dir);
+  write(
+    join(pkgDir, 'package.json'),
+    `${JSON.stringify({ name, version: '0.0.0', private: true }, null, 2)}\n`,
+  );
+  mkdirSync(join(pkgDir, 'node_modules/@acme'), { recursive: true });
+  symlinkSync(
+    join(repoRoot, 'tooling/test-utils'),
+    join(pkgDir, 'node_modules/@acme/test-utils'),
+  );
+  for (const [path, content] of Object.entries(files)) {
+    write(join(pkgDir, path), content);
+  }
+}
+
+/**
+ * The parent vitest advertises itself through `VITEST_*`; a nested one must not
+ * inherit that and mistake itself for a worker of this run.
+ */
+function childEnv() {
+  return Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST')),
+  );
+}
+
+beforeAll(() => {
+  sandbox = mkdtempSync(join(tmpdir(), 'test-inventory-'));
+
+  write(
+    join(sandbox, 'package.json'),
+    `${JSON.stringify({ name: 'sandbox', private: true }, null, 2)}\n`,
+  );
+  // One resolution point, exactly as in this repo: every dependency (vitest
+  // included) is found through the root node_modules.
+  symlinkSync(join(repoRoot, 'node_modules'), join(sandbox, 'node_modules'));
+  mkdirSync(join(sandbox, 'scripts'));
+  cpSync(
+    join(repoRoot, 'scripts/test-inventory.mjs'),
+    join(sandbox, 'scripts/test-inventory.mjs'),
+  );
+
+  // Two platform packages whose directory order (p-one, p-two) is the reverse
+  // of their package-name order, so "alphabetical within a layer" is a claim
+  // about the names and not an accident of readdir.
+  writePackage('packages/platform/p-one', '@sandbox/redis', {
+    'vitest.config.backend.ts': [
+      "import { backendProject } from '@acme/test-utils/vitest';",
+      '',
+      'export default backendProject({',
+      "  webapp: 'sandbox',",
+      "  globalSetup: './src/tests/backend/global-setup.ts',",
+      '});',
+      '',
+    ].join('\n'),
+    'src/tests/backend/global-setup.ts': [
+      "import { writeFileSync } from 'node:fs';",
+      '',
+      '// Stands in for the real thing: starting testcontainers and pushing a',
+      '// schema, then publishing the connection details hydrate-env reads.',
+      '// Listing must not reach here.',
+      'export default function setup(project) {',
+      "  writeFileSync(new URL('../../../global-setup-ran', import.meta.url), 'ran');",
+      "  project.provide('infraEnv', {});",
+      '}',
+      '',
+    ].join('\n'),
+    'src/tests/backend/unit/keys.test.ts': [
+      "describe('nsKey', () => {",
+      "  it('namespaces a key', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '',
+      "  it.skip('rejects a raw string once the brand lands', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '',
+      "  it.each(['read', 'write'])('round-trips a %s', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '});',
+      '',
+    ].join('\n'),
+  });
+  writePackage('packages/platform/p-two', '@sandbox/entitlements', {
+    'vitest.config.backend.ts': [
+      "import { backendProject } from '@acme/test-utils/vitest';",
+      '',
+      "export default backendProject({ webapp: 'sandbox' });",
+      '',
+    ].join('\n'),
+    'src/tests/backend/integration/service/limits.test.ts': [
+      "describe('limits', () => {",
+      "  it('spends a credit', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '});',
+      '',
+    ].join('\n'),
+  });
+  writePackage('packages/shared/ui', '@sandbox/ui', {
+    'vitest.config.frontend.ts': [
+      "import { frontendProject } from '@acme/test-utils/vitest';",
+      '',
+      'export default frontendProject();',
+      '',
+    ].join('\n'),
+    'src/tests/frontend/integration/components/button.test.tsx': [
+      "describe('<Button />', () => {",
+      "  it('renders its label', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '});',
+      '',
+    ].join('\n'),
+  });
+  // Both sides, so one package heading has to carry two group headings.
+  writePackage('packages/features/chat', '@sandbox/chat', {
+    'vitest.config.backend.ts': [
+      "import { backendProject } from '@acme/test-utils/vitest';",
+      '',
+      "export default backendProject({ webapp: 'sandbox' });",
+      '',
+    ].join('\n'),
+    'vitest.config.frontend.ts': [
+      "import { frontendProject } from '@acme/test-utils/vitest';",
+      '',
+      'export default frontendProject();',
+      '',
+    ].join('\n'),
+    'src/tests/backend/integration/api/send.test.ts': [
+      "describe('chat.send', () => {",
+      "  it('persists a message', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '});',
+      '',
+    ].join('\n'),
+    'src/tests/frontend/unit/format.test.ts': [
+      "describe('formatTimestamp', () => {",
+      "  it('renders a relative time', () => {",
+      '    expect(1).toBe(1);',
+      '  });',
+      '});',
+      '',
+    ].join('\n'),
+  });
+
+  // Baseline: with globalSetup running, the marker is written. This is what the
+  // inventory run must not do.
+  const listed = join(sandbox, 'direct.json');
+  execFileSync(
+    process.execPath,
+    [
+      join(repoRoot, 'node_modules/vitest/vitest.mjs'),
+      'list',
+      '--config',
+      'vitest.config.backend.ts',
+      `--json=${listed}`,
+    ],
+    {
+      cwd: join(sandbox, 'packages/platform/p-one'),
+      env: childEnv(),
+      stdio: 'pipe',
+    },
+  );
+  directNames = (
+    JSON.parse(readFileSync(listed, 'utf8')) as { name: string }[]
+  ).map((entry) => entry.name);
+  globalSetupRanDirectly = existsSync(join(sandbox, MARKER));
+  rmSync(join(sandbox, MARKER), { force: true });
+
+  inventory = execFileSync(
+    process.execPath,
+    [join(sandbox, 'scripts/test-inventory.mjs')],
+    { cwd: sandbox, env: childEnv(), encoding: 'utf8', stdio: 'pipe' },
+  );
+}, 180_000);
+
+afterAll(() => {
+  rmSync(sandbox, { recursive: true, force: true });
+});
+
+/** The `## `/`### `/`#### ` headings, in the order they were printed. */
+function headings(level: number) {
+  const prefix = `${'#'.repeat(level)} `;
+  return inventory
+    .split('\n')
+    .filter((line) => line.startsWith(prefix))
+    .map((line) => line.slice(prefix.length));
+}
+
+describe('pnpm test:inventory covers every package with tests', () => {
+  it('groups packages by layer directory, in dependency order', () => {
+    expect(headings(2).map((h) => h.split(' (')[0])).toEqual([
+      'platform',
+      'shared',
+      'features',
+    ]);
+  });
+
+  it('lists packages alphabetically within a layer, not by directory', () => {
+    expect(headings(3).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/entitlements',
+      '@sandbox/redis',
+      '@sandbox/ui',
+      '@sandbox/chat',
+    ]);
+  });
+
+  it('gives a package with both sides one heading and a group for each', () => {
+    const chat = inventory.slice(inventory.indexOf('### @sandbox/chat'));
+    expect(chat).toContain('#### backend/integration/api');
+    expect(chat).toContain('#### frontend/unit');
+  });
+
+  it('names the group segment as the path under src/tests', () => {
+    expect(headings(4).map((h) => h.split(' (')[0])).toContain(
+      'frontend/integration/components',
+    );
+  });
+});
+
+describe('pnpm test:inventory counts what it lists', () => {
+  it('carries a test count in every heading', () => {
+    const counted = [...headings(2), ...headings(3), ...headings(4)];
+    expect(counted.length).toBeGreaterThan(0);
+    for (const heading of counted) {
+      expect(heading).toMatch(/\(\d+ tests?\)$/);
+    }
+  });
+
+  it('ends on a total that matches the tests it printed', () => {
+    const bullets = inventory
+      .split('\n')
+      .filter((line) => line.startsWith('- ')).length;
+    const total = /\*\*Total: (\d+) tests in (\d+) packages\.\*\*/.exec(
+      inventory,
+    );
+    expect(total?.[1]).toBe(String(bullets));
+    expect(total?.[2]).toBe('4');
+  });
+
+  it('sums each package heading to the total', () => {
+    const perPackage = headings(3).map((h) =>
+      Number(/\((\d+) tests?\)$/.exec(h)?.[1]),
+    );
+    const total = Number(/\*\*Total: (\d+) tests/.exec(inventory)?.[1]);
+    expect(perPackage.reduce((sum, n) => sum + n, 0)).toBe(total);
+  });
+});
+
+describe('pnpm test:inventory reports what vitest reports', () => {
+  it('lists the same tests vitest list gives for a package directly', () => {
+    const redis = inventory.slice(
+      inventory.indexOf('### @sandbox/redis'),
+      inventory.indexOf('### @sandbox/ui'),
+    );
+    expect(directNames.length).toBeGreaterThan(0);
+    for (const name of directNames) {
+      expect(redis).toContain(`- ${name}`);
+    }
+  });
+
+  it('resolves a computed name into the case it stands for', () => {
+    expect(inventory).toContain('- nsKey > round-trips a read');
+    expect(inventory).toContain('- nsKey > round-trips a write');
+  });
+
+  it('omits a skipped test, which vitest list collects as nothing to run', () => {
+    // Not the tool's choice: `vitest list` (4.1) reports only tests whose mode
+    // is run/only, so a `.skip` is invisible to it. The inventory is what
+    // vitest says, so it is invisible here too — see the file header.
+    expect(inventory).not.toContain('rejects a raw string');
+  });
+});
+
+describe('pnpm test:inventory starts no infrastructure', () => {
+  it('runs globalSetup when vitest lists the same package directly', () => {
+    expect(globalSetupRanDirectly).toBe(true);
+  });
+
+  it('leaves globalSetup unrun, so no container and no schema push', () => {
+    expect(existsSync(join(sandbox, MARKER))).toBe(false);
+  });
+});
+
+describe('pnpm test:inventory rejects what it does not accept', () => {
+  it('exits non-zero on an argument it has no meaning for', () => {
+    const run = spawnSync(
+      process.execPath,
+      [join(sandbox, 'scripts/test-inventory.mjs'), '@sandbox/redis'],
+      { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
+    );
+    expect(run.status).not.toBe(0);
+    expect(run.stderr).toContain('@sandbox/redis');
+    expect(run.stdout).toBe('');
+  });
+});

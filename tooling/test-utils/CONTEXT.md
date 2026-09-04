@@ -62,6 +62,14 @@ _`globalSetup`_ points at the suite's per-suite `global-setup.ts` (see
 externals are all mocked and that touches no DB/Redis (e.g. `ingest`): env is
 still real, satisfied by `staticTestEnv` alone.
 
+**`VITEST_LIST_ONLY`**:
+Set by `pnpm test:inventory` while it runs `vitest list` per package.
+`backendProject` reads it and omits `globalSetup` (and so `hydrate-env`), because
+listing test names must not start a testcontainer or push a schema. Collection
+needs neither: every reachable `env.ts` still validates against `staticTestEnv`.
+Nothing that _runs_ tests sets it.
+_Avoid_: reading it anywhere else — it is a listing carve-out, not a test mode.
+
 **`frontendProject(...)`** (`@acme/test-utils/vitest`):
 The frontend counterpart. Folds the react plugin, `environment: 'jsdom'` and the
 `staticTestEnv` spread behind one call, so a package's
