@@ -50,6 +50,14 @@ const MARKER = 'packages/platform/p-one/global-setup-ran';
 let sandbox: string;
 /** The inventory the tool printed for the sandbox — the subject of every test. */
 let inventory: string;
+/** The same sandbox, narrowed by the filter flags. One run each, in setup. */
+let byLayer: string;
+let byKind: string;
+let byBoth: string;
+let byEveryLayerAndKind: string;
+/** The `--out` run: what reached stdout, and what landed in the file. */
+let outStdout: string;
+let outFile: string;
 /** What `vitest list` reports for one sandbox package, run directly. */
 let directNames: string[];
 /** Whether that direct run — no carve-out — wrote the marker. The control. */
@@ -91,6 +99,15 @@ function writePackage(
 function childEnv() {
   return Object.fromEntries(
     Object.entries(process.env).filter(([key]) => !key.startsWith('VITEST')),
+  );
+}
+
+/** The tool, run against the sandbox — its stdout is the whole contract. */
+function runInventory(...args: string[]) {
+  return execFileSync(
+    process.execPath,
+    [join(sandbox, 'scripts/test-inventory.mjs'), ...args],
+    { cwd: sandbox, env: childEnv(), encoding: 'utf8', stdio: 'pipe' },
   );
 }
 
@@ -240,21 +257,29 @@ beforeAll(() => {
   globalSetupRanDirectly = existsSync(join(sandbox, MARKER));
   rmSync(join(sandbox, MARKER), { force: true });
 
-  inventory = execFileSync(
-    process.execPath,
-    [join(sandbox, 'scripts/test-inventory.mjs')],
-    { cwd: sandbox, env: childEnv(), encoding: 'utf8', stdio: 'pipe' },
+  inventory = runInventory();
+  byLayer = runInventory('--layer', 'backend');
+  byKind = runInventory('--kind', 'unit');
+  byBoth = runInventory('--layer', 'backend', '--kind', 'unit');
+  byEveryLayerAndKind = runInventory(
+    '--layer',
+    'backend,frontend',
+    '--kind',
+    'unit,integration',
   );
-}, 180_000);
+  const outPath = join(sandbox, 'inventory.md');
+  outStdout = runInventory('--out', outPath);
+  outFile = readFileSync(outPath, 'utf8');
+}, 300_000);
 
 afterAll(() => {
   rmSync(sandbox, { recursive: true, force: true });
 });
 
 /** The `## `/`### `/`#### ` headings, in the order they were printed. */
-function headings(level: number) {
+function headings(level: number, report = inventory) {
   const prefix = `${'#'.repeat(level)} `;
-  return inventory
+  return report
     .split('\n')
     .filter((line) => line.startsWith(prefix))
     .map((line) => line.slice(prefix.length));
@@ -365,5 +390,73 @@ describe('pnpm test:inventory rejects what it does not accept', () => {
     expect(run.status).not.toBe(0);
     expect(run.stderr).toContain('@sandbox/redis');
     expect(run.stdout).toBe('');
+  });
+});
+
+describe('pnpm test:inventory narrows to the layers and kinds asked for', () => {
+  it('keeps only the layer named, dropping a package that has none of it', () => {
+    expect(headings(4, byLayer).every((h) => h.startsWith('backend/'))).toBe(
+      true,
+    );
+    // @sandbox/ui is frontend-only, so the narrowed report has no place for it.
+    expect(headings(3, byLayer).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/entitlements',
+      '@sandbox/redis',
+      '@sandbox/chat',
+    ]);
+    expect(headings(2, byLayer).map((h) => h.split(' (')[0])).toEqual([
+      'platform',
+      'features',
+    ]);
+  });
+
+  it('recounts every heading against the narrowed set', () => {
+    // chat has one test on each side; under --layer backend it is worth one.
+    const chat = headings(3, byLayer).find((h) =>
+      h.startsWith('@sandbox/chat'),
+    );
+    expect(chat).toBe('@sandbox/chat (1 test)');
+    const bullets = byLayer
+      .split('\n')
+      .filter((l) => l.startsWith('- ')).length;
+    expect(byLayer).toContain(`**Total: ${bullets} tests in 3 packages.**`);
+  });
+
+  it('keeps only the kind named, across both layers', () => {
+    expect(
+      headings(4, byKind)
+        .map((h) => h.split(' (')[0])
+        .sort(),
+    ).toEqual(['backend/unit', 'frontend/unit']);
+  });
+
+  it('reads a comma-separated list as every name in it', () => {
+    expect(byEveryLayerAndKind).toBe(inventory);
+  });
+
+  it('composes the two flags as an intersection', () => {
+    expect(headings(3, byBoth).map((h) => h.split(' (')[0])).toEqual([
+      '@sandbox/redis',
+    ]);
+    expect(headings(4, byBoth).map((h) => h.split(' (')[0])).toEqual([
+      'backend/unit',
+    ]);
+  });
+
+  it('reports an empty inventory for a name nothing sits under', () => {
+    const run = spawnSync(
+      process.execPath,
+      [join(sandbox, 'scripts/test-inventory.mjs'), '--layer', 'sideways'],
+      { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
+    );
+    expect(run.status).toBe(0);
+    expect(run.stdout).toContain('**Total: 0 tests in 0 packages.**');
+  });
+});
+
+describe('pnpm test:inventory writes to a file when asked', () => {
+  it('puts the report in the file instead of on stdout', () => {
+    expect(outStdout).toBe('');
+    expect(outFile).toBe(inventory);
   });
 });

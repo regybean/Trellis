@@ -25,8 +25,17 @@
  * markdown pipes cleanly. Nothing is written to the repo — this is an ad-hoc
  * read, not an artifact, so it stays out of the quality gate.
  *
+ * `--layer` and `--kind` narrow the report to path segments under `src/tests/`
+ * — the canonical layout makes that prefix a filter axis rather than a guess.
+ * They compose as an intersection, and the headings and counts are computed
+ * after the narrowing, so a filtered report reads as a report of its own subset.
+ * `--out` writes it to a file instead of stdout. The group segment stays a
+ * heading only: three axes to name a test is more than an audit needs.
+ *
  * Usage:
  *   node scripts/test-inventory.mjs        # or: pnpm test:inventory
+ *   node scripts/test-inventory.mjs --layer backend --kind unit
+ *   node scripts/test-inventory.mjs --kind unit,integration --out inventory.md
  *
  * Exit codes:
  *   0  inventory printed
@@ -41,12 +50,13 @@ import {
   readdirSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import { availableParallelism, tmpdir } from "node:os";
 import { dirname, join, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { promisify } from "node:util";
+import { parseArgs, promisify } from "node:util";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -183,23 +193,56 @@ async function mapLimit(items, limit, fn) {
 }
 
 /**
- * The directory a test file sits in, relative to the package's `src/tests/` —
- * `backend/integration/api`, `frontend/unit`. That path *is* the taxonomy
- * (layer / kind / group), so it is the group heading verbatim rather than
- * something re-derived from a table this tool would then have to keep in step.
+ * The directories a test file sits under, relative to the package's
+ * `src/tests/` — `["backend", "integration", "api"]`. That path *is* the
+ * taxonomy (layer / kind / group), so it is both the group heading and the
+ * filter axes, rather than something re-derived from a table this tool would
+ * then have to keep in step.
+ *
+ * `null` for a test outside `src/tests/`: unconventional but real, and worth
+ * seeing in the report even though it sits under no layer and no kind.
  *
  * @param {string} file absolute path, as `vitest list` reports it
  * @param {string} pkgDir
+ * @returns {string[] | null}
+ */
+function segmentsOf(file, pkgDir) {
+  const rel = relative(join(pkgDir, "src", "tests"), file).replaceAll(sep, "/");
+  if (rel.startsWith("../")) return null;
+  return rel.split("/").slice(0, -1);
+}
+
+/**
+ * The group heading for a test file — its `segmentsOf` path, or, for one
+ * outside `src/tests/`, its directory relative to the package.
+ *
+ * @param {string} file
+ * @param {string} pkgDir
  */
 function groupOf(file, pkgDir) {
-  const rel = relative(join(pkgDir, "src", "tests"), file).replaceAll(sep, "/");
-  const dir = rel.includes("/") ? rel.slice(0, rel.lastIndexOf("/")) : "";
-  // A test outside src/tests is unconventional but real (and worth seeing);
-  // fall back to its path relative to the package.
-  if (rel.startsWith("../")) {
+  const segments = segmentsOf(file, pkgDir);
+  if (segments === null) {
     return relative(pkgDir, dirname(file)).replaceAll(sep, "/");
   }
-  return dir === "" ? "." : dir;
+  return segments.length === 0 ? "." : segments.join("/");
+}
+
+/**
+ * Whether a test file is one the caller asked for: its layer segment in
+ * `--layer`, its kind segment in `--kind`, each unset meaning everything. A
+ * file outside the canonical layout has neither segment, so any explicit filter
+ * excludes it — it can't answer the question that was asked.
+ *
+ * @param {string} file
+ * @param {string} pkgDir
+ * @param {{ layer?: Set<string>, kind?: Set<string> }} filters
+ */
+function matches(file, pkgDir, filters) {
+  if (filters.layer === undefined && filters.kind === undefined) return true;
+  const [layer, kind] = segmentsOf(file, pkgDir) ?? [];
+  if (filters.layer !== undefined && !filters.layer.has(layer)) return false;
+  if (filters.kind !== undefined && !filters.kind.has(kind)) return false;
+  return true;
 }
 
 /**
@@ -269,13 +312,50 @@ function render(collected) {
   return lines.join("\n");
 }
 
-const args = process.argv.slice(2);
-if (args.length > 0) {
-  console.error(
-    `test-inventory: unexpected argument \`${args[0]}\`\n\nUsage: pnpm test:inventory`,
-  );
-  process.exit(2);
+const USAGE =
+  "Usage: pnpm test:inventory [--layer <names>] [--kind <names>] [--out <path>]";
+
+/**
+ * The flags, off `node:util`'s `parseArgs` — `--flag=value`, a repeated flag
+ * and rejecting one nobody declared are all its behaviour, and it is stdlib.
+ * Its errors are `TypeError`s aimed at the caller, so they are re-raised as the
+ * same phrased-for-a-human refusal as before.
+ */
+function parseFlags() {
+  try {
+    return parseArgs({
+      args: process.argv.slice(2),
+      allowPositionals: false,
+      options: {
+        layer: { type: "string", multiple: true },
+        kind: { type: "string", multiple: true },
+        out: { type: "string" },
+      },
+    }).values;
+  } catch (error) {
+    console.error(
+      `test-inventory: ${error instanceof Error ? error.message : String(error)}\n\n${USAGE}`,
+    );
+    process.exit(2);
+  }
 }
+
+/**
+ * One axis's selection. `a,b` and a repeated flag both mean the same set, so a
+ * generated invocation can build it up either way; unset means everything.
+ *
+ * @param {string[] | undefined} values
+ */
+function selection(values) {
+  const names = (values ?? []).flatMap((value) => value.split(","));
+  return names.length === 0 ? undefined : new Set(names);
+}
+
+const flags = parseFlags();
+const filters = {
+  layer: selection(flags.layer),
+  kind: selection(flags.kind),
+};
 
 const suites = findSuites();
 if (suites.length === 0) {
@@ -312,7 +392,20 @@ try {
     process.exit(1);
   }
 
-  process.stdout.write(render(listed));
+  const report = render(
+    listed.map((suite) => ({
+      ...suite,
+      entries: suite.entries.filter((entry) =>
+        matches(entry.file, suite.dir, filters),
+      ),
+    })),
+  );
+  if (flags.out === undefined) {
+    process.stdout.write(report);
+  } else {
+    writeFileSync(flags.out, report);
+    process.stderr.write(`Wrote ${flags.out}\n`);
+  }
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }
