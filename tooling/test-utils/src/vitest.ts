@@ -109,7 +109,13 @@ export function backendProject({
   setupFiles = [],
   globalSetup,
 }: BackendProjectOptions) {
-  const hasInfra = globalSetup !== undefined;
+  // `vitest list` runs globalSetup, so merely *printing* test names would start
+  // this suite's testcontainers and push a schema. Collection needs neither:
+  // dropping globalSetup drops hydrate-env with it, and every reachable env.ts
+  // still validates against `staticTestEnv`. `pnpm test:inventory` sets this;
+  // nothing that runs tests does.
+  const listOnly = process.env.VITEST_LIST_ONLY !== undefined;
+  const hasInfra = globalSetup !== undefined && !listOnly;
   return mergeConfig(
     baseConfig,
     defineConfig({
@@ -129,7 +135,7 @@ export function backendProject({
           ? ['@acme/test-utils/hydrate-env', ...setupFiles]
           : setupFiles,
         // Starts/stops the declared testcontainers (needs Docker).
-        ...(globalSetup ? { globalSetup: [globalSetup] } : {}),
+        ...(hasInfra && globalSetup ? { globalSetup: [globalSetup] } : {}),
         // Real DB means generous timeouts and a single, non-isolated worker so
         // tests share one connection/transaction space deterministically.
         testTimeout: 60_000,
