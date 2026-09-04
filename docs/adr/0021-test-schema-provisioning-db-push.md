@@ -51,3 +51,25 @@ push config's `tablesFilter`, so push never manages them.
   The compose path that skipped this step — and `scripts/push-test-schemas.sh`,
   which existed to make its "dev `db:push` already ran" assumption true for the
   isolated `*_test` schemas — are both gone.
+
+## Amendment — one pushed schema is _not_ per-suite, and cleanup has to know it
+
+The consequences above assume every push-managed table lands in the suite's
+isolated `NEXT_PUBLIC_WEBAPP` schema. Since
+[@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md)
+that is no longer true of all of them: the two full apps' `schemaFilter` reads
+`[NEXT_PUBLIC_WEBAPP, 'auth']`, so `db:push` also provisions the four identity
+tables into a **constant `auth` schema** shared by every app and every suite.
+
+Push is unaffected — it creates both schemas as before. What changes is
+**teardown**. Per-suite isolation is what makes a blanket delete safe, and the
+`auth` schema does not have it: on the testcontainer path the schema is
+throwaway, but on a developer's local Postgres it holds their actual identity
+rows, so `DELETE FROM auth.user` would wipe real data.
+
+So a suite touching the identity tables deletes by a **marker it owns**, not by
+table. `@acme/auth`'s suite gives every user it creates an address on
+`TEST_EMAIL_DOMAIN` (`auth-suite.invalid`) and cleans up with a `LIKE` on that
+domain; `session` and `account` cascade from `user`. Any future suite writing to
+a constant shared schema owes the same discipline — the isolation this ADR
+otherwise guarantees is not there to fall back on.

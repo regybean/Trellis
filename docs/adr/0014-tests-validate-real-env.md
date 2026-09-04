@@ -21,6 +21,11 @@ behavioral/IO boundaries (`@acme/subscriptions`, `server-only`, `next/navigation
   until production.
 - **Validate against real env** (chosen): the seam behaves in tests exactly as in
   prod — a missing/invalid var fails loud at `createEnv`, and env mocks vanish.
+- **Derive `staticTestEnv` from each package's schemas**: rejected. It is a
+  hand-maintained string map on purpose. Under loud validation, drift is
+  self-correcting — a var a schema requires and the map omits fails the suite on
+  the next run, immediately and by name — so deriving it would add machinery
+  that buys no safety the failure mode does not already provide.
 
 ## Consequences
 
@@ -33,7 +38,12 @@ behavioral/IO boundaries (`@acme/subscriptions`, `server-only`, `next/navigation
   in-repo infra (Postgres/Redis); do mock true externals (LLM/Bedrock, Stripe,
   S3) for behavior. See [docs/TESTING.md](../TESTING.md).
 - Backend suites need Docker/podman (testcontainers) to hydrate DB/Redis — the
-  price of validating connection env for real. In CI, `env.ts`'s own
-  `skipValidation` short-circuits on `CI`, but `hydrate-env` still populates the
-  real connection values so the DB actually connects.
+  price of validating connection env for real. **A CI test run validates
+  fully**: `shouldSkipEnvValidation()` returns `false` whenever `VITEST` is set,
+  ahead of its `CI` check, precisely so this ADR still holds under CI. `CI`
+  alone cannot discriminate, since it is set for the lint/build steps _and_ for
+  the test run. The only relaxation in a test run is the per-key secret
+  placeholder inside `withProfiles` — never `createEnv`'s own
+  `skipValidation`, which would return `runtimeEnv` raw and discard every
+  coercion (see [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md)).
 - New static vars go in one place (`staticTestEnv`), not scattered across mocks.

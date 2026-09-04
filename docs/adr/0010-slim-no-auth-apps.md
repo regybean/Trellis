@@ -89,3 +89,25 @@ single-sourced; only the thin integration layer is copied.
   `CREATE SCHEMA` ([@acme/rag ADR 0001](../../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md)). Relying on Mastra's
   defensive `CREATE SCHEMA IF NOT EXISTS` as the primary creator was rejected as
   unreliable.
+
+## Amendment — the client-side half: no `AuthStatusProvider` means always-authorized
+
+Everything above is server-side: what the route seam injects. The browser needs
+the same answer, and it is reached differently — by **absence**.
+
+`@acme/hooks` owns the client status seam. `useAuthStatus()` throws when no
+`AuthStatusProvider` is mounted, because a full app failing to mount one is a
+wiring bug. But `useOptionalAuthStatus()` returns `null`, and a client seam that
+gates on it must read `null` as **authorized, not signed-out** — the slim apps
+mount no provider at all, so `null` is their steady state, not a transient.
+
+`@acme/notifications` is the case that fixes the convention:
+`shouldTailNotifications(status)` returns `status === null || status.isSignedIn`.
+The `isSignedIn` arm exists so a full app doesn't subscribe to a
+`protectedProcedure` while signed out and earn a retried `UNAUTHORIZED`; the
+`null` arm exists so the slim apps still stream.
+
+Recorded because reversing it is silent in exactly the way the constant principal
+is. Treating `null` as signed-out compiles, and leaves every gated client seam in
+both slim apps permanently dark while the full apps stay green — the mirror image
+of injecting `{ user: null }` server-side, and rejected for the same reason.
