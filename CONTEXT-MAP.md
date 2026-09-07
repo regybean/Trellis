@@ -65,9 +65,10 @@ is numbered and what its status may say are in
 `tooling/*` owns no ADR directory: its decisions govern the repo-wide gate rather
 than the config package, so they stay at the root.
 
-| Package               | Context                                       | Also governed by               |
-| --------------------- | --------------------------------------------- | ------------------------------ |
-| `tooling/test-utils/` | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md) | `0014`, `0017`, `0021`, `0034` |
+| Package                    | Context                                            | Also governed by               |
+| -------------------------- | -------------------------------------------------- | ------------------------------ |
+| `tooling/test-utils/`      | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md)      | `0014`, `0017`, `0021`, `0034` |
+| `tooling/workspace-graph/` | [`CONTEXT.md`](tooling/workspace-graph/CONTEXT.md) | `0009`, `0011`, `0039`         |
 
 ## Apps
 
