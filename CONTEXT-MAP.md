@@ -68,10 +68,11 @@ is the exception, and it is the deletion test rather than a carve-out — delete
 the package and its one decision goes with it
 ([domain.md](docs/agents/domain.md#where-an-adr-lives)).
 
-| Package               | Context                                       | ADRs                                  | Also governed by               |
-| --------------------- | --------------------------------------------- | ------------------------------------- | ------------------------------ |
-| `tooling/bank/`       | [`CONTEXT.md`](tooling/bank/CONTEXT.md)       | [`docs/adr/`](tooling/bank/docs/adr/) | `0037`, `0038`, `0039`         |
-| `tooling/test-utils/` | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md) | —                                     | `0014`, `0017`, `0021`, `0034` |
+| Package                    | Context                                            | ADRs                                  | Also governed by               |
+| -------------------------- | -------------------------------------------------- | ------------------------------------- | ------------------------------ |
+| `tooling/bank/`            | [`CONTEXT.md`](tooling/bank/CONTEXT.md)            | [`docs/adr/`](tooling/bank/docs/adr/) | `0037`, `0038`, `0039`         |
+| `tooling/test-utils/`      | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md)      | —                                     | `0014`, `0017`, `0021`, `0034` |
+| `tooling/workspace-graph/` | [`CONTEXT.md`](tooling/workspace-graph/CONTEXT.md) | —                                     | `0009`, `0011`, `0039`         |
 
 ## Apps
 
