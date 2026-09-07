@@ -264,6 +264,13 @@ directory or is renamed arrives right on the next sync, with nothing to edit. Th
 vendor commit message records both what you selected and what it resolved to, so
 `git log vendor/trellis` says why a path is in your tree.
 
+A bundle is the exception, and it is the one worth knowing about: a bundle's
+paths are literal prefixes, so nothing derives them and a reorganisation upstream
+can leave one pointing at nothing. When that happens the sync refuses, naming the
+prefix and its bundle, and writes nothing — a bundle you subscribe to going
+quiet is news, not a warning to scroll past. `pnpm bank:sync --check` reports the
+same thing at both refs without refusing, so you see it before you bump `ref`.
+
 Three rules keep the mechanism working.
 
 - **`vendor/trellis` is pristine.** It holds upstream content only. Never commit

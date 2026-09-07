@@ -74,6 +74,16 @@ because the selection names `@acme/ui` and the path is looked up at `ref`.
 package the consumer imports turns a manifest problem into a build error three
 steps later.
 
+**So is a bundle path that matches nothing**, for the same reason read from the
+other side. A bundle path is a literal prefix — the one un-derived surface here,
+and therefore the only one a reorganisation upstream can leave pointing at
+nothing while the manifest still looks valid. A package name follows a rename or
+a directory move for free; a subscribed prefix whose contents were moved out from
+under it just stops delivering files. So the sync aborts naming the prefix and
+the bundle that authored it, before anything is written. `--check` reports the
+same condition at both refs rather than raising it, exactly as it does for a
+missing name.
+
 **Omission is explicit.** `omit` subtracts paths after resolution, empty by
 default, warning per entry that the resulting tree will not install unaided. It
 is the substitution case: a consumer keeping its own logger or auth. It is called
@@ -94,6 +104,15 @@ bundle nor `exclude`. It enumerates with `git ls-files`, so the untracked workin
 dirs (`.cache`, `.turbo`, `logs`, `node_modules`) never reach it, and it accepts
 nesting in either direction, since `scaffolding` names `turbo/generators` while
 the root entry is `turbo`.
+
+It asks git where the root is, and takes an explicit root argument that
+overrides that. Both matter more than they look: a checker that derives the root
+from its own depth resolves to the wrong directory the moment it is relocated,
+and the wrong directory holds no inventory — so it takes the consumer-repo
+branch and exits 0, leaving the gate green and enforcing nothing. The argument
+is the same override `check-adrs` and `check-test-policy` already take, and it
+is what lets the rules be asserted against a fixture repo rather than only
+against this one.
 
 ## Considered and rejected
 

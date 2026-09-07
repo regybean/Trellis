@@ -45,7 +45,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-import { resolveInclude } from "./lib/bank-closure.mjs";
+import { describeUnmatched, resolveInclude } from "./lib/bank-closure.mjs";
 import {
   BankError,
   MANIFEST,
@@ -75,14 +75,16 @@ const EXIT_BEHIND = 2;
  * tree. Modes carry through untouched, so executable bits, symlinks and
  * submodule gitlinks all survive the filter.
  *
+ * Every prefix in `include` is already known to match something here:
+ * `resolveInclude` derives the package paths at this ref and holds the bundle
+ * paths to existing at it, so an empty result means an empty `include`.
+ *
  * @param {string} root
  * @param {string} sha
  * @param {string[]} include
- * @param {{ quiet?: boolean }} [options] `--check` builds a tree only to compare
- *   it, so it suppresses the unmatched-prefix warnings a sync should print.
  * @returns {string}
  */
-function buildFilteredTree(root, sha, include, options = {}) {
+function buildFilteredTree(root, sha, include) {
   const entries = git(["ls-tree", "-r", "-z", sha], {
     cwd: root,
     maxBuffer: 256 * 1024 * 1024,
@@ -100,13 +102,6 @@ function buildFilteredTree(root, sha, include, options = {}) {
     return fail(
       `nothing at ${sha.slice(0, 8)} matches "include" — the vendor branch would be empty`,
     );
-
-  if (!options.quiet)
-    for (const prefix of include)
-      if (!entries.some((entry) => under(entry.path, prefix)))
-        console.warn(
-          `bank:sync: warning — "include" entry ${prefix} matched nothing upstream`,
-        );
 
   const indexDir = mkdtempSync(join(tmpdir(), "bank-sync-"));
   try {
@@ -217,8 +212,7 @@ function runCheck(root, manifest) {
 
   const vendor = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
   const vendorTree = vendor && gitOrNull(["rev-parse", `${vendor}^{tree}`]);
-  const unsynced =
-    vendorTree !== buildFilteredTree(root, pinned, include, { quiet: true });
+  const unsynced = vendorTree !== buildFilteredTree(root, pinned, include);
   const local = vendor ? localModifications(vendor, include) : undefined;
 
   const lines = [
@@ -257,6 +251,20 @@ function runCheck(root, manifest) {
   if (atPinned.missing.length)
     lines.push(
       `Selected packages that do not exist at the pinned ref, so pnpm bank:sync will fail: ${atPinned.missing.join(", ")}.`,
+      "",
+    );
+
+  // The same news as `missing`, for the other half of a selection. A sync
+  // refuses on either, so `--check` has to be able to say which one it would be.
+  if (atHead?.unmatched.length)
+    lines.push(
+      `Bundle paths that match nothing at the bank tip, so a bump would fail: ${describeUnmatched(atHead.unmatched)}.`,
+      "",
+    );
+
+  if (atPinned.unmatched.length)
+    lines.push(
+      `Bundle paths that match nothing at the pinned ref, so pnpm bank:sync will fail: ${describeUnmatched(atPinned.unmatched)}.`,
       "",
     );
 

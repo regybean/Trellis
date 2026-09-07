@@ -142,6 +142,24 @@ const globToRegExp = (glob) =>
 const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, "");
 
 /**
+ * Every file path at a bank commit.
+ *
+ * One read, shared by the two things that need the whole tree: the package
+ * derivation, which wants the `package.json` files, and the bundle-prefix
+ * check, which holds every prefix to matching something.
+ *
+ * @param {string} sha
+ * @returns {string[]}
+ */
+function treePaths(sha) {
+  return git(["ls-tree", "-r", "--name-only", "-z", sha], {
+    maxBuffer: 256 * 1024 * 1024,
+  })
+    .split("\0")
+    .filter(Boolean);
+}
+
+/**
  * Every package the bank offers at `sha`, indexed by name.
  *
  * The set is the workspace globs minus anything under `exclude` — which is how
@@ -150,15 +168,13 @@ const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, "");
  *
  * @param {string} sha
  * @param {string[]} exclude
+ * @param {string[]} [tree] The paths at `sha`, when the caller already has them.
  * @returns {Map<string, BankPackage>}
  */
-function packageIndex(sha, exclude) {
+function packageIndex(sha, exclude, tree = treePaths(sha)) {
   const globs = workspaceGlobs(sha);
   const matchers = globs.map(globToRegExp);
-  const dirs = git(["ls-tree", "-r", "--name-only", "-z", sha], {
-    maxBuffer: 256 * 1024 * 1024,
-  })
-    .split("\0")
+  const dirs = tree
     .filter((path) => path.endsWith("/package.json"))
     .map((path) => path.slice(0, -"/package.json".length))
     .map((dir) => ({ dir, rank: matchers.findIndex((glob) => glob.test(dir)) }))
@@ -393,15 +409,19 @@ export function closurePreview(offer, packages) {
 }
 
 /**
- * The paths behind the selected bundles, plus the ones no selection can opt out
- * of, plus `infra` when the closure asks for it.
+ * The bundles a selection actually receives: the ones it named, the ones no
+ * selection can opt out of, and `infra` when the closure asks for it.
+ *
+ * The bundles rather than their flattened paths, because a prefix that matches
+ * nothing has to be reported against the bundle that authored it — the bundle
+ * name is the only thing that tells the reader where to go and edit.
  *
  * @param {Bundle[]} bundles
  * @param {string[]} selected
  * @param {boolean} infra `true` when a closure member declares `acme.infra`.
- * @returns {string[]}
+ * @returns {Bundle[]}
  */
-function bundlePaths(bundles, selected, infra) {
+function activeBundles(bundles, selected, infra) {
   const unknown = selected.filter(
     (name) => !bundles.some((bundle) => bundle.name === name),
   );
@@ -410,14 +430,12 @@ function bundlePaths(bundles, selected, infra) {
       `no such bundle${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")} — the bank offers ${bundles.map((bundle) => bundle.name).join(", ")}`,
     );
 
-  return bundles
-    .filter(
-      (bundle) =>
-        bundle.alwaysIncluded ||
-        selected.includes(bundle.name) ||
-        (infra && bundle.name === "infra"),
-    )
-    .flatMap((bundle) => bundle.paths);
+  return bundles.filter(
+    (bundle) =>
+      bundle.alwaysIncluded ||
+      selected.includes(bundle.name) ||
+      (infra && bundle.name === "infra"),
+  );
 }
 
 /**
@@ -428,19 +446,35 @@ function bundlePaths(bundles, selected, infra) {
  */
 
 /**
+ * @typedef {object} UnmatchedPath
+ * @property {string} bundle The bundle that authored the prefix.
+ * @property {string} path The prefix that matched nothing.
+ */
+
+/**
  * @typedef {object} Resolved
  * @property {string[]} include Sorted prefixes the vendor tree is filtered to.
  * @property {string[]} missing Selected names that do not exist at this ref.
+ * @property {UnmatchedPath[]} unmatched Bundle paths matching nothing at this ref.
  * @property {string[]} warnings Messages for the human, phrased for them.
  */
 
 /**
  * Resolve a selection to an `include` at one bank commit.
  *
- * A selected name that does not resolve is a hard error under `strict`, because
- * silently dropping a package the consumer imports turns a manifest problem into
- * a build error three steps later. `--check` resolves non-strictly instead, so
- * it can *report* that a bump would break rather than refusing to look.
+ * Two things can fail to resolve, and both are hard errors under `strict`,
+ * because silently dropping content the consumer subscribed to turns a manifest
+ * problem into a build error three steps later. `--check` resolves
+ * non-strictly instead, so it can *report* that a bump would break rather than
+ * refusing to look.
+ *
+ * A selected **package name** that no longer exists is `missing`. A **bundle
+ * path** that matches nothing at the ref is `unmatched`, and it is the only way
+ * a selection can go stale while still looking valid: a bundle path is a
+ * literal prefix, the one un-derived surface in the mechanism. A package is
+ * looked up by name in the index above and so follows a rename or a directory
+ * move upstream for free; a bundle path pointing at a directory somebody
+ * reorganised just quietly stops delivering files.
  *
  * @param {string} sha
  * @param {Selection} selection
@@ -449,7 +483,8 @@ function bundlePaths(bundles, selected, infra) {
  */
 export function resolveInclude(sha, selection, { strict = true } = {}) {
   const { bundles, exclude } = readBankPaths(sha);
-  const index = packageIndex(sha, exclude);
+  const tree = treePaths(sha);
+  const index = packageIndex(sha, exclude, tree);
 
   const missing = selection.packages.filter((name) => !index.has(name));
   if (missing.length && strict)
@@ -462,10 +497,21 @@ export function resolveInclude(sha, selection, { strict = true } = {}) {
     selection.packages.filter((name) => index.has(name)),
   );
   const infra = reached.some((pkg) => pkg.infra);
+  const active = activeBundles(bundles, selection.bundles, infra);
+
+  const unmatched = active.flatMap((bundle) =>
+    bundle.paths
+      .filter((prefix) => !tree.some((path) => under(path, prefix)))
+      .map((prefix) => ({ bundle: bundle.name, path: prefix })),
+  );
+  if (unmatched.length && strict)
+    fail(
+      `${unmatched.length === 1 ? "bundle path" : "bundle paths"} ${describeUnmatched(unmatched)} ${unmatched.length === 1 ? "matches" : "match"} nothing at the bank ref ${sha.slice(0, 8)} — the bank has moved or removed content this selection subscribes to, so nothing has been written`,
+    );
 
   const paths = new Set([
     ...reached.map((pkg) => pkg.path),
-    ...bundlePaths(bundles, selection.bundles, infra),
+    ...active.flatMap((bundle) => bundle.paths),
   ]);
 
   /** @type {string[]} */
@@ -480,5 +526,21 @@ export function resolveInclude(sha, selection, { strict = true } = {}) {
     );
   }
 
-  return { include: [...paths].sort(), missing, warnings };
+  return { include: [...paths].sort(), missing, unmatched, warnings };
+}
+
+/**
+ * Unmatched prefixes as one human-readable list, each attributed to its bundle.
+ *
+ * Exported so `--check` reports them in the same words the sync refuses in:
+ * the two are describing one condition, and a reader who has just read the
+ * check should recognise the sync's abort rather than re-diagnose it.
+ *
+ * @param {UnmatchedPath[]} unmatched
+ * @returns {string}
+ */
+export function describeUnmatched(unmatched) {
+  return unmatched
+    .map(({ bundle, path }) => `${path} (bundle "${bundle}")`)
+    .join(", ");
 }

@@ -55,6 +55,19 @@ function syncFailure(consumer: string) {
   return run;
 }
 
+/**
+ * Reorganise the bank so the `docs` bundle's one prefix covers nothing.
+ *
+ * The bundle still names `docs`, and `docs/` no longer holds a tracked file, so
+ * the prefix is now pointing at content the bank moved out from under its
+ * subscribers — the failure the sync has to be loud about, because no
+ * derivation would have caught it.
+ */
+function emptyDocsBundle({ bank }: Sandbox) {
+  git(bank, ['rm', '-q', 'docs/guide.md']);
+  commit(bank, 'bank: retire the docs directory');
+}
+
 function mergeFailure(consumer: string, extra: string[] = []) {
   try {
     merge(consumer, extra);
@@ -337,6 +350,37 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
     ]);
     expect(run.stderr).toContain('turbo.json');
   });
+
+  it('fails naming a bundle path the bank emptied, writing nothing', () => {
+    const sandbox = setup({ packages: [], bundles: ['docs'] });
+    sync(sandbox.consumer);
+    const vendorBefore = git(sandbox.consumer, ['rev-parse', 'vendor/trellis']);
+
+    emptyDocsBundle(sandbox);
+    const { status, stderr } = syncFailure(sandbox.consumer);
+
+    expect(status).toBe(1);
+    expect(stderr).toContain('docs');
+    expect(stderr).toContain('bundle "docs"');
+    expect(git(sandbox.consumer, ['rev-parse', 'vendor/trellis'])).toBe(
+      vendorBefore,
+    );
+  });
+
+  it('keeps syncing a bundle path whose contents moved but still match', () => {
+    const sandbox = setup({ packages: [], bundles: ['docs'] });
+    sync(sandbox.consumer);
+
+    // A reorganisation *inside* the subscribed prefix is what the derivation is
+    // meant to absorb silently. Only an empty prefix is news.
+    git(sandbox.bank, ['mv', 'docs/guide.md', 'docs/handbook.md']);
+    commit(sandbox.bank, 'bank: rename the guide');
+    sync(sandbox.consumer);
+
+    expect(treePaths(sandbox.consumer, 'vendor/trellis')).toContain(
+      'docs/handbook.md',
+    );
+  });
 });
 
 describe('bank:sync --check reports drift', () => {
@@ -478,6 +522,23 @@ describe('bank:sync --check reports drift', () => {
     expect(status).toBe(2);
     expect(stdout).toContain('+ packages/cache');
     expect(stdout).toContain('- packages/logger');
+  });
+
+  it('reports a bundle path the bank emptied rather than refusing to look', () => {
+    const sandbox = setup({ packages: [], bundles: ['docs'] });
+    git(sandbox.bank, ['tag', 'bank/2026-01-01']);
+    pin(sandbox.consumer, 'bank/2026-01-01');
+    sync(sandbox.consumer);
+    merge(sandbox.consumer, ['--allow-unrelated-histories']);
+
+    emptyDocsBundle(sandbox);
+    const { status, stdout } = check(sandbox.consumer);
+
+    // Telling the human a bump would break is the whole job, so --check resolves
+    // non-strictly and reports where a sync aborts. It stays the behind outcome.
+    expect(status).toBe(2);
+    expect(stdout).toContain('match nothing at the bank tip');
+    expect(stdout).toContain('bundle "docs"');
   });
 
   it('exits 1 on an error, distinct from both other outcomes', () => {
