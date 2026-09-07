@@ -20,8 +20,8 @@
  * sandbox. Sandbox and script-vendoring live in `./bank-sandbox`, shared with
  * the two bank suites.
  *
- * No container is needed here. The suite's global-setup starts LocalStack for
- * the sibling secrets test; this file uses none of it.
+ * No container either: this package's vitest config has no global setup, and
+ * nothing here needs one. Git and a temp dir are the whole fixture.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';

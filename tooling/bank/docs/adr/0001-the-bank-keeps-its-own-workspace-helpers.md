@@ -15,10 +15,11 @@ every gate in this repo and breaks every new consumer.
 
 The bank runs before `pnpm install`.
 
-A consumer's first contact with Trellis is hand-copying six files into a repo
-that has no `node_modules`, then running `setup:wizard` and the first
-`bank:sync` with bare `node` ([docs/bank.md](../../../../docs/bank.md)). There is
-no module resolution at that moment. A bare specifier has nothing to resolve
+A consumer's first contact with Trellis is hand-copying four files into a repo
+that has no `node_modules` — the wizard, the sync, and the two libs they share —
+then running `setup:wizard` and the first `bank:sync` with bare `node`
+([docs/bank.md](../../../../docs/bank.md)). There is no module resolution at that
+moment. A bare specifier has nothing to resolve
 against, so `import { … } from '@acme/workspace-graph'` fails before the
 derivation it was meant to share ever runs.
 
@@ -57,9 +58,10 @@ not a defect to close.
 
 ## How it is held
 
-- `src/tests/backend/bootstrap.test.ts` asserts every hand-copied file imports
-  only `node:` builtins and its own siblings. That is the tripwire for the
-  one-line removal above.
+- `src/tests/backend/bootstrap.test.ts` asserts every runtime file in this
+  package imports only `node:` builtins and its own siblings — the four
+  hand-copied ones and the two that arrive with the first sync, since all six
+  share the same libs. That is the tripwire for the one-line removal above.
 - The sibling suites run the real commands from a sandbox with nothing
   installed, so the constraint is exercised end to end rather than only
   asserted.
