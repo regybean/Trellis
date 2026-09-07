@@ -77,6 +77,31 @@ touched the same lines.
 
 ## Setting up a consumer repo
 
+### Which route you are on
+
+Three routes end in a repo of your own. They are not variants of each other, so
+pick one before running anything.
+
+| You want                          | Route                                                                                                                                         |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| A Trellis app to start from       | `pnpm prune @acme/nextjs-slim` in a Trellis clone, then `turbo gen` for your first feature, then `bank:sync` from then on. Still the default. |
+| The packages, in the app you have | The wizard, then `bank:sync`, then wire each package in by reading its `ADAPTER.md`.                                                          |
+| A subset, in an app you write     | The wizard, then `bank:sync` into an empty repo, then write the app against `ADAPTER.md`.                                                     |
+
+`pnpm prune <app>` ejects a Trellis app into a standalone repo, and you inherit
+its shell and its framework choice. The wizard authors a selection for a repo
+whose app is **yours**. `turbo gen` is neither. It scaffolds packages you are
+creating and never touches a package taken from the bank, because those arrive
+through `bank:sync` and are updated by it. Generate over one and you replace
+shared code with a fresh template, destroying the merge base with it.
+
+The four steps below are the second and third routes. The first route lands here
+too, at [step 3](#3-author-bankmanifestjson): a pruned tree is a repo like any
+other, and subscribing it to the bank takes the same manifest. It arrives with a
+root `package.json`, so read
+[Bringing your own root manifest](#bringing-your-own-root-manifest) before the
+first merge.
+
 ### 1. Vendor the bank scripts
 
 `scripts/` lives in the `root` bundle, so after your first sync the bank
@@ -157,6 +182,14 @@ node scripts/setup-wizard.mjs --list \
 A manifest already there is refused. `--force` replaces the **selection** and
 keeps your `omit` and `contributable`, because no selection — typed or toggled —
 says anything about either.
+
+The wizard authors a selection and nothing else. Neither form takes an `omit`
+flag, and neither the menu nor the arguments say anything about the root
+`package.json`, which arrives in the `root` bundle on your first sync. If your
+repo already has one, and it does unless you started from an empty directory,
+[Bringing your own root manifest](#bringing-your-own-root-manifest) is the
+answer. Keep yours and `omit` the bank's, or take the first sync and resolve the
+merge once.
 
 What it writes, and what you would otherwise write by hand at the root of your
 repo:

@@ -62,7 +62,7 @@ A vertical slice is only as decoupled as its **vocabulary**. Every feature ships
 
 The architecture is only as honest as the tooling that keeps it that way. A few that do real work:
 
-- **Eject any app into a standalone repo.** `pnpm prune @acme/tanstack-start` runs `turbo prune` + a config overlay to emit a **self-contained single-app repo** under `out/` that installs and builds on its own (`pnpm install`) — no monorepo required ([scripts/extract-app.sh](scripts/extract-app.sh)). The slice contract means an app _is_ extractable; this proves it.
+- **Eject any app into a standalone repo.** `pnpm prune @acme/tanstack-start` runs `turbo prune` + a config overlay to emit a **self-contained single-app repo** under `out/` that installs and builds on its own (`pnpm install`) — no monorepo required ([scripts/extract-app.sh](scripts/extract-app.sh)). The slice contract means an app _is_ extractable; this proves it. It's the first of [three routes into a repo of your own](#three-routes-into-a-repo-of-your-own): `prune` when you want a Trellis app to start from, the bank wizard below when the app is yours.
 - **Dev infra derived from the dependency graph.** `pnpm dev [app]` starts only the Docker services its targets actually need — the **union of `acme.infra` over each app's transitive package closure**, waits for them healthy, pushes schema, then runs the dev servers. There's no `core` always-on set: a slim app that doesn't depend on `@acme/billing` derives no Stripe container _because the graph says so_, not because anyone maintained a list ([ADR 0009](docs/adr/0009-graph-derived-dev-infra.md)).
 - **A test gate you can trust.** Every package declares a `testClass` capability in `package.json`; `pnpm test:policy` (in `quality-gate`) asserts each one ships the tests it owes, and tracked gaps are explicit `testStatus: "todo"` — so a green `pnpm test` means "coverage intent satisfied", not "the packages that happen to have tests passed" ([ADR 0007](docs/adr/0007-package-test-policy.md)).
 - **One identity partitions every shared datastore.** A single `NEXT_PUBLIC_WEBAPP` value namespaces each app's Postgres schema _and_ its Redis keyspace (the latter via an invisible client `Proxy`), so the four apps share one Postgres + one Redis without clobbering each other — fail-loud if unset ([ADR 0008](docs/adr/0008-per-app-redis-namespace.md)).
@@ -83,6 +83,18 @@ Git is the point. It's the only distribution format that ships the **merge base*
 - **Back-flow is guarded and manual.** `pnpm bank:contribute <path>` diffs a path against the bank, refuses anything outside the manifest's `contributable` allowlist (empty by default, so it fails closed), scans the diff with gitleaks, and opens a PR only after a human types the confirmation. Nothing runs it automatically, and no flag skips the prompt.
 - **Setup is a menu or a command line.** `node scripts/setup-wizard.mjs` with no arguments asks for the bank and a ref, then opens a keyboard-driven picker over every package that bank offers there, grouped by layer, redrawing what each choice drags in beneath it. Pass `--upstream`/`--ref`/`--packages`/`--bundles` and it skips the menu, which is what a scripted setup wants, and `--list` prints the offer and exits. All three read one derivation at the ref, so nothing is a list somebody has to maintain. Either way it writes `bank.manifest.json` and refuses a name that doesn't exist at that ref rather than leaving it for the first sync to hit. It copies nothing — `bank:sync` stays the only thing that moves files.
 - **Not built yet:** no `bank/*` tag has been cut, so there is nothing to pin against, and no consumer has contributed anything back.
+
+### Three routes into a repo of your own
+
+They do different things, and the `turbo gen` boundary below is the one most often got wrong.
+
+| You want                          | Route                                                                                                         | Why                                                     |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| A Trellis app to start from       | `pnpm prune @acme/nextjs-slim`, then `turbo gen` for your first feature, then `bank:sync` from then on        | One command, and you inherit a shell and a framework    |
+| The packages, in the app you have | `node scripts/setup-wizard.mjs`, then `bank:sync`, then wire each package in by reading its `ADAPTER.md`      | Your app stays yours; you take the rails under it       |
+| A subset, in an app you write     | `node scripts/setup-wizard.mjs` into an empty repo, then `bank:sync`, then write the app against `ADAPTER.md` | Nothing enumerates the closure for you; the wizard does |
+
+`prune` **ejects a Trellis app**; the wizard **authors a selection** for a repo whose app is yours. `turbo gen` is neither. It scaffolds packages you are creating and never touches a package taken from the bank, because those arrive through `bank:sync` and are updated by it. Generate over one and you swap shared code for a fresh template, taking the merge base with it.
 
 The guide — set-up, syncing, resolving conflicts, reading a drift report — is [**docs/bank.md**](docs/bank.md).
 
