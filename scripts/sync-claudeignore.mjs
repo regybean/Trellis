@@ -7,6 +7,7 @@
 // strips the legacy claude-ignore hook.
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { format, resolveConfig } from "prettier";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -67,7 +68,16 @@ settings.permissions = {
   deny: [...new Set([...preserved, ...deny])].sort(),
 };
 
-writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + "\n");
+// Write through Prettier: this file is also formatted by the pre-commit hook
+// and `pnpm format`, and raw JSON.stringify disagrees with them (it expands
+// short arrays Prettier keeps inline), so the two would rewrite each other
+// on every install.
+const formatted = await format(JSON.stringify(settings), {
+  ...(await resolveConfig(settingsPath)),
+  filepath: settingsPath,
+  parser: "json",
+});
+writeFileSync(settingsPath, formatted);
 console.log(
   `Synced ${deny.length} Read() deny rules from .claudeignore -> ${settingsPath}` +
     ` (preserved ${preserved.length} other deny rules)`,
