@@ -281,30 +281,36 @@ describe('every delegated tooling command arrives with the root bundle', () => {
     readFileSync(join(repoRoot, 'package.json'), 'utf8'),
   ) as { scripts: Record<string, string> };
 
+  /**
+   * The package directory each root script delegates into. Both spellings
+   * count: `--filter <name>` resolves through the manifests, `-C <dir>` names
+   * the directory outright — which is the form the bank uses, for the
+   * exit-code reason asserted in `bank-sync.test.ts`.
+   */
   const delegated = [
     ...new Set(
-      Object.values(scripts).flatMap(
-        (command) => /--filter\s+(@[\w-]+\/[\w-]+)/.exec(command)?.[1] ?? [],
-      ),
+      Object.values(scripts).flatMap((command) => {
+        const name = /--filter\s+(@[\w-]+\/[\w-]+)/.exec(command)?.[1];
+        if (name !== undefined) return packageDirs.get(name) ?? [];
+        return /\bpnpm\s+-C\s+(\S+)/.exec(command)?.[1] ?? [];
+      }),
     ),
   ]
     .sort()
-    .filter((name) => packageDirs.get(name)?.startsWith('tooling/'));
+    .filter((dir) => dir.startsWith('tooling/'));
 
   it('delegates at least the bank commands, so the rule has something to bind', () => {
-    expect(delegated).toContain('@acme/bank');
+    expect(delegated).toContain('tooling/bank');
   });
 
-  it.each(delegated)('%s is covered by an always-included bundle', (name) => {
-    const dir = packageDirs.get(name);
-
+  it.each(delegated)('%s is covered by an always-included bundle', (dir) => {
     const covering = alwaysIncluded.filter(
-      (prefix) => dir === prefix || dir?.startsWith(`${prefix}/`),
+      (prefix) => dir === prefix || dir.startsWith(`${prefix}/`),
     );
 
     expect(
       covering,
-      `root package.json delegates to ${name} (${String(dir)}), but no always-included bundle path covers it — a consumer would sync a package.json calling a package it never received`,
+      `root package.json delegates into ${dir}, but no always-included bundle path covers it — a consumer would sync a package.json calling a package it never received`,
     ).not.toEqual([]);
   });
 });

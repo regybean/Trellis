@@ -13,6 +13,8 @@
  * the sibling secrets test; this file uses none of it.
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Sandbox } from './bank-sandbox';
@@ -24,6 +26,7 @@ import {
   merge,
   numberedLines,
   read,
+  repoRoot,
   runScript,
   setup,
   sync,
@@ -548,5 +551,46 @@ describe('bank:sync --check reports drift', () => {
     pin(consumer, 'bank/nope');
 
     expect(check(consumer).status).toBe(1);
+  });
+
+  /**
+   * Those three codes only mean anything if they survive the root script.
+   *
+   * `pnpm --filter <pkg> <script>` runs the script through pnpm's *recursive*
+   * runner, which reports `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL` and exits **1**
+   * whatever the child exited with. Delegating that way silently flattens `2`
+   * (drift) onto `1` (error), so anything watching `pnpm bank:sync --check`
+   * for drift — the reason the code exists — would see a failure instead.
+   *
+   * `pnpm -C <dir> <script>` is the plain runner and passes the code through.
+   * So the root delegates with `-C`, and this pins the reason: the tempting
+   * edit is to "normalise" these four scripts onto `--filter` alongside the
+   * other tooling packages, none of which return a meaningful non-zero code.
+   */
+  it('is delegated from the root in a way that preserves the exit code', () => {
+    const { scripts } = JSON.parse(
+      readFileSync(join(repoRoot, 'package.json'), 'utf8'),
+    ) as { scripts: Record<string, string> };
+
+    const bankCommands = Object.entries(scripts).filter(([, command]) =>
+      command.includes('tooling/bank'),
+    );
+
+    // The four the root exposes; if one stops delegating here, say so loudly.
+    expect(bankCommands.map(([name]) => name).sort()).toEqual([
+      'bank:contribute',
+      'bank:sync',
+      'check:bank-paths',
+      'setup:wizard',
+    ]);
+
+    for (const [name, command] of bankCommands) {
+      expect(command, `${name} must not delegate with --filter`).not.toContain(
+        '--filter',
+      );
+      expect(command, `${name} must delegate with pnpm -C`).toContain(
+        '-C tooling/bank',
+      );
+    }
   });
 });

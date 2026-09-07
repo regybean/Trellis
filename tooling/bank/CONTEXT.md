@@ -22,11 +22,16 @@ runtime dependencies.** It runs hand-copied into a repo that has installed
 nothing, which is why it keeps its own copy of the workspace-graph helpers
 rather than importing the shared kernel — see
 [ADR 0001](docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md) before
-removing that duplication. The root delegates every command here with
-`pnpm --filter @acme/bank`, so `tooling/bank` rides the always-included `root`
-bundle in `bank.paths.json`: a consumer who never selected this package by name
-still receives it, because otherwise their next sync would delete the tool that
-performs the one after it.
+removing that duplication.
+
+The root delegates every command here with `pnpm -C tooling/bank`, so
+`tooling/bank` rides the always-included `root` bundle in `bank.paths.json`: a
+consumer who never selected this package by name still receives it, because
+otherwise their next sync would delete the tool that performs the one after it.
+`-C` rather than `--filter` is deliberate — pnpm's recursive runner reports its
+own exit 1 regardless of what the child returned, which would flatten
+`bank:sync --check`'s drift code onto its error code. Both facts are held by
+tests.
 
 ## Language
 

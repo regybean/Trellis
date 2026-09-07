@@ -260,13 +260,13 @@ describe('nothing invokes bank:contribute automatically', () => {
    * commands name it in their comments and should keep doing so — describing
    * the command is not running it, which is also why docs are not searched.
    *
-   * `--filter <name>` is one of the shapes, because the root delegates every
-   * bank command into this package rather than invoking the file directly. A
-   * regex that only knew the direct shape would stop seeing the root script
-   * that actually reaches this command.
+   * The delegating shapes (`--filter <name>`, `-C <dir>`) count too, because
+   * the root delegates every bank command into this package rather than
+   * invoking the file directly. A regex that only knew the direct shape would
+   * stop seeing the root script that actually reaches this command.
    */
   const invocation =
-    /(?:node|pnpm|npm|yarn|bun)\s+(?:(?:run|exec)\s+|--filter\s+\S+\s+)?[^\s'"]*bank[:-]contribute/;
+    /(?:node|pnpm|npm|yarn|bun)\s+(?:(?:run|exec)\s+|(?:--filter|-C)\s+\S+\s+)?[^\s'"]*bank[:-]contribute/;
 
   it('is invoked by no workflow, hook or other script in this repo', () => {
     const automation = [
