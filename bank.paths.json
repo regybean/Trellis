@@ -5,7 +5,7 @@
   "bundles": [
     {
       "name": "root",
-      "description": "The workspace itself: what pnpm, turbo, the hooks and the gate read from a fixed repo-relative path. Required by every selection, so it is never a choice. `patches/` travels with pnpm-workspace.yaml because the workspace file carries a patchedDependencies entry pointing into it — sync one without the other and `pnpm install` fails outright. `scripts/` is here rather than split per concern because the root package.json's script entries all point into it, including the infra scripts the `infra` bundle depends on. package.json travels with `scripts/` for the same reason read the other way: the script entries are the only thing that invokes those files, and the ten root devDependencies they run on (turbo, prettier, lefthook, knip, syncpack, tsx, typescript, @turbo/gen, dotenv-cli, jsdom) are declared nowhere else. Only `name` in it is consumer identity, and a field the bank never edits and the consumer sets once conflicts exactly never under three-way merge — the seed model `packages/platform/env` and tailwind's theme.css already use. A consumer that arrives with its own manifest omits it (docs/bank.md).",
+      "description": "The workspace itself: what pnpm, turbo, the hooks and the gate read from a fixed repo-relative path. Required by every selection, so it is never a choice. `patches/` travels with pnpm-workspace.yaml because the workspace file carries a patchedDependencies entry pointing into it — sync one without the other and `pnpm install` fails outright. `scripts/` is here rather than split per concern because the root package.json's script entries all point into it, including the infra scripts the `infra` bundle depends on. package.json travels with `scripts/` for the same reason read the other way: the script entries are the only thing that invokes those files, and the ten root devDependencies they run on (turbo, prettier, lefthook, knip, syncpack, tsx, typescript, @turbo/gen, dotenv-cli, jsdom) are declared nowhere else. Only `name` in it is consumer identity, and a field the bank never edits and the consumer sets once conflicts exactly never under three-way merge — the seed model `packages/platform/env` and tailwind's theme.css already use. A consumer that arrives with its own manifest omits it (docs/bank.md). `tooling/bank` is named here even though it is a workspace package, because the package derivation only delivers a package a manifest selected by name: the root package.json delegates `bank:sync`, `bank:contribute`, `setup:wizard` and `check:bank-paths` into it, so a consumer that never named `@acme/bank` would receive a root package.json calling a package it does not have, and the first casualty is the command that performs its next sync.",
       "alwaysIncluded": true,
       "paths": [
         "package.json",
@@ -22,7 +22,8 @@
         ".prettierignore",
         ".dockerignore",
         ".gitignore",
-        "scripts"
+        "scripts",
+        "tooling/bank"
       ]
     },
     {
