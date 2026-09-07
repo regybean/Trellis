@@ -76,18 +76,18 @@ describe('formatReport', () => {
 
   it('reports warnings without failing the run', () => {
     const { code, stdout, stderr } = report((violations) => {
-      violations.warn('docs/adr/: 0002 is missing from the sequence');
+      violations.warn('0002 is missing from the sequence');
     });
 
     expect(code).toBe(0);
-    expect(stderr).toContain('warn: docs/adr/: 0002 is missing');
+    expect(stderr).toContain('warn: 0002 is missing from the sequence');
     expect(stdout).toBe('check-fixture: 3 packages, all clean.\n');
   });
 
   it('reports warnings alongside errors', () => {
     const { code, stderr } = report((violations) => {
       violations.warn('0002 is missing from the sequence');
-      violations.error('link to `docs/adr/0002-gone.md` resolves to no file');
+      violations.error('link to `CONTEXT.md` resolves to no file');
     });
 
     expect(code).toBe(1);
