@@ -30,11 +30,15 @@ two things no derivation gives you.
 - **`bundles`.** Named groups of content that cannot be a package, because the
   tools that read it require it at a fixed repo-relative path. `root` is always
   included and holds the root `package.json`, `turbo.json`,
-  `pnpm-workspace.yaml`, `patches/`, `scripts/`, `tooling/bank` and the lint and
-  hook configs. `tooling/bank` is a workspace package rather than a fixed path,
-  and it is named here anyway: the root `package.json` delegates the bank
-  commands into it, so a selection that never asked for it would still arrive
-  calling it.
+  `pnpm-workspace.yaml`, `patches/`, `scripts/`, a few `tooling/*` packages and
+  the lint and hook configs. Those tooling packages are workspace packages
+  rather than fixed paths, and they are named here anyway, for two reasons that
+  both end at the root `package.json` being root-bundle content: it delegates
+  the bank commands into `tooling/bank`, so a selection that never asked for it
+  would still arrive calling it; and `pnpm-workspace.yaml` is root-bundle
+  content too, so the config packages those manifests declare `workspace:*` on
+  have to arrive with them or `pnpm install` fails on a dependency that
+  resolves to nothing.
   The rest are `scaffolding`, `agents`, `ci`, `docs` and `infra` — and `infra`
   selects itself when a package you took declares the services it needs.
 - **`exclude`.** What is left out, with a reason each. `pnpm-lock.yaml`,
