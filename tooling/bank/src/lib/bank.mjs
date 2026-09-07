@@ -10,16 +10,16 @@
  * file exists rather than each script carrying its own copy: the bank sha
  * `bank:contribute` bases its patch on is the one `bank:sync` recorded.
  */
-import { execFileSync } from "node:child_process";
-import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 
-export const MANIFEST = "bank.manifest.json";
-export const VENDOR_BRANCH = "vendor/trellis";
+export const MANIFEST = 'bank.manifest.json';
+export const VENDOR_BRANCH = 'vendor/trellis';
 export const VENDOR_REF = `refs/heads/${VENDOR_BRANCH}`;
 
 /** Namespace the all-refs fallback fetch lands in, so it shadows nothing local. */
-const FETCH_NS = "refs/bank-sync";
+const FETCH_NS = 'refs/bank-sync';
 
 /**
  * A message meant for the human, already phrased for them. Every abort path
@@ -30,7 +30,7 @@ export class BankError extends Error {
   /** @param {string} message */
   constructor(message) {
     super(message);
-    this.name = "BankError";
+    this.name = 'BankError';
   }
 }
 
@@ -47,6 +47,33 @@ export function fail(message) {
 }
 
 /**
+ * The entry at `index` of a list whose shape the caller already established: a
+ * field of a git plumbing record, a capture group of a regex that matched, an
+ * argument already checked for presence.
+ *
+ * Absent means the format is not what this code believes it is, which is a bug
+ * here rather than a condition a consumer can do anything about — so it aborts
+ * in the same voice as every other abort instead of propagating `undefined`
+ * into a path or a branch name.
+ *
+ * These reads only became visible when the bank moved into a package and fell
+ * under the repo's `noUncheckedIndexedAccess`
+ * ([ADR 0001](../../docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)).
+ *
+ * @template T
+ * @param {ArrayLike<T | undefined>} list
+ * @param {number} index
+ * @param {string} what What to call the record when the field is missing.
+ * @returns {T}
+ */
+export function field(list, index, what) {
+  return (
+    list[index] ??
+    fail(`${what}: no field ${index} — the format is not what this expects`)
+  );
+}
+
+/**
  * Run git, returning trimmed stdout. Throws on a non-zero exit.
  *
  * @param {string[]} args
@@ -55,10 +82,10 @@ export function fail(message) {
  */
 export function git(args, options = {}) {
   return String(
-    execFileSync("git", args, {
-      stdio: ["pipe", "pipe", "pipe"],
+    execFileSync('git', args, {
+      stdio: ['pipe', 'pipe', 'pipe'],
       ...options,
-      encoding: "utf8",
+      encoding: 'utf8',
     }),
   ).trim();
 }
@@ -98,8 +125,8 @@ export const under = (path, prefix) =>
  * @returns {string}
  */
 export function repoRelative(entry, what) {
-  const path = entry.trim().replace(/^\.\//, "").replace(/\/+$/, "");
-  if (path === "" || path.startsWith("/") || path.split("/").includes(".."))
+  const path = entry.trim().replace(/^\.\//, '').replace(/\/+$/, '');
+  if (path === '' || path.startsWith('/') || path.split('/').includes('..'))
     return fail(`${what} ${JSON.stringify(entry)} is not a repo-relative path`);
   return path;
 }
@@ -144,9 +171,9 @@ export function readManifestIfAny(root) {
   const path = join(root, MANIFEST);
   let raw;
   try {
-    raw = readFileSync(path, "utf8");
+    raw = readFileSync(path, 'utf8');
   } catch (error) {
-    if (/** @type {NodeJS.ErrnoException} */ (error).code === "ENOENT")
+    if (/** @type {NodeJS.ErrnoException} */ (error).code === 'ENOENT')
       return undefined;
     return fail(`cannot read ${path}: ${String(error)}`);
   }
@@ -162,7 +189,7 @@ export function readManifestIfAny(root) {
   /** @param {string} field */
   const str = (field) => {
     const value = parsed[field];
-    if (typeof value !== "string" || value.trim() === "")
+    if (typeof value !== 'string' || value.trim() === '')
       return fail(`${MANIFEST}: "${field}" must be a non-empty string`);
     return value.trim();
   };
@@ -175,7 +202,7 @@ export function readManifestIfAny(root) {
     const value = parsed[field] ?? [];
     if (
       !Array.isArray(value) ||
-      value.some((entry) => typeof entry !== "string")
+      value.some((entry) => typeof entry !== 'string')
     )
       return fail(`${MANIFEST}: "${field}" must be an array of strings`);
     return value;
@@ -183,20 +210,20 @@ export function readManifestIfAny(root) {
 
   // A manifest that still authors paths is a pre-ADR-0039 one. Naming the
   // replacement beats resolving an empty selection and syncing almost nothing.
-  if ("include" in parsed)
+  if ('include' in parsed)
     return fail(
       `${MANIFEST}: "include" is no longer authored — name what you take in "packages" (e.g. "@acme/ui") and "bundles", and bank:sync resolves the paths at "ref". See docs/bank.md.`,
     );
 
   return {
-    upstream: str("upstream"),
-    ref: str("ref"),
-    packages: strings("packages"),
-    bundles: strings("bundles"),
-    omit: strings("omit").map((entry) =>
+    upstream: str('upstream'),
+    ref: str('ref'),
+    packages: strings('packages'),
+    bundles: strings('bundles'),
+    omit: strings('omit').map((entry) =>
       repoRelative(entry, `${MANIFEST}: "omit" entry`),
     ),
-    contributable: strings("contributable").map((entry) =>
+    contributable: strings('contributable').map((entry) =>
       repoRelative(entry, `${MANIFEST}: "contributable" entry`),
     ),
   };
@@ -235,9 +262,9 @@ export function writeManifest(root, manifest, { replace = false } = {}) {
   )}\n`;
 
   try {
-    writeFileSync(path, body, { flag: replace ? "w" : "wx" });
+    writeFileSync(path, body, { flag: replace ? 'w' : 'wx' });
   } catch (error) {
-    if (/** @type {NodeJS.ErrnoException} */ (error).code !== "EEXIST")
+    if (/** @type {NodeJS.ErrnoException} */ (error).code !== 'EEXIST')
       throw error;
     return fail(
       `${MANIFEST} already exists at ${root} — edit it, or re-run with --force to replace it. Nothing has been written.`,
@@ -261,21 +288,21 @@ export function writeManifest(root, manifest, { replace = false } = {}) {
  */
 export function fetchBank(upstream, ref) {
   if (
-    gitOrNull(["fetch", "--no-tags", "--quiet", upstream, ref]) !== undefined
+    gitOrNull(['fetch', '--no-tags', '--quiet', upstream, ref]) !== undefined
   ) {
     const sha = gitOrNull([
-      "rev-parse",
-      "--verify",
-      "--quiet",
-      "FETCH_HEAD^{commit}",
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      'FETCH_HEAD^{commit}',
     ]);
     if (sha) return sha;
   }
 
   gitOrNull([
-    "fetch",
-    "--quiet",
-    "--force",
+    'fetch',
+    '--quiet',
+    '--force',
     upstream,
     `+refs/heads/*:${FETCH_NS}/heads/*`,
     `+refs/tags/*:${FETCH_NS}/tags/*`,
@@ -287,9 +314,9 @@ export function fetchBank(upstream, ref) {
     ref,
   ]) {
     const sha = gitOrNull([
-      "rev-parse",
-      "--verify",
-      "--quiet",
+      'rev-parse',
+      '--verify',
+      '--quiet',
       `${candidate}^{commit}`,
     ]);
     if (sha) return sha;
@@ -309,9 +336,8 @@ export function fetchBank(upstream, ref) {
  * @returns {string}
  */
 export function defaultBranch(upstream) {
-  const symref = gitOrNull(["ls-remote", "--symref", upstream, "HEAD"]);
-  const match = symref?.match(/^ref: refs\/heads\/(\S+)\s+HEAD$/m);
-  return match ? match[1] : "HEAD";
+  const symref = gitOrNull(['ls-remote', '--symref', upstream, 'HEAD']);
+  return symref?.match(/^ref: refs\/heads\/(\S+)\s+HEAD$/m)?.[1] ?? 'HEAD';
 }
 
 /**
@@ -339,15 +365,15 @@ export function vendorCommitMessage(bankSha, manifest, include) {
 
   return [
     `vendor: bank@${bankSha.slice(0, 8)}`,
-    "",
+    '',
     `upstream: ${manifest.upstream}`,
     `ref: ${manifest.ref}`,
     `commit: ${bankSha}`,
-    ...section("packages", manifest.packages),
-    ...section("bundles", manifest.bundles),
-    ...section("omit", manifest.omit),
-    ...section("include", include),
-  ].join("\n");
+    ...section('packages', manifest.packages),
+    ...section('bundles', manifest.bundles),
+    ...section('omit', manifest.omit),
+    ...section('include', include),
+  ].join('\n');
 }
 
 /**
@@ -358,7 +384,7 @@ export function vendorCommitMessage(bankSha, manifest, include) {
  * @returns {string | undefined}
  */
 export function vendorBankSha(commit) {
-  const message = gitOrNull(["log", "-1", "--format=%B", commit]);
+  const message = gitOrNull(['log', '-1', '--format=%B', commit]);
   return message?.match(/^commit: ([0-9a-f]{40})$/m)?.[1];
 }
 
@@ -390,8 +416,8 @@ export function githubSlug(upstream) {
  */
 export function repoRoot() {
   return (
-    gitOrNull(["rev-parse", "--show-toplevel"]) ??
-    fail("not inside a git repository")
+    gitOrNull(['rev-parse', '--show-toplevel']) ??
+    fail('not inside a git repository')
   );
 }
 

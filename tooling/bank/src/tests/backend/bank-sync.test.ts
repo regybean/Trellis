@@ -1,5 +1,5 @@
 /**
- * Verifies `scripts/bank-sync.mjs` — the pull half of the bank — against real
+ * Verifies `tooling/bank/src/bank-sync.mjs` — the pull half of the bank — against real
  * git repositories: a throwaway bank and a throwaway consumer, the script
  * copied in the way a consumer vendors it, and every assertion read back out of
  * git. The sandbox lives in `./bank-sandbox`, shared with the back-flow suite.
@@ -39,7 +39,7 @@ afterEach(cleanupSandboxes);
  * outcome here rather than a failure, so both paths come back the same shape.
  */
 function check(consumer: string) {
-  return runScript(consumer, 'scripts/bank-sync.mjs', ['--check']);
+  return runScript(consumer, 'tooling/bank/src/bank-sync.mjs', ['--check']);
 }
 
 /** Repoints the consumer's manifest at another bank ref. */
@@ -49,7 +49,7 @@ function pin(consumer: string, ref: string) {
 
 /** Runs a sync expected to fail, returning its exit code and stderr. */
 function syncFailure(consumer: string) {
-  const run = runScript(consumer, 'scripts/bank-sync.mjs');
+  const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
   if (run.status === 0)
     throw new Error('expected bank:sync to fail, but it succeeded');
   return run;
@@ -331,7 +331,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
       omit: ['packages/logger'],
     });
 
-    const run = runScript(consumer, 'scripts/bank-sync.mjs');
+    const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
 
     expect(run.status).toBe(0);
     expect(packageDirs(consumer)).toEqual(['packages/db', 'tooling/eslint']);
@@ -342,7 +342,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
   it('subtracts an omitted bundle file, the escape for a root file you already have', () => {
     const { consumer } = setup({ packages: [], omit: ['turbo.json'] });
 
-    const run = runScript(consumer, 'scripts/bank-sync.mjs');
+    const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
 
     expect(run.status).toBe(0);
     expect(treePaths(consumer, 'vendor/trellis')).toEqual([

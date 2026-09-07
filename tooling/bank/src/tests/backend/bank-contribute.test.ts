@@ -1,5 +1,5 @@
 /**
- * Verifies `scripts/bank-contribute.mjs` — the back-flow half of the bank —
+ * Verifies `tooling/bank/src/bank-contribute.mjs` — the back-flow half of the bank —
  * against real git repositories, using the sandbox in `./bank-sandbox`.
  *
  * Back-flow is the constrained direction: it takes code out of a repo that may
@@ -36,7 +36,12 @@ const hasGitleaks =
   spawnSync('gitleaks', ['version'], { stdio: 'ignore' }).status === 0;
 
 function contribute(consumer: string, args: string[], input = '') {
-  return runScript(consumer, 'scripts/bank-contribute.mjs', args, input);
+  return runScript(
+    consumer,
+    'tooling/bank/src/bank-contribute.mjs',
+    args,
+    input,
+  );
 }
 
 /** Every branch in the bank — the "nothing was pushed" assertion. */
@@ -133,7 +138,12 @@ describe('bank:contribute with nothing to send', () => {
     const { bank, consumer } = setup({ contributable: ['tooling'] });
     syncAndMerge(consumer);
 
-    const { status, stdout } = contribute(consumer, ['tooling']);
+    // A package taken from the bank and left alone, rather than the whole
+    // `tooling` prefix: the consumer vendors the bank itself to
+    // `tooling/bank/`, so the coarser path always carries a diff — the bank
+    // arriving is a change under it. That is the sandbox mirroring where the
+    // bank really lives, not a defect.
+    const { status, stdout } = contribute(consumer, ['tooling/eslint']);
 
     expect(status).toBe(0);
     expect(stdout).toContain('Nothing to contribute');
@@ -247,19 +257,30 @@ describe('nothing invokes bank:contribute automatically', () => {
 
   /**
    * A command line that runs it, rather than a mention of it. The sibling bank
-   * scripts name it in their comments and should keep doing so — describing the
-   * command is not running it, which is also why docs are not searched.
+   * commands name it in their comments and should keep doing so — describing
+   * the command is not running it, which is also why docs are not searched.
+   *
+   * `--filter <name>` is one of the shapes, because the root delegates every
+   * bank command into this package rather than invoking the file directly. A
+   * regex that only knew the direct shape would stop seeing the root script
+   * that actually reaches this command.
    */
   const invocation =
-    /(?:node|pnpm|npm|yarn|bun)\s+(?:run\s+|exec\s+)?[^\s'"]*bank[:-]contribute/;
+    /(?:node|pnpm|npm|yarn|bun)\s+(?:(?:run|exec)\s+|--filter\s+\S+\s+)?[^\s'"]*bank[:-]contribute/;
 
   it('is invoked by no workflow, hook or other script in this repo', () => {
     const automation = [
       ...walk('.github'),
       'lefthook.yml',
-      ...walk('scripts').filter(
-        (path) => relative('scripts', path) !== 'bank-contribute.mjs',
-      ),
+      ...walk('scripts'),
+      // This package's own source, minus the command itself and minus these
+      // suites — a test invoking it is the point of the test, not a tripwire.
+      ...walk('tooling/bank/src').filter((path) => {
+        const inPackage = relative('tooling/bank/src', path);
+        return (
+          inPackage !== 'bank-contribute.mjs' && !inPackage.startsWith('tests/')
+        );
+      }),
     ];
 
     const invoking = automation.filter((path) =>
@@ -269,15 +290,22 @@ describe('nothing invokes bank:contribute automatically', () => {
     expect(invoking).toEqual([]);
   });
 
-  it('is defined as exactly one package script and used by no other', () => {
-    const { scripts } = JSON.parse(
-      readFileSync(join(repoRoot, 'package.json'), 'utf8'),
-    ) as { scripts: Record<string, string> };
+  it('is defined as exactly one script per manifest and used by no other', () => {
+    /** @returns the script names whose command line reaches contribute. */
+    const referencing = (manifest: string) => {
+      const { scripts } = JSON.parse(
+        readFileSync(join(repoRoot, manifest), 'utf8'),
+      ) as { scripts: Record<string, string> };
 
-    const referencing = Object.entries(scripts)
-      .filter(([, command]) => invocation.test(command))
-      .map(([name]) => name);
+      return Object.entries(scripts)
+        .filter(([, command]) => invocation.test(command))
+        .map(([name]) => name);
+    };
 
-    expect(referencing).toEqual(['bank:contribute']);
+    // One at the root, delegating; one here, invoking. Nothing else in either.
+    expect(referencing('package.json')).toEqual(['bank:contribute']);
+    expect(referencing('tooling/bank/package.json')).toEqual([
+      'bank:contribute',
+    ]);
   });
 });

@@ -1,0 +1,33 @@
+{
+  "name": "@acme/bank",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bank:contribute": "node src/bank-contribute.mjs",
+    "bank:sync": "node src/bank-sync.mjs",
+    "check:bank-paths": "node src/check-bank-paths.mjs",
+    "clean": "git clean -xdf .cache .turbo node_modules",
+    "format": "prettier --check . --ignore-path ../../.prettierignore",
+    "lint": "eslint",
+    "setup:wizard": "node src/setup-wizard.mjs",
+    "test": "pnpm test:backend",
+    "test:backend": "vitest run --config vitest.config.backend.ts",
+    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "workspace:*",
+    "@acme/prettier-config": "workspace:*",
+    "@acme/tsconfig": "workspace:*",
+    "@acme/vitest-config": "workspace:*",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  },
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "backend-library"
+  }
+}
