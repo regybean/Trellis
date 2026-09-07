@@ -63,14 +63,42 @@ export function fail(message) {
  * @template T
  * @param {ArrayLike<T | undefined>} list
  * @param {number} index
- * @param {string} what What to call the record when the field is missing.
+ * @param {string} what What to call the record when the entry is missing.
  * @returns {T}
  */
-export function field(list, index, what) {
+export function at(list, index, what) {
   return (
     list[index] ??
-    fail(`${what}: no field ${index} — the format is not what this expects`)
+    fail(`${what}: no entry ${index} — the format is not what this expects`)
   );
+}
+
+/**
+ * A value about to be handed to git as an argument in its own right — a remote,
+ * a ref — checked for the one thing that would make git read it as something
+ * else entirely.
+ *
+ * `git fetch -c protocol…`, `git clone --upload-pack=…`: a leading `-` turns a
+ * value position into an option position, and several of git's options run a
+ * command. The manifest is a file in the consumer's repo and the wizard's
+ * answers are typed, so neither is hostile by construction — but neither is
+ * this file's to trust, and a repo-relative check is cheaper than reasoning
+ * about which of git's options are dangerous this release.
+ *
+ * Checked here, at the point of use, rather than only where the manifest is
+ * read: these functions are exported and a caller can reach them with a value
+ * that never passed through validation.
+ *
+ * @param {string} value
+ * @param {string} what What to call the offending value when it is rejected.
+ * @returns {string}
+ */
+export function notAnOption(value, what) {
+  if (value.startsWith('-'))
+    return fail(
+      `${what} ${JSON.stringify(value)} starts with "-", which git reads as an option rather than a value`,
+    );
+  return value;
 }
 
 /**
@@ -120,12 +148,22 @@ export const under = (path, prefix) =>
  * Normalise one repo-relative path from the manifest or the command line,
  * rejecting anything that could reach outside the repo.
  *
+ * The trailing slashes come off by index rather than with `/\/+$/`, which
+ * backtracks quadratically on a value that is all slashes — and the value here
+ * is a file in the consumer's repo.
+ *
  * @param {string} entry
  * @param {string} what What to call the offending value when it is rejected.
  * @returns {string}
  */
 export function repoRelative(entry, what) {
-  const path = entry.trim().replace(/^\.\//, '').replace(/\/+$/, '');
+  const trimmed = entry.trim();
+  const body = trimmed.startsWith('./') ? trimmed.slice(2) : trimmed;
+
+  let end = body.length;
+  while (end > 0 && body[end - 1] === '/') end -= 1;
+  const path = body.slice(0, end);
+
   if (path === '' || path.startsWith('/') || path.split('/').includes('..'))
     return fail(`${what} ${JSON.stringify(entry)} is not a repo-relative path`);
   return path;
@@ -216,8 +254,11 @@ export function readManifestIfAny(root) {
     );
 
   return {
-    upstream: str('upstream'),
-    ref: str('ref'),
+    // Both reach git as arguments of their own, so they are checked on the way
+    // in as well as at each point of use — the manifest is where a human can
+    // still fix it, and the message names the field.
+    upstream: notAnOption(str('upstream'), `${MANIFEST}: "upstream"`),
+    ref: notAnOption(str('ref'), `${MANIFEST}: "ref"`),
     packages: strings('packages'),
     bundles: strings('bundles'),
     omit: strings('omit').map((entry) =>
@@ -287,6 +328,9 @@ export function writeManifest(root, manifest, { replace = false } = {}) {
  * @returns {string}
  */
 export function fetchBank(upstream, ref) {
+  notAnOption(upstream, 'upstream');
+  notAnOption(ref, 'ref');
+
   if (
     gitOrNull(['fetch', '--no-tags', '--quiet', upstream, ref]) !== undefined
   ) {
@@ -336,6 +380,8 @@ export function fetchBank(upstream, ref) {
  * @returns {string}
  */
 export function defaultBranch(upstream) {
+  notAnOption(upstream, 'upstream');
+
   const symref = gitOrNull(['ls-remote', '--symref', upstream, 'HEAD']);
   return symref?.match(/^ref: refs\/heads\/(\S+)\s+HEAD$/m)?.[1] ?? 'HEAD';
 }

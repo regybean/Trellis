@@ -56,11 +56,11 @@ import {
   resolveInclude,
 } from './lib/bank-closure.mjs';
 import {
+  at,
   BankError,
   enterRepoRoot,
   fail,
   fetchBank,
-  field,
   MANIFEST,
   readManifestIfAny,
   writeManifest,
@@ -397,7 +397,7 @@ async function pickSelection(offer, header) {
       next >= 0 && next < rows.length;
       next += delta
     ) {
-      if (field(rows, next, 'menu row').kind === 'choice') {
+      if (at(rows, next, 'menu row').kind === 'choice') {
         cursor = next;
         return;
       }
@@ -405,7 +405,7 @@ async function pickSelection(offer, header) {
   };
 
   const toggle = () => {
-    const row = field(current().rows, cursor, 'menu row');
+    const row = at(current().rows, cursor, 'menu row');
     if (row.kind !== 'choice' || row.fixed) return;
     const set = row.group === 'package' ? packages : bundles;
     if (!set.delete(row.label)) set.add(row.label);

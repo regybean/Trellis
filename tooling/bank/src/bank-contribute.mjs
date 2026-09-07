@@ -34,15 +34,16 @@ import { join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 
 import {
+  at,
   BankError,
   defaultBranch,
   enterRepoRoot,
   fail,
-  field,
   git,
   githubSlug,
   gitOrNull,
   MANIFEST,
+  notAnOption,
   readManifest,
   repoRelative,
   under,
@@ -288,7 +289,7 @@ async function confirm(paths) {
 function openPullRequest({ manifest, bankSha, paths, patch }) {
   const head = git(['rev-parse', '--short', 'HEAD']);
   // `requestedPaths` refuses an empty list, so there is always a first path.
-  const first = field(paths, 0, 'contributed path');
+  const first = at(paths, 0, 'contributed path');
   const branch = `contribute/${first.replace(/[^A-Za-z0-9._-]+/g, '-')}-${head}`;
   const base = defaultBranch(manifest.upstream);
   const title = `contribute ${paths.join(', ')} from a consumer`;
@@ -307,7 +308,7 @@ function openPullRequest({ manifest, bankSha, paths, patch }) {
 
   const work = mkdtempSync(join(tmpdir(), 'bank-contribute-'));
   const clone = join(work, 'bank');
-  git(['clone', '--quiet', manifest.upstream, clone]);
+  git(['clone', '--quiet', notAnOption(manifest.upstream, 'upstream'), clone]);
   git(['checkout', '--quiet', '-b', branch, bankSha], { cwd: clone });
   git(['apply', '--index', '--whitespace=nowarn', '-'], {
     cwd: clone,

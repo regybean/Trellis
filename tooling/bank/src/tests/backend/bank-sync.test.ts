@@ -13,7 +13,7 @@
  * the sibling secrets test; this file uses none of it.
  */
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -223,6 +223,28 @@ describe('bank:sync builds the vendor branch', () => {
     expect(status).not.toBe(0);
     expect(stderr).toContain('bank/nope');
     expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(vendorBefore);
+  });
+
+  /**
+   * `upstream` and `ref` are the two manifest fields that reach git as
+   * arguments of their own. A leading `-` moves them out of value position and
+   * into option position, where git has options that run a command
+   * (`--upload-pack`, `--exec`). The manifest is a file in the consumer's own
+   * repo rather than a hostile input, but it is edited by hand and reviewed
+   * like any other file, so the refusal belongs in the tool.
+   */
+  it.each([
+    ['upstream', { upstream: '--upload-pack=touch ./pwned' }],
+    ['ref', { ref: '--upload-pack=touch ./pwned' }],
+  ])('refuses an %s that git would read as an option', (field, patch) => {
+    const { consumer } = setup();
+
+    editManifest(consumer, patch, `consumer: point ${field} at an option`);
+    const { stderr } = syncFailure(consumer);
+
+    expect(stderr).toContain(field);
+    expect(stderr).toContain('git reads as an option');
+    expect(existsSync(join(consumer, 'pwned'))).toBe(false);
   });
 });
 

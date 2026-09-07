@@ -16,7 +16,7 @@
  * the resolution has to run on git plumbing alone — no install, no pnpm, no
  * turbo — because the bank being resolved is a fetched tree, not a checkout.
  */
-import { fail, field, git, gitOrNull, under } from './bank.mjs';
+import { at, fail, git, gitOrNull, under } from './bank.mjs';
 
 /** The bank's own inventory: the bundles and the exclusions, at the bank ref. */
 const PATHS_FILE = 'bank.paths.json';
@@ -185,7 +185,7 @@ function packageIndex(sha, exclude, tree = treePaths(sha)) {
   const index = new Map();
   for (const { dir, rank } of dirs) {
     // `rank` is a `findIndex` hit filtered to `!== -1` above, so this holds.
-    const glob = field(globs, rank, 'workspace glob');
+    const glob = at(globs, rank, 'workspace glob');
     const pkg = readJson(sha, `${dir}/package.json`);
     if (typeof pkg.name !== 'string' || pkg.name === '') continue;
     const deps = DEPENDENCY_FIELDS.flatMap((field) => {

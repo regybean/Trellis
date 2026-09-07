@@ -47,12 +47,12 @@ import { join } from 'node:path';
 
 import { describeUnmatched, resolveInclude } from './lib/bank-closure.mjs';
 import {
+  at,
   BankError,
   defaultBranch,
   enterRepoRoot,
   fail,
   fetchBank,
-  field,
   git,
   gitOrNull,
   MANIFEST,
@@ -95,11 +95,11 @@ function buildFilteredTree(root, sha, include) {
     .map((line) => {
       // `<mode> <type> <object>\t<path>` — ls-tree's format, verbatim.
       const record = line.split('\t');
-      const meta = field(record, 0, 'ls-tree entry').split(' ');
+      const meta = at(record, 0, 'ls-tree entry').split(' ');
       return {
-        mode: field(meta, 0, 'ls-tree mode'),
-        object: field(meta, 2, 'ls-tree object'),
-        path: field(record, 1, 'ls-tree path'),
+        mode: at(meta, 0, 'ls-tree mode'),
+        object: at(meta, 2, 'ls-tree object'),
+        path: at(record, 1, 'ls-tree path'),
       };
     })
     .filter((entry) => include.some((prefix) => under(entry.path, prefix)));
@@ -179,8 +179,8 @@ function localModifications(vendor, include) {
   const entries = [];
   for (let i = 0; i + 1 < fields.length; i += 2)
     entries.push({
-      status: field(fields, i, 'name-status'),
-      path: field(fields, i + 1, 'name-status'),
+      status: at(fields, i, 'name-status'),
+      path: at(fields, i + 1, 'name-status'),
     });
   return { merged: true, entries };
 }
