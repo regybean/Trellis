@@ -48,9 +48,14 @@ there is one rule for both. Citation counts are a tiebreak, never the rule: an
 ADR cited only on one package's row can still survive deleting that package, and
 then it stays at the root.
 
-**Apps may own ADRs; `tooling/*` may not.** An app passes the same test, though
-nothing qualifies today. Tooling decisions govern the repo-wide gate rather than
-the config package, so they stay at the root.
+**Apps and tooling packages may own ADRs — the deletion test decides, not the
+directory.** An app passes the same test, though nothing qualifies today. A
+`tooling/*` config package almost never does: its decisions govern the
+repo-wide gate rather than the package, so they stay at the root. `tooling/bank`
+is the standing exception — the bank's duplicated workspace helpers exist
+because it runs before `pnpm install`, and deleting the package takes both the
+duplication and the reason for it
+([its ADR 0001](../../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)).
 
 **Sequences are per directory, starting at `0001`.** Root and package numbering
 are independent — the same number in both is normal and is never flagged. A
