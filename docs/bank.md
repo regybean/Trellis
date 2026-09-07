@@ -30,7 +30,11 @@ two things no derivation gives you.
 - **`bundles`.** Named groups of content that cannot be a package, because the
   tools that read it require it at a fixed repo-relative path. `root` is always
   included and holds the root `package.json`, `turbo.json`,
-  `pnpm-workspace.yaml`, `patches/`, `scripts/` and the lint and hook configs.
+  `pnpm-workspace.yaml`, `patches/`, `scripts/`, `tooling/bank` and the lint and
+  hook configs. `tooling/bank` is a workspace package rather than a fixed path,
+  and it is named here anyway: the root `package.json` delegates the bank
+  commands into it, so a selection that never asked for it would still arrive
+  calling it.
   The rest are `scaffolding`, `agents`, `ci`, `docs` and `infra` — and `infra`
   selects itself when a package you took declares the services it needs.
 - **`exclude`.** What is left out, with a reason each. `pnpm-lock.yaml`,
@@ -64,8 +68,9 @@ but not one file_, because a resolved path is a prefix.
 
 The root `package.json` is a seed for a narrower reason: only `name` in it is
 yours, and the bank never edits that field, so it cannot conflict. The other six
-are the tooling contract for `scripts/`, which arrives in the same bundle — the
-script entries that invoke those files, and the devDependencies they run on. Take
+are the tooling contract for `scripts/` and `tooling/bank`, which arrive in the
+same bundle — the script entries that invoke those files, and the
+devDependencies they run on. Take
 `scripts/quality-gate.sh` without the manifest and you have a script with no
 `turbo` installed and no `postinstall` to register the skills. See
 [Bringing your own root manifest](#bringing-your-own-root-manifest) if your repo
@@ -102,25 +107,32 @@ root `package.json`, so read
 [Bringing your own root manifest](#bringing-your-own-root-manifest) before the
 first merge.
 
-### 1. Vendor the bank scripts
+### 1. Vendor the bank
 
-`scripts/` lives in the `root` bundle, so after your first sync the bank
-commands arrive, and update themselves, like anything else. Setting up needs
-them before they exist, so copy four files in by hand once:
+The bank is the `@acme/bank` package at `tooling/bank`, and `bank.paths.json`
+names that path in the `root` bundle — which no selection can opt out of. So
+after your first sync the bank commands arrive, and update themselves, like
+anything else. Setting up needs them before they exist, so copy four files in by
+hand once:
 
 ```
-scripts/setup-wizard.mjs
-scripts/bank-sync.mjs
-scripts/lib/bank.mjs
-scripts/lib/bank-closure.mjs
+tooling/bank/src/setup-wizard.mjs
+tooling/bank/src/bank-sync.mjs
+tooling/bank/src/lib/bank.mjs
+tooling/bank/src/lib/bank-closure.mjs
 ```
 
-`scripts/lib/bank.mjs` is the manifest reading and writing, ref resolving and
-vendor-commit format the bank commands share; `scripts/lib/bank-closure.mjs`
-turns a selection into paths. Neither the wizard nor the sync runs without both.
-They need nothing installed — plain node and git are enough, which is why setup
-works in a repo with no `node_modules`. `scripts/bank-contribute.mjs` arrives
-with your first sync; you do not need it to pull.
+`src/lib/bank.mjs` is the manifest reading and writing, ref resolving and
+vendor-commit format the bank commands share; `src/lib/bank-closure.mjs` turns a
+selection into paths. Neither the wizard nor the sync runs without both. Keep
+the paths as written — the two commands find their libs beside them.
+
+They need nothing installed. Plain node and git are enough, which is why setup
+works in a repo with no `node_modules`, and it is the constraint that keeps this
+package on `node:` builtins with no build step
+([its ADR 0001](../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)).
+`tooling/bank/src/bank-contribute.mjs` arrives with your first sync; you do not
+need it to pull.
 
 ### 2. Pin a bank tag
 
@@ -137,7 +149,7 @@ git ls-remote --tags https://github.com/regybean/Trellis.git 'refs/tags/bank/*'
 `setup:wizard` writes it. With no arguments it walks you through:
 
 ```bash
-node scripts/setup-wizard.mjs
+node tooling/bank/src/setup-wizard.mjs
 ```
 
 It asks for the bank URL and the ref, then opens a menu of everything that bank
@@ -156,7 +168,7 @@ The argument form takes the same selection without the menu, which is what makes
 a scripted setup repeatable:
 
 ```bash
-node scripts/setup-wizard.mjs \
+node tooling/bank/src/setup-wizard.mjs \
   --upstream https://github.com/regybean/Trellis.git \
   --ref bank/2026-08-26 \
   --packages @acme/logger,@acme/ui \
@@ -174,7 +186,7 @@ To read the offer without opening the menu — the answer to "what is that packa
 called?" — `--list` prints it and exits, writing nothing:
 
 ```bash
-node scripts/setup-wizard.mjs --list \
+node tooling/bank/src/setup-wizard.mjs --list \
   --upstream https://github.com/regybean/Trellis.git \
   --ref bank/2026-08-26
 ```
@@ -232,7 +244,7 @@ Run the first sync as plain node, since `pnpm bank:sync` is one of the entries
 the sync itself delivers:
 
 ```bash
-node scripts/bank-sync.mjs
+node tooling/bank/src/bank-sync.mjs
 git merge --allow-unrelated-histories vendor/trellis
 ```
 
@@ -588,7 +600,7 @@ git push origin bank/$(date +%F)
 
 Adding a package needs no edit to `bank.paths.json` — the package set is derived.
 Adding a root-level file does, and `pnpm lint` fails naming it until it is either
-in a bundle or on `exclude` (`scripts/check-bank-paths.mjs`). There is no third
+in a bundle or on `exclude` (`tooling/bank/src/check-bank-paths.mjs`). There is no third
 answer: an unclassified root entry is content nobody can take and nobody can see
 was withheld.
 
@@ -609,10 +621,10 @@ tag.
   enumerates paths.
 - [`bank.paths.json`](../bank.paths.json) is the bundles and the exclusions; the
   package set is the `pnpm-workspace.yaml` globs.
-- [`scripts/setup-wizard.mjs`](../scripts/setup-wizard.mjs) authors the manifest;
-  [`scripts/bank-sync.mjs`](../scripts/bank-sync.mjs) pulls;
-  [`scripts/bank-contribute.mjs`](../scripts/bank-contribute.mjs) is the guarded
+- [`tooling/bank/src/setup-wizard.mjs`](../tooling/bank/src/setup-wizard.mjs) authors the manifest;
+  [`tooling/bank/src/bank-sync.mjs`](../tooling/bank/src/bank-sync.mjs) pulls;
+  [`tooling/bank/src/bank-contribute.mjs`](../tooling/bank/src/bank-contribute.mjs) is the guarded
   path back. All three run over
-  [`scripts/lib/bank.mjs`](../scripts/lib/bank.mjs), and the wizard and the sync
-  over [`scripts/lib/bank-closure.mjs`](../scripts/lib/bank-closure.mjs) for the
+  [`tooling/bank/src/lib/bank.mjs`](../tooling/bank/src/lib/bank.mjs), and the wizard and the sync
+  over [`tooling/bank/src/lib/bank-closure.mjs`](../tooling/bank/src/lib/bank-closure.mjs) for the
   selection.
