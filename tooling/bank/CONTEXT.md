@@ -28,10 +28,19 @@ The root delegates every command here with `pnpm -C tooling/bank`, so
 `tooling/bank` rides the always-included `root` bundle in `bank.paths.json`: a
 consumer who never selected this package by name still receives it, because
 otherwise their next sync would delete the tool that performs the one after it.
-`-C` rather than `--filter` is deliberate — pnpm's recursive runner reports its
-own exit 1 regardless of what the child returned, which would flatten
-`bank:sync --check`'s drift code onto its error code. Both facts are held by
-tests.
+The four config packages this one declares `workspace:*` on ride the same bundle
+— a bundle contributes paths and never walks dependency edges, so a manifest it
+delivers has to name only packages the same bundle delivers.
+
+`-C` rather than `--filter` is deliberate, and not for the reason it looks like:
+on the pinned pnpm both spellings pass the child's exit code through, so
+`bank:sync --check`'s drift code survives either way. What separates them is the
+missing-package case. `--filter` on a name no package matches prints "No
+projects matched the filters" and **exits 0** — so in a repo whose bank never
+arrived, `pnpm bank:sync --check` would report no drift while doing nothing at
+all, which is the one answer this command must never give wrongly. `-C` on a
+missing directory is an error. All of it is held by tests, exercised rather than
+asserted against the script text.
 
 ## Language
 

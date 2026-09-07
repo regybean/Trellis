@@ -9,11 +9,19 @@
  * is what git itself does with the ancestry the script builds, so a fake git
  * would assert nothing.
  *
- * No container is needed here. The suite's global-setup starts LocalStack for
- * the sibling secrets test; this file uses none of it.
+ * No container either: this package's vitest config has no global setup, and
+ * nothing here needs one. Git and a temp dir are the whole fixture.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -32,8 +40,18 @@ import {
   sync,
   treePaths,
   write,
+  writeJson,
   writePackage,
 } from './bank-sandbox';
+import { readJson, stringMap } from './json';
+
+/** The commands the root exposes for this package, all four delegated. */
+const BANK_SCRIPTS = [
+  'bank:contribute',
+  'bank:sync',
+  'check:bank-paths',
+  'setup:wizard',
+];
 
 afterEach(cleanupSandboxes);
 
@@ -576,43 +594,94 @@ describe('bank:sync --check reports drift', () => {
   });
 
   /**
-   * Those three codes only mean anything if they survive the root script.
+   * Those three codes only mean anything if they survive the root script, so
+   * the delegation is exercised rather than read.
    *
-   * `pnpm --filter <pkg> <script>` runs the script through pnpm's *recursive*
-   * runner, which reports `ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL` and exits **1**
-   * whatever the child exited with. Delegating that way silently flattens `2`
-   * (drift) onto `1` (error), so anything watching `pnpm bank:sync --check`
-   * for drift — the reason the code exists — would see a failure instead.
+   * The command under test is copied verbatim out of this repo's root
+   * `package.json` into a throwaway workspace, where `tooling/bank` is a stub
+   * that exits 2 on demand and can be deleted. Nothing here asserts a spelling:
+   * both `pnpm -C tooling/bank` and `pnpm --filter @acme/bank` reach that stub,
+   * and either is free to pass if it behaves.
    *
-   * `pnpm -C <dir> <script>` is the plain runner and passes the code through.
-   * So the root delegates with `-C`, and this pins the reason: the tempting
-   * edit is to "normalise" these four scripts onto `--filter` alongside the
-   * other tooling packages, none of which return a meaningful non-zero code.
+   * The second case is the one that separates them, and it is the reason the
+   * root uses `-C`. `--filter` on a name no package matches prints "No projects
+   * matched the filters" and exits **0**: in a repo whose bank never arrived —
+   * the failure the always-included bundle exists to prevent, one registration
+   * away at all times — `pnpm bank:sync --check` would answer "no drift" having
+   * looked at nothing. `-C` on a missing directory is an error.
    */
-  it('is delegated from the root in a way that preserves the exit code', () => {
-    const { scripts } = JSON.parse(
-      readFileSync(join(repoRoot, 'package.json'), 'utf8'),
-    ) as { scripts: Record<string, string> };
+  describe('the root delegation', () => {
+    const delegated: string[] = [];
 
-    const bankCommands = Object.entries(scripts).filter(([, command]) =>
-      command.includes('tooling/bank'),
+    afterEach(() => {
+      for (const dir of delegated.splice(0)) rmSync(dir, { recursive: true });
+    });
+
+    /** The real root command, over a stub bank that exits `code`. */
+    function scratchWorkspace(script: string, code: number, bank = true) {
+      const scripts = stringMap(
+        readJson(join(repoRoot, 'package.json')),
+        'scripts',
+      );
+      const command = scripts[script] ?? '';
+      expect(command, `root package.json defines ${script}`).not.toBe('');
+
+      const dir = mkdtempSync(join(tmpdir(), 'bank-delegation-'));
+      delegated.push(dir);
+
+      writeJson(join(dir, 'package.json'), {
+        name: 'scratch-consumer',
+        private: true,
+        scripts: { [script]: command },
+      });
+      writeFileSync(
+        join(dir, 'pnpm-workspace.yaml'),
+        'packages:\n  - tooling/*\n',
+      );
+
+      if (bank) {
+        mkdirSync(join(dir, 'tooling/bank'), { recursive: true });
+        writeJson(join(dir, 'tooling/bank/package.json'), {
+          name: '@acme/bank',
+          private: true,
+          scripts: Object.fromEntries(
+            BANK_SCRIPTS.map((name) => [
+              name,
+              `node -e "process.exit(${code})"`,
+            ]),
+          ),
+        });
+      }
+
+      return dir;
+    }
+
+    /** Runs the root command the way a human at the repo root would. */
+    function runRoot(dir: string, script: string) {
+      const run = spawnSync('pnpm', ['run', script], {
+        cwd: dir,
+        encoding: 'utf8',
+      });
+      if (run.error) throw run.error;
+      return run.status ?? -1;
+    }
+
+    it.each(BANK_SCRIPTS)(
+      'passes %s the exit code its package returned, not one of its own',
+      (script) => {
+        const dir = scratchWorkspace(script, 2);
+
+        expect(runRoot(dir, script)).toBe(2);
+      },
     );
 
-    // The four the root exposes; if one stops delegating here, say so loudly.
-    expect(bankCommands.map(([name]) => name).sort()).toEqual([
-      'bank:contribute',
-      'bank:sync',
-      'check:bank-paths',
-      'setup:wizard',
-    ]);
+    it('fails rather than reporting success when the bank package is absent', () => {
+      const dir = scratchWorkspace('bank:sync', 2, false);
 
-    for (const [name, command] of bankCommands) {
-      expect(command, `${name} must not delegate with --filter`).not.toContain(
-        '--filter',
-      );
-      expect(command, `${name} must delegate with pnpm -C`).toContain(
-        '-C tooling/bank',
-      );
-    }
+      expect(
+        runRoot(dir, 'bank:sync'),
+        'a root command that no-ops to 0 when the bank is missing would report "no drift" having looked at nothing',
+      ).not.toBe(0);
+    });
   });
 });

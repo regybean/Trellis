@@ -29,11 +29,13 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../../../../');
 
 /**
- * What a consumer vendors to get the bank commands: the three commands and the
- * two libs they share. All five live under `tooling/bank/src/`, and
- * `bank.paths.json` names `tooling/bank` in the always-included `root` bundle,
- * so after the first sync they arrive — and update themselves — like anything
- * else in that bundle.
+ * What the sandbox's consumer runs the bank from: the three commands and the
+ * two libs they share.
+ *
+ * A real consumer hand-copies four of these — the wizard, the sync and the two
+ * libs (docs/bank.md, step 1) — and receives `bank-contribute.mjs` with the
+ * first sync. The sandbox puts all five there at once because its cases start
+ * mid-story, at a consumer that has already synced.
  *
  * Copied at their real repo-relative paths, because that is where a consumer
  * hand-copies them to and where the first bare-node run finds them.
@@ -92,6 +94,11 @@ export function commit(repo: string, message: string) {
 
 export function read(repo: string, path: string) {
   return readFileSync(join(repo, path), 'utf8');
+}
+
+export function writeJson(path: string, value: unknown) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 /** Paths a ref's tree holds, sorted — the "exactly these files" assertion. */

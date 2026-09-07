@@ -29,6 +29,7 @@ import {
   syncAndMerge,
   write,
 } from './bank-sandbox';
+import { readJson, stringMap } from './json';
 
 afterEach(cleanupSandboxes);
 
@@ -293,9 +294,7 @@ describe('nothing invokes bank:contribute automatically', () => {
   it('is defined as exactly one script per manifest and used by no other', () => {
     /** @returns the script names whose command line reaches contribute. */
     const referencing = (manifest: string) => {
-      const { scripts } = JSON.parse(
-        readFileSync(join(repoRoot, manifest), 'utf8'),
-      ) as { scripts: Record<string, string> };
+      const scripts = stringMap(readJson(join(repoRoot, manifest)), 'scripts');
 
       return Object.entries(scripts)
         .filter(([, command]) => invocation.test(command))
