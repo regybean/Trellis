@@ -378,14 +378,31 @@ export function githubSlug(upstream) {
 }
 
 /**
+ * The repo root, asked of git rather than derived from this file's location.
+ *
+ * Every bank file already runs on git plumbing, so git is the cheapest source
+ * of truth available — and the only one that survives the file moving. A depth
+ * calculation from `import.meta.url` silently resolves to the wrong directory
+ * the moment the file is relocated, which for a checker means finding no
+ * inventory, taking the not-a-bank branch and passing while enforcing nothing.
+ *
+ * @returns {string}
+ */
+export function repoRoot() {
+  return (
+    gitOrNull(["rev-parse", "--show-toplevel"]) ??
+    fail("not inside a git repository")
+  );
+}
+
+/**
  * The repo root, with the process moved into it so every relative path below
  * means the same thing.
  *
  * @returns {string}
  */
 export function enterRepoRoot() {
-  const root = gitOrNull(["rev-parse", "--show-toplevel"]);
-  if (!root) return fail("not inside a git repository");
+  const root = repoRoot();
   process.chdir(root);
   return root;
 }

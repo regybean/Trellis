@@ -105,6 +105,15 @@ dirs (`.cache`, `.turbo`, `logs`, `node_modules`) never reach it, and it accepts
 nesting in either direction, since `scaffolding` names `turbo/generators` while
 the root entry is `turbo`.
 
+It asks git where the root is, and takes an explicit root argument that
+overrides that. Both matter more than they look: a checker that derives the root
+from its own depth resolves to the wrong directory the moment it is relocated,
+and the wrong directory holds no inventory — so it takes the consumer-repo
+branch and exits 0, leaving the gate green and enforcing nothing. The argument
+is the same override `check-adrs` and `check-test-policy` already take, and it
+is what lets the rules be asserted against a fixture repo rather than only
+against this one.
+
 ## Considered and rejected
 
 - **Keep `packages` and add an opt-out flag.** A flag would earn the array back,

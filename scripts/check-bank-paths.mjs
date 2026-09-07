@@ -22,17 +22,23 @@
  * untracked working dirs — `.cache`, `.turbo`, `logs`, `node_modules` — never
  * reach it.
  *
+ * The root is asked of git, not derived from this file's own depth: a checker
+ * that resolves to the wrong directory finds no inventory, takes the
+ * consumer-repo branch below and exits 0, so the gate would pass while
+ * enforcing nothing. An explicit root argument overrides it, which is also what
+ * lets the rules be aimed at a fixture repo.
+ *
  * Usage:
- *   node scripts/check-bank-paths.mjs   # exit 1 naming anything unclassified
+ *   node scripts/check-bank-paths.mjs [repo-root]   # exit 1 naming anything unclassified
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join, resolve } from "node:path";
 
 import { parseWorkspaceGlobs } from "./lib/bank-closure.mjs";
+import { repoRoot } from "./lib/bank.mjs";
 
-const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = process.argv[2] ? resolve(process.argv[2]) : repoRoot();
 const PATHS_FILE = "bank.paths.json";
 
 // `scripts/` is itself bank content, so this file arrives in every consumer
