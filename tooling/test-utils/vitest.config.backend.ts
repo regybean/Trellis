@@ -9,7 +9,9 @@ export default mergeConfig(
       name: 'backend',
       environment: 'node',
       include: ['src/tests/backend/**/*.test.ts'],
-      globalSetup: ['./src/tests/backend/global-setup.ts'],
+      // No globalSetup: these suites drive scripts and git sandboxes, not
+      // containers. The one that needed LocalStack moved to @acme/secrets-sync,
+      // and took the descriptor with it.
       testTimeout: 120000,
       hookTimeout: 120000,
       pool: 'forks',
