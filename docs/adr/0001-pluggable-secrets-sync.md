@@ -15,6 +15,15 @@ value is non-secret config that lives in the repo; an empty value (and never a
 non-secret config out of the vault and makes one-command onboarding work on any
 provider.
 
+The rules themselves — parsing a dotenv file, deciding which keys are secret,
+composing the desired environment, diffing it against what is on disk and
+merging the two — live in `@acme/secrets-sync` (`tooling/secrets-sync/`). The
+scripts are the entry point, the backend dispatch and the prompts. The split
+follows the contract: the adapter pair is the published extension point and a
+consumer adding a backend writes shell, so that seam stays shell; the rules were
+`node -e` strings inside the two scripts, in copies that had already drifted
+apart on escape handling.
+
 ## Considered options
 
 - **SOPS / age (encrypted-in-repo)** — rejected: changes the model to committing
@@ -32,3 +41,5 @@ provider.
   every adapter, so it should change rarely.
 - `.env.example` is now an input to the scripts, not just documentation — every
   key must be declared there, and a key's emptiness decides its sensitivity.
+- `@acme/secrets-sync` is named in the bank's always-included `root` bundle: the
+  scripts that call it arrive with every selection, so it has to as well.
