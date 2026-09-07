@@ -7,12 +7,15 @@
  *
  * Each direction is two steps with the prompt in between:
  *
- *   plan-pull    → write the "here is what differs" blocks the prompts print
- *   apply-pull   → the resulting .env, on stdout, for the shell to install
+ *   plan-pull   → write the "here is what differs" blocks the prompts print
+ *   apply-pull  → the resulting .env, on stdout, for the shell to install
  *
- *   payload-push → the sensitive-only JSON a push may send, on stdout
- *   plan-push    → the same blocks, for the same prompts
- *   apply-push   → the JSON to hand the backend adapter, on stdout
+ *   plan-push   → the same blocks, plus the sensitive-only payload a push may
+ *                 send, written where apply-push will read it
+ *   apply-push  → the JSON to hand the backend adapter, on stdout
+ *
+ * Two steps and not three because a launch is not free: tsx has to start and
+ * transpile, and a sync covers every file in SECRET_MAP.
  *
  * Files rather than stdin for the inputs, because both plans need two documents
  * and neither should travel in argv, where `ps` can read it.
@@ -28,11 +31,10 @@ import { renderConflicts, renderKeyList } from './report';
 
 const USAGE = `Usage: secrets-sync <command> [options]
 
-  plan-pull    --example <f> --env <f> --vault <f> --extras-out <f> --differing-out <f>
-  apply-pull   --example <f> --env <f> --vault <f> [--keep-extra] [--prefer-source]
-  payload-push --example <f> --env <f>
-  plan-push    --local <f> --remote <f> --extras-out <f> --differing-out <f>
-  apply-push   --local <f> --remote <f> [--keep-extra] [--prefer-source]
+  plan-pull   --example <f> --env <f> --vault <f> --extras-out <f> --differing-out <f>
+  apply-pull  --example <f> --env <f> --vault <f> [--keep-extra] [--prefer-source]
+  plan-push   --example <f> --env <f> --remote <f> --payload-out <f> --extras-out <f> --differing-out <f>
+  apply-push  --local <f> --remote <f> [--keep-extra] [--prefer-source]
 `;
 
 /** An operator's mistake — reported as a message, never a stack trace. */
@@ -165,6 +167,7 @@ function run(argv: string[]) {
       remote: { type: 'string' },
       'extras-out': { type: 'string' },
       'differing-out': { type: 'string' },
+      'payload-out': { type: 'string' },
       'keep-extra': { type: 'boolean', default: false },
       'prefer-source': { type: 'boolean', default: false },
     },
@@ -202,18 +205,23 @@ function run(argv: string[]) {
       );
       return;
     // Push: the local file is the source, the vault the destination.
-    case 'payload-push':
-      process.stdout.write(
-        `${JSON.stringify(pushPayload(required(values, 'example'), required(values, 'env')), null, 2)}\n`,
+    case 'plan-push': {
+      const payload = pushPayload(
+        required(values, 'example'),
+        required(values, 'env'),
       );
-      return;
-    case 'plan-push':
+      // Written for apply-push to read back, so the classification runs once.
+      writeFileSync(
+        required(values, 'payload-out'),
+        `${JSON.stringify(payload, null, 2)}\n`,
+      );
       writePlan(values, {
-        source: readVault(required(values, 'local')),
+        source: payload,
         destination: readVault(required(values, 'remote')),
         localSide: 'source',
       });
       return;
+    }
     case 'apply-push':
       process.stdout.write(
         `${JSON.stringify(

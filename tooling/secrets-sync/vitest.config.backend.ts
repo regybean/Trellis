@@ -13,8 +13,11 @@ export default mergeConfig(
       // nothing, but one container for the package is cheaper than a second
       // vitest project to keep them apart.
       globalSetup: ['./src/tests/backend/global-setup.ts'],
-      testTimeout: 120000,
-      hookTimeout: 120000,
+      // The round-trip test drives the shell scripts, which launch tsx and the
+      // aws CLI several times each. Cheap alone, but the gate runs every
+      // package's suite at once and these are the tests that feel it.
+      testTimeout: 180000,
+      hookTimeout: 180000,
       pool: 'forks',
       maxWorkers: 1,
       isolate: false,

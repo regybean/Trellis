@@ -183,33 +183,54 @@ describe('apply-pull', () => {
   });
 });
 
-describe('payload-push', () => {
-  it('sends the secrets only, and warns about an undeclared key', () => {
+describe('plan-push', () => {
+  function planPush(example: string, remote: Record<string, string>) {
+    writeFileSync(join(dir, 'remote.json'), JSON.stringify(remote));
+    return run([
+      'plan-push',
+      '--example',
+      example,
+      '--env',
+      join(dir, '.env'),
+      '--remote',
+      join(dir, 'remote.json'),
+      '--payload-out',
+      join(dir, 'local.json'),
+      '--extras-out',
+      join(dir, 'extras'),
+      '--differing-out',
+      join(dir, 'differing'),
+    ]);
+  }
+
+  it('writes the secrets only as the payload, and warns about an undeclared key', () => {
     writeFileSync(
       join(dir, '.env'),
       'PUBLIC_URL=http://localhost:3000\nAPI_SECRET=s3cret\nNEXT_PUBLIC_TOKEN=pk\nSCRATCH=mine\n',
     );
-    const result = run([
-      'payload-push',
-      '--example',
-      join(dir, '.env.example'),
-      '--env',
-      join(dir, '.env'),
-    ]);
+    const result = planPush(join(dir, '.env.example'), {});
     expect(result.status).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({ API_SECRET: 's3cret' });
+    expect(JSON.parse(readFileSync(join(dir, 'local.json'), 'utf8'))).toEqual({
+      API_SECRET: 's3cret',
+    });
     expect(result.stderr).toContain('SCRATCH');
     expect(result.stderr).toContain('not pushed');
   });
 
+  it('reports the keys only the vault holds, and the ones whose values differ', () => {
+    writeFileSync(join(dir, '.env'), 'API_SECRET=local\n');
+    planPush(join(dir, '.env.example'), {
+      API_SECRET: 'remote',
+      RETIRED: 'old',
+    });
+    expect(readFileSync(join(dir, 'extras'), 'utf8')).toBe('  - RETIRED\n');
+    expect(readFileSync(join(dir, 'differing'), 'utf8')).toBe(
+      '  API_SECRET\n    Local:  local\n    Remote: remote\n',
+    );
+  });
+
   it('refuses without an example — nothing can be classified', () => {
-    const result = run([
-      'payload-push',
-      '--example',
-      join(dir, 'absent.example'),
-      '--env',
-      join(dir, '.env'),
-    ]);
+    const result = planPush(join(dir, 'absent.example'), {});
     expect(result.status).toBe(1);
     expect(result.stderr).toContain(
       'required to classify which keys are secret',
@@ -226,7 +247,7 @@ describe('the command itself', () => {
   });
 
   it('refuses a missing required argument by name', () => {
-    const result = run(['payload-push', '--env', join(dir, '.env')]);
+    const result = run(['plan-push', '--env', join(dir, '.env')]);
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('--example is required');
   });

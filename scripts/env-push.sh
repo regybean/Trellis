@@ -26,16 +26,18 @@ push_env_file() {
     return 1
   fi
 
-  # The sensitive-only payload, and the secret as it stands today.
-  secrets_sync payload-push --example "$example_file" --env "$env_file" > "$WORK/local.json"
   fetch_secret "$secret_id" > "$WORK/remote.json"
 
   local keep_extra=""
   local prefer_local="--prefer-source"
 
+  # Reduces the file to its secrets (into local.json, for apply-push) and says
+  # what would change at the vault.
   secrets_sync plan-push \
-    --local "$WORK/local.json" \
+    --example "$example_file" \
+    --env "$env_file" \
     --remote "$WORK/remote.json" \
+    --payload-out "$WORK/local.json" \
     --extras-out "$WORK/extras" \
     --differing-out "$WORK/differing"
 

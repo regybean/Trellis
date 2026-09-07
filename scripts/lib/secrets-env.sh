@@ -52,8 +52,19 @@ source "$adapter"
 
 # @acme/secrets-sync's CLI: composition, classification, the diff and the merge.
 # Run from source with tsx (no build step, matching the other tooling packages).
+#
+# The installed binary directly, rather than `pnpm exec tsx`: pnpm resolves the
+# workspace on every call before it launches anything, which more than doubles
+# the cost of a launch, and a sync of five files makes ten of them. `pnpm exec`
+# stays as the fallback for a tree whose bins are somewhere else.
+if [ -x "$REPO_ROOT/node_modules/.bin/tsx" ]; then
+  SECRETS_TSX=("$REPO_ROOT/node_modules/.bin/tsx")
+else
+  SECRETS_TSX=(pnpm exec tsx)
+fi
+
 secrets_sync() {
-  pnpm exec tsx "$SECRETS_CLI" "$@"
+  "${SECRETS_TSX[@]}" "$SECRETS_CLI" "$@"
 }
 
 # A private directory for the plan blocks and the JSON documents the CLI reads.
