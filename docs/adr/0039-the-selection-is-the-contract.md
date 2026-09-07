@@ -74,6 +74,16 @@ because the selection names `@acme/ui` and the path is looked up at `ref`.
 package the consumer imports turns a manifest problem into a build error three
 steps later.
 
+**So is a bundle path that matches nothing**, for the same reason read from the
+other side. A bundle path is a literal prefix — the one un-derived surface here,
+and therefore the only one a reorganisation upstream can leave pointing at
+nothing while the manifest still looks valid. A package name follows a rename or
+a directory move for free; a subscribed prefix whose contents were moved out from
+under it just stops delivering files. So the sync aborts naming the prefix and
+the bundle that authored it, before anything is written. `--check` reports the
+same condition at both refs rather than raising it, exactly as it does for a
+missing name.
+
 **Omission is explicit.** `omit` subtracts paths after resolution, empty by
 default, warning per entry that the resulting tree will not install unaided. It
 is the substitution case: a consumer keeping its own logger or auth. It is called
