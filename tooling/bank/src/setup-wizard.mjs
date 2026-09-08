@@ -5,7 +5,7 @@
  *
  * This is the first command a repo adopting the bank runs. It writes one file
  * and stops: the manifest naming the packages and bundles you take
- * ([ADR 0039](../docs/adr/0039-the-selection-is-the-contract.md)). It never
+ * ([ADR 0039](../../../docs/adr/0039-the-selection-is-the-contract.md)). It never
  * copies anything, never writes into `packages/`, and never touches the working
  * tree beyond that one file. `bank:sync` moves files, so seeding a new repo and
  * updating an old one are the same code path and the first sync is exercised on
@@ -35,9 +35,9 @@
  * (docs/bank.md).
  *
  * Usage:
- *   node scripts/setup-wizard.mjs                       # the picker (needs a TTY)
- *   node scripts/setup-wizard.mjs --list --upstream <git url> --ref <bank tag>
- *   node scripts/setup-wizard.mjs --upstream <git url> --ref <bank tag> \
+ *   node tooling/bank/src/setup-wizard.mjs                       # the picker (needs a TTY)
+ *   node tooling/bank/src/setup-wizard.mjs --list --upstream <git url> --ref <bank tag>
+ *   node tooling/bank/src/setup-wizard.mjs --upstream <git url> --ref <bank tag> \
  *     [--packages @acme/ui,@acme/logger] [--bundles docs,ci] [--force]
  *
  *   # or, once the root bundle has arrived: pnpm setup:wizard -- --upstream ...
@@ -46,28 +46,29 @@
  *   0  bank.manifest.json written, the offer listed, or the review backed out of
  *   1  refused — nothing was written
  */
-import { emitKeypressEvents } from "node:readline";
-import { createInterface } from "node:readline/promises";
-import { parseArgs } from "node:util";
+import { emitKeypressEvents } from 'node:readline';
+import { createInterface } from 'node:readline/promises';
+import { parseArgs } from 'node:util';
 
 import {
   bankOffer,
   closurePreview,
   resolveInclude,
-} from "./lib/bank-closure.mjs";
+} from './lib/bank-closure.mjs';
 import {
+  at,
   BankError,
-  MANIFEST,
   enterRepoRoot,
   fail,
   fetchBank,
+  MANIFEST,
   readManifestIfAny,
   writeManifest,
-} from "./lib/bank.mjs";
+} from './lib/bank.mjs';
 
 const EXIT_ERROR = 1;
 
-const USAGE = `usage: node scripts/setup-wizard.mjs [--list] --upstream <git url> --ref <bank tag> [--packages <names>] [--bundles <names>] [--force] — or no arguments at all, on a terminal, for the picker`;
+const USAGE = `usage: node tooling/bank/src/setup-wizard.mjs [--list] --upstream <git url> --ref <bank tag> [--packages <names>] [--bundles <names>] [--force] — or no arguments at all, on a terminal, for the picker`;
 
 /**
  * @typedef {object} Options
@@ -94,12 +95,12 @@ function parseFlags(args) {
       args,
       allowPositionals: false,
       options: {
-        upstream: { type: "string" },
-        ref: { type: "string" },
-        packages: { type: "string", multiple: true },
-        bundles: { type: "string", multiple: true },
-        list: { type: "boolean" },
-        force: { type: "boolean" },
+        upstream: { type: 'string' },
+        ref: { type: 'string' },
+        packages: { type: 'string', multiple: true },
+        bundles: { type: 'string', multiple: true },
+        list: { type: 'boolean' },
+        force: { type: 'boolean' },
       },
     }).values;
   } catch (error) {
@@ -134,7 +135,7 @@ const names = (entries) =>
   [
     ...new Set(
       (entries ?? [])
-        .flatMap((entry) => entry.split(","))
+        .flatMap((entry) => entry.split(','))
         .map((name) => name.trim())
         .filter(Boolean),
     ),
@@ -149,7 +150,7 @@ const names = (entries) =>
  * @param {number} [width]
  */
 const summarise = (description, width = 64) => {
-  const sentence = description.split(/(?<=\.)\s/)[0] ?? "";
+  const sentence = description.split(/(?<=\.)\s/)[0] ?? '';
   return sentence.length > width
     ? `${sentence.slice(0, width - 1).trimEnd()}…`
     : sentence;
@@ -195,31 +196,31 @@ function offerLines(offer, { ref, sha }) {
   return [
     `The bank at ${ref} (${sha.slice(0, 8)}) offers:`,
     ...offer.layers.flatMap(({ layer, packages }) => [
-      "",
+      '',
       `${layer}/`,
       ...packages.map((pkg) => `  ${pkg.name.padEnd(column)}  ${pkg.path}`),
     ]),
-    "",
-    "bundles",
+    '',
+    'bundles',
     ...offer.bundles.map(
       (bundle) =>
-        `  ${bundle.name.padEnd(column)}  ${bundle.alwaysIncluded ? "always included — " : ""}${summarise(bundle.description)}`,
+        `  ${bundle.name.padEnd(column)}  ${bundle.alwaysIncluded ? 'always included — ' : ''}${summarise(bundle.description)}`,
     ),
-    "",
-    "Name any of these with --packages and --bundles, or run the wizard with no",
-    "arguments to pick them off a menu. Nothing has been written.",
-    "",
+    '',
+    'Name any of these with --packages and --bundles, or run the wizard with no',
+    'arguments to pick them off a menu. Nothing has been written.',
+    '',
   ];
 }
 
 /* -- The picker ------------------------------------------------------------ */
 
 const ANSI = {
-  hideCursor: "\x1b[?25l",
-  showCursor: "\x1b[?25h",
-  clearDown: "\x1b[0J",
+  hideCursor: '\x1b[?25l',
+  showCursor: '\x1b[?25h',
+  clearDown: '\x1b[0J',
   /** @param {number} n */
-  up: (n) => (n > 0 ? `\x1b[${n}A` : ""),
+  up: (n) => (n > 0 ? `\x1b[${n}A` : ''),
 };
 
 /** How many pulled-in packages the preview names before it summarises. */
@@ -250,29 +251,29 @@ const PREVIEW_ROWS = 8;
 function menuRows(offer, preview) {
   return [
     ...offer.layers.flatMap(({ layer, packages }) => [
-      /** @type {Row} */ ({ kind: "heading", label: `${layer}/` }),
+      /** @type {Row} */ ({ kind: 'heading', label: `${layer}/` }),
       ...packages.map(
         (pkg) =>
           /** @type {Row} */ ({
-            kind: "choice",
-            group: "package",
+            kind: 'choice',
+            group: 'package',
             label: pkg.name,
             detail: pkg.path,
           }),
       ),
     ]),
-    /** @type {Row} */ ({ kind: "heading", label: "bundles" }),
+    /** @type {Row} */ ({ kind: 'heading', label: 'bundles' }),
     ...offer.bundles.map(
       (bundle) =>
         /** @type {Row} */ ({
-          kind: "choice",
-          group: "bundle",
+          kind: 'choice',
+          group: 'bundle',
           label: bundle.name,
           detail: summarise(bundle.description, 48),
           fixed: bundle.alwaysIncluded
-            ? "always included"
-            : bundle.name === "infra" && preview.infra
-              ? "selected by your closure"
+            ? 'always included'
+            : bundle.name === 'infra' && preview.infra
+              ? 'selected by your closure'
               : undefined,
         }),
     ),
@@ -290,19 +291,19 @@ function previewLines(preview) {
   const column = Math.max(...shown.map((pkg) => pkg.name.length), 0);
 
   return [
-    "",
+    '',
     preview.pulled.length
       ? `Pulled in by your selection (${preview.pulled.length}):`
-      : "Nothing pulled in yet.",
+      : 'Nothing pulled in yet.',
     ...shown.map(
       (pkg) =>
-        `  ${pkg.name.padEnd(column)}  required by ${pkg.reasons.join(", ")}`,
+        `  ${pkg.name.padEnd(column)}  required by ${pkg.reasons.join(', ')}`,
     ),
     ...(preview.pulled.length > shown.length
       ? [`  … and ${preview.pulled.length - shown.length} more`]
       : []),
     ...(preview.infra
-      ? ["  The infra bundle comes too — a package here declares acme.infra."]
+      ? ['  The infra bundle comes too — a package here declares acme.infra.']
       : []),
   ];
 }
@@ -331,7 +332,7 @@ async function pickSelection(offer, header) {
     return { preview, rows: menuRows(offer, preview) };
   };
 
-  let cursor = current().rows.findIndex((row) => row.kind === "choice");
+  let cursor = current().rows.findIndex((row) => row.kind === 'choice');
   let top = 0;
   let printed = 0;
 
@@ -344,7 +345,7 @@ async function pickSelection(offer, header) {
     // `||` rather than `??`: a terminal that reports zero columns is telling us
     // it does not know, and laying out to a width of -1 renders nothing at all.
     const width = (process.stdout.columns || 80) - 1;
-    const head = [header, ""];
+    const head = [header, ''];
     const tail = previewLines(preview);
     // The window is what is left of the terminal once the header, the preview
     // and the scroll line have taken theirs. Every line is truncated to the
@@ -361,20 +362,20 @@ async function pickSelection(offer, header) {
 
     /** @param {Row} row */
     const chosen = (row) =>
-      (row.group === "package" ? packages : bundles).has(row.label);
+      (row.group === 'package' ? packages : bundles).has(row.label);
 
     return [
       ...head,
       ...rows.slice(top, top + room).map((row, offset) => {
-        if (row.kind === "heading") return truncate(row.label, width);
-        const box = row.fixed || chosen(row) ? "[x]" : "[ ]";
-        const note = row.fixed ? `(${row.fixed}) ` : "";
+        if (row.kind === 'heading') return truncate(row.label, width);
+        const box = row.fixed || chosen(row) ? '[x]' : '[ ]';
+        const note = row.fixed ? `(${row.fixed}) ` : '';
         return truncate(
-          `${top + offset === cursor ? ">" : " "} ${box} ${row.label.padEnd(column)}  ${note}${row.detail ?? ""}`,
+          `${top + offset === cursor ? '>' : ' '} ${box} ${row.label.padEnd(column)}  ${note}${row.detail ?? ''}`,
           width,
         );
       }),
-      rows.length > room ? `  … ${rows.length - room} more, keep going` : "",
+      rows.length > room ? `  … ${rows.length - room} more, keep going` : '',
       ...tail.map((line) => truncate(line, width)),
     ];
   }
@@ -383,7 +384,7 @@ async function pickSelection(offer, header) {
     const { rows, preview } = current();
     const lines = frame(rows, preview);
     process.stdout.write(
-      `${ANSI.up(printed)}\r${ANSI.clearDown}${lines.join("\n")}\n`,
+      `${ANSI.up(printed)}\r${ANSI.clearDown}${lines.join('\n')}\n`,
     );
     printed = lines.length;
   };
@@ -396,7 +397,7 @@ async function pickSelection(offer, header) {
       next >= 0 && next < rows.length;
       next += delta
     ) {
-      if (rows[next].kind === "choice") {
+      if (at(rows, next, 'menu row').kind === 'choice') {
         cursor = next;
         return;
       }
@@ -404,9 +405,9 @@ async function pickSelection(offer, header) {
   };
 
   const toggle = () => {
-    const row = current().rows[cursor];
-    if (row.kind !== "choice" || row.fixed) return;
-    const set = row.group === "package" ? packages : bundles;
+    const row = at(current().rows, cursor, 'menu row');
+    if (row.kind !== 'choice' || row.fixed) return;
+    const set = row.group === 'package' ? packages : bundles;
     if (!set.delete(row.label)) set.add(row.label);
   };
 
@@ -423,15 +424,15 @@ async function pickSelection(offer, header) {
     await new Promise((resolve, reject) => {
       onKey = (_chunk, key) => {
         try {
-          if (key.ctrl && key.name === "c")
+          if (key.ctrl && key.name === 'c')
             return reject(
               new BankError(`cancelled — no ${MANIFEST} has been written.`),
             );
-          if (key.name === "return" || key.name === "enter")
+          if (key.name === 'return' || key.name === 'enter')
             return resolve(undefined);
-          if (key.name === "up" || key.name === "k") move(-1);
-          else if (key.name === "down" || key.name === "j") move(1);
-          else if (key.name === "space") toggle();
+          if (key.name === 'up' || key.name === 'k') move(-1);
+          else if (key.name === 'down' || key.name === 'j') move(1);
+          else if (key.name === 'space') toggle();
           else return;
           render();
         } catch (error) {
@@ -439,13 +440,13 @@ async function pickSelection(offer, header) {
         }
       };
 
-      process.stdin.on("keypress", onKey);
-      process.stdout.on("resize", onResize);
+      process.stdin.on('keypress', onKey);
+      process.stdout.on('resize', onResize);
       render();
     });
   } finally {
-    process.stdin.off("keypress", onKey);
-    process.stdout.off("resize", onResize);
+    process.stdin.off('keypress', onKey);
+    process.stdout.off('resize', onResize);
     if (process.stdin.isTTY) process.stdin.setRawMode(false);
     process.stdin.pause();
     process.stdout.write(ANSI.showCursor);
@@ -467,7 +468,7 @@ async function ask(question) {
     // Ctrl-D at a prompt is an answer — stop, having written nothing. readline
     // reports it as an `AbortError`, which unhandled would end a wizard run in
     // a stack trace.
-    if (!(error instanceof Error) || error.name !== "AbortError") throw error;
+    if (!(error instanceof Error) || error.name !== 'AbortError') throw error;
     return fail(`cancelled — no ${MANIFEST} has been written.`);
   } finally {
     rl.close();
@@ -511,7 +512,7 @@ async function authorManifest(root, options, sha, offer, confirm) {
   const dropped = options.bundles.filter((name) => always.includes(name));
   if (dropped.length)
     console.log(
-      `Not recording ${dropped.join(", ")} — always included, so it cannot be a choice.`,
+      `Not recording ${dropped.join(', ')} — always included, so it cannot be a choice.`,
     );
 
   const manifest = {
@@ -548,15 +549,15 @@ async function authorManifest(root, options, sha, offer, confirm) {
           ]
         : []),
       `At ${options.ref} (${sha.slice(0, 8)}) that selection covers ${include.length} path(s), resolved again on every sync.`,
-      "",
-      "Nothing has been copied. To take the files:",
-      "",
-      "  node scripts/bank-sync.mjs",
-      "  git merge --allow-unrelated-histories vendor/trellis",
-      "",
-      "Then wire each package in by reading its ADAPTER.md.",
-      "",
-    ].join("\n"),
+      '',
+      'Nothing has been copied. To take the files:',
+      '',
+      '  node tooling/bank/src/bank-sync.mjs',
+      '  git merge --allow-unrelated-histories vendor/trellis',
+      '',
+      'Then wire each package in by reading its ADAPTER.md.',
+      '',
+    ].join('\n'),
   );
 }
 
@@ -578,21 +579,21 @@ async function runPicker(root, force) {
 
   console.log(
     [
-      "Setting up a bank consumer. Two questions, then a menu.",
-      "",
+      'Setting up a bank consumer. Two questions, then a menu.',
+      '',
       "The bank's canonical branch is main, and known-good sync points are tagged",
-      "bank/YYYY-MM-DD — pin a tag rather than a branch. To see them:",
-      "",
+      'bank/YYYY-MM-DD — pin a tag rather than a branch. To see them:',
+      '',
       "  git ls-remote --tags <bank url> 'refs/tags/bank/*'",
-      "",
-    ].join("\n"),
+      '',
+    ].join('\n'),
   );
 
   const upstream =
-    (await ask("Bank git URL: ")) ||
+    (await ask('Bank git URL: ')) ||
     fail(`no bank URL given — nothing has been written. ${USAGE}`);
   const ref =
-    (await ask("Bank ref (a tag like bank/2026-08-26): ")) ||
+    (await ask('Bank ref (a tag like bank/2026-08-26): ')) ||
     fail(`no bank ref given — nothing has been written. ${USAGE}`);
 
   const sha = fetchBank(upstream, ref);
@@ -611,13 +612,13 @@ async function runPicker(root, force) {
     async (manifest, include) => {
       console.log(
         [
-          "",
-          "Your selection:",
-          `  packages: ${manifest.packages.join(", ") || "(none)"}`,
-          `  bundles:  ${manifest.bundles.join(", ") || "(none)"}`,
+          '',
+          'Your selection:',
+          `  packages: ${manifest.packages.join(', ') || '(none)'}`,
+          `  bundles:  ${manifest.bundles.join(', ') || '(none)'}`,
           `  covering ${include.length} path(s) at ${ref} (${sha.slice(0, 8)}).`,
-          "",
-        ].join("\n"),
+          '',
+        ].join('\n'),
       );
       return /^y(es)?$/i.test(await ask(`Write ${MANIFEST}? [y/N] `));
     },
@@ -633,9 +634,9 @@ async function main() {
   const force = flags.force === true;
 
   if (flags.list) {
-    const ref = required("ref", flags.ref);
-    const sha = fetchBank(required("upstream", flags.upstream), ref);
-    console.log(offerLines(bankOffer(sha), { ref, sha }).join("\n"));
+    const ref = required('ref', flags.ref);
+    const sha = fetchBank(required('upstream', flags.upstream), ref);
+    console.log(offerLines(bankOffer(sha), { ref, sha }).join('\n'));
     return;
   }
 
@@ -651,8 +652,8 @@ async function main() {
   }
 
   const options = {
-    upstream: required("upstream", flags.upstream),
-    ref: required("ref", flags.ref),
+    upstream: required('upstream', flags.upstream),
+    ref: required('ref', flags.ref),
     packages,
     bundles,
     force,

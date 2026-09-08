@@ -3,7 +3,7 @@
  * Resolve a consumer's selection to the paths it takes from the bank.
  *
  * A manifest names **packages and bundles**, never paths
- * ([ADR 0039](../../docs/adr/0039-the-selection-is-the-contract.md)). This file
+ * ([ADR 0039](../../../../docs/adr/0039-the-selection-is-the-contract.md)). This file
  * turns that selection into the flat prefix list `bank:sync` filters the bank
  * tree down to, reading everything out of the bank commit itself:
  * `pnpm-workspace.yaml` for the globs that define the package set, every
@@ -16,18 +16,18 @@
  * the resolution has to run on git plumbing alone — no install, no pnpm, no
  * turbo — because the bank being resolved is a fetched tree, not a checkout.
  */
-import { fail, git, gitOrNull, under } from "./bank.mjs";
+import { at, fail, git, gitOrNull, under } from './bank.mjs';
 
 /** The bank's own inventory: the bundles and the exclusions, at the bank ref. */
-const PATHS_FILE = "bank.paths.json";
-const WORKSPACE_FILE = "pnpm-workspace.yaml";
+const PATHS_FILE = 'bank.paths.json';
+const WORKSPACE_FILE = 'pnpm-workspace.yaml';
 
 /** Dependency fields that make one workspace package need another. */
 const DEPENDENCY_FIELDS = [
-  "dependencies",
-  "devDependencies",
-  "peerDependencies",
-  "optionalDependencies",
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
 ];
 
 /**
@@ -38,7 +38,7 @@ const DEPENDENCY_FIELDS = [
  * @returns {string | undefined}
  */
 const blob = (sha, path) =>
-  gitOrNull(["cat-file", "-p", `${sha}:${path}`], {
+  gitOrNull(['cat-file', '-p', `${sha}:${path}`], {
     maxBuffer: 16 * 1024 * 1024,
   });
 
@@ -73,7 +73,7 @@ function readJson(sha, path) {
  * @returns {string[]}
  */
 export function parseWorkspaceGlobs(raw, what = WORKSPACE_FILE) {
-  const lines = raw.split("\n");
+  const lines = raw.split('\n');
   const start = lines.findIndex((line) => /^packages:\s*$/.test(line));
   if (start === -1) return fail(`${what} has no "packages:" key`);
 
@@ -81,9 +81,9 @@ export function parseWorkspaceGlobs(raw, what = WORKSPACE_FILE) {
   const globs = [];
   for (const line of lines.slice(start + 1)) {
     if (/^\s*(#.*)?$/.test(line)) continue; // blank line or comment
-    const item = line.match(/^\s+-\s+(.+?)\s*$/);
-    if (!item) break; // the next top-level key ends the sequence
-    globs.push(item[1].replace(/^["']|["']$/g, ""));
+    const item = line.match(/^\s+-\s+(.+?)\s*$/)?.[1];
+    if (item === undefined) break; // the next top-level key ends the sequence
+    globs.push(item.replace(/^["']|["']$/g, ''));
   }
 
   if (globs.length === 0) return fail(`${what} lists no workspace globs`);
@@ -116,7 +116,7 @@ function workspaceGlobs(sha) {
  */
 const globToRegExp = (glob) =>
   new RegExp(
-    `^${glob.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^/]+")}$`,
+    `^${glob.replace(/[.+^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '[^/]+')}$`,
   );
 
 /**
@@ -139,7 +139,7 @@ const globToRegExp = (glob) =>
  * @param {string} glob
  * @returns {string}
  */
-const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, "");
+const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, '');
 
 /**
  * Every file path at a bank commit.
@@ -152,10 +152,10 @@ const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, "");
  * @returns {string[]}
  */
 function treePaths(sha) {
-  return git(["ls-tree", "-r", "--name-only", "-z", sha], {
+  return git(['ls-tree', '-r', '--name-only', '-z', sha], {
     maxBuffer: 256 * 1024 * 1024,
   })
-    .split("\0")
+    .split('\0')
     .filter(Boolean);
 }
 
@@ -175,8 +175,8 @@ function packageIndex(sha, exclude, tree = treePaths(sha)) {
   const globs = workspaceGlobs(sha);
   const matchers = globs.map(globToRegExp);
   const dirs = tree
-    .filter((path) => path.endsWith("/package.json"))
-    .map((path) => path.slice(0, -"/package.json".length))
+    .filter((path) => path.endsWith('/package.json'))
+    .map((path) => path.slice(0, -'/package.json'.length))
     .map((dir) => ({ dir, rank: matchers.findIndex((glob) => glob.test(dir)) }))
     .filter(({ rank }) => rank !== -1)
     .filter(({ dir }) => !exclude.some((prefix) => under(dir, prefix)));
@@ -184,21 +184,23 @@ function packageIndex(sha, exclude, tree = treePaths(sha)) {
   /** @type {Map<string, BankPackage>} */
   const index = new Map();
   for (const { dir, rank } of dirs) {
+    // `rank` is a `findIndex` hit filtered to `!== -1` above, so this holds.
+    const glob = at(globs, rank, 'workspace glob');
     const pkg = readJson(sha, `${dir}/package.json`);
-    if (typeof pkg.name !== "string" || pkg.name === "") continue;
+    if (typeof pkg.name !== 'string' || pkg.name === '') continue;
     const deps = DEPENDENCY_FIELDS.flatMap((field) => {
       const value = pkg[field];
-      return value && typeof value === "object" ? Object.keys(value) : [];
+      return value && typeof value === 'object' ? Object.keys(value) : [];
     });
     const acme = /** @type {{ infra?: unknown } | undefined} */ (
-      pkg.acme && typeof pkg.acme === "object" ? pkg.acme : undefined
+      pkg.acme && typeof pkg.acme === 'object' ? pkg.acme : undefined
     );
     index.set(pkg.name, {
       name: pkg.name,
       path: dir,
       deps,
       infra: Array.isArray(acme?.infra) && acme.infra.length > 0,
-      layer: globDir(globs[rank]),
+      layer: globDir(glob),
       layerRank: rank,
     });
   }
@@ -275,14 +277,14 @@ function readBankPaths(sha) {
   };
 
   return {
-    bundles: list("bundles").map((entry) => ({
+    bundles: list('bundles').map((entry) => ({
       name: String(entry.name),
       description:
-        typeof entry.description === "string" ? entry.description : "",
+        typeof entry.description === 'string' ? entry.description : '',
       alwaysIncluded: entry.alwaysIncluded === true,
       paths: Array.isArray(entry.paths) ? entry.paths.map(String) : [],
     })),
-    exclude: list("exclude").map((entry) => String(entry.path)),
+    exclude: list('exclude').map((entry) => String(entry.path)),
   };
 }
 
@@ -427,14 +429,14 @@ function activeBundles(bundles, selected, infra) {
   );
   if (unknown.length)
     return fail(
-      `no such bundle${unknown.length === 1 ? "" : "s"} ${unknown.join(", ")} — the bank offers ${bundles.map((bundle) => bundle.name).join(", ")}`,
+      `no such bundle${unknown.length === 1 ? '' : 's'} ${unknown.join(', ')} — the bank offers ${bundles.map((bundle) => bundle.name).join(', ')}`,
     );
 
   return bundles.filter(
     (bundle) =>
       bundle.alwaysIncluded ||
       selected.includes(bundle.name) ||
-      (infra && bundle.name === "infra"),
+      (infra && bundle.name === 'infra'),
   );
 }
 
@@ -489,7 +491,7 @@ export function resolveInclude(sha, selection, { strict = true } = {}) {
   const missing = selection.packages.filter((name) => !index.has(name));
   if (missing.length && strict)
     fail(
-      `${missing.length === 1 ? "package" : "packages"} ${missing.join(", ")} named in "packages" ${missing.length === 1 ? "does" : "do"} not exist at the bank ref ${sha.slice(0, 8)} — nothing has been written`,
+      `${missing.length === 1 ? 'package' : 'packages'} ${missing.join(', ')} named in "packages" ${missing.length === 1 ? 'does' : 'do'} not exist at the bank ref ${sha.slice(0, 8)} — nothing has been written`,
     );
 
   const reached = closure(
@@ -506,7 +508,7 @@ export function resolveInclude(sha, selection, { strict = true } = {}) {
   );
   if (unmatched.length && strict)
     fail(
-      `${unmatched.length === 1 ? "bundle path" : "bundle paths"} ${describeUnmatched(unmatched)} ${unmatched.length === 1 ? "matches" : "match"} nothing at the bank ref ${sha.slice(0, 8)} — the bank has moved or removed content this selection subscribes to, so nothing has been written`,
+      `${unmatched.length === 1 ? 'bundle path' : 'bundle paths'} ${describeUnmatched(unmatched)} ${unmatched.length === 1 ? 'matches' : 'match'} nothing at the bank ref ${sha.slice(0, 8)} — the bank has moved or removed content this selection subscribes to, so nothing has been written`,
     );
 
   const paths = new Set([
@@ -521,7 +523,7 @@ export function resolveInclude(sha, selection, { strict = true } = {}) {
     for (const path of dropped) paths.delete(path);
     warnings.push(
       dropped.length
-        ? `"omit" drops ${dropped.join(", ")} from the closure — the resulting tree will not install unaided, so supply ${dropped.length === 1 ? "it" : "them"} yourself`
+        ? `"omit" drops ${dropped.join(', ')} from the closure — the resulting tree will not install unaided, so supply ${dropped.length === 1 ? 'it' : 'them'} yourself`
         : `"omit" entry ${entry} is not in the resolved closure, so it drops nothing`,
     );
   }
@@ -542,5 +544,5 @@ export function resolveInclude(sha, selection, { strict = true } = {}) {
 export function describeUnmatched(unmatched) {
   return unmatched
     .map(({ bundle, path }) => `${path} (bundle "${bundle}")`)
-    .join(", ");
+    .join(', ');
 }

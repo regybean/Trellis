@@ -98,7 +98,7 @@ existing **behind** outcome and its exit code 2: the closure only moves when
 `ref` moves, so it is never independent news.
 
 **A gate keeps the root honest.** Derivation covers the package tree and nothing
-else, so a new root-level file is invisible to it. `scripts/check-bank-paths.mjs`
+else, so a new root-level file is invisible to it. `tooling/bank/src/check-bank-paths.mjs`
 runs in `pnpm lint` and fails when a tracked root-level entry is in neither a
 bundle nor `exclude`. It enumerates with `git ls-files`, so the untracked working
 dirs (`.cache`, `.turbo`, `logs`, `node_modules`) never reach it, and it accepts

@@ -62,13 +62,18 @@ is numbered and what its status may say are in
 
 ## Tooling
 
-`tooling/*` owns no ADR directory: its decisions govern the repo-wide gate rather
-than the config package, so they stay at the root.
+A `tooling/*` config package owns no ADR directory: its decisions govern the
+repo-wide gate rather than the package, so they stay at the root. `tooling/bank`
+is the exception, and it is the deletion test rather than a carve-out — delete
+the package and its one decision goes with it
+([domain.md](docs/agents/domain.md#where-an-adr-lives)).
 
-| Package                 | Context                                       | Also governed by               |
-| ----------------------- | --------------------------------------------- | ------------------------------ |
-| `tooling/test-utils/`   | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md) | `0014`, `0017`, `0021`, `0034` |
-| `tooling/secrets-sync/` | —                                             | `0001`, `0017`, `0029`         |
+| Package                    | Context                                            | ADRs                                  | Also governed by               |
+| -------------------------- | -------------------------------------------------- | ------------------------------------- | ------------------------------ |
+| `tooling/bank/`            | [`CONTEXT.md`](tooling/bank/CONTEXT.md)            | [`docs/adr/`](tooling/bank/docs/adr/) | `0037`, `0038`, `0039`         |
+| `tooling/secrets-sync/`    | —                                                  | —                                     | `0001`, `0017`, `0029`         |
+| `tooling/test-utils/`      | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md)      | —                                     | `0014`, `0017`, `0021`, `0034` |
+| `tooling/workspace-graph/` | [`CONTEXT.md`](tooling/workspace-graph/CONTEXT.md) | —                                     | `0009`, `0011`, `0039`         |
 
 ## Apps
 

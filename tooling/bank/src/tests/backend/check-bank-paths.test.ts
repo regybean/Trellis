@@ -1,5 +1,5 @@
 /**
- * Verifies `scripts/check-bank-paths.mjs` against throwaway repos in a temp dir.
+ * Verifies `tooling/bank/src/check-bank-paths.mjs` against throwaway repos in a temp dir.
  *
  * The gate it runs in is a completeness rule over a whole repository — every
  * tracked root-level entry is in a bundle, on `exclude`, or is a workspace root
@@ -24,7 +24,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 const here = dirname(fileURLToPath(import.meta.url));
 // src/tests/backend -> repo root is five levels up.
 const repoRoot = resolve(here, '../../../../../');
-const CHECKER = join(repoRoot, 'scripts/check-bank-paths.mjs');
+const CHECKER = join(repoRoot, 'tooling/bank/src/check-bank-paths.mjs');
 
 /** The checker plus the libs it imports by relative path, as one movable unit. */
 const CHECKER_FILES = [
@@ -107,7 +107,7 @@ function relocate(dir: string, at: string) {
   for (const file of CHECKER_FILES) {
     const target = join(dir, at, file);
     mkdirSync(dirname(target), { recursive: true });
-    cpSync(join(repoRoot, 'scripts', file), target);
+    cpSync(join(repoRoot, 'tooling/bank/src', file), target);
   }
   return join(at, 'check-bank-paths.mjs');
 }

@@ -42,7 +42,7 @@ A consumer repo holds `bank.manifest.json`:
 }
 ```
 
-`pnpm bank:sync` (`scripts/bank-sync.mjs`) reads it, fetches the bank at `ref`,
+`pnpm bank:sync` (`tooling/bank/src/bank-sync.mjs`) reads it, fetches the bank at `ref`,
 and rewrites the consumer's local `vendor/trellis` branch so its tree is bank@ref
 filtered down to `include` and nothing else, committed on top of the previous
 vendor commit. Then it stops and prints the merge command for the human to run.
@@ -130,7 +130,7 @@ two trees and a diff tool.
   and any policy about locally modified vendored paths are consumer-side jobs.
 - **Sync is one-directional.** Back-flow is a separate mechanism gated by
   `contributable` (default empty, so forgetting to maintain it fails closed), and
-  it never runs automatically. It is `scripts/bank-contribute.mjs`: allowlist,
+  it never runs automatically. It is `tooling/bank/src/bank-contribute.mjs`: allowlist,
   then gitleaks over the diff, then a typed confirmation, then a PR. Layer is not
   the test for what may be published, so the allowlist stays a human's list
   rather than anything derived from the manifest.
