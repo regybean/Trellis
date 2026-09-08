@@ -1,0 +1,40 @@
+{
+  "name": "@acme/repo-checks",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "check:adrs": "tsx src/bin/check-adrs.ts",
+    "check:exports": "tsx src/bin/check-exports.ts",
+    "clean": "git clean -xdf .cache .turbo node_modules",
+    "format": "prettier --check . --ignore-path ../../.prettierignore",
+    "lint": "eslint",
+    "test": "pnpm test:backend",
+    "test:backend": "vitest run --config vitest.config.backend.ts",
+    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
+    "test:policy": "tsx src/bin/check-test-policy.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@acme/vitest-config": "workspace:*",
+    "@acme/workspace-graph": "workspace:*",
+    "tsx": "catalog:",
+    "vitest": "catalog:"
+  },
+  "devDependencies": {
+    "@acme/eslint-config": "workspace:*",
+    "@acme/prettier-config": "workspace:*",
+    "@acme/tsconfig": "workspace:*",
+    "eslint": "catalog:",
+    "prettier": "catalog:",
+    "typescript": "catalog:"
+  },
+  "prettier": "@acme/prettier-config",
+  "acme": {
+    "testClass": "backend-library"
+  }
+}

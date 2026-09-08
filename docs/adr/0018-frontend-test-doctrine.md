@@ -102,7 +102,7 @@ The structural rules are machine-checked; the assertion rule follows from them:
   data-layer `toHaveBeenCalledWith(...)` becomes _impossible to write_ — the
   precise ban subsumes a blunt "no mock-call assertions" rule without
   false-positiving on legitimate framework-external assertions.
-- **`scripts/check-test-policy.mjs`** requires every `*.test.tsx` to sit under
+- **`tooling/repo-checks/src/test-policy.ts`** requires every `*.test.tsx` to sit under
   `unit/`, `integration/hooks/`, or `integration/components/`, and extends the
   unit-purity check (no `vi.mock`/`vi.spyOn`/`vi.fn`) to `frontend/unit/`.
 

@@ -108,7 +108,7 @@ something hard to reverse that explains _why_ the code is the way it is.
 
 ## What the gate enforces
 
-`scripts/check-adrs.mjs` runs inside `pnpm lint` and as its own
+`tooling/repo-checks/src/adrs.ts` runs inside `pnpm lint` and as its own
 `pnpm quality-gate` stage. It fails on a duplicate number within a directory, a
 dead ADR link anywhere in the repo, a missing or out-of-vocabulary status, and a
 package owning ADRs with no `CONTEXT-MAP.md` row. It warns on a sequence gap.

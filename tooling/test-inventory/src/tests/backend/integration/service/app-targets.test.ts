@@ -116,18 +116,25 @@ describe('an app target expands to its whole workspace closure', () => {
     expect(packages(slimShort)).toContain('@acme/chat');
   });
 
-  it('includes tooling packages, which a deployable still tests through', () => {
-    // @acme/test-utils is a devDependency of every package that has a suite —
-    // exactly the kind of edge a production-only closure would drop.
-    expect(packages(slimShort)).toContain('@acme/test-utils');
-  });
+  // The devDependency edge into tooling had a case here: @acme/test-utils
+  // appearing in a deployable's inventory, being exactly the kind of edge a
+  // production-only closure would drop. It is unobservable through this CLI
+  // now. The inventory lists packages that collect tests, and the two checker
+  // suites that gave test-utils one moved to @acme/repo-checks, which no app
+  // depends on; every other dev-only edge in an app's closure is a config
+  // package declaring `testClass: "none"`, which never collects anything. The
+  // edge is intact — only the proxy for it is gone, so restoring the case
+  // needs a closure the CLI reports rather than one inferred from what
+  // collected.
 
-  it('groups the closure under the layer headings, tooling first', () => {
+  it('groups the closure under the layer headings, in dependency order', () => {
+    // No tooling package in an app's closure carries a suite, so that layer is
+    // absent rather than first — see above.
     const layers = slimShort
       .split('\n')
       .filter((line) => line.startsWith('## '))
       .map((line) => line.slice(3).split(' (')[0]);
-    expect(layers).toEqual(['tooling', 'platform', 'shared', 'features']);
+    expect(layers).toEqual(['platform', 'shared', 'features']);
   });
 });
 

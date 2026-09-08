@@ -4,7 +4,7 @@
 
 Every runtime package's `exports` map (`packages/platform|shared|features`,
 plus `compositions` if reintroduced) obeys one shared shape, enforced by
-`scripts/check-exports.mjs` (wired into `pnpm lint`, hard-fail):
+`tooling/repo-checks/src/exports.ts` (wired into `pnpm lint`, hard-fail):
 
 - **JIT source/compiled-types hybrid.** Each entry is
   `{ "types": "./dist/<name>.d.ts", "default": "./src/<name>.ts" }`. Apps
@@ -51,7 +51,7 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
 
 - New packages must conform: allowed keys ∈ the vocabulary, entries match the
   dist/src shape. A genuinely new role/seam is added to `ALLOWED_KEYS` in
-  `scripts/check-exports.mjs` with a comment — that edit _is_ the design review.
+  `tooling/repo-checks/src/exports.ts` with a comment — that edit _is_ the design review.
 - `sideEffects` arrays must track guarded files. Moving/renaming a
   `server-only`-guarded module means updating the array, or the guard can be
   tree-shaken away in a client bundle (fails loud at build, but the failure is
