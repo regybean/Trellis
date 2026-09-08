@@ -41,20 +41,29 @@ contents.
 **Script logic lives in a `tooling/*` workspace package. Root `scripts/` holds
 entry points only.**
 
-Root `scripts/` keeps exactly four kinds of thing:
+Root `scripts/` keeps exactly four kinds of thing. The categories are the rule;
+the files named under each are what happened to be there when this was written,
+not a closed list.
 
-1. **Shell entry points a human types** — `dev.sh`, `test.sh`, `infra.sh`,
-   `infra-up.sh`, `compose.sh`, `preview.sh`, `quality-gate.sh`, `graph.sh`,
-   `bootstrap-worktree.sh`, `register-skills.sh`, `extract-app.sh`,
-   `check-remote-cache.sh`, `env-pull.sh`, `env-push.sh`, plus the secrets
-   preamble and `secrets-backends/` adapters those last two dispatch through
+1. **Shell entry points** — what a human types, or what a git hook invokes on
+   their behalf: `dev.sh`, `test.sh`, `infra.sh`, `infra-up.sh`, `compose.sh`,
+   `preview.sh`, `quality-gate.sh`, `graph.sh`, `bootstrap-worktree.sh`,
+   `register-skills.sh`, `extract-app.sh`, `check-remote-cache.sh`,
+   `env-pull.sh`, `env-push.sh`, and `format-staged.sh` from the lefthook
+   pre-commit hook. Plus the secrets preamble and `secrets-backends/` adapters
+   the two `env-*` scripts dispatch through
    ([ADR 0001](0001-pluggable-secrets-sync.md) — the adapter seam is shell
    because a consumer extending it writes shell).
-2. **The `postinstall` helpers** — `sync-claudeignore.mjs` and
-   `link-worktree-env.mjs`, which run before any package is guaranteed built.
+2. **The install-time helpers** — `sync-claudeignore.mjs`,
+   `link-worktree-env.mjs` and `link-agent-docs.sh`, which run on `postinstall`,
+   before any package is guaranteed built.
 3. **The log helper** — `lib/dev-logs.sh`
    ([ADR 0028](0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md)).
 4. **The two boundary shims**, below.
+
+The test for a new file is which of those four it is. If it is none of them, it
+is a package — and "a human types it" is not the deciding question, since a
+lefthook hook and a `postinstall` step are both entry points nobody types.
 
 Anything else is a package: `src/`, `src/tests/backend/`, a `package.json`
 declaring its `acme.testClass`, a `turbo.json` tagged `tooling`, and its own
@@ -129,6 +138,14 @@ rather than this one.
 - **`@acme/test-utils` is honest about what it is, and about what it lacks.**
   With the borrowed 121 tests gone it declares `acme.testStatus: "todo"` with a
   reason. Testing the thing that starts testcontainers is a separate decision.
+- **The count reconciles, which is how we know nothing was dropped.** 672 tests
+  before the move; 956 after. The 551 that never lived in `scripts/` are
+  unchanged, and the 121 subprocess tests became 405 across the five packages
+  (`repo-checks` 122, `bank` 92, `test-inventory` 80, `secrets-sync` 56,
+  `workspace-graph` 55) as rule-by-rule assertions replaced tree-materialising
+  ones. A package move silently un-collecting a suite is invisible while
+  `passWithNoTests` stays on, so the total was captured before the first ticket
+  and compared after each.
 - **The moved paths are paths consumers have already vendored.** `scripts/` ships
   in the bank's `root` bundle, which is `alwaysIncluded`
   ([ADR 0039](0039-the-selection-is-the-contract.md)), so every package path had
