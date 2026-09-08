@@ -33,9 +33,12 @@ export function composeProfiles(raw: string): string[] {
     if (!/^\s*profiles:\s*$/.test(line)) continue;
     for (const item of lines.slice(index + 1)) {
       if (/^\s*(#.*)?$/.test(item)) continue; // blank line or comment
-      const entry = /^\s+-\s+(.+?)\s*$/.exec(item);
+      // Trailing space is trimmed rather than matched: a `(.+?)\s*$` tail and
+      // the `\s` before it can both claim the same run of spaces, which is
+      // polynomial backtracking on a line that turns out not to match.
+      const entry = /^\s+-\s+(.+)$/.exec(item);
       if (!entry?.[1]) break; // the next key ends the sequence
-      profiles.add(entry[1].replace(/^["']|["']$/g, ''));
+      profiles.add(entry[1].trim().replace(/^["']|["']$/g, ''));
     }
   }
 

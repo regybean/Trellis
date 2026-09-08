@@ -175,7 +175,10 @@ export function validateNumbering(
   return { errors, warnings };
 }
 
-const STATUS_LINE = /^\*\*Status:\*\*\s*(.+?)\s*$/;
+// The value is trimmed at the call site rather than matched with a `\s*$`
+// tail, which the `\s*` before the capture can also claim — polynomial
+// backtracking on a line that turns out not to match.
+const STATUS_LINE = /^\*\*Status:\*\*\s*(.+)$/;
 
 /**
  * The machine-readable half of a status, with any human note stripped: an
@@ -208,7 +211,7 @@ export function validateStatus(
     (line, index) => index > 0 && line.trim() !== '',
   );
   const line = first === -1 ? undefined : lines[first];
-  const raw = line ? (STATUS_LINE.exec(line)?.[1] ?? '') : '';
+  const raw = line ? (STATUS_LINE.exec(line)?.[1]?.trim() ?? '') : '';
 
   if (!raw) {
     return [
@@ -252,9 +255,15 @@ export function validateStatus(
 /** A markdown link target: `](./some/path.md#anchor)`. */
 const MARKDOWN_LINK = /\]\(\s*([^)\s]+)/g;
 
-/** A bare ADR path in prose or a source comment, outside any markdown link. */
+/**
+ * A bare ADR path in prose or a source comment, outside any markdown link.
+ *
+ * The filename's dots are their own segments rather than members of the class
+ * before `\.md`, where a `.` could be claimed by either and made the match
+ * polynomial on a long run of `-`.
+ */
 const BARE_ADR_PATH =
-  /(?:\.{1,2}\/)*(?:[\w.@-]+\/)*docs\/adr\/\d{4}-[\w.-]+\.md/g;
+  /(?:\.{1,2}\/)*(?:[\w.@-]+\/)*docs\/adr\/\d{4}-[\w-]+(?:\.[\w-]+)*\.md/g;
 
 /** Does this link target name an ADR file, or an ADR directory? */
 const isAdrTarget = (target: string) =>
