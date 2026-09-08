@@ -91,9 +91,9 @@ export function closurePackages(
  * The infrastructure the closure of `names` declares — the graph query behind
  * `pnpm dev` and `pnpm infra:up` (ADR 0009).
  *
- * This is the candidate set. Pruning it for services only needed under a given
- * configuration is the caller's, because only the caller can import the
- * authored development profiles that decide it.
+ * This is the candidate set: `pruneInfra` drops the services only needed under
+ * a given configuration, from provider values the caller passes in — because
+ * only the caller can import the authored development profiles that decide it.
  */
 export function closureInfra(root: string, names: readonly string[]): string[] {
   return declaredInfra(closurePackages(root, names));
