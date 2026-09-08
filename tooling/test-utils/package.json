@@ -38,9 +38,6 @@
     "clean": "git clean -xdf .cache .turbo dist node_modules",
     "format": "prettier --check . --ignore-path ../../.prettierignore",
     "lint": "eslint",
-    "test": "pnpm test:backend",
-    "test:backend": "vitest run --config vitest.config.backend.ts",
-    "test:backend:watch": "vitest --watch --config vitest.config.backend.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -61,6 +58,8 @@
   },
   "prettier": "@acme/prettier-config",
   "acme": {
-    "testClass": "backend-library"
+    "testClass": "backend-library",
+    "testStatus": "todo",
+    "reason": "Vitest projects, env hydration and the testcontainers harness. It hosted the root-script suites until #314 moved each one into the tooling package that owns the code, leaving seven source files with no tests of their own. containers.ts is load-bearing for every backend suite in the repo; testing the thing that starts testcontainers is a separate decision, not taken there."
   }
 }

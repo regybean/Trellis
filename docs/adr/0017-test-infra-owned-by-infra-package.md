@@ -63,16 +63,25 @@ path is gone — every suite now starts its own container on a random host port
 
 ## LocalStack folds into the same model
 
-The `aws` secrets-backend test (in `@acme/test-utils`) needs LocalStack and
-nothing else. It is expressed as a `localstackContainer` descriptor and run
-through the same `runInfraSetup([localstackContainer])` — no bespoke start/stop
-helpers. The descriptor lives beside that test (its sole consumer) rather than in
-an owner package, since the backend under test is the repo's root `scripts/`, not
-a package.
+The `aws` secrets-backend round-trip test needs LocalStack and nothing else. It
+is expressed as a `localstackContainer` descriptor and run through the same
+`runInfraSetup([localstackContainer])` — no bespoke start/stop helpers. The
+descriptor lives beside that test (its sole consumer) rather than in an owner
+package, because LocalStack has no client package to own it: nothing in
+`packages/*` wraps it.
+
+The test and its descriptor now sit in `@acme/secrets-sync`
+(`src/tests/backend/`), which owns the code under test
+([ADR 0040](0040-script-logic-lives-in-a-tooling-package.md)). They were
+originally filed in `@acme/test-utils` for the reason that ADR records: the
+backend under test was the repo's root `scripts/`, which is not a package and so
+had nowhere to put a suite. Only the `env-pull.sh` / `env-push.sh` entry points
+and the `scripts/secrets-backends/*.sh` adapters are still root shell.
 
 ## Considered and rejected
 
-- **Reuse `resolve-infra.mjs` with a test reducer** (closure ∩ containers).
+- **Reuse the dev-infra derivation with a test reducer** (closure ∩ containers) —
+  then `scripts/resolve-infra.ts`, now `@acme/workspace-graph`.
   Rejected — the ingest counterexample shows the closure over-includes whenever a
   suite mocks a stateful dep; the graph can't see the mock boundary.
 - **Derive from which real clients the closure imports.** Rejected — brittle: a dep
