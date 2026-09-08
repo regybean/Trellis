@@ -14,6 +14,9 @@
  * generous timeouts; for the frontend the react plugin and the jsdom
  * environment. Both own the `include` glob outright: test layout is one
  * convention (`src/tests/<layer>/<kind>[/<group>]/`), not a per-package choice.
+ * `TEST_INCLUDE` is exported for the same reason: a tool that reports on what
+ * runs (`@acme/test-inventory`) reads the globs these projects collect by
+ * instead of mirroring them.
  */
 import react from '@vitejs/plugin-react';
 import { defineConfig, mergeConfig } from 'vitest/config';
@@ -68,15 +71,30 @@ export const staticTestEnv = {
 } satisfies Record<string, string>;
 
 /**
- * The canonical test layout, `src/tests/<layer>/<kind>[/<group>]/`. The layer
- * segment is present even in a single-sided package: it is not there to
- * disambiguate within a package but so one glob works across all of them, and
- * so the path prefix is a filter axis tooling can trust. Neither factory takes
- * an `include` override — a suite that collected nothing would pass silently
- * (`passWithNoTests`), so the glob is the factory's to own, not a caller's.
+ * The two sides a package can carry tests for. The layer segment is present
+ * even in a single-sided package: it is not there to disambiguate within a
+ * package but so one glob works across all of them, and so the path prefix is a
+ * filter axis tooling can trust.
  */
-const BACKEND_INCLUDE = 'src/tests/backend/**/*.test.ts';
-const FRONTEND_INCLUDE = 'src/tests/frontend/**/*.test.{ts,tsx}';
+export const TEST_LAYERS = ['backend', 'frontend'] as const;
+
+export type TestLayer = (typeof TEST_LAYERS)[number];
+
+/**
+ * What each layer's project collects, `src/tests/<layer>/` down. Backend is
+ * `.test.ts` only; the frontend also takes `.tsx`, because a component test is
+ * JSX. Neither matches `*.spec.*`.
+ *
+ * Neither factory takes an `include` override — a suite that collected nothing
+ * would pass silently (`passWithNoTests`), so the glob is the factory's to own,
+ * not a caller's. It is exported all the same: describing what runs is a
+ * different job from running it, and the tool that does it must not keep its
+ * own copy of this.
+ */
+export const TEST_INCLUDE: Record<TestLayer, string> = {
+  backend: 'src/tests/backend/**/*.test.ts',
+  frontend: 'src/tests/frontend/**/*.test.{ts,tsx}',
+};
 
 interface BackendProjectOptions {
   /**
@@ -127,7 +145,7 @@ export function backendProject({
           NEXT_PUBLIC_WEBAPP: webapp,
           ...(redisDb ? { TEST_REDIS_DB: redisDb } : {}),
         },
-        include: [BACKEND_INCLUDE],
+        include: [TEST_INCLUDE.backend],
         // With infra, hydrate-env runs first: copies testcontainer connection
         // details into process.env so every env.ts validates against the real
         // DB/Redis. Infra-less suites skip it (their externals are mocked).
@@ -170,7 +188,7 @@ export function frontendProject({
         name: 'frontend',
         environment: 'jsdom',
         env: { ...staticTestEnv },
-        include: [FRONTEND_INCLUDE],
+        include: [TEST_INCLUDE.frontend],
         setupFiles,
       },
     }),

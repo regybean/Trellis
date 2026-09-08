@@ -1,18 +1,20 @@
 /**
  * `pnpm test:inventory` — asserted at its stdout, which is its only contract.
  *
- * The tool is a repo script, so it is exercised the way the bank and secrets
- * suites exercise theirs: copied into a throwaway workspace and run. The
- * sandbox is a miniature of this repo — four packages across three layer
- * directories, each with a real vitest config built by `backendProject` /
- * `frontendProject` and real test files — so the assertions are about a
- * workspace's shape rather than about this month's test count.
+ * The tool is a command, so it is exercised the way the bank and secrets suites
+ * exercise theirs: against a throwaway workspace, run as a subprocess. The
+ * sandbox is a miniature of this repo — a `pnpm-workspace.yaml`, four packages
+ * across three layer directories, each with a real vitest config built by
+ * `backendProject` / `frontendProject` and real test files — so the assertions
+ * are about a workspace's shape rather than about this month's test count. It is
+ * a git repository because that is how the tool finds its root, the same way
+ * every checker in this repo does.
  *
  * Package targets belong here for the same reason: naming a package needs no
  * dependency graph, so the sandbox can hold every case, including the two the
  * tool must refuse — a token that names nothing, and a short name that names
  * two things. App targets do need a resolved graph, so they are next door in
- * test-inventory-app-targets.test.ts, against the real repo.
+ * app-targets.test.ts, against the real repo.
  *
  * The `--layer`/`--kind`/`--out` flags are here too: the sandbox's layout is
  * the taxonomy those flags filter on, and a package that is frontend-only is
@@ -36,7 +38,6 @@
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import {
-  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -46,13 +47,13 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-const here = dirname(fileURLToPath(import.meta.url));
-// src/tests/backend -> repo root is five levels up.
-const repoRoot = resolve(here, '../../../../../');
+import { repoRoot } from '@acme/workspace-graph';
+
+const root = repoRoot();
+const CLI = join(root, 'tooling/test-inventory/src/cli.ts');
 
 /** Where the sandbox's marker lands if `globalSetup` runs. */
 const MARKER = 'packages/platform/p-one/global-setup-ran';
@@ -96,7 +97,7 @@ function writePackage(
   );
   mkdirSync(join(pkgDir, 'node_modules/@acme'), { recursive: true });
   symlinkSync(
-    join(repoRoot, 'tooling/test-utils'),
+    join(root, 'tooling/test-utils'),
     join(pkgDir, 'node_modules/@acme/test-utils'),
   );
   for (const [path, content] of Object.entries(files)) {
@@ -115,25 +116,28 @@ function childEnv() {
 }
 
 /**
- * The CLI, as the sandbox sees it. `--import tsx` rather than `pnpm exec` for
- * the same reason the tool runs vitest on this node: a package-manager startup
- * per invocation is time spent proving nothing.
+ * The CLI, as the sandbox sees it — the real one, run from the sandbox, which
+ * is the only thing that makes "the root is wherever it was invoked" a claim
+ * this suite tests rather than assumes. `--import tsx` rather than `pnpm exec`
+ * for the same reason the tool runs vitest on this node: a package-manager
+ * startup per invocation is time spent proving nothing.
  */
 function collect(...args: string[]) {
-  return execFileSync(
-    process.execPath,
-    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...args],
-    { cwd: sandbox, env: childEnv(), encoding: 'utf8', stdio: 'pipe' },
-  );
+  return execFileSync(process.execPath, ['--import', 'tsx', CLI, ...args], {
+    cwd: sandbox,
+    env: childEnv(),
+    encoding: 'utf8',
+    stdio: 'pipe',
+  });
 }
 
 /** The same, for the cases where the failure is the subject. */
 function collectFailing(...args: string[]) {
-  return spawnSync(
-    process.execPath,
-    ['--import', 'tsx', join(sandbox, 'scripts/test-inventory.ts'), ...args],
-    { cwd: sandbox, env: childEnv(), encoding: 'utf8' },
-  );
+  return spawnSync(process.execPath, ['--import', 'tsx', CLI, ...args], {
+    cwd: sandbox,
+    env: childEnv(),
+    encoding: 'utf8',
+  });
 }
 
 beforeAll(() => {
@@ -143,20 +147,24 @@ beforeAll(() => {
     join(sandbox, 'package.json'),
     `${JSON.stringify({ name: 'sandbox', private: true }, null, 2)}\n`,
   );
+  // The workspace the tool reads its layer directories from. Listed in the
+  // order pnpm-workspace.yaml happens to use — the report's dependency order is
+  // the tool's, not the file's.
+  write(
+    join(sandbox, 'pnpm-workspace.yaml'),
+    [
+      'packages:',
+      '  - packages/shared/*',
+      '  - packages/platform/*',
+      '  - packages/features/*',
+      '',
+    ].join('\n'),
+  );
+  // The tool asks git where the root is, so the sandbox is a repository.
+  execFileSync('git', ['init', '--quiet'], { cwd: sandbox, stdio: 'ignore' });
   // One resolution point, exactly as in this repo: every dependency (vitest
   // included) is found through the root node_modules.
-  symlinkSync(join(repoRoot, 'node_modules'), join(sandbox, 'node_modules'));
-  mkdirSync(join(sandbox, 'scripts/lib'), { recursive: true });
-  cpSync(
-    join(repoRoot, 'scripts/test-inventory.ts'),
-    join(sandbox, 'scripts/test-inventory.ts'),
-  );
-  // The CLI resolves targets through the module it shares with resolve-infra,
-  // so the sandbox needs that too.
-  cpSync(
-    join(repoRoot, 'scripts/lib/workspace-targets.ts'),
-    join(sandbox, 'scripts/lib/workspace-targets.ts'),
-  );
+  symlinkSync(join(root, 'node_modules'), join(sandbox, 'node_modules'));
 
   // Two platform packages whose directory order (p-one, p-two) is the reverse
   // of their package-name order, so "alphabetical within a layer" is a claim
@@ -274,7 +282,7 @@ beforeAll(() => {
   execFileSync(
     process.execPath,
     [
-      join(repoRoot, 'node_modules/vitest/vitest.mjs'),
+      join(root, 'node_modules/vitest/vitest.mjs'),
       'list',
       '--config',
       'vitest.config.backend.ts',

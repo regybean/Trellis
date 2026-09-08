@@ -2488,6 +2488,46 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  tooling/test-inventory:
+    dependencies:
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../test-utils
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../vitest
+      '@acme/workspace-graph':
+        specifier: workspace:*
+        version: link:../workspace-graph
+      tsx:
+        specifier: 'catalog:'
+        version: 4.21.0
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@22.19.3)(jsdom@27.1.0)(msw@2.12.7(@types/node@22.19.3)(typescript@5.9.3))(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
+    devDependencies:
+      '@acme/eslint-config':
+        specifier: workspace:*
+        version: link:../eslint
+      '@acme/prettier-config':
+        specifier: workspace:*
+        version: link:../prettier
+      '@acme/tsconfig':
+        specifier: workspace:*
+        version: link:../typescript
+      '@types/node':
+        specifier: 'catalog:'
+        version: 22.19.3
+      eslint:
+        specifier: 'catalog:'
+        version: 9.39.2(jiti@2.7.0)
+      prettier:
+        specifier: 'catalog:'
+        version: 3.7.4
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
+
   tooling/test-utils:
     dependencies:
       '@acme/vitest-config':

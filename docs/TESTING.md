@@ -374,9 +374,11 @@ directories in dependency order (tooling, platform, shared, features),
 alphabetical within each, the path under `src/tests/` as the group heading, a
 count in every heading and a total at the end.
 
-It reads from `vitest list --json`, run per package config, so it honours each
-package's real `include` and resolves computed (`it.each`) names — the report is
-what runs, not what a glob guesses. The corollary is that a `.skip` or `.todo`
+The tool is `@acme/test-inventory`; the root script delegates to it. It reads
+from `vitest list --json`, run per package config, so it honours each package's
+real `include` — the globs it reasons about are `@acme/test-utils`' own, not a
+copy — and resolves computed (`it.each`) names. The report is what runs, not
+what a glob guesses. The corollary is that a `.skip` or `.todo`
 appears nowhere: `vitest list` collects only what would run.
 
 Listing normally fires `globalSetup`, which would start every backend suite's
@@ -394,8 +396,8 @@ slices it mounts. Nothing is trimmed: platform packages are where low-value
 tests hide, and `@acme/redis`'s durable-stream tests are load-bearing for chat.
 
 Short names work, and mean the same thing they do to `pnpm dev` — both resolve
-through `scripts/lib/workspace-targets.ts`. A token that names nothing, or that
-two packages answer to, exits non-zero rather than printing an empty report.
+through `@acme/workspace-graph`. A token that names nothing, or that two
+packages answer to, exits non-zero rather than printing an empty report.
 
 Comparing a full app with its slim counterpart is the useful trick:
 
