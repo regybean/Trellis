@@ -140,7 +140,7 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
         .map((k) => [k, obj[k]]),
     );
 
-  // Test-policy metadata (see scripts/check-test-policy.mjs + docs/TESTING.md).
+  // Test-policy metadata (see tooling/repo-checks/src/test-policy.ts + docs/TESTING.md).
   // A feature is full-stack when it ships UI, otherwise a backend library.
   const testClass = o.react ? "full-stack" : o.api ? "backend-library" : "none";
   const conforming =

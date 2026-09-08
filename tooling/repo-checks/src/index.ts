@@ -15,6 +15,20 @@
  * time, so a compile step would leave this broken for the `pnpm lint` that runs
  * immediately after `pnpm install`.
  */
+export type { AdrDirectory, AdrResult, RuleResult } from './adrs';
+export {
+  ADRS_HELP,
+  CONTEXT_MAP,
+  adrDirectories,
+  carriesCitations,
+  checkAdrs,
+  statusValue,
+  validateCitations,
+  validateMapRows,
+  validateNumbering,
+  validateStatus,
+} from './adrs';
+
 export type { PackageIo, RepoIo } from './io';
 export { packageIo, repoIo } from './io';
 

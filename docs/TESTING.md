@@ -429,7 +429,7 @@ Nothing enters the quality gate: this is an ad-hoc read, not an artifact, and
 The root `pnpm test` is a trustworthy gate: every workspace package declares its
 test capability so "no test script" is never ambiguous. Each `package.json`
 carries an `acme` block, enforced by `pnpm test:policy`
-([`scripts/check-test-policy.mjs`](../scripts/check-test-policy.mjs), wired into
+([`tooling/repo-checks/src/test-policy.ts`](../tooling/repo-checks/src/test-policy.ts), wired into
 `quality-gate`):
 
 ```jsonc

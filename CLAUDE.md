@@ -138,7 +138,7 @@ See [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md).
 
 Every runtime package (`packages/platform|shared|features`) has a
 `package.json` `exports` map following a bounded, concern-driven convention,
-enforced by `scripts/check-exports.mjs` (hard-fails `pnpm lint`).
+enforced by `tooling/repo-checks/src/exports.ts` (hard-fails `pnpm lint`).
 `tooling/*` config packages are out of scope. See
 [ADR 0015](docs/adr/0015-package-exports-convention.md).
 
@@ -180,7 +180,7 @@ See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT.md` files. ADRs live with what they govern: repo-wide decisions in `docs/adr/`, a package's own in its `docs/adr/`, numbered **per directory** so the same number in both is normal. Placement, numbering, the status vocabulary and what a `CONTEXT.md` may hold are stated once in [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives) — don't restate them elsewhere. `scripts/check-adrs.mjs` enforces what can be enforced, via `pnpm lint`.
+Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT.md` files. ADRs live with what they govern: repo-wide decisions in `docs/adr/`, a package's own in its `docs/adr/`, numbered **per directory** so the same number in both is normal. Placement, numbering, the status vocabulary and what a `CONTEXT.md` may hold are stated once in [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives) — don't restate them elsewhere. `tooling/repo-checks/src/adrs.ts` enforces what can be enforced, via `pnpm lint`.
 
 ### Worktree workflow
 

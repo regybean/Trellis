@@ -91,7 +91,7 @@ A hook firing a second mutation in the `onSuccess` of the first is the smell.
 
 - **Exports map** follows the bounded convention in
   [ADR 0015](../adr/0015-package-exports-convention.md), enforced by
-  `scripts/check-exports.mjs` (hard-fails `pnpm lint`). Entry shape is
+  `tooling/repo-checks/src/exports.ts` (hard-fails `pnpm lint`). Entry shape is
   `{ "types": "./dist/<name>.d.ts", "default": "./src/<name>.ts" }` — JIT source,
   compiled types. Bounded keys only (`.`, `./server`, `./schema`, `./env`,
   `./testing`, plus registered seams).

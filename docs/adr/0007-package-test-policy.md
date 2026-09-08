@@ -18,7 +18,7 @@ Two decisions are load-bearing:
    _capability_ statement (does it ship an API router? a UI?), not a directory-
    layer label, so it maps directly onto which canonical test scripts the
    package owes. A standalone checker
-   ([`scripts/check-test-policy.mjs`](../../scripts/check-test-policy.mjs),
+   ([`tooling/repo-checks/src/test-policy.ts`](../../tooling/repo-checks/src/test-policy.ts),
    wired into `quality-gate` beside `boundaries`) asserts that every
    library-class package exposes its required scripts.
 

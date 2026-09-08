@@ -26,7 +26,7 @@
     "bank:contribute": "pnpm -C tooling/bank bank:contribute",
     "bank:sync": "pnpm -C tooling/bank bank:sync",
     "boundaries": "turbo boundaries",
-    "check:adrs": "node scripts/check-adrs.mjs",
+    "check:adrs": "pnpm --filter @acme/repo-checks check:adrs",
     "check:bank-paths": "pnpm -C tooling/bank check:bank-paths",
     "check:exports": "pnpm --filter @acme/repo-checks check:exports",
     "build": "turbo run build",

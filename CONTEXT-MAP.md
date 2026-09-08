@@ -9,32 +9,32 @@ live in its `docs/adr/` and are listed per row below. Where an ADR goes, how it
 is numbered and what its status may say are in
 [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives).
 
-| ADR                                                                             | Decision                                                                                                                 |
-| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| [`0001`](docs/adr/0001-pluggable-secrets-sync.md)                               | Pluggable secrets sync with `.env.example` as the contract.                                                              |
-| [`0003`](docs/adr/0003-framework-agnostic-auth-seam.md)                         | Auth is injected into the tRPC context; the app owns the session resolver.                                               |
-| [`0006`](docs/adr/0006-entitlements-injection-seam.md)                          | Billing is injected into the tRPC context as an `EntitlementsProvider`.                                                  |
-| [`0007`](docs/adr/0007-package-test-policy.md)                                  | Every package declares a `testClass` so the root test gate is trustworthy.                                               |
-| [`0008`](docs/adr/0008-per-app-redis-namespace.md)                              | Each app gets its own Redis key namespace, prefixed from `NEXT_PUBLIC_WEBAPP`.                                           |
-| [`0009`](docs/adr/0009-graph-derived-dev-infra.md)                              | `pnpm dev` derives the infra it starts from the dependency graph.                                                        |
-| [`0010`](docs/adr/0010-slim-no-auth-apps.md)                                    | Slim apps are separate no-auth deployments that inject a constant admin principal.                                       |
-| [`0011`](docs/adr/0011-remove-compositions-layer.md)                            | Compositions layer removed; shell/chrome is always app-owned.                                                            |
-| [`0014`](docs/adr/0014-tests-validate-real-env.md)                              | Tests validate real env instead of mocking `env.ts`.                                                                     |
-| [`0015`](docs/adr/0015-package-exports-convention.md)                           | Package `exports` follow a bounded, concern-driven convention (enforced by `scripts/check-exports.mjs` via `pnpm lint`). |
-| [`0017`](docs/adr/0017-test-infra-owned-by-infra-package.md)                    | A suite declares its test infra explicitly; the infra package owns the descriptor.                                       |
-| [`0018`](docs/adr/0018-frontend-test-doctrine.md)                               | Frontend tests fake the network at the HTTP boundary and assert what renders.                                            |
-| [`0020`](docs/adr/0020-commit-tidies-gate-verifies.md)                          | Commit tidies, the gate verifies: tiered quality checks.                                                                 |
-| [`0021`](docs/adr/0021-test-schema-provisioning-db-push.md)                     | Testcontainer schemas are provisioned by the app's `drizzle-kit push --force`.                                           |
-| [`0023`](docs/adr/0023-ambient-telemetry-no-context-object.md)                  | Telemetry is ambient, never threaded through tRPC context.                                                               |
-| [`0024`](docs/adr/0024-ci-build-stubs-for-infra-client-env.md)                  | CI build stubs for infrastructure-client env vars.                                                                       |
-| [`0027`](docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)         | Dependency-audit gate and suppression policy.                                                                            |
-| [`0028`](docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) | Dev-server + compose output is mirrored to `logs/*.log` for agents to read.                                              |
-| [`0029`](docs/adr/0029-per-app-env-ownership.md)                                | Each app owns its full env surface; the shared root `.env` is deprecated.                                                |
-| [`0034`](docs/adr/0034-backend-tests-always-self-provision.md)                  | Backend tests always self-provision testcontainers.                                                                      |
-| [`0036`](docs/adr/0036-one-app-owned-query-client.md)                           | One app-owned QueryClient; cache policy is declared per query.                                                           |
-| [`0037`](docs/adr/0037-vendored-git-subset-three-way-merge.md)                  | Consumers take a vendored git subset and update it by three-way merge.                                                   |
-| [`0038`](docs/adr/0038-acme-scope-is-a-distribution-constraint.md)              | The `@acme` scope is a distribution constraint, not placeholder naming.                                                  |
-| [`0039`](docs/adr/0039-the-selection-is-the-contract.md)                        | The selection is the contract: neither side of the bank enumerates paths.                                                |
+| ADR                                                                             | Decision                                                                                                                          |
+| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| [`0001`](docs/adr/0001-pluggable-secrets-sync.md)                               | Pluggable secrets sync with `.env.example` as the contract.                                                                       |
+| [`0003`](docs/adr/0003-framework-agnostic-auth-seam.md)                         | Auth is injected into the tRPC context; the app owns the session resolver.                                                        |
+| [`0006`](docs/adr/0006-entitlements-injection-seam.md)                          | Billing is injected into the tRPC context as an `EntitlementsProvider`.                                                           |
+| [`0007`](docs/adr/0007-package-test-policy.md)                                  | Every package declares a `testClass` so the root test gate is trustworthy.                                                        |
+| [`0008`](docs/adr/0008-per-app-redis-namespace.md)                              | Each app gets its own Redis key namespace, prefixed from `NEXT_PUBLIC_WEBAPP`.                                                    |
+| [`0009`](docs/adr/0009-graph-derived-dev-infra.md)                              | `pnpm dev` derives the infra it starts from the dependency graph.                                                                 |
+| [`0010`](docs/adr/0010-slim-no-auth-apps.md)                                    | Slim apps are separate no-auth deployments that inject a constant admin principal.                                                |
+| [`0011`](docs/adr/0011-remove-compositions-layer.md)                            | Compositions layer removed; shell/chrome is always app-owned.                                                                     |
+| [`0014`](docs/adr/0014-tests-validate-real-env.md)                              | Tests validate real env instead of mocking `env.ts`.                                                                              |
+| [`0015`](docs/adr/0015-package-exports-convention.md)                           | Package `exports` follow a bounded, concern-driven convention (enforced by `tooling/repo-checks/src/exports.ts` via `pnpm lint`). |
+| [`0017`](docs/adr/0017-test-infra-owned-by-infra-package.md)                    | A suite declares its test infra explicitly; the infra package owns the descriptor.                                                |
+| [`0018`](docs/adr/0018-frontend-test-doctrine.md)                               | Frontend tests fake the network at the HTTP boundary and assert what renders.                                                     |
+| [`0020`](docs/adr/0020-commit-tidies-gate-verifies.md)                          | Commit tidies, the gate verifies: tiered quality checks.                                                                          |
+| [`0021`](docs/adr/0021-test-schema-provisioning-db-push.md)                     | Testcontainer schemas are provisioned by the app's `drizzle-kit push --force`.                                                    |
+| [`0023`](docs/adr/0023-ambient-telemetry-no-context-object.md)                  | Telemetry is ambient, never threaded through tRPC context.                                                                        |
+| [`0024`](docs/adr/0024-ci-build-stubs-for-infra-client-env.md)                  | CI build stubs for infrastructure-client env vars.                                                                                |
+| [`0027`](docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)         | Dependency-audit gate and suppression policy.                                                                                     |
+| [`0028`](docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) | Dev-server + compose output is mirrored to `logs/*.log` for agents to read.                                                       |
+| [`0029`](docs/adr/0029-per-app-env-ownership.md)                                | Each app owns its full env surface; the shared root `.env` is deprecated.                                                         |
+| [`0034`](docs/adr/0034-backend-tests-always-self-provision.md)                  | Backend tests always self-provision testcontainers.                                                                               |
+| [`0036`](docs/adr/0036-one-app-owned-query-client.md)                           | One app-owned QueryClient; cache policy is declared per query.                                                                    |
+| [`0037`](docs/adr/0037-vendored-git-subset-three-way-merge.md)                  | Consumers take a vendored git subset and update it by three-way merge.                                                            |
+| [`0038`](docs/adr/0038-acme-scope-is-a-distribution-constraint.md)              | The `@acme` scope is a distribution constraint, not placeholder naming.                                                           |
+| [`0039`](docs/adr/0039-the-selection-is-the-contract.md)                        | The selection is the contract: neither side of the bank enumerates paths.                                                         |
 
 ## Packages
 
@@ -71,6 +71,7 @@ the package and its one decision goes with it
 | Package                    | Context                                            | ADRs                                  | Also governed by               |
 | -------------------------- | -------------------------------------------------- | ------------------------------------- | ------------------------------ |
 | `tooling/bank/`            | [`CONTEXT.md`](tooling/bank/CONTEXT.md)            | [`docs/adr/`](tooling/bank/docs/adr/) | `0037`, `0038`, `0039`         |
+| `tooling/repo-checks/`     | —                                                  | —                                     | `0007`, `0015`, `0018`         |
 | `tooling/secrets-sync/`    | —                                                  | —                                     | `0001`, `0017`, `0029`         |
 | `tooling/test-utils/`      | [`CONTEXT.md`](tooling/test-utils/CONTEXT.md)      | —                                     | `0014`, `0017`, `0021`, `0034` |
 | `tooling/workspace-graph/` | [`CONTEXT.md`](tooling/workspace-graph/CONTEXT.md) | —                                     | `0009`, `0011`, `0039`         |

@@ -304,7 +304,7 @@ Deleted: `createConfig`, `configExtends`, `describeConfig`,
 `ConfigValidationError`, the client-guard Proxy, the `ConfigContext` /
 `serverConfigContext` / `appConfigContext` injection seam, the `coercedBoolean`
 helper (`jsonEnv` covers it), the `./config` export role in
-`scripts/check-exports.mjs`, and every slice's `config.ts`. The app's second
+`tooling/repo-checks/src/exports.ts`, and every slice's `config.ts`. The app's second
 composition edge goes with it: `configExtends([...])` in each app's `src/config.ts`
 collapses into the single `extends: [...]` list in `env.ts`.
 
