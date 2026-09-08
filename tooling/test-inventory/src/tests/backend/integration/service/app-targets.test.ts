@@ -2,11 +2,11 @@
  * `pnpm test:inventory <app>` — the closure an app expands to, against this
  * repo rather than a sandbox.
  *
- * The package-target cases live in test-inventory.test.ts, in a throwaway
- * workspace, because naming a package needs no graph. An app target does: it
- * expands through `pnpm ls` over the installed workspace, which a sandbox has
- * no cheap way to fake without also faking the thing under test. So this file
- * runs the real CLI over the real graph.
+ * The package-target cases live in inventory.test.ts, in a throwaway workspace,
+ * because naming a package needs no graph. An app target does: it expands
+ * through `pnpm ls` over the installed workspace, which a sandbox has no cheap
+ * way to fake without also faking the thing under test. So this file runs the
+ * real CLI over the real graph.
  *
  * The subsetting assertion is why it earns its keep. `@acme/nextjs-slim` is the
  * repo's claim that a no-auth/no-billing subset really does drop those slices
@@ -25,16 +25,16 @@
  */
 
 import { execFile } from 'node:child_process';
-import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import { repoRoot } from '@acme/workspace-graph';
+
 const run = promisify(execFile);
 
-const here = dirname(fileURLToPath(import.meta.url));
-// src/tests/backend -> repo root is five levels up.
-const repoRoot = resolve(here, '../../../../../');
+const root = repoRoot();
+const CLI = join(root, 'tooling/test-inventory/src/cli.ts');
 
 /** The apps compared: same framework, one with auth and billing, one without. */
 const FULL_APP = '@acme/nextjs';
@@ -57,14 +57,9 @@ function childEnv() {
 async function collect(...targets: string[]) {
   const { stdout } = await run(
     process.execPath,
-    [
-      '--import',
-      'tsx',
-      join(repoRoot, 'scripts/test-inventory.ts'),
-      ...targets,
-    ],
+    ['--import', 'tsx', CLI, ...targets],
     {
-      cwd: repoRoot,
+      cwd: root,
       env: childEnv(),
       encoding: 'utf8',
       maxBuffer: 32 * 1024 * 1024,
