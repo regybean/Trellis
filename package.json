@@ -28,7 +28,7 @@
     "boundaries": "turbo boundaries",
     "check:adrs": "node scripts/check-adrs.mjs",
     "check:bank-paths": "pnpm -C tooling/bank check:bank-paths",
-    "check:exports": "node scripts/check-exports.mjs",
+    "check:exports": "pnpm --filter @acme/repo-checks check:exports",
     "build": "turbo run build",
     "build:nextjs": "turbo run build -F @acme/nextjs...",
     "build:nextjs-slim": "turbo run build -F @acme/nextjs-slim...",
