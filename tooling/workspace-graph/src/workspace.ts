@@ -47,7 +47,7 @@ const toPosix = (value: string) => value.split(path.sep).join('/');
  * The workspace globs a `pnpm-workspace.yaml` declares.
  *
  * `packages:` is a flat sequence of glob strings, so a line scanner reads it
- * without a YAML dependency — the same reading `scripts/lib/bank-closure.mjs`
+ * without a YAML dependency — the same reading `tooling/bank/src/lib/bank-closure.mjs`
  * performs, which cannot import this package because it runs before anything is
  * installed.
  *

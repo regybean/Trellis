@@ -106,7 +106,7 @@ report)
   to supply the second half: they may import a runtime package's profile by
   relative path because root scripts carry no boundary tag, and this package may
   not.
-- The bank (`scripts/lib/bank-closure.mjs`) reads the same workspace file and
+- The bank (`tooling/bank/src/lib/bank-closure.mjs`) reads the same workspace file and
   keeps its own copy of that reading. It runs from a bare checkout with nothing
   installed, so it cannot import this package.
 - This package is consumed from source and has no build step: nothing builds

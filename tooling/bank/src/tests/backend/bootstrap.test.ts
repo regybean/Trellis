@@ -176,8 +176,8 @@ const rootScripts = stringMap(
  * omits the feature is meant to leave the script dangling rather than drag the
  * whole slice in. A repo *command* is not optional in the same way.
  *
- * Derived from the manifests rather than a list here, so it keeps holding as
- * the rest of `scripts/` moves into tooling packages (#314).
+ * Derived from the manifests rather than a list here, so it kept holding as
+ * the rest of `scripts/` moved into tooling packages (#314).
  */
 describe('every delegated tooling command arrives with the root bundle', () => {
   /**
