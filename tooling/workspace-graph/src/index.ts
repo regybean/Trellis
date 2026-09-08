@@ -32,6 +32,20 @@ export {
   workspaceClosure,
 } from './closure';
 
+export type {
+  ComposeEnvironmentInput,
+  ModelRole,
+  ModelsSelection,
+  ProviderSelection,
+  StripeConnection,
+} from './provisioning';
+export {
+  composeEnvironment,
+  portOf,
+  pruneInfra,
+  roleUsing,
+} from './provisioning';
+
 export type { Report, ReportOptions, Violations } from './cli';
 export {
   collectViolations,
