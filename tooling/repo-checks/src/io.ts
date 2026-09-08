@@ -22,9 +22,13 @@ export interface PackageIo {
   /** Every workspace package. */
   packages(): readonly WorkspacePackage[];
   /**
-   * Package-relative POSIX paths of every file in the package. One walk per
-   * package serves every rule that asks about a path; the rules that need file
-   * text ask for it by name.
+   * Package-relative POSIX paths of everything in the package, directories
+   * included with a trailing `/`. One walk per package serves every rule that
+   * asks about a path; the rules that need file text ask for it by name.
+   *
+   * Directories are listed because the layout rule's sidedness half reads the
+   * directory and not its contents — an empty `src/tests/frontend/` under a
+   * backend-library is exactly the mis-filing it exists to catch.
    */
   files(pkg: WorkspacePackage): readonly string[];
   /** The text of a package-relative file. */
@@ -58,7 +62,7 @@ const SKIP_DIRS = new Set([
 
 const toPosix = (value: string) => value.split(path.sep).join('/');
 
-/** Every file under `dir`, as paths relative to it. */
+/** Everything under `dir`, as paths relative to it, directories trailing a `/`. */
 function walk(dir: string, prefix = ''): string[] {
   let entries: { name: string; isDirectory: boolean }[];
   try {
@@ -74,8 +78,11 @@ function walk(dir: string, prefix = ''): string[] {
   for (const entry of entries) {
     if (SKIP_DIRS.has(entry.name)) continue;
     const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
-    if (entry.isDirectory) files.push(...walk(path.join(dir, entry.name), rel));
-    else files.push(rel);
+    if (entry.isDirectory) {
+      files.push(`${rel}/`, ...walk(path.join(dir, entry.name), rel));
+    } else {
+      files.push(rel);
+    }
   }
   return files;
 }

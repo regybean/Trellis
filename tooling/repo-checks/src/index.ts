@@ -25,3 +25,38 @@ export {
   isGoverned,
   validateExports,
 } from './exports';
+
+export {
+  COMPOSE_FILE,
+  composeProfiles,
+  composeProfilesAt,
+  validateInfra,
+} from './infra';
+
+export { acmeBlock, scriptNames } from './manifest';
+
+export type {
+  DeclaredPolicy,
+  ManifestVerdict,
+  SourceFile,
+  TestGap,
+  TestPolicyResult,
+} from './test-policy';
+export {
+  LIBRARY_CLASSES,
+  REQUIRED_SCRIPTS,
+  TEST_CLASSES,
+  TEST_LAYERS,
+  TEST_POLICY_HELP,
+  checkTestPolicy,
+  frontendSourcePaths,
+  isCollectible,
+  isRuntimeLayer,
+  testClassContradictions,
+  unitTestPaths,
+  validateFrontendSeamMocks,
+  validateTestLayout,
+  validateTestManifest,
+  validateTestTaxonomy,
+  validateUnitPurity,
+} from './test-policy';
