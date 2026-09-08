@@ -1,5 +1,5 @@
 /**
- * Verifies `scripts/setup-wizard.mjs` — the command that authors a consumer's
+ * Verifies `tooling/bank/src/setup-wizard.mjs` — the command that authors a consumer's
  * `bank.manifest.json` from a selection ([#289](https://github.com/regybean/Trellis/issues/289)).
  *
  * Two seams. The command run non-interactively, asserted on the manifest it
@@ -20,8 +20,8 @@
  * sandbox. Sandbox and script-vendoring live in `./bank-sandbox`, shared with
  * the two bank suites.
  *
- * No container is needed here. The suite's global-setup starts LocalStack for
- * the sibling secrets test; this file uses none of it.
+ * No container either: this package's vitest config has no global setup, and
+ * nothing here needs one. Git and a temp dir are the whole fixture.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -42,7 +42,7 @@ import {
 
 afterEach(cleanupSandboxes);
 
-const WIZARD = 'scripts/setup-wizard.mjs';
+const WIZARD = 'tooling/bank/src/setup-wizard.mjs';
 
 interface Selection {
   upstream: string;

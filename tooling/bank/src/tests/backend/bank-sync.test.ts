@@ -1,5 +1,5 @@
 /**
- * Verifies `scripts/bank-sync.mjs` — the pull half of the bank — against real
+ * Verifies `tooling/bank/src/bank-sync.mjs` — the pull half of the bank — against real
  * git repositories: a throwaway bank and a throwaway consumer, the script
  * copied in the way a consumer vendors it, and every assertion read back out of
  * git. The sandbox lives in `./bank-sandbox`, shared with the back-flow suite.
@@ -9,10 +9,20 @@
  * is what git itself does with the ancestry the script builds, so a fake git
  * would assert nothing.
  *
- * No container is needed here. The suite's global-setup starts LocalStack for
- * the sibling secrets test; this file uses none of it.
+ * No container either: this package's vitest config has no global setup, and
+ * nothing here needs one. Git and a temp dir are the whole fixture.
  */
 
+import { spawnSync } from 'node:child_process';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { Sandbox } from './bank-sandbox';
@@ -24,13 +34,24 @@ import {
   merge,
   numberedLines,
   read,
+  repoRoot,
   runScript,
   setup,
   sync,
   treePaths,
   write,
+  writeJson,
   writePackage,
 } from './bank-sandbox';
+import { readJson, stringMap } from './json';
+
+/** The commands the root exposes for this package, all four delegated. */
+const BANK_SCRIPTS = [
+  'bank:contribute',
+  'bank:sync',
+  'check:bank-paths',
+  'setup:wizard',
+];
 
 afterEach(cleanupSandboxes);
 
@@ -39,7 +60,7 @@ afterEach(cleanupSandboxes);
  * outcome here rather than a failure, so both paths come back the same shape.
  */
 function check(consumer: string) {
-  return runScript(consumer, 'scripts/bank-sync.mjs', ['--check']);
+  return runScript(consumer, 'tooling/bank/src/bank-sync.mjs', ['--check']);
 }
 
 /** Repoints the consumer's manifest at another bank ref. */
@@ -49,7 +70,7 @@ function pin(consumer: string, ref: string) {
 
 /** Runs a sync expected to fail, returning its exit code and stderr. */
 function syncFailure(consumer: string) {
-  const run = runScript(consumer, 'scripts/bank-sync.mjs');
+  const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
   if (run.status === 0)
     throw new Error('expected bank:sync to fail, but it succeeded');
   return run;
@@ -221,6 +242,28 @@ describe('bank:sync builds the vendor branch', () => {
     expect(stderr).toContain('bank/nope');
     expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(vendorBefore);
   });
+
+  /**
+   * `upstream` and `ref` are the two manifest fields that reach git as
+   * arguments of their own. A leading `-` moves them out of value position and
+   * into option position, where git has options that run a command
+   * (`--upload-pack`, `--exec`). The manifest is a file in the consumer's own
+   * repo rather than a hostile input, but it is edited by hand and reviewed
+   * like any other file, so the refusal belongs in the tool.
+   */
+  it.each([
+    ['upstream', { upstream: '--upload-pack=touch ./pwned' }],
+    ['ref', { ref: '--upload-pack=touch ./pwned' }],
+  ])('refuses an %s that git would read as an option', (field, patch) => {
+    const { consumer } = setup();
+
+    editManifest(consumer, patch, `consumer: point ${field} at an option`);
+    const { stderr } = syncFailure(consumer);
+
+    expect(stderr).toContain(field);
+    expect(stderr).toContain('git reads as an option');
+    expect(existsSync(join(consumer, 'pwned'))).toBe(false);
+  });
 });
 
 describe('bank:sync resolves the selection at the pinned ref', () => {
@@ -331,7 +374,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
       omit: ['packages/logger'],
     });
 
-    const run = runScript(consumer, 'scripts/bank-sync.mjs');
+    const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
 
     expect(run.status).toBe(0);
     expect(packageDirs(consumer)).toEqual(['packages/db', 'tooling/eslint']);
@@ -342,7 +385,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
   it('subtracts an omitted bundle file, the escape for a root file you already have', () => {
     const { consumer } = setup({ packages: [], omit: ['turbo.json'] });
 
-    const run = runScript(consumer, 'scripts/bank-sync.mjs');
+    const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
 
     expect(run.status).toBe(0);
     expect(treePaths(consumer, 'vendor/trellis')).toEqual([
@@ -548,5 +591,97 @@ describe('bank:sync --check reports drift', () => {
     pin(consumer, 'bank/nope');
 
     expect(check(consumer).status).toBe(1);
+  });
+
+  /**
+   * Those three codes only mean anything if they survive the root script, so
+   * the delegation is exercised rather than read.
+   *
+   * The command under test is copied verbatim out of this repo's root
+   * `package.json` into a throwaway workspace, where `tooling/bank` is a stub
+   * that exits 2 on demand and can be deleted. Nothing here asserts a spelling:
+   * both `pnpm -C tooling/bank` and `pnpm --filter @acme/bank` reach that stub,
+   * and either is free to pass if it behaves.
+   *
+   * The second case is the one that separates them, and it is the reason the
+   * root uses `-C`. `--filter` on a name no package matches prints "No projects
+   * matched the filters" and exits **0**: in a repo whose bank never arrived —
+   * the failure the always-included bundle exists to prevent, one registration
+   * away at all times — `pnpm bank:sync --check` would answer "no drift" having
+   * looked at nothing. `-C` on a missing directory is an error.
+   */
+  describe('the root delegation', () => {
+    const delegated: string[] = [];
+
+    afterEach(() => {
+      for (const dir of delegated.splice(0)) rmSync(dir, { recursive: true });
+    });
+
+    /** The real root command, over a stub bank that exits `code`. */
+    function scratchWorkspace(script: string, code: number, bank = true) {
+      const scripts = stringMap(
+        readJson(join(repoRoot, 'package.json')),
+        'scripts',
+      );
+      const command = scripts[script] ?? '';
+      expect(command, `root package.json defines ${script}`).not.toBe('');
+
+      const dir = mkdtempSync(join(tmpdir(), 'bank-delegation-'));
+      delegated.push(dir);
+
+      writeJson(join(dir, 'package.json'), {
+        name: 'scratch-consumer',
+        private: true,
+        scripts: { [script]: command },
+      });
+      writeFileSync(
+        join(dir, 'pnpm-workspace.yaml'),
+        'packages:\n  - tooling/*\n',
+      );
+
+      if (bank) {
+        mkdirSync(join(dir, 'tooling/bank'), { recursive: true });
+        writeJson(join(dir, 'tooling/bank/package.json'), {
+          name: '@acme/bank',
+          private: true,
+          scripts: Object.fromEntries(
+            BANK_SCRIPTS.map((name) => [
+              name,
+              `node -e "process.exit(${code})"`,
+            ]),
+          ),
+        });
+      }
+
+      return dir;
+    }
+
+    /** Runs the root command the way a human at the repo root would. */
+    function runRoot(dir: string, script: string) {
+      const run = spawnSync('pnpm', ['run', script], {
+        cwd: dir,
+        encoding: 'utf8',
+      });
+      if (run.error) throw run.error;
+      return run.status ?? -1;
+    }
+
+    it.each(BANK_SCRIPTS)(
+      'passes %s the exit code its package returned, not one of its own',
+      (script) => {
+        const dir = scratchWorkspace(script, 2);
+
+        expect(runRoot(dir, script)).toBe(2);
+      },
+    );
+
+    it('fails rather than reporting success when the bank package is absent', () => {
+      const dir = scratchWorkspace('bank:sync', 2, false);
+
+      expect(
+        runRoot(dir, 'bank:sync'),
+        'a root command that no-ops to 0 when the bank is missing would report "no drift" having looked at nothing',
+      ).not.toBe(0);
+    });
   });
 });

@@ -29,16 +29,23 @@ const here = dirname(fileURLToPath(import.meta.url));
 export const repoRoot = resolve(here, '../../../../../');
 
 /**
- * What a consumer vendors to get the bank commands: the three scripts and the two
- * libs they share. All five live under `scripts/`, so after the first sync they
- * arrive, and update themselves, like anything else in the `root` bundle.
+ * What the sandbox's consumer runs the bank from: the three commands and the
+ * two libs they share.
+ *
+ * A real consumer hand-copies four of these — the wizard, the sync and the two
+ * libs (docs/bank.md, step 1) — and receives `bank-contribute.mjs` with the
+ * first sync. The sandbox puts all five there at once because its cases start
+ * mid-story, at a consumer that has already synced.
+ *
+ * Copied at their real repo-relative paths, because that is where a consumer
+ * hand-copies them to and where the first bare-node run finds them.
  */
 const scriptSources = [
-  'scripts/bank-sync.mjs',
-  'scripts/bank-contribute.mjs',
-  'scripts/setup-wizard.mjs',
-  'scripts/lib/bank.mjs',
-  'scripts/lib/bank-closure.mjs',
+  'tooling/bank/src/bank-sync.mjs',
+  'tooling/bank/src/bank-contribute.mjs',
+  'tooling/bank/src/setup-wizard.mjs',
+  'tooling/bank/src/lib/bank.mjs',
+  'tooling/bank/src/lib/bank-closure.mjs',
 ];
 
 /**
@@ -87,6 +94,11 @@ export function commit(repo: string, message: string) {
 
 export function read(repo: string, path: string) {
   return readFileSync(join(repo, path), 'utf8');
+}
+
+export function writeJson(path: string, value: unknown) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, `${JSON.stringify(value, null, 2)}\n`);
 }
 
 /** Paths a ref's tree holds, sorted — the "exactly these files" assertion. */
@@ -151,7 +163,7 @@ export function writePackage(
  * those (`agents`) naming a nested *file* rather than a directory, the way the
  * real inventory names `.claude/settings.json`.
  *
- * The consumer gets its own file, the scripts vendored under `scripts/`, and a
+ * The consumer gets its own file, the bank vendored under `tooling/bank/`, and a
  * manifest naming a selection — unless `manifest: false`, which is the
  * never-synced state `setup:wizard` runs in.
  */
@@ -255,7 +267,7 @@ export function setup({
     mkdirSync(dirname(target), { recursive: true });
     cpSync(join(repoRoot, source), target);
   }
-  // Written here rather than through `writeManifest` in `scripts/lib/bank.mjs`
+  // Written here rather than through `writeManifest` in `src/lib/bank.mjs`
   // on purpose: this is the fixture the scripts are asserted against, and a
   // fixture built by the code under test cannot catch that code agreeing with
   // itself on the wrong field set.
@@ -339,8 +351,8 @@ export function derive<T>(
   const run = runScript(consumer, '--input-type=module', [
     '-e',
     [
-      "import { fetchBank } from './scripts/lib/bank.mjs';",
-      "import { bankOffer, closurePreview } from './scripts/lib/bank-closure.mjs';",
+      "import { fetchBank } from './tooling/bank/src/lib/bank.mjs';",
+      "import { bankOffer, closurePreview } from './tooling/bank/src/lib/bank-closure.mjs';",
       `const sha = fetchBank(${JSON.stringify(bank)}, ${JSON.stringify(ref)});`,
       'const offer = bankOffer(sha);',
       `console.log(JSON.stringify(${expression}));`,
@@ -352,7 +364,7 @@ export function derive<T>(
 }
 
 export function sync(consumer: string) {
-  const run = runScript(consumer, 'scripts/bank-sync.mjs');
+  const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
   if (run.status !== 0)
     throw new Error(`expected bank:sync to succeed: ${run.stderr}`);
   return run.stdout;

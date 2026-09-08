@@ -21,34 +21,36 @@
  * internal ticket number or a client domain term in a comment. See docs/bank.md.
  *
  * Usage:
- *   node scripts/bank-contribute.mjs <path> [<path>...]   # or: pnpm bank:contribute
+ *   node tooling/bank/src/bank-contribute.mjs <path> [<path>...]   # or: pnpm bank:contribute
  *
  * Exit codes:
  *   0  the PR was opened, or there was nothing to contribute
  *   1  refused, aborted, or failed — nothing was opened
  */
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { createInterface } from "node:readline/promises";
+import { execFileSync, spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 
 import {
+  at,
   BankError,
-  MANIFEST,
-  VENDOR_BRANCH,
-  VENDOR_REF,
   defaultBranch,
   enterRepoRoot,
   fail,
   git,
-  gitOrNull,
   githubSlug,
+  gitOrNull,
+  MANIFEST,
+  notAnOption,
   readManifest,
   repoRelative,
   under,
+  VENDOR_BRANCH,
+  VENDOR_REF,
   vendorBankSha,
-} from "./lib/bank.mjs";
+} from './lib/bank.mjs';
 
 const EXIT_ERROR = 1;
 
@@ -57,7 +59,7 @@ const EXIT_ERROR = 1;
  * stray keystroke and no `yes |` in front of the command can publish code by
  * accident.
  */
-const CONFIRMATION = "contribute";
+const CONFIRMATION = 'contribute';
 
 /**
  * The paths named on the command line.
@@ -70,19 +72,19 @@ const CONFIRMATION = "contribute";
  * @returns {string[]}
  */
 function requestedPaths(args) {
-  const options = args.filter((arg) => arg.startsWith("-"));
+  const options = args.filter((arg) => arg.startsWith('-'));
   if (options.length)
     return fail(
       [
-        `unknown option${options.length === 1 ? "" : "s"} ${options.join(" ")} — usage: bank:contribute <path> [<path>...]`,
-        "",
-        "There is no flag to skip the confirmation. A human reads the diff, every time.",
-      ].join("\n"),
+        `unknown option${options.length === 1 ? '' : 's'} ${options.join(' ')} — usage: bank:contribute <path> [<path>...]`,
+        '',
+        'There is no flag to skip the confirmation. A human reads the diff, every time.',
+      ].join('\n'),
     );
 
-  const paths = args.map((arg) => repoRelative(arg, "path"));
+  const paths = args.map((arg) => repoRelative(arg, 'path'));
   if (paths.length === 0)
-    return fail("usage: pnpm bank:contribute <path> [<path>...]");
+    return fail('usage: pnpm bank:contribute <path> [<path>...]');
   return paths;
 }
 
@@ -98,14 +100,14 @@ function assertContributable(paths, manifest) {
     return fail(
       [
         `"contributable" in ${MANIFEST} is empty, so there is nothing this repo may contribute.`,
-        "",
-        "That is the default and it fails closed on purpose. Back-flow is opt-in one",
-        "path at a time, by a human who has read that path and decided it is generic",
-        "enough to publish to a public repo.",
-        "",
+        '',
+        'That is the default and it fails closed on purpose. Back-flow is opt-in one',
+        'path at a time, by a human who has read that path and decided it is generic',
+        'enough to publish to a public repo.',
+        '',
         `Add the path to "contributable" in ${MANIFEST} first, then run this again.`,
-        "Layer is not the test: a shared/ package can still be tied to your domain.",
-      ].join("\n"),
+        'Layer is not the test: a shared/ package can still be tied to your domain.',
+      ].join('\n'),
     );
 
   const refused = paths.filter(
@@ -114,14 +116,14 @@ function assertContributable(paths, manifest) {
   if (refused.length)
     return fail(
       [
-        `not in the "contributable" allowlist: ${refused.join(", ")}`,
-        "",
-        `Allowed today: ${manifest.contributable.join(", ")}`,
-        "",
+        `not in the "contributable" allowlist: ${refused.join(', ')}`,
+        '',
+        `Allowed today: ${manifest.contributable.join(', ')}`,
+        '',
         `Add the path to "contributable" in ${MANIFEST} if it is genuinely generic.`,
-        "Read it first — the allowlist is the only thing standing between your",
+        'Read it first — the allowlist is the only thing standing between your',
         "client's code and a public repo.",
-      ].join("\n"),
+      ].join('\n'),
     );
 }
 
@@ -137,13 +139,13 @@ function assertContributable(paths, manifest) {
  * @returns {{ base: string, bankSha: string }}
  */
 function patchBase() {
-  const vendor = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
+  const vendor = gitOrNull(['rev-parse', '--verify', '--quiet', VENDOR_REF]);
   if (!vendor)
     return fail(
       `${VENDOR_BRANCH} does not exist — this repo has never synced, so there is no bank content to diff against. Run pnpm bank:sync.`,
     );
 
-  const base = gitOrNull(["merge-base", "HEAD", vendor]);
+  const base = gitOrNull(['merge-base', 'HEAD', vendor]);
   if (!base)
     return fail(
       `${VENDOR_BRANCH} has never been merged into this branch, so there is no common base to diff against. Merge it first.`,
@@ -169,23 +171,23 @@ function patchBase() {
  * @returns {string}
  */
 function buildPatch(base, paths) {
-  const dirty = git(["status", "--porcelain", "--", ...paths]);
+  const dirty = git(['status', '--porcelain', '--', ...paths]);
   if (dirty)
     return fail(
       [
-        "uncommitted changes under the requested path(s):",
+        'uncommitted changes under the requested path(s):',
         dirty,
-        "",
-        "Commit or stash them first. The patch is built from committed history, so",
-        "what you review here is exactly what the PR would carry.",
-      ].join("\n"),
+        '',
+        'Commit or stash them first. The patch is built from committed history, so',
+        'what you review here is exactly what the PR would carry.',
+      ].join('\n'),
     );
 
   return String(
-    execFileSync("git", ["diff", "--binary", base, "HEAD", "--", ...paths], {
-      encoding: "utf8",
+    execFileSync('git', ['diff', '--binary', base, 'HEAD', '--', ...paths], {
+      encoding: 'utf8',
       maxBuffer: 256 * 1024 * 1024,
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ['pipe', 'pipe', 'pipe'],
     }),
   );
 }
@@ -201,39 +203,39 @@ function buildPatch(base, paths) {
  * @param {string} patch
  */
 function scanPatch(root, patch) {
-  const config = join(root, ".gitleaks.toml");
+  const config = join(root, '.gitleaks.toml');
   const result = spawnSync(
-    "gitleaks",
+    'gitleaks',
     [
-      "stdin",
-      "--no-banner",
-      "--redact",
-      ...(existsSync(config) ? ["--config", config] : []),
+      'stdin',
+      '--no-banner',
+      '--redact',
+      ...(existsSync(config) ? ['--config', config] : []),
     ],
-    { input: patch, encoding: "utf8" },
+    { input: patch, encoding: 'utf8' },
   );
 
   if (result.error)
     return fail(
       [
         `gitleaks could not be run (${result.error.message}).`,
-        "",
-        "The secret scan is not optional on the way out. Install it and try again:",
-        "  brew install gitleaks",
-      ].join("\n"),
+        '',
+        'The secret scan is not optional on the way out. Install it and try again:',
+        '  brew install gitleaks',
+      ].join('\n'),
     );
 
   if (result.status !== 0)
     return fail(
       [
-        "gitleaks flagged the diff. Nothing has been opened.",
-        "",
+        'gitleaks flagged the diff. Nothing has been opened.',
+        '',
         [result.stdout, result.stderr]
-          .map((stream) => String(stream ?? "").trim())
+          .map((stream) => String(stream ?? '').trim())
           .filter(Boolean)
-          .join("\n"),
+          .join('\n'),
       ]
-        .join("\n")
+        .join('\n')
         .trimEnd(),
     );
 }
@@ -248,14 +250,14 @@ function scanPatch(root, patch) {
 async function confirm(paths) {
   console.log(
     [
-      "",
-      `The diff above is what would be published to a public repo, from ${paths.join(", ")}.`,
-      "",
-      "gitleaks found no credentials in it. It does not catch client context:",
-      "internal ticket numbers, client domain terms, hostnames, names of people.",
-      "Those are not secrets and they are still not yours to publish. Read the diff.",
-      "",
-    ].join("\n"),
+      '',
+      `The diff above is what would be published to a public repo, from ${paths.join(', ')}.`,
+      '',
+      'gitleaks found no credentials in it. It does not catch client context:',
+      'internal ticket numbers, client domain terms, hostnames, names of people.',
+      'Those are not secrets and they are still not yours to publish. Read the diff.',
+      '',
+    ].join('\n'),
   );
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -264,7 +266,7 @@ async function confirm(paths) {
       `Type "${CONFIRMATION}" to open the PR, or anything else to abort: `,
     );
     if (answer.trim() !== CONFIRMATION)
-      return fail("aborted — nothing was opened.");
+      return fail('aborted — nothing was opened.');
   } finally {
     rl.close();
   }
@@ -285,48 +287,50 @@ async function confirm(paths) {
  * @param {string} args.patch
  */
 function openPullRequest({ manifest, bankSha, paths, patch }) {
-  const head = git(["rev-parse", "--short", "HEAD"]);
-  const branch = `contribute/${paths[0].replace(/[^A-Za-z0-9._-]+/g, "-")}-${head}`;
+  const head = git(['rev-parse', '--short', 'HEAD']);
+  // `requestedPaths` refuses an empty list, so there is always a first path.
+  const first = at(paths, 0, 'contributed path');
+  const branch = `contribute/${first.replace(/[^A-Za-z0-9._-]+/g, '-')}-${head}`;
   const base = defaultBranch(manifest.upstream);
-  const title = `contribute ${paths.join(", ")} from a consumer`;
+  const title = `contribute ${paths.join(', ')} from a consumer`;
   const body = [
     `Back-flow from a repo consuming this bank, opened with \`pnpm bank:contribute\`.`,
-    "",
+    '',
     `- Based on bank commit \`${bankSha}\`, the commit this consumer last merged.`,
-    `- Paths: ${paths.map((path) => `\`${path}\``).join(", ")}`,
+    `- Paths: ${paths.map((path) => `\`${path}\``).join(', ')}`,
     `- The consumer listed each of these in \`contributable\`, a human read the diff,`,
-    "  and gitleaks found no credentials in it.",
-    "",
-    "Reviewer: gitleaks does not catch client context. Read the diff for internal",
-    "ticket numbers, domain terms and hostnames that are not secrets and still do",
-    "not belong in a public repo.",
-  ].join("\n");
+    '  and gitleaks found no credentials in it.',
+    '',
+    'Reviewer: gitleaks does not catch client context. Read the diff for internal',
+    'ticket numbers, domain terms and hostnames that are not secrets and still do',
+    'not belong in a public repo.',
+  ].join('\n');
 
-  const work = mkdtempSync(join(tmpdir(), "bank-contribute-"));
-  const clone = join(work, "bank");
-  git(["clone", "--quiet", manifest.upstream, clone]);
-  git(["checkout", "--quiet", "-b", branch, bankSha], { cwd: clone });
-  git(["apply", "--index", "--whitespace=nowarn", "-"], {
+  const work = mkdtempSync(join(tmpdir(), 'bank-contribute-'));
+  const clone = join(work, 'bank');
+  git(['clone', '--quiet', notAnOption(manifest.upstream, 'upstream'), clone]);
+  git(['checkout', '--quiet', '-b', branch, bankSha], { cwd: clone });
+  git(['apply', '--index', '--whitespace=nowarn', '-'], {
     cwd: clone,
     input: patch,
   });
-  git(["commit", "--quiet", "-m", `${title}\n\n${body}`], { cwd: clone });
+  git(['commit', '--quiet', '-m', `${title}\n\n${body}`], { cwd: clone });
 
   if (
-    gitOrNull(["push", "--quiet", "origin", branch], { cwd: clone }) ===
+    gitOrNull(['push', '--quiet', 'origin', branch], { cwd: clone }) ===
     undefined
   )
     return fail(
       [
         `could not push ${branch} to ${manifest.upstream} — you may not have write access.`,
-        "",
-        "The commit is prepared and waiting here:",
+        '',
+        'The commit is prepared and waiting here:',
         `  ${clone}`,
-        "",
-        "Push it to a fork you can write to, then open the PR from there:",
+        '',
+        'Push it to a fork you can write to, then open the PR from there:',
         `  git -C ${clone} remote add fork <your-fork-url>`,
         `  git -C ${clone} push fork ${branch}`,
-      ].join("\n"),
+      ].join('\n'),
     );
 
   const slug = githubSlug(manifest.upstream);
@@ -334,28 +338,28 @@ function openPullRequest({ manifest, bankSha, paths, patch }) {
     return console.log(
       [
         `Pushed ${branch} to ${manifest.upstream}.`,
-        "",
+        '',
         `The bank is not on GitHub, so open the PR against ${base} yourself.`,
-      ].join("\n"),
+      ].join('\n'),
     );
 
   execFileSync(
-    "gh",
+    'gh',
     [
-      "pr",
-      "create",
-      "--repo",
+      'pr',
+      'create',
+      '--repo',
       slug,
-      "--base",
+      '--base',
       base,
-      "--head",
+      '--head',
       branch,
-      "--title",
+      '--title',
       title,
-      "--body",
+      '--body',
       body,
     ],
-    { stdio: "inherit" },
+    { stdio: 'inherit' },
   );
 }
 
@@ -368,9 +372,9 @@ async function main() {
 
   const { base, bankSha } = patchBase();
   const patch = buildPatch(base, paths);
-  if (patch.trim() === "") {
+  if (patch.trim() === '') {
     console.log(
-      `Nothing to contribute — ${paths.join(", ")} matches the bank at ${bankSha.slice(0, 8)}.`,
+      `Nothing to contribute — ${paths.join(', ')} matches the bank at ${bankSha.slice(0, 8)}.`,
     );
     return;
   }

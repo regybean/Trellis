@@ -13,7 +13,7 @@
  *
  * Nobody authors paths on either side: the closure is resolved from the bank's
  * own `pnpm-workspace.yaml`, `package.json` files and `bank.paths.json` at the
- * pinned ref (ADR 0039, scripts/lib/bank-closure.mjs). So a package that gains
+ * pinned ref (ADR 0039, src/lib/bank-closure.mjs). So a package that gains
  * a dependency upstream is taken on the next sync without a manifest edit.
  *
  * It stops there. It never merges, never checks anything out, and never touches
@@ -28,39 +28,40 @@
  * see its consumers, so drift detection is consumer-side by construction — see
  * docs/bank.md for the guide, and the exit codes below for gating CI on it.
  *
- * This is the pull half. Back-flow is `scripts/bank-contribute.mjs`, which is
+ * This is the pull half. Back-flow is `bank-contribute.mjs`, which is
  * separate on purpose: pulling from a public bank is always safe, contributing
  * to it is the constrained direction.
  *
  * Usage:
- *   node scripts/bank-sync.mjs             # or: pnpm bank:sync
- *   node scripts/bank-sync.mjs --check     # or: pnpm bank:sync --check
+ *   node tooling/bank/src/bank-sync.mjs             # or: pnpm bank:sync
+ *   node tooling/bank/src/bank-sync.mjs --check     # or: pnpm bank:sync --check
  *
  * Exit codes (`--check`):
  *   0  up to date — nothing unpulled
  *   1  error — bad manifest, unreachable bank, unresolvable ref
  *   2  behind — the bank has commits this repo has not taken
  */
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { describeUnmatched, resolveInclude } from "./lib/bank-closure.mjs";
+import { describeUnmatched, resolveInclude } from './lib/bank-closure.mjs';
 import {
+  at,
   BankError,
-  MANIFEST,
-  VENDOR_BRANCH,
-  VENDOR_REF,
   defaultBranch,
   enterRepoRoot,
   fail,
   fetchBank,
   git,
   gitOrNull,
+  MANIFEST,
   readManifest,
   under,
+  VENDOR_BRANCH,
+  VENDOR_REF,
   vendorCommitMessage,
-} from "./lib/bank.mjs";
+} from './lib/bank.mjs';
 
 /** `--check` outcomes. Documented in docs/bank.md, so any CI can gate on them. */
 const EXIT_UP_TO_DATE = 0;
@@ -85,16 +86,21 @@ const EXIT_BEHIND = 2;
  * @returns {string}
  */
 function buildFilteredTree(root, sha, include) {
-  const entries = git(["ls-tree", "-r", "-z", sha], {
+  const entries = git(['ls-tree', '-r', '-z', sha], {
     cwd: root,
     maxBuffer: 256 * 1024 * 1024,
   })
-    .split("\0")
+    .split('\0')
     .filter(Boolean)
     .map((line) => {
-      const [meta, path] = line.split("\t");
-      const [mode, , object] = meta.split(" ");
-      return { mode, object, path };
+      // `<mode> <type> <object>\t<path>` — ls-tree's format, verbatim.
+      const record = line.split('\t');
+      const meta = at(record, 0, 'ls-tree entry').split(' ');
+      return {
+        mode: at(meta, 0, 'ls-tree mode'),
+        object: at(meta, 2, 'ls-tree object'),
+        path: at(record, 1, 'ls-tree path'),
+      };
     })
     .filter((entry) => include.some((prefix) => under(entry.path, prefix)));
 
@@ -103,17 +109,17 @@ function buildFilteredTree(root, sha, include) {
       `nothing at ${sha.slice(0, 8)} matches "include" — the vendor branch would be empty`,
     );
 
-  const indexDir = mkdtempSync(join(tmpdir(), "bank-sync-"));
+  const indexDir = mkdtempSync(join(tmpdir(), 'bank-sync-'));
   try {
-    const env = { ...process.env, GIT_INDEX_FILE: join(indexDir, "index") };
-    git(["update-index", "--index-info"], {
+    const env = { ...process.env, GIT_INDEX_FILE: join(indexDir, 'index') };
+    git(['update-index', '--index-info'], {
       cwd: root,
       env,
       input: entries
         .map((entry) => `${entry.mode} ${entry.object}\t${entry.path}`)
-        .join("\n"),
+        .join('\n'),
     });
-    return git(["write-tree"], { cwd: root, env });
+    return git(['write-tree'], { cwd: root, env });
   } finally {
     rmSync(indexDir, { recursive: true, force: true });
   }
@@ -127,10 +133,10 @@ function buildFilteredTree(root, sha, include) {
  * @returns {string[]}
  */
 function diffFields(args, include) {
-  return git(["diff", "-z", ...args, "--", ...include], {
+  return git(['diff', '-z', ...args, '--', ...include], {
     maxBuffer: 64 * 1024 * 1024,
   })
-    .split("\0")
+    .split('\0')
     .filter(Boolean);
 }
 
@@ -164,15 +170,18 @@ function byIncludePath(files, include) {
  * @returns {{ merged: false } | { merged: true, entries: { status: string, path: string }[] }}
  */
 function localModifications(vendor, include) {
-  const base = gitOrNull(["merge-base", "HEAD", vendor]);
+  const base = gitOrNull(['merge-base', 'HEAD', vendor]);
   if (!base) return { merged: false };
 
   // `--name-status -z` emits status and path as separate NUL-terminated fields.
-  const fields = diffFields(["--name-status", base, "HEAD"], include);
+  const fields = diffFields(['--name-status', base, 'HEAD'], include);
   /** @type {{ status: string, path: string }[]} */
   const entries = [];
   for (let i = 0; i + 1 < fields.length; i += 2)
-    entries.push({ status: fields[i], path: fields[i + 1] });
+    entries.push({
+      status: at(fields, i, 'name-status'),
+      path: at(fields, i + 1, 'name-status'),
+    });
   return { merged: true, entries };
 }
 
@@ -196,9 +205,9 @@ function runCheck(root, manifest) {
   const atPinned = resolveInclude(pinned, manifest, { strict: false });
   const include = atPinned.include;
 
-  const behind = Number(git(["rev-list", "--count", `${pinned}..${head}`]));
+  const behind = Number(git(['rev-list', '--count', `${pinned}..${head}`]));
   const moved = behind
-    ? byIncludePath(diffFields(["--name-only", pinned, head], include), include)
+    ? byIncludePath(diffFields(['--name-only', pinned, head], include), include)
     : [];
   // The closure only moves when `ref` moves, so this is never news of its own —
   // it belongs to the "behind" outcome and shares its exit code.
@@ -210,8 +219,8 @@ function runCheck(root, manifest) {
   const leaving =
     atHead && include.filter((path) => !atHead.include.includes(path));
 
-  const vendor = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
-  const vendorTree = vendor && gitOrNull(["rev-parse", `${vendor}^{tree}`]);
+  const vendor = gitOrNull(['rev-parse', '--verify', '--quiet', VENDOR_REF]);
+  const vendorTree = vendor && gitOrNull(['rev-parse', `${vendor}^{tree}`]);
   const unsynced = vendorTree !== buildFilteredTree(root, pinned, include);
   const local = vendor ? localModifications(vendor, include) : undefined;
 
@@ -219,39 +228,39 @@ function runCheck(root, manifest) {
     `bank:     ${manifest.upstream}`,
     `pinned:   ${manifest.ref} (${pinned.slice(0, 8)})`,
     `bank tip: ${headRef} (${head.slice(0, 8)})`,
-    "",
+    '',
   ];
 
   if (behind)
     lines.push(
-      `Behind by ${behind} bank commit${behind === 1 ? "" : "s"}. Subscribed paths that changed in them:`,
+      `Behind by ${behind} bank commit${behind === 1 ? '' : 's'}. Subscribed paths that changed in them:`,
       ...moved.map(
         (entry) =>
-          `  ${entry.prefix} (${entry.files} file${entry.files === 1 ? "" : "s"})`,
+          `  ${entry.prefix} (${entry.files} file${entry.files === 1 ? '' : 's'})`,
       ),
-      "",
+      '',
       `To take them: point "ref" in ${MANIFEST} at the newest bank tag, then run pnpm bank:sync.`,
-      "",
+      '',
     );
 
   if (entering.length || leaving?.length)
     lines.push(
-      "Bumping to the bank tip also changes what your selection covers:",
+      'Bumping to the bank tip also changes what your selection covers:',
       ...entering.map((path) => `  + ${path}`),
       ...(leaving ?? []).map((path) => `  - ${path}`),
-      "",
+      '',
     );
 
   if (atHead?.missing.length)
     lines.push(
-      `Selected packages that do not exist at the bank tip, so a bump would fail: ${atHead.missing.join(", ")}.`,
-      "",
+      `Selected packages that do not exist at the bank tip, so a bump would fail: ${atHead.missing.join(', ')}.`,
+      '',
     );
 
   if (atPinned.missing.length)
     lines.push(
-      `Selected packages that do not exist at the pinned ref, so pnpm bank:sync will fail: ${atPinned.missing.join(", ")}.`,
-      "",
+      `Selected packages that do not exist at the pinned ref, so pnpm bank:sync will fail: ${atPinned.missing.join(', ')}.`,
+      '',
     );
 
   // The same news as `missing`, for the other half of a selection. A sync
@@ -259,13 +268,13 @@ function runCheck(root, manifest) {
   if (atHead?.unmatched.length)
     lines.push(
       `Bundle paths that match nothing at the bank tip, so a bump would fail: ${describeUnmatched(atHead.unmatched)}.`,
-      "",
+      '',
     );
 
   if (atPinned.unmatched.length)
     lines.push(
       `Bundle paths that match nothing at the pinned ref, so pnpm bank:sync will fail: ${describeUnmatched(atPinned.unmatched)}.`,
-      "",
+      '',
     );
 
   if (unsynced)
@@ -273,23 +282,23 @@ function runCheck(root, manifest) {
       vendor
         ? `${VENDOR_BRANCH} does not hold the pinned ref — run pnpm bank:sync to rebuild it.`
         : `${VENDOR_BRANCH} does not exist — this repo has never synced. Run pnpm bank:sync.`,
-      "",
+      '',
     );
 
   if (local && !local.merged)
     lines.push(
       `${VENDOR_BRANCH} has never been merged, so local modifications cannot be reported yet.`,
-      "",
+      '',
     );
 
   if (local?.merged && local.entries.length)
     lines.push(
-      "Locally modified vendored paths:",
+      'Locally modified vendored paths:',
       ...local.entries.map((entry) => `  ${entry.status}  ${entry.path}`),
-      "",
-      "Review these and consider contributing them back to the bank — anything generic",
-      "here is a fix every other consumer is currently missing.",
-      "",
+      '',
+      'Review these and consider contributing them back to the bank — anything generic',
+      'here is a fix every other consumer is currently missing.',
+      '',
     );
 
   const clean =
@@ -299,7 +308,7 @@ function runCheck(root, manifest) {
     console.log(
       `Up to date with ${manifest.ref} (${pinned.slice(0, 8)}) — nothing unpulled, no locally modified vendored paths.`,
     );
-  else console.log(lines.join("\n").trimEnd());
+  else console.log(lines.join('\n').trimEnd());
 
   process.exit(behind || unsynced ? EXIT_BEHIND : EXIT_UP_TO_DATE);
 }
@@ -318,8 +327,8 @@ function runSync(root, manifest) {
     console.warn(`bank:sync: warning — ${warning}`);
   const tree = buildFilteredTree(root, bankSha, include);
 
-  const parent = gitOrNull(["rev-parse", "--verify", "--quiet", VENDOR_REF]);
-  if (parent && gitOrNull(["rev-parse", `${parent}^{tree}`]) === tree) {
+  const parent = gitOrNull(['rev-parse', '--verify', '--quiet', VENDOR_REF]);
+  if (parent && gitOrNull(['rev-parse', `${parent}^{tree}`]) === tree) {
     console.log(
       `${VENDOR_BRANCH} is already at ${manifest.ref} (${bankSha.slice(0, 8)}) — nothing to sync.`,
     );
@@ -327,37 +336,37 @@ function runSync(root, manifest) {
   }
 
   const commit = git([
-    "commit-tree",
+    'commit-tree',
     tree,
-    ...(parent ? ["-p", parent] : []),
-    "-m",
+    ...(parent ? ['-p', parent] : []),
+    '-m',
     vendorCommitMessage(bankSha, manifest, include),
   ]);
-  git(["update-ref", VENDOR_REF, commit, ...(parent ? [parent] : [])]);
+  git(['update-ref', VENDOR_REF, commit, ...(parent ? [parent] : [])]);
 
   console.log(
     [
-      `${VENDOR_BRANCH} ${parent ? "updated" : "created"}: ${commit.slice(0, 8)} — bank ${manifest.ref} (${bankSha.slice(0, 8)}), ${include.length} resolved path(s).`,
-      "",
-      "Nothing has been merged. On your working branch, run:",
-      "",
-      `  git merge${parent ? "" : " --allow-unrelated-histories"} ${VENDOR_BRANCH}`,
-      "",
-    ].join("\n"),
+      `${VENDOR_BRANCH} ${parent ? 'updated' : 'created'}: ${commit.slice(0, 8)} — bank ${manifest.ref} (${bankSha.slice(0, 8)}), ${include.length} resolved path(s).`,
+      '',
+      'Nothing has been merged. On your working branch, run:',
+      '',
+      `  git merge${parent ? '' : ' --allow-unrelated-histories'} ${VENDOR_BRANCH}`,
+      '',
+    ].join('\n'),
   );
 }
 
 function main() {
   const args = process.argv.slice(2);
-  const unknown = args.filter((arg) => arg !== "--check");
+  const unknown = args.filter((arg) => arg !== '--check');
   if (unknown.length)
     return fail(
-      `unknown argument${unknown.length === 1 ? "" : "s"} ${unknown.join(" ")} — usage: bank:sync [--check]`,
+      `unknown argument${unknown.length === 1 ? '' : 's'} ${unknown.join(' ')} — usage: bank:sync [--check]`,
     );
 
   const root = enterRepoRoot();
   const manifest = readManifest(root);
-  if (args.includes("--check")) runCheck(root, manifest);
+  if (args.includes('--check')) runCheck(root, manifest);
   else runSync(root, manifest);
 }
 

@@ -4,7 +4,7 @@
  * `bank.paths.json` completeness gate.
  *
  * The bank's *package* set is derived, so it cannot go stale
- * ([ADR 0039](../docs/adr/0039-the-selection-is-the-contract.md)). Everything at
+ * ([ADR 0039](../../../docs/adr/0039-the-selection-is-the-contract.md)). Everything at
  * the repo root is the opposite: a new root-level file or directory is invisible
  * to the derivation, so unless someone remembers to put it in a bundle or in
  * `exclude`, it silently becomes content no consumer can take and no reader can
@@ -29,27 +29,28 @@
  * lets the rules be aimed at a fixture repo.
  *
  * Usage:
- *   node scripts/check-bank-paths.mjs [repo-root]   # exit 1 naming anything unclassified
+ *   node tooling/bank/src/check-bank-paths.mjs [repo-root]   # exit 1 naming anything unclassified
  */
-import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 
-import { parseWorkspaceGlobs } from "./lib/bank-closure.mjs";
-import { repoRoot } from "./lib/bank.mjs";
+import { parseWorkspaceGlobs } from './lib/bank-closure.mjs';
+import { repoRoot } from './lib/bank.mjs';
 
 const ROOT = process.argv[2] ? resolve(process.argv[2]) : repoRoot();
-const PATHS_FILE = "bank.paths.json";
+const PATHS_FILE = 'bank.paths.json';
 
-// `scripts/` is itself bank content, so this file arrives in every consumer
-// repo — where there is no inventory to check and nothing to enforce.
+// `tooling/bank` is itself bank content — it rides the always-included `root`
+// bundle — so this file arrives in every consumer repo, where there is no
+// inventory to check and nothing to enforce.
 if (!existsSync(join(ROOT, PATHS_FILE))) {
   console.log(`check-bank-paths: no ${PATHS_FILE} — this repo is not a bank.`);
   process.exit(0);
 }
 
 /** @type {{ bundles: { name: string, paths: string[] }[], exclude: { path: string }[] }} */
-const inventory = JSON.parse(readFileSync(join(ROOT, PATHS_FILE), "utf8"));
+const inventory = JSON.parse(readFileSync(join(ROOT, PATHS_FILE), 'utf8'));
 
 /** Where each classified path came from, so a diagnostic can name the source. */
 const claimed = [
@@ -64,15 +65,15 @@ const claimed = [
 
 const workspaceRoots = new Set(
   parseWorkspaceGlobs(
-    readFileSync(join(ROOT, "pnpm-workspace.yaml"), "utf8"),
-  ).map((glob) => glob.split("/")[0]),
+    readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8'),
+  ).map((glob) => glob.split('/')[0]),
 );
 
 const rootEntries = new Set(
-  execFileSync("git", ["ls-files", "-z"], { cwd: ROOT, encoding: "utf8" })
-    .split("\0")
+  execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' })
+    .split('\0')
     .filter(Boolean)
-    .map((path) => path.split("/")[0]),
+    .map((path) => path.split('/')[0] ?? path),
 );
 
 const unclassified = [...rootEntries]
@@ -91,21 +92,21 @@ const unclassified = [...rootEntries]
 
 if (unclassified.length) {
   console.error(
-    `\n✖ ${PATHS_FILE} does not classify ${unclassified.length} tracked root-level ${unclassified.length === 1 ? "entry" : "entries"}:\n`,
+    `\n✖ ${PATHS_FILE} does not classify ${unclassified.length} tracked root-level ${unclassified.length === 1 ? 'entry' : 'entries'}:\n`,
   );
   for (const entry of unclassified) console.error(`  ${entry}`);
   console.error(
     [
-      "",
-      "Each must be either distributable or deliberately withheld:",
-      "  • add it to the `paths` of the bundle it belongs to, or",
-      "  • add it to `exclude` with the reason a consumer never takes it.",
-      "",
+      '',
+      'Each must be either distributable or deliberately withheld:',
+      '  • add it to the `paths` of the bundle it belongs to, or',
+      '  • add it to `exclude` with the reason a consumer never takes it.',
+      '',
       `Both are edits to ${PATHS_FILE}. There is no third answer, because an`,
-      "unclassified root entry is content nobody can take and nobody can see was",
-      "left out.",
-      "",
-    ].join("\n"),
+      'unclassified root entry is content nobody can take and nobody can see was',
+      'left out.',
+      '',
+    ].join('\n'),
   );
   process.exit(1);
 }
