@@ -1,14 +1,14 @@
 /**
- * Global setup for the secrets-backend test.
+ * Global setup for the secrets round-trip test.
  *
  * LocalStack is just another `InfraDescriptor` — its sole consumer is this
- * package's own secrets test, so the descriptor lives here rather than in an
- * owner package. It goes through the same `runInfraSetup` engine as Postgres and
- * Redis: a testcontainer in CI, an assumed `pnpm infra:up` service locally. The
- * endpoint reaches the test as `inject('infraEnv').AWS_ENDPOINT_URL`.
+ * package's own round-trip test, so the descriptor lives here rather than in an
+ * owner package (ADR 0017). It goes through the same `runInfraSetup` engine as
+ * Postgres and Redis, and the endpoint reaches the test as
+ * `inject('infraEnv').AWS_ENDPOINT_URL`.
  */
-import type { InfraDescriptor } from '../../infra';
-import { runInfraSetup } from '../../setup';
+import type { InfraDescriptor } from '@acme/test-utils/infra';
+import { runInfraSetup } from '@acme/test-utils/setup';
 
 const localstackContainer: InfraDescriptor = {
   name: 'localstack',
