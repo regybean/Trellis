@@ -16,10 +16,12 @@ pre-commit:
   commands:
     # Format only the staged files; Prettier resolves each file's config from the
     # owning package's `package.json` "prettier" key. Deterministic, cannot fail
-    # meaningfully, re-stages what it rewrote.
+    # meaningfully, re-stages what it rewrote. Wrapped in a script that drops
+    # symlinks first — an explicit symlink arg is a hard error for Prettier, and
+    # the repo tracks some that match this glob (CLAUDE.md).
     format:
       glob: "*.{js,jsx,ts,tsx,cjs,mjs,json,jsonc,md,mdx,yml,yaml,css}"
-      run: pnpm exec prettier --write --ignore-unknown {staged_files}
+      run: scripts/format-staged.sh {staged_files}
       stage_fixed: true
     # Secrets must never enter history — the one gate that stays on commit.
     gitleaks:

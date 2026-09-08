@@ -372,9 +372,9 @@ export function checkAdrs(io: RepoIo): AdrResult {
 
   for (const file of tracked) {
     if (!carriesCitations(file)) continue;
-    // `.github/copilot-instructions.md` is a symlink to `CLAUDE.md`; checking
-    // the same content twice would report every hit against a path that has no
-    // body.
+    // `CLAUDE.md` and `.github/copilot-instructions.md` are symlinks to
+    // `AGENTS.md`; checking the same content twice would report every hit
+    // against a path that has no body.
     if (io.isSymlink(file)) continue;
     errors.push(
       ...validateCitations(file, io.read(file), (rel) => io.exists(rel)),

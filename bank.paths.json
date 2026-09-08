@@ -42,7 +42,7 @@
     },
     {
       "name": "agents",
-      "description": "Agent configuration, so a harness arrives already knowing the repo rather than being reconstructed. `.agents/skills/` is the one agent-agnostic source; AGENTS.md, CLAUDE.md and .github/copilot-instructions.md are the per-harness entry points onto it; skills-lock.json pins each skill to its upstream by content hash; .claudeignore is the committed source that scripts/sync-claudeignore.mjs compiles into deny rules, and .claude/settings.json is where those rules land alongside the authored permissions.allow, the disable* flags and the bootstrap hook — sync-claudeignore.mjs writes one of its keys, a human wrote the rest, and nothing else in this bundle carries them. scripts/register-skills.sh is named explicitly even though `scripts/` already covers it, so the bundle reads as self-sufficient.",
+      "description": "Agent configuration, so a harness arrives already knowing the repo rather than being reconstructed. AGENTS.md is the one authored brief, with CLAUDE.md and .github/copilot-instructions.md as tracked symlinks onto it (scripts/link-agent-docs.sh recreates them on postinstall); `.agents/skills/` is the matching agent-agnostic skill source; skills-lock.json pins each skill to its upstream by content hash; .claudeignore is the committed source that scripts/sync-claudeignore.mjs compiles into deny rules, and .claude/settings.json is where those rules land alongside the authored permissions.allow, the disable* flags and the bootstrap hook — sync-claudeignore.mjs writes one of its keys, a human wrote the rest, and nothing else in this bundle carries them. scripts/register-skills.sh and scripts/link-agent-docs.sh are named explicitly even though `scripts/` already covers them, so the bundle reads as self-sufficient.",
       "paths": [
         ".agents",
         "skills-lock.json",
@@ -52,7 +52,8 @@
         ".claudeignore",
         ".claude/settings.json",
         ".codex",
-        "scripts/register-skills.sh"
+        "scripts/register-skills.sh",
+        "scripts/link-agent-docs.sh"
       ]
     },
     {
@@ -62,7 +63,7 @@
     },
     {
       "name": "docs",
-      "description": "The repo-wide ADRs and the agent protocol docs, which AGENTS.md and CLAUDE.md link into by relative path — so taking the agents bundle without this one leaves those links dangling. Not the reasoning behind the packages: a package's own ADRs live in its `docs/adr/` and travel with the package, so a selection is self-contained without this bundle.",
+      "description": "The repo-wide ADRs and the agent protocol docs, which AGENTS.md links into by relative path — so taking the agents bundle without this one leaves those links dangling. Not the reasoning behind the packages: a package's own ADRs live in its `docs/adr/` and travel with the package, so a selection is self-contained without this bundle.",
       "paths": ["docs"]
     },
     {

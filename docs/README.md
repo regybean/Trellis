@@ -23,7 +23,7 @@ Contents — every doc in the repo, in reading order.
 | Doc                                 | What it covers                                                                        |
 | ----------------------------------- | ------------------------------------------------------------------------------------- |
 | [CONTEXT-MAP.md](../CONTEXT-MAP.md) | Index of per-package `CONTEXT.md` files (the ubiquitous language).                    |
-| [CLAUDE.md](../CLAUDE.md)           | The agent brief: commands, architecture, layer-boundary rules, engineering direction. |
+| [AGENTS.md](../AGENTS.md)           | The agent brief: commands, architecture, layer-boundary rules, engineering direction. |
 
 ## Working with agents
 

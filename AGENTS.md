@@ -1,6 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
+This file provides guidance to coding agents working in this repository. It is the single source of truth: `CLAUDE.md` (Claude Code) and `.github/copilot-instructions.md` (Copilot) are symlinks to it, and Codex reads it directly. We highly encourage the autonomous use of the inbuilt skills in the repo, they will help you do your work correctly.
 
 ## Navigation protocol — read before you search or edit
 
@@ -71,6 +71,8 @@ pnpm test:frontend       # Frontend tests only (jsdom + MSW at HTTP boundary)
 pnpm test:watch          # Run tests in watch mode
 pnpm turbo run test -F <pkg>  # Run tests for a single package (turbo isn't global)
 pnpm test:policy         # Enforce per-package acme.testClass coverage
+pnpm test:inventory [pkg|app...]  # Markdown list of collected tests — an app expands to its closure; runs none, starts nothing
+pnpm test:inventory -- --layer backend --kind unit  # narrow by path segment under src/tests/ (--out <path> to write it)
 ```
 
 Tests split into `test:backend` (real Postgres/Redis via testcontainers) and
@@ -153,9 +155,11 @@ enforced by `tooling/repo-checks/src/exports.ts` (hard-fails `pnpm lint`).
 
 ## Agent Skills
 
-Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.json`) — one agent-agnostic source of truth for every harness, and the directory Codex reads directly. Each skill carries `agents/openai.yaml` alongside its `SKILL.md`: the Codex-facing metadata (`interface.display_name`, `interface.short_description`, and `policy.allow_implicit_invocation` where the skill must not fire on its own). Keep both in step when adding a skill — they describe the same skill to different harnesses.
+Skills are vendored into `.agents/skills/` (committed; pinned by `skills-lock.json`) — one agent-agnostic source of truth for every harness, and the directory Codex reads directly. Claude only discovers a skill once it's symlinked into `.claude/skills/`; those symlinks are committed too (only `.claude/worktrees/` is gitignored). `scripts/register-skills.sh` recreates them idempotently from `.agents/skills/` and runs automatically on `postinstall` — run `pnpm skills:register` after adding or removing a skill, then commit the resulting link.
 
-`scripts/register-skills.sh` additionally symlinks each skill into `.claude/skills/` for Claude Code's discovery; those symlinks are committed too (only `.claude/worktrees/` is gitignored). It runs on `postinstall` — run `pnpm skills:register` after adding or removing a skill, then commit the resulting link.
+Each skill also carries `agents/openai.yaml` — its Codex-facing metadata (`interface.display_name`, `interface.short_description`, and `policy.allow_implicit_invocation` where the skill must not fire on its own). Keep it alongside the `SKILL.md` frontmatter when adding a skill; both describe the same skill to different harnesses.
+
+Prose that reaches the user — grilling questions, plan and spec text, PR/issue bodies, end-of-task summaries — goes through the `unslop` skill before you send it.
 
 ### Issue tracker
 

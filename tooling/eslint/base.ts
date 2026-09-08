@@ -55,7 +55,7 @@ const banBetterAuth = {
 const banFeatureTrpc = {
   group: ['**/trpc/react', '**/trpc/server', '@trpc/*'],
   message:
-    'Feature components must not call tRPC directly — put data access in src/hooks/ (see CLAUDE.md → Slice contract enforcement).',
+    'Feature components must not call tRPC directly — put data access in src/hooks/ (see AGENTS.md → Slice contract enforcement).',
 };
 
 // Frontend test doctrine (ADR 0018): fake the data layer at the HTTP boundary
