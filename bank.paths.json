@@ -14,7 +14,6 @@
         "patches",
         "lefthook.yml",
         "knip.jsonc",
-        ".kniprc.json",
         ".gitleaks.toml",
         ".syncpackrc.ts",
         ".jscpd.json",
