@@ -22,7 +22,7 @@
   "packageManager": "pnpm@10.15.1",
   "private": true,
   "scripts": {
-    "audit": "pnpm audit --audit-level=high",
+    "audit": "node scripts/audit.mjs",
     "bank:contribute": "pnpm -C tooling/bank bank:contribute",
     "bank:sync": "pnpm -C tooling/bank bank:sync",
     "boundaries": "turbo boundaries",

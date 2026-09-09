@@ -70,9 +70,13 @@ order=(build turbo test check:exports check:bank-paths check:bank-tokens check:a
 # graceful-degrades on network failure (skip + warn, like gitleaks) so offline
 # PR prep isn't blocked. A registry that returns advisories still FAILs — only a
 # transport error (can't reach the registry) is treated as a skip.
+# `pnpm run audit` (scripts/audit.mjs), not `pnpm audit`: the latter's exit code
+# counts allowlisted advisories, so one entry in auditConfig.ignoreGhsas would
+# pin this stage red. The wrapper passes transport errors through verbatim, so
+# the grep below still sees them.
 run_audit() {
   local out rc
-  out=$(pnpm audit --audit-level=high 2>&1)
+  out=$(pnpm run audit 2>&1)
   rc=$?
   printf '%s\n' "$out"
   if [ "$rc" -ne 0 ] && printf '%s' "$out" | grep -qiE \
