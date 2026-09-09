@@ -69,6 +69,40 @@ and passes.
 **Every package owning a `docs/adr/` has a `CONTEXT-MAP.md` row.** A `CONTEXT.md`
 is not required — an ADR directory and a glossary are independent.
 
+## How to cite an ADR
+
+Most of this repo is distributed to other repos, and a citation is content like
+anything else. A number that resolves to a different decision in the reader's
+tree is worse than no citation at all, so the rule is about _where_ the target
+sits, not only how you spell it
+([ADR 0042](../adr/0042-distributed-content-carries-no-local-only-reference.md)).
+
+**A citation carries the path, never a bare number.** `0007` alone is ambiguous:
+sequences are per directory, so it names the root decision and every package
+decision numbered `0007` at once. Write
+`docs/adr/0007-package-test-policy.md`, as a link where the format allows one.
+The slug says which decision you meant even when nobody follows the link.
+
+**Four rules decide whether the citation is allowed at all.**
+
+- A package may cite its own ADRs.
+- A package may not cite another package's.
+- No distributed file may cite a root ADR.
+- Root ADRs citing each other is fine, because they travel together.
+
+The last two are one rule: point only at content that arrives whenever the citing
+file does. Everything under `docs/` is one bundle, so a root ADR may cite a root
+ADR or a doc beside it, and this file may cite both. A package is selectable on
+its own, so it may cite nothing outside itself.
+
+**When the rule forbids the citation you wanted, write the reason instead.** A
+comment that has to lean on a repo-wide decision states the constraint in prose.
+That is usually one extra sentence, and it is the sentence a reader in another
+repo actually needs.
+
+The same applies to issue references. Don't put one in a file the bank
+distributes; put the reasoning in.
+
 ## Status, amendment and deletion
 
 Every ADR carries a `**Status:**` line directly under its title, with exactly two
@@ -129,5 +163,5 @@ If your output contradicts an existing ADR, surface it explicitly rather than si
 > _Contradicts `docs/adr/0007-package-test-policy.md` — but worth reopening
 > because…_
 
-Name the ADR by **path**, not by number alone: numbers are per directory, so
-`0007` is ambiguous across the repo.
+Name it the way [How to cite an ADR](#how-to-cite-an-adr) says: by path, never by
+number alone.
