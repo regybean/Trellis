@@ -106,10 +106,17 @@ running service**, addressed by container name:
   that `logs -f` does on a reused container (infra containers are reused across
   sessions, never re-created).
 - **Enumerate running services portably.** Use
-  `<engine> ps --filter status=running --format '{{.Names}}'` ∩ the `trellis-`
-  prefix — **not** `compose ps --status running` (podman-compose's `ps` lacks
-  `--status`). Profile→container is 1:1 (`postgres → trellis-postgres`, … except
-  `billing → trellis-localstripe`).
+  `<engine> ps --filter status=running --format '{{.Names}}'` ∩ the
+  `$INFRA_CONTAINER_PREFIX` prefix — **not** `compose ps --status running`
+  (podman-compose's `ps` lacks `--status`). Profile→container is 1:1
+  (`postgres → trellis-postgres`, … except `billing → trellis-localstripe`).
+- **The prefix is a variable, and a miss is reported.** `container_name:` is
+  pinned in the compose file, so the prefix cannot be derived — it is
+  `INFRA_CONTAINER_PREFIX` in `scripts/lib/dev-logs.sh`, defaulting to `trellis-`
+  and overridable by environment for a repo running its own compose file.
+  Matching no container writes a line to stderr, because the failure otherwise
+  presents as an empty `logs/infra-*.log`, which reads as a silent service rather
+  than as looking in the wrong place.
 - **No `stdbuf`** (absent on the macOS base) — rely on `<engine> logs -f`'s
   per-line flush. Revisit only if buffering proves laggy (off-the-shelf first).
 
