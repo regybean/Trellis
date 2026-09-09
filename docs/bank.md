@@ -84,6 +84,25 @@ All three are yours to rewrite on arrival, and three-way merge is what makes tha
 safe: your edits survive every later sync and conflict only where both sides
 touched the same lines.
 
+### Cross-references in what you take are bank-relative
+
+A comment, doc or ADR in a distributed file may only point at content the bank
+also distributes, and points at it by repo-relative path. So a link resolves in
+your tree the same way it resolves here, and a package's own ADRs are the only
+ADRs its own files cite
+([ADR 0042](adr/0042-distributed-content-carries-no-local-only-reference.md)).
+
+What follows from that is what you will not find: no bare `ADR 0031` whose number
+means something else in your own `docs/adr/`, no `#126` pointing into a tracker
+that is not yours, and no app or repo name outside a marked example. This
+document is the exception, because it is about consuming this bank and naming it
+is the point.
+
+Two things are still yours to check. A file that cites a package ADR only
+resolves if you took that package, and taking the `agents` bundle without `docs`
+leaves the agent brief's links into `docs/agents/` dangling. Both are visible in
+your selection rather than hidden in the content.
+
 ## Setting up a consumer repo
 
 ### Which route you are on
@@ -258,6 +277,40 @@ The root `package.json` arrives in that merge, so from the second sync on it is
 The first merge needs `--allow-unrelated-histories` because your repo and the
 vendor branch have no shared commit yet. Every merge after it is ordinary, and
 the script prints the right command for you.
+
+### Your first install re-resolves every caret range
+
+The bank never ships `pnpm-lock.yaml` — it is resolved from a manifest set that
+is not yours, so it is on `exclude`. Your first `pnpm install` therefore resolves
+`pnpm-workspace.yaml`'s catalog from scratch, and seventy-odd of those entries are
+caret ranges. You get today's latest matching version of each, not the version
+this repo was green on. A minor with a type change in it arrives as a build
+failure with nothing in your diff to explain it.
+
+So pin deliberately rather than discovering the bump. Take the sync, install,
+and read what resolved before you write any code against it. Where a version
+matters to you, pin it exactly in your own catalog and say why in a comment
+beside it. The catalog carries a reason for most of its exact pins already:
+**keep the comment when you resolve a catalog conflict.** Dropping the sentence
+and keeping the number leaves a pin nobody dares touch.
+
+### The secrets config is yours to write
+
+`pnpm env:pull` and `pnpm env:push` read `secrets.config.sh` at your repo root:
+which backend adapter to use, and which secret fills which `.env`. That file is
+on `exclude`, because it maps secret names onto app env files and a consumer
+rewrites the mapping wholesale.
+
+The bank ships `secrets.config.example.sh` as always-included content instead.
+Copy it to
+`secrets.config.sh`, set `SECRETS_BACKEND`, and rewrite `SECRET_MAP` for your own
+apps. Until you do, `env:pull` exits 1 naming both files, which is the right
+answer to a command you typed. Filling `.env` by hand from `.env.example` is
+always available and needs none of this.
+
+(The example file lands with the portability fixes. Before that ref, `env:pull`
+names `secrets.config.sh` with nothing to copy from — write it from
+`scripts/lib/secrets-env.sh`, which is the only thing that reads it.)
 
 ## Running a sync
 
@@ -623,6 +676,10 @@ tag.
   renaming the `@acme` scope breaks the mechanism.
 - [ADR 0039](adr/0039-the-selection-is-the-contract.md) covers why neither side
   enumerates paths.
+- [ADR 0041](adr/0041-always-included-content-survives-the-minimum-selection.md)
+  covers why a selection of nothing is a supported one.
+- [ADR 0042](adr/0042-distributed-content-carries-no-local-only-reference.md)
+  covers what a reference in a distributed file may point at.
 - [`bank.paths.json`](../bank.paths.json) is the bundles and the exclusions; the
   package set is the `pnpm-workspace.yaml` globs.
 - [`tooling/bank/src/setup-wizard.mjs`](../tooling/bank/src/setup-wizard.mjs) authors the manifest;

@@ -32,6 +32,13 @@ jobs:
       - name: Lint
         run: pnpm lint && pnpm lint:ws
 
+      # Out of the shared `pnpm lint` because it is a rule about *this* repo:
+      # the inventory it enforces is the bank's own and reaches no consumer, so
+      # in a consumer's lint it could only ever no-op. Named here instead, so
+      # it still runs on every PR that could leave a root entry unclassified.
+      - name: Bank paths
+        run: pnpm check:bank-paths
+
   typecheck:
     runs-on: ubuntu-latest
     steps:

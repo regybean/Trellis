@@ -20,7 +20,9 @@ it exist.
 - **`logs/infra-<svc>.log`** — one per running compose service, e.g.
   `infra-postgres.log`, `infra-redis.log`, `infra-localstripe.log`,
   `infra-ollama.log`, `infra-jaeger.log`, `infra-localstack.log`. One container →
-  one file.
+  one file. Services are found by container name, under the
+  `INFRA_CONTAINER_PREFIX` prefix (default `trellis-`); if it matches no running
+  container, `dev.sh` says so on stderr rather than leaving you an empty file.
 
 One service → one file; single generation (no rotation, history, or archive) —
 each file holds only the current run.

@@ -22,7 +22,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -145,13 +145,36 @@ const packages = new Map<string, WorkspacePackage>(
     }),
 );
 
+/**
+ * The bank's own inventory — which `exclude` keeps out of every sync, so it is
+ * present here and absent in every consumer.
+ *
+ * The two rules below are claims about *this* repo's bundles, and the inventory
+ * has no generic substitute: a consumer's always-included set is whatever their
+ * own bank decided, and with no inventory there is no set to derive at all. So
+ * they skip in a repo that is not a bank, naming the content the claim wanted,
+ * rather than failing on a file a consumer was never sent. Everything above
+ * this line is about the package's own source and holds anywhere.
+ */
+const inventory = join(repoRoot, 'bank.paths.json');
+const isBank = existsSync(inventory);
+const NEEDS_INVENTORY =
+  "skipped: needs bank.paths.json, the bank's own inventory, to derive the always-included bundles from — this repo is not a bank";
+
+/** A describe that names the content it wanted when it skips. */
+function describeBank(name: string, suite: () => void) {
+  describe.skipIf(!isBank)(
+    isBank ? name : `${name} — ${NEEDS_INVENTORY}`,
+    suite,
+  );
+}
+
 /** The path prefixes every selection receives, whatever it asked for. */
-const alwaysIncluded = recordList(
-  readJson(join(repoRoot, 'bank.paths.json')),
-  'bundles',
-)
-  .filter((bundle) => bundle.alwaysIncluded === true)
-  .flatMap((bundle) => stringList(bundle, 'paths'));
+const alwaysIncluded = isBank
+  ? recordList(readJson(inventory), 'bundles')
+      .filter((bundle) => bundle.alwaysIncluded === true)
+      .flatMap((bundle) => stringList(bundle, 'paths'))
+  : [];
 
 /** Does an always-included bundle deliver this directory? */
 const delivered = (dir: string) =>
@@ -180,36 +203,39 @@ const rootScripts = stringMap(
  * Derived from the manifests rather than a list here, so it kept holding as
  * the rest of `scripts/` moved into tooling packages (#314).
  */
-describe('every delegated tooling command arrives with the root bundle', () => {
-  /**
-   * The package directory each root script delegates into. Both spellings
-   * count: `--filter <name>` resolves through the manifests, `-C <dir>` names
-   * the directory outright — which is the form the bank uses, for the reason
-   * asserted in `bank-sync.test.ts`.
-   */
-  const delegated = [
-    ...new Set(
-      Object.values(rootScripts).flatMap((command) => {
-        const name = /--filter\s+(@[\w-]+\/[\w-]+)/.exec(command)?.[1];
-        if (name !== undefined) return packages.get(name)?.dir ?? [];
-        return /\bpnpm\s+-C\s+(\S+)/.exec(command)?.[1] ?? [];
-      }),
-    ),
-  ]
-    .sort()
-    .filter((dir) => dir.startsWith('tooling/'));
+describeBank(
+  'every delegated tooling command arrives with the root bundle',
+  () => {
+    /**
+     * The package directory each root script delegates into. Both spellings
+     * count: `--filter <name>` resolves through the manifests, `-C <dir>` names
+     * the directory outright — which is the form the bank uses, for the reason
+     * asserted in `bank-sync.test.ts`.
+     */
+    const delegated = [
+      ...new Set(
+        Object.values(rootScripts).flatMap((command) => {
+          const name = /--filter\s+(@[\w-]+\/[\w-]+)/.exec(command)?.[1];
+          if (name !== undefined) return packages.get(name)?.dir ?? [];
+          return /\bpnpm\s+-C\s+(\S+)/.exec(command)?.[1] ?? [];
+        }),
+      ),
+    ]
+      .sort()
+      .filter((dir) => dir.startsWith('tooling/'));
 
-  it('delegates at least the bank commands, so the rule has something to bind', () => {
-    expect(delegated).toContain('tooling/bank');
-  });
+    it('delegates at least the bank commands, so the rule has something to bind', () => {
+      expect(delegated).toContain('tooling/bank');
+    });
 
-  it.each(delegated)('%s is covered by an always-included bundle', (dir) => {
-    expect(
-      delivered(dir),
-      `root package.json delegates into ${dir}, but no always-included bundle path covers it — a consumer would sync a package.json calling a package it never received`,
-    ).toBe(true);
-  });
-});
+    it.each(delegated)('%s is covered by an always-included bundle', (dir) => {
+      expect(
+        delivered(dir),
+        `root package.json delegates into ${dir}, but no always-included bundle path covers it — a consumer would sync a package.json calling a package it never received`,
+      ).toBe(true);
+    });
+  },
+);
 
 /**
  * The same invariant one level down, in the direction bundles cannot see.
@@ -226,41 +252,44 @@ describe('every delegated tooling command arrives with the root bundle', () => {
  * the packages". It is the case no real selection exercises, because any real
  * package pulls the config packages in through its own closure.
  */
-describe('a package the root bundle delivers arrives with what it declares', () => {
-  const deliveredPackages = [...packages.values()]
-    .filter((pkg) => delivered(pkg.dir))
-    .sort((a, b) => a.dir.localeCompare(b.dir));
+describeBank(
+  'a package the root bundle delivers arrives with what it declares',
+  () => {
+    const deliveredPackages = [...packages.values()]
+      .filter((pkg) => delivered(pkg.dir))
+      .sort((a, b) => a.dir.localeCompare(b.dir));
 
-  it('delivers at least one package, so the rule has something to bind', () => {
-    expect(deliveredPackages.map((pkg) => pkg.dir)).toContain('tooling/bank');
-  });
+    it('delivers at least one package, so the rule has something to bind', () => {
+      expect(deliveredPackages.map((pkg) => pkg.dir)).toContain('tooling/bank');
+    });
 
-  it.each(deliveredPackages)(
-    '$dir declares only workspace packages the same bundles deliver',
-    ({ name, dir, workspaceDependencies }) => {
-      // Transitive: a delivered dependency that itself declares an undelivered
-      // one leaves the same broken install one edge further out.
-      const seen = new Set([name]);
-      const queue = [...workspaceDependencies];
-      const missing: string[] = [];
+    it.each(deliveredPackages)(
+      '$dir declares only workspace packages the same bundles deliver',
+      ({ name, dir, workspaceDependencies }) => {
+        // Transitive: a delivered dependency that itself declares an undelivered
+        // one leaves the same broken install one edge further out.
+        const seen = new Set([name]);
+        const queue = [...workspaceDependencies];
+        const missing: string[] = [];
 
-      while (queue.length) {
-        const dependency = queue.shift() ?? '';
-        if (seen.has(dependency)) continue;
-        seen.add(dependency);
+        while (queue.length) {
+          const dependency = queue.shift() ?? '';
+          if (seen.has(dependency)) continue;
+          seen.add(dependency);
 
-        const resolved = packages.get(dependency);
-        if (resolved === undefined || !delivered(resolved.dir)) {
-          missing.push(dependency);
-          continue;
+          const resolved = packages.get(dependency);
+          if (resolved === undefined || !delivered(resolved.dir)) {
+            missing.push(dependency);
+            continue;
+          }
+          queue.push(...resolved.workspaceDependencies);
         }
-        queue.push(...resolved.workspaceDependencies);
-      }
 
-      expect(
-        missing,
-        `${dir} is delivered by an always-included bundle but declares workspace:* on ${missing.join(', ')}, which no always-included bundle delivers — a consumer whose selection reaches neither would fail pnpm install on an unresolvable dependency`,
-      ).toEqual([]);
-    },
-  );
-});
+        expect(
+          missing,
+          `${dir} is delivered by an always-included bundle but declares workspace:* on ${missing.join(', ')}, which no always-included bundle delivers — a consumer whose selection reaches neither would fail pnpm install on an unresolvable dependency`,
+        ).toEqual([]);
+      },
+    );
+  },
+);
