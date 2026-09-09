@@ -43,11 +43,11 @@ this abstraction exists to hide).
   only zod, so a schema barrel or drizzle-kit reading the number never pulls
   provider resolution into its graph.
 - **The authored development selection is what provisions local inference.**
-  `scripts/resolve-compose-env.ts` and `scripts/resolve-infra.ts` read
-  `development-profile.ts` without an environment — to derive the local Ollama
-  port and the models to pull, and to decide whether the `ollama` compose profile
-  is needed at all. Select hosted providers for both roles and that service drops
-  out of the required set.
+  `src/provisioning.ts` reads `development-profile.ts` without an environment —
+  to derive the local Ollama port and the models to pull, and to decide whether
+  the `ollama` compose profile is needed at all. `pnpm dev` and `pnpm infra:up`
+  discover that declaration through this package's `acme.provisioning`. Select
+  hosted providers for both roles and that service drops out of the required set.
 - **`@acme/ingest` declares the same AWS credential pair**, for S3. One variable,
   one value per process: the two agree wherever both are unauthored, and can only
   diverge in development with Bedrock selected.

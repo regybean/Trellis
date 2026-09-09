@@ -48,31 +48,48 @@ _Avoid_: "alias", "short name" as a distinct concept — a short name is a token
 **Declared infra**:
 The union of `acme.infra` over a set of packages. Infra need travels with the
 package that owns it, so a deployable's requirement is this union over its
-closure and nothing is assumed on. The union is a _candidate_ set — what the
-**prune** then reduces.
+closure and nothing is assumed on. The union is a _candidate_ set — what
+discovery then decorates and the **prune** reduces.
 _Avoid_: "the profile list" (a compose profile is what the caller does with the
 answer), "required services"
 
-**Provider selection**:
-The authored development values a provisioning decision reads: the Stripe
-connection's mode, and which provider each models **role** (`MODELS_CHAT`,
-`MODELS_EMBED`) runs on. Passed in as values, never read here — the profiles
-live in `platform`, `shared` and `feature` packages, which a `tooling` package
-may not depend on.
-_Avoid_: "env", "config" (these are authored values, and deliberately not
-`process.env`)
+**Contribution** (`PROVISIONING`, `acme.provisioning`):
+What one package supplies for one compose profile: the `compose` values it
+authors, and `needed: false` when its own configuration turns out not to want
+the service (`billing` off real Stripe, `ollama` when no role runs on it).
+Declared in a module the package names in its manifest, so the authored values
+stay in the package that owns them — a `tooling` package may not depend on
+`platform`, `shared` or `feature`, and reading a value it cannot import is
+exactly what discovery replaced.
+_Avoid_: "provider selection" (the old name, when five named values were passed
+in), "env", "config" (these are authored values, deliberately not `process.env`)
 
-**Prune** (`pruneInfra`):
-Dropping a candidate profile for a service only needed under a given
-configuration — `billing` off real Stripe, `ollama` when no role runs on it. The
-rule lives here; the values it decides on come from the caller.
-_Avoid_: "filter" (a prune is the named set of rules, not any filtering)
+**Discovered profile** (`discoverProfiles`, `DiscoveredProfile`):
+A profile the **declared infra** names, merged with every contribution to it: the
+compose values, whether any owner vetoed it, and its **seeds**. A contribution to
+a profile the closure never declared is not one of these — nothing asked for the
+service.
+_Avoid_: "started profile" (what gets started is the **prune**'s answer, and one
+of these may be vetoed)
+
+**Prune** (`neededProfiles`):
+Reading the discovered profiles down to the ones to start: a candidate goes when
+an owner declared `needed: false`. Candidate order is kept, so a sorted list
+stays sorted.
+_Avoid_: "filter" (a prune is the named decision, not any filtering)
+
+**Seed** (`acme.seeds`, `neededSeeds`):
+A `package.json` script in the declaring package, run once its profile is up —
+localstripe holds its products in memory, so its profile re-seeds on every
+start. Reported as a package and a script name, never a command, so the caller
+runs it with its own `pnpm --filter`.
+_Avoid_: "fixture", "migration" (a schema push is `db:push`, a different step)
 
 **Compose environment** (`composeEnvironment`):
 The record of every value `compose.yaml` interpolates to provision the local
-stack, ports parsed back out of the connection URLs that carry them rather than
-stored beside them. A value, so `scripts/resolve-compose-env.ts` is what writes
-it.
+stack, merged over the discovered profiles. A value, so
+`scripts/resolve-compose-env.ts` is what writes it. A value nothing supplies is
+absent rather than an error: compose parses services it will not start.
 _Avoid_: "the env file" (nothing here writes one; `compose.sh` exports the
 rendered lines)
 
@@ -100,12 +117,15 @@ report)
 - **Package** → **closure** → **declared infra**: the closure query takes full
   names, not tokens, because that is pnpm's own filter vocabulary — resolve the
   token first.
-- **Declared infra** + **provider selection** → **prune**: the graph says what a
-  closure could need, the authored values say what of it to start. The two shims
-  at `scripts/resolve-infra.ts` and `scripts/resolve-compose-env.ts` exist only
-  to supply the second half: they may import a runtime package's profile by
-  relative path because root scripts carry no boundary tag, and this package may
-  not.
+- **Declared infra** + **contribution** → **discovered profile** → **prune**:
+  the closure says what it could need, its own packages say what of that to
+  start and with what values. Both halves come from the closure, so
+  `scripts/resolve-infra.ts` and `scripts/resolve-compose-env.ts` pass a set of
+  app names and nothing else — no package, no profile, no value is named in
+  either. A contribution is reached by loading the module its package declares,
+  which is a runtime read of a path and not a dependency edge; that is what lets
+  this `tooling` package see values authored in `platform`, `shared` and
+  `feature` packages it may not import.
 - The bank (`tooling/bank/src/lib/bank-closure.mjs`) reads the same workspace file and
   keeps its own copy of that reading. It runs from a bare checkout with nothing
   installed, so it cannot import this package.

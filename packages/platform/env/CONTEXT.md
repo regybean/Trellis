@@ -48,10 +48,10 @@ that make that one call work.
   call; `@acme/db` additionally calls `shouldSkipEnvValidation()` directly, to
   decide whether to hand its infrastructure clients a stub value.
 - **The provisioning paths bypass this package entirely.** `@acme/db`'s
-  `testing.ts`, `scripts/resolve-compose-env.ts` and `scripts/resolve-infra.ts`
-  import a slice's **development profile module** rather than its env, so they
-  never execute a `createEnv` call and never have to satisfy a selector to read a
-  port.
+  `testing.ts` and each slice's `provisioning.ts` — the declaration `pnpm dev`
+  and `pnpm infra:up` discover — import a slice's **development profile module**
+  rather than its env, so they never execute a `createEnv` call and never have to
+  satisfy a selector to read a port.
 - **`webappSchema` is shared because the value is.** Six slices declare
   `NEXT_PUBLIC_WEBAPP`; the Postgres-identifier constraint belongs to the value,
   not to whichever slice declares it first.

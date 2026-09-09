@@ -29,34 +29,43 @@ closure declares no infra starts none — which is the point: it keeps any futur
 reduced-runtime app (a core-only case) honest, and makes the resolver's
 output an audit of what an app truly couples to.
 
-## The graph gives candidates; env/config prunes them
+## The graph gives candidates; the closure's own packages decide what to do with them
 
-Two services are only needed under a configuration, so the graph yields a candidate
-set that env/config then prunes:
+Some services are only needed under a configuration, and each candidate needs
+values to start with. Both answers are **declared by the packages in the same
+closure** and discovered from it, under two more manifest keys beside
+`acme.infra`:
 
-- `billing` (localstripe) is dropped unless the Stripe connection resolves to
-  `localstripe` — real Stripe needs no local container
-  ([@acme/billing ADR 0001](../../packages/features/billing/docs/adr/0001-localstripe-dev-billing.md)). The connection is authored in code
-  as a discriminated union (#146), so this prune reads
-  `BILLING_DEVELOPMENT_PROFILE.STRIPE_CONNECTION.mode`, **not** `process.env`.
-- `ollama` is dropped unless the chat or embed role's provider is `ollama` — the
-  provider is a deploy-target choice read from `MODELS_DEVELOPMENT_PROFILE`'s
-  `MODELS_CHAT` / `MODELS_EMBED` variants, **not** `process.env`; the graph only
-  records "this package does LLM/embeddings"
-  ([@acme/models ADR 0001](../../packages/shared/models/docs/adr/0001-multi-provider-models.md)). The resolver runs via
-  `pnpm exec tsx` (not `node`) so these imports resolve.
+- `acme.provisioning` names a module exporting `PROVISIONING`, a record of
+  profile name to what this package supplies for it: the `compose` values it
+  authors, and `needed: false` when its own configuration does not want the
+  service after all. So `@acme/billing` drops the `billing` (localstripe)
+  profile unless the authored Stripe connection is localstripe — real Stripe
+  needs no local container
+  ([@acme/billing ADR 0001](../../packages/features/billing/docs/adr/0001-localstripe-dev-billing.md)) — and `@acme/models` drops `ollama`
+  unless the chat or embed role runs on it, the graph having recorded only that
+  a package does LLM/embeddings
+  ([@acme/models ADR 0001](../../packages/shared/models/docs/adr/0001-multi-provider-models.md)).
+- `acme.seeds` maps a profile to a `package.json` script in the same package,
+  run once that profile is up. `@acme/billing` declares its localstripe seed
+  there, which is why no script body names it.
 
-Both prunes import each slice's `development-profile.ts` — the authored values, in a
-module that runs no `createEnv` call — rather than its `env.ts`. Provisioning wants
-what version control declares and never an operator's override, and importing
-`env.ts` would evaluate the whole slice's env just to read a mode
-([@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6). Before @acme/env ADR 0001 these read
-`stripeConnectionConfig` / `modelsConfig` from the now-deleted `@acme/config`.
+Each module reads its own slice's `development-profile.ts` — the authored values,
+in a module that runs no `createEnv` call — rather than its `env.ts`.
+Provisioning wants what version control declares and never an operator's
+override, and importing `env.ts` would evaluate the whole slice's env just to
+read a mode
+([@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6). The resolver runs via `pnpm exec tsx`
+(not `node`) so those modules load.
 
-Both are _prunes of graph-derived candidates_, not special cases bolted on — the
-model stays uniform: **graph = candidate set, env/config = prune.** `infra:up` reuses the
-same resolver with no app args (the union over every app) so the standalone-infra
-command and dev can't drift.
+The model stays uniform — **graph = candidate set, the closure's packages =
+what to start and with what** — and it now holds for a workspace that took a
+different set of packages: `@acme/workspace-graph` names none of them and
+neither does any root script, so a checkout with no billing slice resolves no
+`billing` profile and no seed instead of failing on an import. Adding a slice
+with infra, a value or a seed touches that slice only. `infra:up` reuses the
+same resolver with no app args (the union over every app) so the
+standalone-infra command and dev can't drift.
 
 ## Dev push is non-interactive and accepts data loss
 
@@ -93,3 +102,18 @@ between apps without churning containers.
   provider keeps every service in one uniform model.
 - **Running the app itself in Compose.** Rejected for now — apps run on the host;
   only infra is containerised. Not worth the indirection at this stage.
+- **Keeping the named inputs and making each one optional** — the resolver
+  importing five slices' profiles by relative path, each import guarded. It was
+  the smaller diff, and it leaves the coupling exactly where it was: the tooling
+  package still knows five roles by name, every new slice with infra still edits
+  it and a root script, and the relative imports into `packages/` survive as
+  conditional ones that no static rule can then object to. Declaring the
+  contribution in the package that owns it inverts that, and the absence of a
+  package becomes the absence of a contribution with nothing to guard.
+- **Declaring the compose values in `package.json` beside `acme.infra`**, so
+  discovery needed no module load. Rejected — a port, a database name and a
+  models pull list are already authored in the slice's
+  `development-profile.ts`, which its `env.ts` reads; a second copy in the
+  manifest is a drift source, and the two would disagree silently. The seed is
+  in the manifest precisely because it is not a computed value: it is the name
+  of a script that manifest already declares.

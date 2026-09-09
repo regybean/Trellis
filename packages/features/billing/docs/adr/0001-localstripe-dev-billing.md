@@ -97,9 +97,12 @@ load-bearing:
   carries only those two keys. (Originally an optional `STRIPE_API_BASE` in
   turbo's `globalEnv`/`globalPassThroughEnv`, with the localstripe defaults
   shipped uncommented in `.env.example`.)
-- Because the connection is authored, `scripts/resolve-infra.ts` can read it
-  _without_ an environment and drop the `billing` compose profile when the
-  authored mode is `real` — real Stripe needs no local container.
+- Because the connection is authored, this slice's `src/provisioning.ts` reads
+  it _without_ an environment and declares the `billing` compose profile
+  unneeded unless the authored mode is `localstripe` — real Stripe needs no
+  local container. `pnpm dev` and `pnpm infra:up` discover that, along with the
+  seed the profile needs, which this package declares in its `acme.seeds`
+  ([ADR 0009](../../../../../docs/adr/0009-graph-derived-dev-infra.md)).
 - New compose service `localstripe` (image pinned, `billing` profile, python3
   healthcheck — the base image has no curl/wget). `pnpm infra:up` is a script
   (`scripts/infra-up.sh`) that seeds after the container is healthy.

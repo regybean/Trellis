@@ -15,6 +15,11 @@ its owning package's env expects ([env.md](env.md)). How you provide it is
 yours: a compose service locally, a managed service in a deployment, or a
 container your CI starts.
 
+A service may also need seeding once it is up — its owning package declares the
+script under `acme.seeds`, and `pnpm dev` / `pnpm infra:up` run the seeds of
+whatever they started. Provisioning the service yourself means running those
+yourself too.
+
 The services packages in this repo declare:
 
 | Service      | What needs it                                 |
@@ -36,7 +41,10 @@ configuration rather than by the graph:
 
 So the resolved set is the graph's union, pruned by the authored configuration.
 A package whose `ADAPTER.md` says its infra is conditional is one of these: read
-its **Env** section to see which value decides.
+its **Env** section to see which value decides. The decision belongs to the
+package that owns the value — it declares it under `acme.provisioning`, and the
+resolver discovers it — so a selection without that package simply has no
+conditional service to decide about.
 
 The pruning reads authored configuration, not `process.env`, because it decides
 what to _provision_ — an operator's override of a connection string should not
