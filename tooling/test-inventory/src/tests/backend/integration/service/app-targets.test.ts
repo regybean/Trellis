@@ -29,7 +29,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { repoRoot } from '@acme/workspace-graph';
+import { repoRoot, workspaceApps } from '@acme/workspace-graph';
 
 const run = promisify(execFile);
 
@@ -42,6 +42,27 @@ const SLIM_APP = 'nextjs-slim';
 
 /** Slices the slim subset is meant to leave out. */
 const SUBSET_EXCLUDES = ['@acme/auth', '@acme/billing', '@acme/subscriptions'];
+
+/**
+ * Both halves of the pair above have to be in the workspace, and only this
+ * repo's app set has them. There is no generic substitute either: apps are consumer
+ * identity, the bank never distributes them, and a subsetting claim needs two
+ * *specific* apps whose difference is auth and billing — nothing here can
+ * derive an equivalent from whatever apps a consumer happens to own. So the
+ * file skips in a workspace without the pair, naming the apps it wanted, rather
+ * than failing on apps a consumer was never sent.
+ */
+const appNames = new Set(workspaceApps(root).map((app) => app.name));
+const hasAppPair = appNames.has(FULL_APP) && appNames.has(`@acme/${SLIM_APP}`);
+const NEEDS_APP_PAIR = `skipped: needs the apps ${FULL_APP} and @acme/${SLIM_APP} — a full app and its no-auth/no-billing counterpart, which this workspace does not have`;
+
+/** A describe that names the content it wanted when it skips. */
+function describeApps(name: string, suite: () => void) {
+  describe.skipIf(!hasAppPair)(
+    hasAppPair ? name : `${name} — ${NEEDS_APP_PAIR}`,
+    suite,
+  );
+}
 
 /**
  * The parent vitest advertises itself through `VITEST_*`; the nested ones the
@@ -104,6 +125,10 @@ let slimShort: string;
 let slimScoped: string;
 
 beforeAll(async () => {
+  // Three collections of most of the repo: not worth paying for a run whose
+  // every case is skipped.
+  if (!hasAppPair) return;
+
   [full, slimShort, slimScoped] = await Promise.all([
     collect(FULL_APP),
     collect(SLIM_APP),
@@ -111,7 +136,7 @@ beforeAll(async () => {
   ]);
 }, 900_000);
 
-describe('an app target expands to its whole workspace closure', () => {
+describeApps('an app target expands to its whole workspace closure', () => {
   it('reaches past the app into the features it mounts', () => {
     expect(packages(slimShort)).toContain('@acme/chat');
   });
@@ -138,13 +163,13 @@ describe('an app target expands to its whole workspace closure', () => {
   });
 });
 
-describe('a short app name means the same app as the scoped one', () => {
+describeApps('a short app name means the same app as the scoped one', () => {
   it('gives the same inventory for nextjs-slim and @acme/nextjs-slim', () => {
     expect(stable(slimShort)).toBe(stable(slimScoped));
   });
 });
 
-describe('the slim subset is visible in what its inventory omits', () => {
+describeApps('the slim subset is visible in what its inventory omits', () => {
   it.each(SUBSET_EXCLUDES)('leaves %s out of the slim closure', (pkg) => {
     expect(packages(slimShort)).not.toContain(pkg);
   });
