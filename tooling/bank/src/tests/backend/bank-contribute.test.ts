@@ -14,7 +14,7 @@
  */
 
 import { spawnSync } from 'node:child_process';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -245,8 +245,15 @@ describe('nothing invokes bank:contribute automatically', () => {
    * Every real file under a repo directory, recursively. Symlinks are skipped
    * rather than followed — a worktree carries a few, and a dangling one is not
    * a thing that can invoke anything.
+   *
+   * A directory that is not there holds no automation either. `.github` is the
+   * live case: it arrives with the `ci` and `agents` bundles, so a selection
+   * that took neither has none, and this suite is vendored into that repo. The
+   * rule still binds over every automation directory the repo does have.
    */
   function walk(dir: string): string[] {
+    if (!existsSync(join(repoRoot, dir))) return [];
+
     return readdirSync(join(repoRoot, dir), { withFileTypes: true }).flatMap(
       (entry) => {
         const path = join(dir, entry.name);
