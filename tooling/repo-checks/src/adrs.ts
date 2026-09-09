@@ -28,8 +28,9 @@
  * Root and package sequences are independent: the same number in `docs/adr/`
  * and in a package is normal and is never flagged.
  *
- * Whether an ADR is *genuinely* package-scoped is judgement, and stays
- * documented rather than enforced.
+ * Whether an ADR is *genuinely* package-scoped is judgement. Part of it is now
+ * mechanical, in `portable.ts`: a citation carries a path, and it resolves
+ * inside the package that wrote it.
  *
  * Every rule below is a function of the text or the filenames it reads. The
  * checker used to shell out to git at module load, which put even the pure
@@ -275,6 +276,41 @@ export function carriesCitations(file: string): boolean {
   return TEXT_EXTENSIONS.has(extension);
 }
 
+/** One ADR reference in a text: what it names, where it sits, and how it is written. */
+export interface AdrCitation {
+  /** The target, exactly as written — relative, root-relative or a directory. */
+  readonly path: string;
+  /** Where in the text it starts, so a caller can report a line. */
+  readonly index: number;
+  /** Written bare in prose or a comment, rather than as a markdown link target. */
+  readonly bare: boolean;
+}
+
+/**
+ * Every ADR reference a text carries, links first and bare paths after.
+ *
+ * The two spellings resolve differently — a markdown link renders relative to
+ * its own file and nothing else, while prose cites both ways round — so the
+ * distinction is carried rather than flattened, and `portable.ts` reads the
+ * same references this file's link rule does.
+ */
+export function adrCitations(text: string): AdrCitation[] {
+  const links = [...text.matchAll(MARKDOWN_LINK)].flatMap((match) => {
+    const [path = ''] = (match[1] ?? '').split('#');
+    if (!path || /^[a-z][a-z0-9+.-]*:/i.test(path)) return [];
+    if (!isAdrTarget(path)) return [];
+    return [{ path, index: match.index, bare: false }];
+  });
+
+  const bare = [...text.matchAll(BARE_ADR_PATH)].map((match) => ({
+    path: match[0],
+    index: match.index,
+    bare: true,
+  }));
+
+  return [...links, ...bare];
+}
+
 /**
  * Rule 2: every ADR citation in one file resolves.
  *
@@ -301,23 +337,13 @@ export function validateCitations(
     return !(rootRelativeToo && exists(target));
   };
 
-  for (const match of text.matchAll(MARKDOWN_LINK)) {
-    const [path = ''] = (match[1] ?? '').split('#');
-    if (!path || /^[a-z][a-z0-9+.-]*:/i.test(path)) continue;
-    if (!isAdrTarget(path)) continue;
-    // A markdown link renders relative to its own file, and only that.
-    if (dead(path, false) && !reported.has(path)) {
-      reported.add(path);
-      errors.push(`${file}: link to \`${path}\` resolves to no file.`);
-    }
-  }
-
-  for (const [path] of text.matchAll(BARE_ADR_PATH)) {
-    // Prose and comments cite both ways round, so accept either reading.
-    if (dead(path, true) && !reported.has(path)) {
-      reported.add(path);
-      errors.push(`${file}: reference to \`${path}\` resolves to no file.`);
-    }
+  // A markdown link renders relative to its own file, and only that; prose and
+  // comments cite both ways round, so those accept either reading.
+  for (const { path, bare } of adrCitations(text)) {
+    if (!dead(path, bare) || reported.has(path)) continue;
+    reported.add(path);
+    const how = bare ? 'reference to' : 'link to';
+    errors.push(`${file}: ${how} \`${path}\` resolves to no file.`);
   }
 
   return errors;
