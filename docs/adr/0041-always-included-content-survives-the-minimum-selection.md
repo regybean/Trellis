@@ -1,20 +1,20 @@
-# Root-bundle content survives the minimum selection
+# Always-included content survives the minimum selection
 
 **Status:** accepted
 
 The smallest selection the mechanism allows is `packages: []`, `bundles: []`.
-That resolves to the `root` bundle and nothing else, because `root` is
-`alwaysIncluded` and no manifest can opt out of it
-([ADR 0039](0039-the-selection-is-the-contract.md)). Twenty-five paths, a
-hundred and seventy-two files.
+That resolves to the always-included bundles and nothing else, because
+`alwaysIncluded` is a property of the bundle rather than a choice the manifest
+makes ([ADR 0039](0039-the-selection-is-the-contract.md)). Today that is
+twenty-five paths and a hundred and seventy-two files.
 
 A consumer took exactly that and needed fifteen local deviations to reach a green
 gate. Roughly half were divergence a consumer should own forever. The other half
-were places the bank shipped root content that only works here:
+were places the bank shipped required content that only works here:
 
-- Two root scripts imported six optional packages by relative path, so
-  `pnpm dev` and `pnpm infra:up` failed out of the box. Two more hard-coded a
-  feature package by name.
+- Two of the scripts in `scripts/` imported six optional packages by relative
+  path, so `pnpm dev` and `pnpm infra:up` failed out of the box. Two more
+  hard-coded a feature package by name.
 - `scripts/link-agent-docs.sh` exits 1 when the canonical agent brief is absent.
   It runs on `postinstall` inside a `set -euo pipefail` chain, so a consumer
   without the agents bundle could not complete a first `pnpm install` at all.
@@ -26,11 +26,11 @@ were places the bank shipped root content that only works here:
   failed naming a file the consumer had no way to know the shape of.
 - Three vendored test suites asserted against apps only this repo has.
 
-[`bank.paths.json`](../../bank.paths.json)'s `root` description already argues
-the outbound half of this carefully: anything the root `package.json` _invokes_
-has to travel with it, which is why six `tooling/*` packages are named in a
-bundle the package derivation already offers. Nothing stated the inbound half.
-Anything root content _imports_, _filters on_ or _requires_ has to be optional,
+[`bank.paths.json`](../../bank.paths.json) already argues the outbound half of
+this carefully: anything the root `package.json` _invokes_ has to travel with it,
+which is why six `tooling/*` packages are always included even though the package
+derivation already offers them. Nothing stated the inbound half. Anything
+required content _imports_, _filters on_ or _requires_ has to be optional,
 because the selection that omits it is a supported one.
 
 The cost is not a bug that fires once. Every one of those deviations forced the
@@ -46,13 +46,18 @@ never during `postinstall`.
 
 Three clauses, then a distinction the first one needs.
 
-**It reaches only what an always-included bundle delivers.** No relative import
+**It reaches only what the always-included set delivers.** No relative import
 into an optional package, no hard-coded optional package name to filter on, no
-required file no bundle ships. Where root content genuinely needs to know about
-optional content, it discovers what is present rather than naming what it
+required file no bundle ships. Where required content genuinely needs to know
+about optional content, it discovers what is present rather than naming what it
 expects. `@acme/workspace-graph` already derives the closure, so a script that
 asks the graph gets whatever the consumer took, and a consumer's own packages
 are included for free.
+
+The set is whatever carries the `alwaysIncluded` flag, not a bundle with a
+particular name. How that content is grouped is a question about explaining the
+inventory; the rule holds however it is grouped, and holds across group
+boundaries, since a consumer receives all of it or none of it.
 
 **Where it cannot work, it fails at the command that needed it.** Someone typing
 `pnpm env:pull` with no secrets config should get exit 1 naming the file to
@@ -61,9 +66,10 @@ answer and the only question is whether the message is actionable.
 
 **A hook nobody invoked exits 0 and says why.** A `postinstall` step about
 content the consumer never selected must not fail, because a repo whose first
-`pnpm install` fails is a repo that cannot be installed. `scripts/sync-claudeignore.mjs`
-already sets that precedent and the agent-doc linking follows it. The refusal
-itself stays correct when someone runs the script directly.
+`pnpm install` fails is a repo that cannot be installed.
+`scripts/sync-claudeignore.mjs` already sets that precedent and the agent-doc
+linking follows it. The refusal itself stays correct when someone runs the script
+directly.
 
 Silence is the worst case of all three. Zero matching containers writes a line
 to stderr, because an empty log file is not a diagnosis.
@@ -80,13 +86,14 @@ manifest filter on those grounds; this ADR draws the same line one level down.
 
 - **Make each named input optional.** The scripts keep their relative imports
   into `packages/` and wrap each one in a presence check. The coupling stays,
-  every new slice with infra still edits a tooling package and a root script,
-  and the imports become conditional, which no static rule can then assert
-  against. Discovery removes the imports instead of guarding them.
-- **A second always-included bundle for whatever root content reaches into.**
-  This is the minimum selection growing until it is the whole repo, and it
-  inverts nothing: the bundle becomes the hand-written list of packages the
-  scripts know about.
+  every new slice with infra still edits a tooling package and a script, and the
+  imports become conditional, which no static rule can then assert against.
+  Discovery removes the imports instead of guarding them.
+- **A second always-included bundle for whatever required content reaches
+  into.** This is the minimum selection growing until it is the whole repo, and
+  it inverts nothing: the bundle becomes the hand-written list of packages the
+  scripts know about. Grouping the required content by subject is worth doing
+  for readability, but no grouping makes an optional package required.
 - **Per-path exclusion inside a bundle**, so the vendored suites could be
   withheld. That is a change to the sync mechanism, since a resolved path is a
   prefix. Deriving the subject where the assertion allows it, and skipping with
@@ -105,11 +112,11 @@ manifest filter on those grounds; this ADR draws the same line one level down.
 - **Ownership of dev infra inverts.** A package that declares an infra profile
   declares what that profile contributes and what it needs seeded. The scripts
   pass nothing and name no feature. Adding a slice with infra stops touching a
-  tooling package or a root script.
+  tooling package or a script.
 - **A test derived from `bank.paths.json` enforces the reach rule**, so the next
-  relative import from root content into `packages/` fails here rather than in a
-  consumer's install. Derived rather than hand-listed, so it keeps holding as
-  bundles change.
+  relative import from required content into `packages/` fails here rather than
+  in a consumer's install. It reads the `alwaysIncluded` flag rather than a
+  bundle name, so it keeps holding as the inventory is regrouped.
 - **The minimum selection is a supported configuration.** Someone has to keep it
   working, and that is the point: a consumer can start with nothing selected and
   grow.

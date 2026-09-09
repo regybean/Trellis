@@ -301,7 +301,8 @@ which backend adapter to use, and which secret fills which `.env`. That file is
 on `exclude`, because it maps secret names onto app env files and a consumer
 rewrites the mapping wholesale.
 
-The `root` bundle ships `secrets.config.example.sh` instead. Copy it to
+The bank ships `secrets.config.example.sh` as always-included content instead.
+Copy it to
 `secrets.config.sh`, set `SECRETS_BACKEND`, and rewrite `SECRET_MAP` for your own
 apps. Until you do, `env:pull` exits 1 naming both files, which is the right
 answer to a command you typed. Filling `.env` by hand from `.env.example` is
@@ -675,7 +676,7 @@ tag.
   renaming the `@acme` scope breaks the mechanism.
 - [ADR 0039](adr/0039-the-selection-is-the-contract.md) covers why neither side
   enumerates paths.
-- [ADR 0041](adr/0041-root-bundle-content-survives-the-minimum-selection.md)
+- [ADR 0041](adr/0041-always-included-content-survives-the-minimum-selection.md)
   covers why a selection of nothing is a supported one.
 - [ADR 0042](adr/0042-distributed-content-carries-no-local-only-reference.md)
   covers what a reference in a distributed file may point at.
