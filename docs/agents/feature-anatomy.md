@@ -46,6 +46,16 @@ packages/features/<name>/
 Not every feature has every part: a backend-only feature omits `components/`,
 `hooks/`, `trpc/`, and frontend tests (the generator toggles these).
 
+A slice that needs a backing service adds three things, all in its own package
+and none anywhere else ([ADR 0009](../adr/0009-graph-derived-dev-infra.md)):
+`acme.infra` in its manifest names the compose profiles it needs;
+`acme.provisioning` names a module exporting `PROVISIONING`, which supplies the
+values `compose.yaml` interpolates for those profiles and `needed: false` when
+its own authored configuration does not want the service; and `acme.seeds` maps
+a profile to a script in the same manifest to run once that profile is up. The
+graph discovers all three — no tooling package and no root script is edited to
+add a slice.
+
 ## The two contracts
 
 - **Backend contract = the tRPC procedure** (`api/routers/*`). Tested under

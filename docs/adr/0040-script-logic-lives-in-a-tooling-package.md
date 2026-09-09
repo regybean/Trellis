@@ -81,21 +81,28 @@ that reads the workspace directory list.
 ([ADR 0015](0015-package-exports-convention.md)), so a script package owes no
 `exports` ceremony beyond what it actually exposes.
 
-### Two shims, because the boundary rule forbids the move
+### The two resolvers split, then stopped needing the split
 
-`scripts/resolve-infra.ts` and `scripts/resolve-compose-env.ts` import
+`scripts/resolve-infra.ts` and `scripts/resolve-compose-env.ts` used to import
 `packages/platform/db/src/development-profile` and its siblings by relative
 path, deliberately bypassing the `exports` maps so they need no build. That is
-legal only while the file carries no boundary tag. Inside a `tooling` package it
+legal only while the file carries no boundary tag: inside a `tooling` package it
 would be a `tooling` → `platform` edge, which the tag rules forbid, and it would
 trip turbo's package-escape rule as well.
 
-So these two split rather than move. The decisions — the infra prune rules,
-`portOf`, the ollama-role branch — live in `@acme/workspace-graph` as functions
-taking provider values as arguments ([ADR 0009](0009-graph-derived-dev-infra.md)).
-The shims stay in `scripts/`, do the profile imports, and pass the values in.
-The package never imports `packages/*`, the shim carries no tag, and the prune
-rules became testable.
+So these two split rather than moved — the decisions into
+`@acme/workspace-graph` as functions over provider values, the profile imports
+left behind in `scripts/` to pass those values in. Which made the rules
+testable, and left both files naming five packages that a checkout is free not
+to have.
+
+The boundary rule was never the reason a value had to be _named_. Provisioning
+is now discovered: each package declares its own contribution, and the graph
+loads what the closure holds ([ADR 0009](0009-graph-derived-dev-infra.md)).
+Both files shrank to a call over app names, importing nothing from `packages/`
+— so the shim half of this decision is spent, while its point stands: the logic
+lives in a package that can be tested, and nothing under `scripts/` decides
+anything.
 
 ### The bank is exempt from the language, not the placement
 

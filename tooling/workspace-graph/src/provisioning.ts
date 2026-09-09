@@ -1,157 +1,296 @@
 /**
- * What the authored development profiles ask the local stack to provision.
+ * What the packages present in a closure declare about provisioning the local
+ * stack — the two answers behind `pnpm dev`, `pnpm preview` and `pnpm infra:up`:
+ * which of the compose profiles a closure declares actually need starting, and
+ * what values `compose.yaml` interpolates when they do.
  *
- * These are the two decisions behind `pnpm dev`, `pnpm preview` and
- * `pnpm infra:up`: which of the compose profiles a closure declares actually
- * need starting, and what values `compose.yaml` interpolates when they do.
+ * Both are DISCOVERED from the closure this package already derives, so the
+ * caller passes nothing and the answer is whatever packages the checkout
+ * contains. Before that, these were functions over five named provider values —
+ * Stripe's connection, the models roles, the db/rag/redis profiles — which the
+ * root scripts imported from `packages/` by relative path and handed in. Every
+ * new slice with infra therefore edited this file and a root script, and a
+ * checkout without those five packages could not run `pnpm dev` at all.
  *
- * They are functions over provider *values* rather than readers of them,
- * because this package cannot read them: a `tooling` package may not depend on
- * `platform`, `shared` or `feature` (turbo boundaries), and the authored
- * profiles live in all three. So the shims at `scripts/resolve-infra.ts` and
- * `scripts/resolve-compose-env.ts` import the profiles and pass the values in.
- * That is also what makes these rules testable: before the split they ran as an
- * import side effect and wrote to stdout, leaving no value to assert.
+ * Ownership is inverted instead: each package declares its own contribution
+ * beside its infra metadata, under two manifest keys.
  *
- * Everything here reads the *authored* development values and never
- * `process.env` (@acme/env ADR 0001 §6). These decide what to PROVISION, so an
- * operator's override would be the wrong input — and in the compose case a
- * circular one, since `compose.sh` exports this output back into the
- * environment.
+ *   - `acme.provisioning` names a module exporting `PROVISIONING`, a record of
+ *     compose-profile name to what this package supplies for it: the `compose`
+ *     values, and `needed: false` when the authored configuration turns out not
+ *     to want the service after all (real Stripe needs no localstripe
+ *     container). Code, because those are authored values a JSON manifest
+ *     cannot compute.
+ *   - `acme.seeds` maps a profile to a `package.json` script in the same
+ *     package, run once that profile is up. A plain string, so a package that
+ *     only needs seeding declares no module.
+ *
+ * Discovery merges what it finds over the profiles the closure declares
+ * (`acme.infra`) and nothing else: a contribution to a profile no package in
+ * the closure asked for has nothing to provision.
+ *
+ * The declared values are the AUTHORED development ones and never
+ * `process.env` ([@acme/env ADR 0001](../../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6) — these decide what to
+ * PROVISION, so an operator's override would be the wrong input, and in the
+ * compose case a circular one, since `compose.sh` exports this output back into
+ * the environment. Keeping that rule is the declaring package's job now; it is
+ * the one reading its own profile.
  */
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import type { WorkspacePackage } from './workspace';
+import { closurePackages, declaredInfra } from './closure';
+
+/** What one package supplies for one compose profile. */
+export interface ProfileProvisioning {
+  /**
+   * Values `compose.yaml` interpolates, keyed by the `${...}` ref. Numbers are
+   * accepted — a port is a number where it is authored — and rendered as text,
+   * since the environment carries strings.
+   */
+  readonly compose?: Readonly<Record<string, string | number>>;
+  /**
+   * `false` when the authored configuration does not need the service after
+   * all, which prunes the profile even though the closure declares it. Absent
+   * means needed: declaring nothing about a profile is not a veto.
+   */
+  readonly needed?: boolean;
+}
+
+/** A provisioning module's `PROVISIONING` export, by compose profile name. */
+export type ProvisioningDeclaration = Readonly<
+  Record<string, ProfileProvisioning>
+>;
+
+/** A `package.json` script to run once its profile is up. */
+export interface ProfileSeed {
+  /** The package declaring it — what `pnpm --filter` is pointed at. */
+  readonly package: string;
+  readonly script: string;
+}
+
+/** A profile the closure declares, merged with what its owners supply. */
+export interface DiscoveredProfile {
+  readonly name: string;
+  /** False when an owner vetoed it; only needed profiles are started. */
+  readonly needed: boolean;
+  readonly compose: Readonly<Record<string, string>>;
+  readonly seeds: readonly ProfileSeed[];
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const acmeBlock = (pkg: WorkspacePackage) =>
+  isRecord(pkg.manifest.acme) ? pkg.manifest.acme : undefined;
+
+const reason = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 /**
- * One role's authored provider selection (`MODELS_CHAT`, `MODELS_EMBED`).
- *
- * Structural rather than `@acme/models`' own union, which this package cannot
- * import — and naming the providers here would be a second list to keep in
- * step. `baseUrl` is optional because only the ollama variant declares one, and
- * provisioning is the reader that has to cope with either.
+ * The provisioning module `pkg` declares, as an absolute path, or `undefined`
+ * when it declares none.
  */
-export interface ModelRole {
-  readonly provider: string;
-  readonly model: string;
-  readonly baseUrl?: string;
-}
-
-/** The roles a models profile assigns. */
-export interface ModelsSelection {
-  readonly MODELS_CHAT: ModelRole;
-  readonly MODELS_EMBED: ModelRole;
-}
-
-/** The authored Stripe connection, narrowed to the field that decides infra. */
-export interface StripeConnection {
-  readonly mode: string;
-}
-
-/** The authored provider values the prune rules decide on. */
-export interface ProviderSelection {
-  /** `@acme/billing`'s `STRIPE_CONNECTION`. */
-  readonly stripe: StripeConnection;
-  /** `@acme/models`' role assignments. */
-  readonly models: ModelsSelection;
+export function provisioningModule(pkg: WorkspacePackage) {
+  const declared = acmeBlock(pkg)?.provisioning;
+  return typeof declared === 'string'
+    ? path.resolve(pkg.dir, declared)
+    : undefined;
 }
 
 /**
- * The role that runs on `provider`, or `undefined` when neither does.
- *
- * Both decisions ask this one question of the same discriminant, for opposite
- * reasons: the prune drops a profile when the answer is `undefined`, the
- * compose environment reads the port off whichever role it names. So they ask
- * it here rather than each destructuring the profile and branching itself.
+ * The seeds `pkg` declares, by profile. A non-string entry is ignored, as with
+ * `declaredInfra`: validating the field is a checker's job, and this query
+ * stays usable while a manifest is wrong.
  */
-export function roleUsing(provider: string, models: ModelsSelection) {
-  return [models.MODELS_CHAT, models.MODELS_EMBED].find(
-    (role) => role.provider === provider,
+export function declaredSeeds(pkg: WorkspacePackage) {
+  const seeds = acmeBlock(pkg)?.seeds;
+  if (!isRecord(seeds)) return {};
+  return Object.fromEntries(
+    Object.entries(seeds).flatMap(([profile, script]) =>
+      typeof script === 'string' ? [[profile, script] as const] : [],
+    ),
   );
 }
 
 /**
- * The compose profiles a candidate set actually needs, given the authored
- * provider values.
+ * The `PROVISIONING` export of one package's module.
  *
- * The graph yields the candidates (`closureInfra`); a service needed only under
- * a given configuration is pruned here:
- *
- *   - `billing` (localstripe) goes unless the authored Stripe connection is
- *     localstripe — real Stripe needs no local container.
- *   - `ollama` goes unless the chat or embed role runs on ollama.
- *
- * Candidate order is preserved, so a sorted candidate list stays sorted. A
- * profile no rule names is returned untouched: the graph decides what a closure
- * needs, these rules only decide what to drop.
+ * Loaded with a plain dynamic `import()` of the file URL, so the module is the
+ * package's own source in the caller's loader — `tsx` for the root scripts,
+ * vitest for a test. A module that is declared but unreadable, or that exports
+ * the wrong shape, throws naming the package: a consumer's `pnpm dev` must fail
+ * at the thing it asked for rather than quietly provision less.
  */
-export function pruneInfra(
-  candidates: readonly string[],
-  selection: ProviderSelection,
-) {
-  const dropped = new Set<string>();
-  if (selection.stripe.mode !== 'localstripe') dropped.add('billing');
-  if (!roleUsing('ollama', selection.models)) dropped.add('ollama');
-  return candidates.filter((profile) => !dropped.has(profile));
-}
-
-/**
- * The port a connection URL names — the single source.
- *
- * A standalone port field beside the URL would be a second source that could
- * drift, so every port in the compose environment is parsed back out of the URL
- * that carries it. Empty when the URL states no port (`new URL` does not fill
- * in the scheme's default), and a throw when the string is no URL at all.
- */
-export function portOf(url: string) {
-  return new URL(url).port;
-}
-
-/** The authored values `compose.yaml` interpolates, by the slice that owns each. */
-export interface ComposeEnvironmentInput {
-  /** `@acme/db` — the Postgres container's port, superuser and database. */
-  readonly db: {
-    readonly DB_PORT: number;
-    readonly DB_USER: string;
-    readonly DB_NAME: string;
-  };
-  /** `@acme/rag` — the vector database created beside it. */
-  readonly rag: {
-    readonly DB_VECTOR_NAME: string;
-  };
-  /** `@acme/redis` — the port is parsed out of the connection URL. */
-  readonly redis: {
-    readonly REDIS_URL: string;
-  };
-  /** `@acme/models` — the ollama port and the models to pull. */
-  readonly models: ModelsSelection;
-}
-
-/**
- * Every value `compose.yaml` interpolates to provision the local stack, as a
- * record. `scripts/resolve-compose-env.ts` renders it and `scripts/compose.sh`
- * exports the result, where compose substitutes the `${...}` refs at parse time.
- *
- * @throws when no role runs on ollama, or the one that does states no base URL.
- * Dev selects ollama for both roles; a guessed port is worse than a loud failure.
- */
-export function composeEnvironment({
-  db,
-  rag,
-  redis,
-  models,
-}: ComposeEnvironmentInput) {
-  const ollama = roleUsing('ollama', models);
-  if (!ollama?.baseUrl) {
+async function readDeclaration(
+  pkg: WorkspacePackage,
+  module: string,
+): Promise<ProvisioningDeclaration> {
+  let imported: unknown;
+  try {
+    imported = await import(pathToFileURL(module).href);
+  } catch (error) {
     throw new Error(
-      'the models development profile selects no ollama role — cannot derive OLLAMA_PORT',
+      `${pkg.name}: "acme.provisioning" names ${module}, which could not be loaded: ${reason(error)}`,
     );
   }
-  return {
-    DB_PORT: String(db.DB_PORT),
-    DB_USER: db.DB_USER,
-    DB_NAME: db.DB_NAME,
-    DB_VECTOR_NAME: rag.DB_VECTOR_NAME,
-    REDIS_PORT: portOf(redis.REDIS_URL),
-    OLLAMA_PORT: portOf(ollama.baseUrl),
-    OLLAMA_CHAT_MODEL: models.MODELS_CHAT.model,
-    OLLAMA_EMBED_MODEL: models.MODELS_EMBED.model,
-  };
+
+  const declaration = isRecord(imported) ? imported.PROVISIONING : undefined;
+  if (!isRecord(declaration)) {
+    throw new Error(
+      `${pkg.name}: ${module} exports no PROVISIONING record of compose profiles`,
+    );
+  }
+
+  // Rebuilt key by key as it is checked, so what comes back is narrowed by
+  // construction rather than asserted to be.
+  const contributions: Record<string, ProfileProvisioning> = {};
+  for (const [profile, contribution] of Object.entries(declaration)) {
+    const at = `${pkg.name}: PROVISIONING.${profile}`;
+    if (!isRecord(contribution)) {
+      throw new Error(`${at} is not a record of what it supplies`);
+    }
+
+    const needed = contribution.needed;
+    if (needed !== undefined && typeof needed !== 'boolean') {
+      throw new Error(`${at}.needed is not a boolean`);
+    }
+
+    const declaredCompose = contribution.compose;
+    if (declaredCompose !== undefined && !isRecord(declaredCompose)) {
+      throw new Error(`${at}.compose is not a record of compose values`);
+    }
+
+    const compose: Record<string, string | number> = {};
+    for (const [key, value] of Object.entries(declaredCompose ?? {})) {
+      if (typeof value !== 'string' && typeof value !== 'number') {
+        throw new Error(
+          `${at}.compose.${key} is ${JSON.stringify(value)}, which is no compose value`,
+        );
+      }
+      compose[key] = value;
+    }
+
+    contributions[profile] = { needed, compose };
+  }
+
+  return contributions;
+}
+
+/** One profile under construction, before it is frozen into the result. */
+interface Merging {
+  needed: boolean;
+  compose: Record<string, string>;
+  seeds: ProfileSeed[];
+}
+
+/**
+ * What `packages` declare they need provisioned: the profiles their `acme.infra`
+ * names, each carrying the compose values, the prune verdict and the seeds the
+ * packages supply for it.
+ *
+ * Sorted by profile name (`declaredInfra`'s order), and each profile's seeds in
+ * package-name order, so the answer is stable whatever order the closure came
+ * back in.
+ *
+ * @throws when a declared module is unloadable, or when two packages supply the
+ * same compose value differently — a silent winner there provisions a stack
+ * neither package described.
+ */
+export async function discoverProfiles(
+  packages: readonly WorkspacePackage[],
+): Promise<DiscoveredProfile[]> {
+  const candidates = declaredInfra(packages);
+  const merged = new Map<string, Merging>(
+    candidates.map((name) => [name, { needed: true, compose: {}, seeds: [] }]),
+  );
+  /** Which package supplied each compose value, for the conflict message. */
+  const suppliers = new Map<string, WorkspacePackage>();
+
+  const declared = packages.flatMap((pkg) => {
+    const module = provisioningModule(pkg);
+    return module ? [{ pkg, module }] : [];
+  });
+  // Loaded together rather than in sequence: each is an independent import.
+  const declarations = await Promise.all(
+    declared.map(async ({ pkg, module }) => ({
+      pkg,
+      declaration: await readDeclaration(pkg, module),
+    })),
+  );
+
+  for (const pkg of packages) {
+    for (const [profile, script] of Object.entries(declaredSeeds(pkg))) {
+      merged.get(profile)?.seeds.push({ package: pkg.name, script });
+    }
+  }
+
+  for (const { pkg, declaration } of declarations) {
+    for (const [profile, contribution] of Object.entries(declaration)) {
+      const target = merged.get(profile);
+      if (!target) continue; // nothing in this closure asked for the service
+      if (contribution.needed === false) target.needed = false;
+
+      for (const [key, value] of Object.entries(contribution.compose ?? {})) {
+        const supplied = String(value);
+        const supplier = suppliers.get(key);
+        if (supplier && target.compose[key] !== supplied) {
+          throw new Error(
+            `${pkg.name} and ${supplier.name} both supply the compose value ${key}, with different values`,
+          );
+        }
+        suppliers.set(key, pkg);
+        target.compose[key] = supplied;
+      }
+    }
+  }
+
+  return candidates.map((name) => {
+    const { needed, compose, seeds } = merged.get(name) ?? {
+      needed: true,
+      compose: {},
+      seeds: [],
+    };
+    return { name, needed, compose, seeds };
+  });
+}
+
+/** Discovery over the transitive closure of `names` — what the scripts call. */
+export async function closureProvisioning(
+  root: string,
+  names: readonly string[],
+) {
+  return discoverProfiles(closurePackages(root, names));
+}
+
+/**
+ * The profiles to start: everything discovered that no owner vetoed. Candidate
+ * order is preserved, so the list stays sorted.
+ */
+export function neededProfiles(profiles: readonly DiscoveredProfile[]) {
+  return profiles.filter((profile) => profile.needed).map(({ name }) => name);
+}
+
+/** The seeds of the profiles that will be started, in profile order. */
+export function neededSeeds(profiles: readonly DiscoveredProfile[]) {
+  return profiles
+    .filter((profile) => profile.needed)
+    .flatMap(({ seeds }) => seeds);
+}
+
+/**
+ * Every value `compose.yaml` interpolates, merged across the discovered
+ * profiles. `scripts/resolve-compose-env.ts` renders it and `scripts/compose.sh`
+ * exports the result, where compose substitutes the `${...}` refs at parse time.
+ *
+ * Pruned profiles contribute too: compose parses every service in the file
+ * whatever the active profile set is, so a value it interpolates is wanted even
+ * where the service will not be started. A profile nothing supplies values for
+ * simply contributes none — under discovery, absent is absent rather than fatal.
+ */
+export function composeEnvironment(profiles: readonly DiscoveredProfile[]) {
+  return Object.fromEntries(
+    profiles.flatMap(({ compose }) => Object.entries(compose)),
+  );
 }

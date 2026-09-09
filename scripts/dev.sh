@@ -53,10 +53,20 @@ if [ -n "$profiles" ]; then
   # on first run — minutes). Idempotent: a no-op when already up + healthy.
   COMPOSE_PROFILES="$profiles" ./scripts/compose.sh up -d --wait
 
-  # localstripe holds products/plans in memory, so (re)seed whenever it's in play.
-  case ",$profiles," in
-    *,billing,*) pnpm --filter @acme/billing seed:localstripe ;;
-  esac
+  # Seed whatever the started profiles ask for. The package owning a profile
+  # declares the script in its `acme.seeds`, so no feature is named here and a
+  # slice that needs seeding is seeded by adding that line. (localstripe holds
+  # its products in memory, which is why its seed re-runs on every start.)
+  if [ ${#apps[@]} -gt 0 ]; then
+    seeds="$(pnpm exec tsx scripts/resolve-infra.ts --seeds "${apps[@]}")"
+  else
+    seeds="$(pnpm exec tsx scripts/resolve-infra.ts --seeds)"
+  fi
+  while IFS=$'\t' read -r seed_pkg seed_script; do
+    if [ -n "$seed_pkg" ]; then
+      pnpm --filter "$seed_pkg" run "$seed_script"
+    fi
+  done <<<"$seeds"
 
   # Schema push only matters when Postgres is in the set. `--if-present` skips apps
   # with no db:push script (e.g. a future DB-less app). `--force` + strict:false in

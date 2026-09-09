@@ -47,6 +47,7 @@
     "reason": "Connection factory + env; behaviour is exercised through consumer suites (billing/chat/feedback/rag). A dedicated connection smoke test is a tracked follow-up.",
     "infra": [
       "postgres"
-    ]
+    ],
+    "provisioning": "./src/provisioning.ts"
   }
 }

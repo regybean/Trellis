@@ -1,37 +1,32 @@
-// Which compose infra profiles the given apps need — and, with `--names`, which
-// apps a set of tokens names. Both answers come from `@acme/workspace-graph`;
-// this file exists to hand it the slices' authored development profiles.
+// Which compose infra profiles the given apps need, which seeds those profiles
+// ask for, and — with `--names` — which apps a set of tokens names.
 //
-// The graph yields the CANDIDATE set: the union of `acme.infra` over each app's
-// transitive workspace closure, so adding an app needs no change here and an app
-// whose closure declares nothing starts no infra (ADR 0009). The authored
-// development profiles then PRUNE it (`pruneInfra`, @acme/env ADR 0001 §6): the
-// `billing` (localstripe) profile goes unless the authored Stripe connection is
-// localstripe, and `ollama` goes unless a models role runs on ollama.
+// Every answer comes from `@acme/workspace-graph`, DISCOVERED from the packages
+// the checkout actually contains: the union of `acme.infra` over each app's
+// transitive closure is the candidate set, and the packages in that closure
+// declare what to do with each candidate — the compose values it needs, whether
+// their authored configuration wants the service at all (`acme.provisioning`),
+// and the seed to run once it is up (`acme.seeds`).
 //
-// The `development-profile.ts` modules are imported rather than each slice's
-// `env.ts`: this decides what to PROVISION, so it wants the values the repo
-// authors and never an operator's override, and those modules execute no
-// `createEnv` call.
+// So this file names no package, no profile and no seed. Adding an app, a slice
+// with infra, or a slice with a seed needs no change here, and a checkout
+// without any of them resolves an empty set rather than failing on an import
+// (`@acme/workspace-graph` is reached by relative path because the root
+// workspace declares no `@acme/*` dependency; it needs no build).
 //
-// Importing them by RELATIVE PATH is why the decisions moved into the package
-// while this file stayed in `scripts/`. Root scripts carry no boundary tag, so
-// reaching into `packages/*` is legal here; inside a `tooling` package the same
-// import would be a tooling→platform/shared/feature edge, which the layer rules
-// forbid outright. `@acme/workspace-graph` is reached the same way — the root
-// workspace declares no `@acme/*` dependency — and it needs no build.
+// Run via `pnpm exec tsx` (not `node`) so the TS config imports resolve, both
+// here and in the provisioning modules discovery loads.
 //
-// Run via `pnpm exec tsx` (not `node`) so the TS config imports resolve,
-// mirroring scripts/resolve-compose-env.ts.
-//
-// Usage:  resolve-infra.ts [app ...]      (no args => every app under apps/*)
+// Usage:  resolve-infra.ts [--names|--seeds] [app ...]
+//         no app args => every app under apps/*
 //         app may be a full name (@acme/nextjs) or short (nextjs).
-// Output: comma-separated profile list (possibly empty) on stdout.
-import { BILLING_DEVELOPMENT_PROFILE } from "../packages/features/billing/src/development-profile";
-import { MODELS_DEVELOPMENT_PROFILE } from "../packages/shared/models/src/development-profile";
+// Output: default   comma-separated profile list (possibly empty)
+//         --names   one canonical @acme/* app name per line
+//         --seeds   one `<package>\t<script>` line per seed of a started profile
 import {
-  closureInfra,
-  pruneInfra,
+  closureProvisioning,
+  neededProfiles,
+  neededSeeds,
   repoRoot,
   resolveToken,
   workspaceApps,
@@ -52,10 +47,12 @@ const toAppName = (token: string) => {
 };
 
 const argv = process.argv.slice(2);
-// `--names`: print the resolved canonical @acme/* app names (one per line) and
-// exit — used by dev.sh, since turbo's -F needs full names, not short ones.
+// `--names`: print the resolved canonical @acme/* app names and exit — used by
+// dev.sh, since turbo's -F needs full names, not short ones. `--seeds`: print
+// the seeds the started profiles declare, for dev.sh / infra-up.sh to run.
 const namesMode = argv.includes("--names");
-const tokens = argv.filter((a) => a !== "--names");
+const seedsMode = argv.includes("--seeds");
+const tokens = argv.filter((a) => a !== "--names" && a !== "--seeds");
 
 const targets =
   tokens.length > 0 ? tokens.map(toAppName) : apps.map((app) => app.name);
@@ -65,9 +62,20 @@ if (namesMode) {
   process.exit(0);
 }
 
-const profiles = pruneInfra(closureInfra(root, targets), {
-  stripe: BILLING_DEVELOPMENT_PROFILE.STRIPE_CONNECTION,
-  models: MODELS_DEVELOPMENT_PROFILE,
-});
+// Discovery loads each declaring package's module, so the answer is a promise.
+// Wrapped rather than awaited at the top level because the root package is CJS
+// (no `"type": "module"`), which esbuild refuses to emit top-level await into. A
+// rejection is left unhandled deliberately: node prints it and exits non-zero,
+// which is exactly what a caller of this script needs to see.
+void (async () => {
+  const discovered = await closureProvisioning(root, targets);
 
-process.stdout.write(profiles.join(","));
+  if (seedsMode) {
+    const seeds = neededSeeds(discovered).map(
+      (seed) => `${seed.package}\t${seed.script}\n`,
+    );
+    process.stdout.write(seeds.join(""));
+  } else {
+    process.stdout.write(neededProfiles(discovered).join(","));
+  }
+})();

@@ -61,10 +61,10 @@ here while `@acme/models` declared a provider enum plus per-provider keys. It
 now declares two keys — `MODELS_CHAT` and `MODELS_EMBED`, each a `jsonEnv`
 discriminated union — and both carry an authored profile value, so by the rule
 in the blockquote above they need no stub. (`OLLAMA_CHAT_MODEL` /
-`OLLAMA_EMBED_MODEL` still exist, but as values
-`scripts/resolve-compose-env.ts` _derives_ for the Ollama pull list in compose;
-no slice's `createEnv` reads them, so no constructor guard depends on them at
-import.)
+`OLLAMA_EMBED_MODEL` still exist, but as values `@acme/models` _supplies_ for
+the Ollama pull list in compose, from its own `src/provisioning.ts`
+([ADR 0009](0009-graph-derived-dev-infra.md)); no slice's `createEnv` reads
+them, so no constructor guard depends on them at import.)
 
 These stubs exist to satisfy Mastra/AI-SDK constructor guards, which run at module
 import whatever env validation does. (As noted at the top: since @acme/env ADR 0001 §3 they are

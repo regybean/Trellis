@@ -46,6 +46,7 @@
   },
   "prettier": "@acme/prettier-config",
   "acme": {
-    "testClass": "backend-library"
+    "testClass": "backend-library",
+    "provisioning": "./src/provisioning.ts"
   }
 }

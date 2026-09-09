@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from 'vitest';
 
-import { composeProfiles, validateInfra } from '../../../infra';
+import {
+  composeProfiles,
+  validateInfra,
+  validateProvisioning,
+} from '../../../infra';
 
 const COMPOSE = `services:
   postgres:
@@ -107,5 +111,70 @@ describe('a declared profile', () => {
         profiles,
       )[0],
     ).toContain('is not a profile name');
+  });
+});
+
+describe('a provisioning declaration', () => {
+  const profiles = ['billing', 'ollama', 'postgres', 'redis'];
+  const scripts = ['test', 'seed:localstripe'];
+  const files = ['package.json', 'src/', 'src/provisioning.ts'];
+  const check = (acme: Record<string, unknown>) =>
+    validateProvisioning('@acme/billing', acme, profiles, scripts, files);
+
+  it('passes when the module exists and the seed names a real script', () => {
+    expect(
+      check({
+        infra: ['billing'],
+        provisioning: './src/provisioning.ts',
+        seeds: { billing: 'seed:localstripe' },
+      }),
+    ).toEqual([]);
+  });
+
+  it('declaring neither is not a violation', () => {
+    expect(check({ testClass: 'none' })).toEqual([]);
+    expect(
+      validateProvisioning('@acme/ui', undefined, profiles, [], []),
+    ).toEqual([]);
+  });
+
+  it('fails a module path that names no file in the package', () => {
+    const [error] = check({ provisioning: './src/provisionning.ts' });
+
+    expect(error).toContain('@acme/billing');
+    expect(error).toContain('provisionning.ts');
+    expect(error).toContain('not a file in the package');
+  });
+
+  it('fails a module path that is not a path', () => {
+    expect(check({ provisioning: true })[0]).toContain(
+      'must be a path to a module',
+    );
+  });
+
+  it('fails a seed for a profile the compose file does not define', () => {
+    const [error] = check({ seeds: { bling: 'seed:localstripe' } });
+
+    expect(error).toContain('`bling`');
+    expect(error).toContain('never runs');
+  });
+
+  it('fails a seed naming a script the package does not declare', () => {
+    const [error] = check({ seeds: { billing: 'seed:stripe' } });
+
+    expect(error).toContain('acme.seeds.billing');
+    expect(error).toContain('does not declare');
+  });
+
+  it('fails a seeds field that is not a mapping', () => {
+    expect(check({ seeds: ['seed:localstripe'] })[0]).toContain(
+      'must map a deploy/compose.yaml profile name',
+    );
+  });
+
+  it('fails a seed entry that is not a script name', () => {
+    expect(check({ seeds: { billing: 7 } })[0]).toContain(
+      'is not the name of a script',
+    );
   });
 });

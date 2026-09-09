@@ -49,6 +49,7 @@
     "testClass": "backend-library",
     "infra": [
       "redis"
-    ]
+    ],
+    "provisioning": "./src/provisioning.ts"
   }
 }

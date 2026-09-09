@@ -1,165 +1,340 @@
-import { describe, expect, it } from 'vitest';
+/**
+ * Discovery against fixture repos rather than this one: what a closure declares
+ * is the input, so the honest test is a workspace built to declare it. Asserting
+ * against Trellis's own package set would encode this repo's slices in the
+ * assertions — the coupling the discovery replaced.
+ */
+import { afterAll, describe, expect, it } from 'vitest';
 
-import type { ModelsSelection } from '../../../provisioning';
 import {
   composeEnvironment,
-  portOf,
-  pruneInfra,
-  roleUsing,
+  discoverProfiles,
+  neededProfiles,
+  neededSeeds,
 } from '../../../provisioning';
+import { workspacePackages } from '../../../workspace';
+import {
+  createWorkspaceFixture,
+  removeWorkspaceFixtures,
+} from '../workspace-fixture';
 
-const ollamaChat = {
-  provider: 'ollama',
-  baseUrl: 'http://localhost:11434/v1',
-  model: 'qwen2.5:1.5b',
-};
-const ollamaEmbed = {
-  provider: 'ollama',
-  baseUrl: 'http://localhost:11434/v1',
-  model: 'nomic-embed-text',
-};
-const bedrockChat = { provider: 'bedrock', model: 'claude-on-bedrock' };
-const bedrockEmbed = { provider: 'bedrock', model: 'titan-embed' };
+afterAll(() => {
+  removeWorkspaceFixtures();
+});
 
-const onOllama: ModelsSelection = {
-  MODELS_CHAT: ollamaChat,
-  MODELS_EMBED: ollamaEmbed,
-};
-const onBedrock: ModelsSelection = {
-  MODELS_CHAT: bedrockChat,
-  MODELS_EMBED: bedrockEmbed,
+/** A provisioning module declaring `declaration`, as a package would author it. */
+const declaring = (declaration: unknown) =>
+  `export const PROVISIONING = ${JSON.stringify(declaration)};\n`;
+
+/**
+ * A fixture whose packages are `{ <name>: { infra, seeds, provisioning } }`,
+ * where `provisioning` is the declaration to write as that package's module.
+ */
+interface FixturePackage {
+  readonly infra?: readonly string[];
+  readonly seeds?: Readonly<Record<string, unknown>>;
+  readonly provisioning?: unknown;
+  /** Written verbatim instead of a declaration — for a module that is broken. */
+  readonly module?: string;
+}
+
+const fixture = (packages: Readonly<Record<string, FixturePackage>>) => {
+  const files: Record<string, string> = {};
+  const manifests = Object.fromEntries(
+    Object.entries(packages).map(
+      ([name, { infra, seeds, provisioning, module }]) => {
+        const declares = provisioning !== undefined || module !== undefined;
+        if (declares) {
+          files[`packages/shared/${name}/provisioning.mjs`] =
+            module ?? declaring(provisioning);
+        }
+        return [
+          `packages/shared/${name}`,
+          {
+            name: `@fixture/${name}`,
+            acme: {
+              ...(infra ? { infra } : {}),
+              ...(seeds ? { seeds } : {}),
+              ...(declares ? { provisioning: './provisioning.mjs' } : {}),
+            },
+          },
+        ];
+      },
+    ),
+  );
+
+  return workspacePackages(
+    createWorkspaceFixture({
+      globs: ['packages/shared/*'],
+      packages: manifests,
+      files,
+    }),
+  );
 };
 
-const localstripe = { stripe: { mode: 'localstripe' } };
-
-describe('roleUsing', () => {
-  it('names the role that runs on the provider', () => {
-    expect(
-      roleUsing('ollama', {
-        MODELS_CHAT: bedrockChat,
-        MODELS_EMBED: ollamaEmbed,
+describe('discoverProfiles', () => {
+  it('returns the profiles the closure declares, with what its packages supply', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        db: {
+          infra: ['postgres'],
+          provisioning: { postgres: { compose: { DB_PORT: 5444 } } },
+        },
+        billing: {
+          infra: ['billing'],
+          seeds: { billing: 'seed:localstripe' },
+          provisioning: { billing: { needed: true } },
+        },
       }),
-    ).toBe(ollamaEmbed);
+    );
+
+    expect(profiles).toEqual([
+      {
+        name: 'billing',
+        needed: true,
+        compose: {},
+        seeds: [{ package: '@fixture/billing', script: 'seed:localstripe' }],
+      },
+      {
+        name: 'postgres',
+        needed: true,
+        compose: { DB_PORT: '5444' },
+        seeds: [],
+      },
+    ]);
   });
 
-  it('names the chat role when both run on the provider', () => {
-    expect(roleUsing('ollama', onOllama)).toBe(ollamaChat);
+  it('merges what several packages supply for one profile', async () => {
+    const [postgres] = await discoverProfiles(
+      fixture({
+        db: {
+          infra: ['postgres'],
+          provisioning: { postgres: { compose: { DB_NAME: 'testdb' } } },
+        },
+        rag: {
+          infra: ['postgres'],
+          provisioning: {
+            postgres: { compose: { DB_VECTOR_NAME: 'vectordb' } },
+          },
+        },
+      }),
+    );
+
+    expect(postgres?.compose).toEqual({
+      DB_NAME: 'testdb',
+      DB_VECTOR_NAME: 'vectordb',
+    });
   });
 
-  it('names nothing when neither role runs on the provider', () => {
-    expect(roleUsing('ollama', onBedrock)).toBeUndefined();
+  it('needs a declared profile no package provisions', async () => {
+    const profiles = await discoverProfiles(
+      fixture({ queue: { infra: ['redis'] } }),
+    );
+
+    expect(profiles).toEqual([
+      { name: 'redis', needed: true, compose: {}, seeds: [] },
+    ]);
+  });
+
+  it('ignores a contribution to a profile the closure does not declare', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        models: {
+          provisioning: { ollama: { compose: { OLLAMA_PORT: '11434' } } },
+          seeds: { ollama: 'seed:models' },
+        },
+      }),
+    );
+
+    expect(profiles).toEqual([]);
+  });
+
+  it('assumes nothing for a set that declares nothing', async () => {
+    expect(await discoverProfiles([])).toEqual([]);
+  });
+
+  it('refuses a module it cannot load, naming the package', async () => {
+    await expect(
+      discoverProfiles(
+        fixture({ db: { module: 'export const PROVISIONING = {' } }),
+      ),
+    ).rejects.toThrow(/@fixture\/db/);
+  });
+
+  it('refuses a module that declares no PROVISIONING export', async () => {
+    await expect(
+      discoverProfiles(
+        fixture({ db: { module: 'export const OTHER = {};\n' } }),
+      ),
+    ).rejects.toThrow(/PROVISIONING/);
+  });
+
+  it('refuses a compose value that is not a string or a number', async () => {
+    await expect(
+      discoverProfiles(
+        fixture({
+          db: {
+            infra: ['postgres'],
+            provisioning: {
+              postgres: { compose: { DB_PORT: { port: 5444 } } },
+            },
+          },
+        }),
+      ),
+    ).rejects.toThrow(/DB_PORT/);
+  });
+
+  it('refuses two packages supplying one compose value differently', async () => {
+    await expect(
+      discoverProfiles(
+        fixture({
+          db: {
+            infra: ['postgres'],
+            provisioning: { postgres: { compose: { DB_PORT: 5444 } } },
+          },
+          rag: {
+            infra: ['postgres'],
+            provisioning: { postgres: { compose: { DB_PORT: 5555 } } },
+          },
+        }),
+      ),
+    ).rejects.toThrow(/DB_PORT/);
   });
 });
 
-describe('pruneInfra', () => {
-  it('returns the profiles a closure needs as a value', () => {
-    expect(
-      pruneInfra(['billing', 'ollama', 'postgres', 'redis'], {
-        ...localstripe,
-        models: onOllama,
+describe('neededProfiles', () => {
+  it('drops a profile its owner says the configuration does not need', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        rag: { infra: ['ollama', 'postgres'] },
+        models: { provisioning: { ollama: { needed: false } } },
       }),
-    ).toEqual(['billing', 'ollama', 'postgres', 'redis']);
+    );
+
+    expect(neededProfiles(profiles)).toEqual(['postgres']);
   });
 
-  it('drops ollama when no role selects it', () => {
-    expect(
-      pruneInfra(['ollama', 'postgres'], {
-        ...localstripe,
-        models: onBedrock,
+  it('keeps a profile every owner needs, in candidate order', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        rag: { infra: ['ollama', 'postgres'] },
+        models: { provisioning: { ollama: { needed: true } } },
       }),
-    ).toEqual(['postgres']);
+    );
+
+    expect(neededProfiles(profiles)).toEqual(['ollama', 'postgres']);
   });
 
-  it('keeps ollama when one role selects it', () => {
-    expect(
-      pruneInfra(['ollama'], {
-        ...localstripe,
-        models: { MODELS_CHAT: bedrockChat, MODELS_EMBED: ollamaEmbed },
+  it('drops a profile one owner does not need even when another does', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        rag: { infra: ['ollama'], provisioning: { ollama: { needed: true } } },
+        models: { provisioning: { ollama: { needed: false } } },
       }),
-    ).toEqual(['ollama']);
-  });
+    );
 
-  it('drops billing when the authored connection is real Stripe', () => {
-    expect(
-      pruneInfra(['billing', 'postgres'], {
-        stripe: { mode: 'stripe' },
-        models: onOllama,
-      }),
-    ).toEqual(['postgres']);
-  });
-
-  it('leaves a profile no rule names alone, in candidate order', () => {
-    expect(
-      pruneInfra(['redis', 'jaeger', 'localstack', 'postgres'], {
-        stripe: { mode: 'stripe' },
-        models: onBedrock,
-      }),
-    ).toEqual(['redis', 'jaeger', 'localstack', 'postgres']);
-  });
-
-  it('assumes nothing on for a closure that declares nothing', () => {
-    expect(pruneInfra([], { ...localstripe, models: onOllama })).toEqual([]);
+    expect(neededProfiles(profiles)).toEqual([]);
   });
 });
 
-describe('portOf', () => {
-  it('parses the port a connection URL names', () => {
-    expect(portOf('redis://localhost:6379')).toBe('6379');
-    expect(portOf('http://localhost:11434/v1')).toBe('11434');
+describe('neededSeeds', () => {
+  it('names the package and the script for every started profile', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        billing: { infra: ['billing'], seeds: { billing: 'seed:localstripe' } },
+        db: { infra: ['postgres'], seeds: { postgres: 'seed:fixtures' } },
+      }),
+    );
+
+    expect(neededSeeds(profiles)).toEqual([
+      { package: '@fixture/billing', script: 'seed:localstripe' },
+      { package: '@fixture/db', script: 'seed:fixtures' },
+    ]);
   });
 
-  it('is empty when the URL states no port', () => {
-    expect(portOf('redis://localhost')).toBe('');
+  it('leaves out the seed of a profile that was pruned', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        billing: {
+          infra: ['billing'],
+          seeds: { billing: 'seed:localstripe' },
+          provisioning: { billing: { needed: false } },
+        },
+      }),
+    );
+
+    expect(neededSeeds(profiles)).toEqual([]);
   });
 
-  it('refuses a string with no scheme to parse', () => {
-    expect(() => portOf('localhost/6379')).toThrow();
-  });
+  it('ignores a seed that names no script', async () => {
+    const profiles = await discoverProfiles(
+      fixture({ billing: { infra: ['billing'], seeds: { billing: 7 } } }),
+    );
 
-  // `localhost:` reads as the scheme and `6379` as the path, so this parses and
-  // states no port — worth pinning, since it looks like a host and a port.
-  it('is empty for a bare host:port, which names no scheme', () => {
-    expect(portOf('localhost:6379')).toBe('');
+    expect(neededSeeds(profiles)).toEqual([]);
   });
 });
 
 describe('composeEnvironment', () => {
-  const input = {
-    db: { DB_PORT: 5444, DB_USER: 'postgres', DB_NAME: 'testdb' },
-    rag: { DB_VECTOR_NAME: 'vectordb' },
-    redis: { REDIS_URL: 'redis://localhost:6379' },
-    models: onOllama,
-  };
+  it('is every value the discovered profiles supply, as strings', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        db: {
+          infra: ['postgres'],
+          provisioning: {
+            postgres: {
+              compose: {
+                DB_PORT: 5444,
+                DB_USER: 'postgres',
+                DB_NAME: 'testdb',
+              },
+            },
+          },
+        },
+        redis: {
+          infra: ['redis'],
+          provisioning: { redis: { compose: { REDIS_PORT: '6379' } } },
+        },
+        rag: {
+          infra: ['ollama', 'postgres'],
+          provisioning: {
+            postgres: { compose: { DB_VECTOR_NAME: 'vectordb' } },
+          },
+        },
+        models: {
+          provisioning: {
+            ollama: { compose: { OLLAMA_PORT: '11434' }, needed: true },
+          },
+        },
+      }),
+    );
 
-  it('returns every interpolated value as a record, ports parsed out of the URLs', () => {
-    expect(composeEnvironment(input)).toEqual({
+    expect(composeEnvironment(profiles)).toEqual({
       DB_PORT: '5444',
       DB_USER: 'postgres',
       DB_NAME: 'testdb',
       DB_VECTOR_NAME: 'vectordb',
       REDIS_PORT: '6379',
       OLLAMA_PORT: '11434',
-      OLLAMA_CHAT_MODEL: 'qwen2.5:1.5b',
-      OLLAMA_EMBED_MODEL: 'nomic-embed-text',
     });
   });
 
-  it('takes the ollama port from whichever role runs on ollama', () => {
-    const env = composeEnvironment({
-      ...input,
-      models: {
-        MODELS_CHAT: bedrockChat,
-        MODELS_EMBED: { ...ollamaEmbed, baseUrl: 'http://localhost:11500/v1' },
-      },
-    });
+  it('succeeds with ollama absent — nothing declared it', async () => {
+    const profiles = await discoverProfiles(
+      fixture({
+        db: {
+          infra: ['postgres'],
+          provisioning: { postgres: { compose: { DB_PORT: 5444 } } },
+        },
+      }),
+    );
 
-    expect(env.OLLAMA_PORT).toBe('11500');
-    expect(env.OLLAMA_CHAT_MODEL).toBe('claude-on-bedrock');
+    expect(composeEnvironment(profiles)).toEqual({ DB_PORT: '5444' });
   });
 
-  it('fails loud rather than guess a port when no role runs on ollama', () => {
-    expect(() =>
-      composeEnvironment({ ...input, models: onBedrock }),
-    ).toThrowError(/no ollama role/);
+  it('is empty for a closure that declares no infra at all', async () => {
+    expect(
+      composeEnvironment(await discoverProfiles(fixture({ ui: {} }))),
+    ).toEqual({});
   });
 });

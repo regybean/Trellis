@@ -6,6 +6,8 @@
  * nothing is assumed on (ADR 0009). The field had no validator anywhere, so a
  * typo was accepted in silence and produced a compose profile matching no
  * service — the failure mode being "the container you needed never started".
+ * `acme.provisioning` and `acme.seeds`, which the same resolver discovers
+ * beside it, fail in the same silence and are validated here too.
  *
  * The profiles are read from the compose file rather than listed here, for the
  * same reason the workspace directories are read from `pnpm-workspace.yaml`: a
@@ -84,5 +86,77 @@ export function validateInfra(
       );
     }
   }
+  return errors;
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** `./src/provisioning.ts` and `src/provisioning.ts` name the same file. */
+const withoutDot = (rel: string) => rel.replace(/^\.\//, '');
+
+/**
+ * What is wrong with one package's provisioning declarations — the two keys
+ * `pnpm dev` and `pnpm infra:up` discover beside `acme.infra`
+ * ([ADR 0009](../../../docs/adr/0009-graph-derived-dev-infra.md)).
+ *
+ * Both fail the same way `acme.infra` did before it had a validator: in
+ * silence. A `provisioning` path that names no file is only found when someone
+ * runs `pnpm dev`, and a `seeds` entry naming a profile nothing defines is
+ * never found at all — discovery merges seeds onto the profiles a closure
+ * declares, so a misspelled one is dropped and the seed just never runs.
+ *
+ * The declaration's *contents* are not this rule's business: the module is code
+ * that has to be loaded to be read, and `@acme/workspace-graph` validates the
+ * shape it gets when it loads one.
+ */
+export function validateProvisioning(
+  name: string,
+  acme: Readonly<Record<string, unknown>> | undefined,
+  profiles: readonly string[],
+  scripts: readonly string[],
+  files: readonly string[],
+): string[] {
+  const errors: string[] = [];
+
+  const module = acme?.provisioning;
+  if (module !== undefined) {
+    if (typeof module !== 'string') {
+      errors.push(
+        `${name}: "acme.provisioning" must be a path to a module exporting PROVISIONING`,
+      );
+    } else if (!files.includes(withoutDot(module))) {
+      errors.push(
+        `${name}: "acme.provisioning" names \`${module}\`, which is not a file in the package — discovery would fail on it`,
+      );
+    }
+  }
+
+  const seeds = acme?.seeds;
+  if (seeds === undefined) return errors;
+  if (!isRecord(seeds)) {
+    errors.push(
+      `${name}: "acme.seeds" must map a ${COMPOSE_FILE} profile name to a script this package declares`,
+    );
+    return errors;
+  }
+
+  for (const [profile, script] of Object.entries(seeds)) {
+    if (!profiles.includes(profile)) {
+      errors.push(
+        `${name}: "acme.seeds" names \`${profile}\`, which is not a profile in ${COMPOSE_FILE} (one of: ${profiles.join(', ')}) — a seed for a profile nothing declares never runs`,
+      );
+    }
+    if (typeof script !== 'string') {
+      errors.push(
+        `${name}: "acme.seeds.${profile}" is not the name of a script`,
+      );
+    } else if (!scripts.includes(script)) {
+      errors.push(
+        `${name}: "acme.seeds.${profile}" names the script \`${script}\`, which this package does not declare`,
+      );
+    }
+  }
+
   return errors;
 }

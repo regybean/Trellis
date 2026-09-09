@@ -46,6 +46,7 @@ export {
   composeProfiles,
   composeProfilesAt,
   validateInfra,
+  validateProvisioning,
 } from './infra';
 
 export { acmeBlock, scriptNames } from './manifest';

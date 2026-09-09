@@ -244,14 +244,16 @@ provider seam already exists it stays the client's source — `ConsoleShell` rea
 the billing-portal URL through `useBillingConfig()`, so the browser sees the
 values the server threaded across the RSC/Flight boundary.
 
-**Provisioning is the one thing that must not see an override.** Three paths
-provision the local stack rather than connect to someone else's:
-`@acme/db`'s `testing.ts` (the testcontainer descriptor),
-`scripts/resolve-compose-env.ts` (the compose stack, whose output `compose.sh`
-exports back into the environment — reading an override there would be circular)
-and `scripts/resolve-infra.ts` (which compose profiles to start). Each reads a
-slice's `src/development-profile.ts` — the same literal `env.ts` authors its
-`default` from — so they see the authored values and never an operator's. Those
+**Provisioning is the one thing that must not see an override.** Two kinds of
+path provision the local stack rather than connect to someone else's:
+`@acme/db`'s `testing.ts` (the testcontainer descriptor), and each slice's own
+`src/provisioning.ts` — what values the compose stack interpolates and which
+compose profiles to start, discovered from the workspace graph by `pnpm dev` and
+`pnpm infra:up`. The compose case is the strict one: `compose.sh` exports that
+output back into the environment, so reading an override there would be
+circular. Each reads a slice's `src/development-profile.ts` — the same literal
+`env.ts` authors its `default` from — so they see the authored values and never
+an operator's. Those
 modules execute no `createEnv` call, so a provisioning script does not have to
 satisfy every slice's selectors just to read a port. Overriding `DB_NAME`
 therefore points a _connection_ at a different database; it does not rename the

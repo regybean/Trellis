@@ -36,7 +36,7 @@ import type { Violations } from '@acme/workspace-graph';
 import { collectViolations } from '@acme/workspace-graph';
 
 import type { PackageIo } from './io';
-import { validateInfra } from './infra';
+import { validateInfra, validateProvisioning } from './infra';
 import { acmeBlock, scriptNames } from './manifest';
 
 export const TEST_CLASSES: readonly string[] = [
@@ -487,6 +487,15 @@ export function checkTestPolicy(
 
     if (profiles) {
       for (const error of validateInfra(pkg.name, acme, profiles)) {
+        violations.error(error);
+      }
+      for (const error of validateProvisioning(
+        pkg.name,
+        acme,
+        profiles,
+        scriptNames(pkg.manifest),
+        io.files(pkg),
+      )) {
         violations.error(error);
       }
     }

@@ -89,6 +89,10 @@
     "infra": [
       "postgres",
       "billing"
-    ]
+    ],
+    "provisioning": "./src/provisioning.ts",
+    "seeds": {
+      "billing": "seed:localstripe"
+    }
   }
 }
