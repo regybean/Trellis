@@ -261,10 +261,14 @@ const MARKDOWN_LINK = /\]\(\s*([^)\s]+)/g;
  *
  * The filename's dots are their own segments rather than members of the class
  * before `\.md`, where a `.` could be claimed by either and made the match
- * polynomial on a long run of `-`.
+ * polynomial on a long run of `-`. The leading guard is the same concern one
+ * level up: without it a match may start inside a path segment, so every
+ * offset in a long run of `-` is its own start position and a scan of text
+ * that never matches costs O(n²). It also says what was always meant —
+ * `docs/adr/` names an ADR directory only at a segment boundary.
  */
 const BARE_ADR_PATH =
-  /(?:\.{1,2}\/)*(?:[\w.@-]+\/)*docs\/adr\/\d{4}-[\w-]+(?:\.[\w-]+)*\.md/g;
+  /(?<![\w.@/-])(?:\.{1,2}\/)*(?:[\w.@-]+\/)*docs\/adr\/\d{4}-[\w-]+(?:\.[\w-]+)*\.md/g;
 
 /** Does this link target name an ADR file, or an ADR directory? */
 const isAdrTarget = (target: string) =>
