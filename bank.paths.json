@@ -63,8 +63,14 @@
     },
     {
       "name": "docs",
-      "description": "The repo-wide ADRs and the agent protocol docs, which AGENTS.md links into by relative path — so taking the agents bundle without this one leaves those links dangling. Not the reasoning behind the packages: a package's own ADRs live in its `docs/adr/` and travel with the package, so a selection is self-contained without this bundle.",
-      "paths": ["docs"]
+      "description": "The repo-wide ADRs, the agent protocol docs, the testing doctrine and the mounting recipes, which AGENTS.md links into by relative path — so taking the agents bundle without this one leaves those links dangling. Not the reasoning behind the packages: a package's own ADRs live in its `docs/adr/` and travel with the package, so a selection is self-contained without this bundle. Named as five paths rather than `docs/` wholesale because the directory divides by audience. These five state rules, which is what a consumer wants. The rest of `docs/` describes *this* repo to a reader — its doc index, its first-run walkthrough, its inventory of what Trellis ships, its task graphs — and is on `exclude` for the reason README.md is. `docs/bank.md` is the one file here that names Trellis deliberately: it is addressed to a consumer about consuming Trellis, so it is the how-to for the mechanism rather than a description of the repo. A doc added to `docs/` is undistributed until it is named here, which is the same trade the `ci` and `agents` bundles already make.",
+      "paths": [
+        "docs/adr",
+        "docs/agents",
+        "docs/mounting",
+        "docs/TESTING.md",
+        "docs/bank.md"
+      ]
     },
     {
       "name": "infra",
@@ -84,6 +90,26 @@
     {
       "path": "CONTEXT-MAP.md",
       "reason": "An index of this repo's packages. A consumer takes a subset, so ours would be wrong on arrival; each package's own CONTEXT.md travels with it."
+    },
+    {
+      "path": "docs/README.md",
+      "reason": "Repository identity, one level in — the front matter of *this* repo's docs. It indexes files a consumer's selection may not include and opens by linking the root README the bank already withholds. A consumer's docs index is its own."
+    },
+    {
+      "path": "docs/getting-started.md",
+      "reason": "A first run of this repo: its apps, its ports, its env files. A consumer's first run is docs/bank.md instead, and a walkthrough of someone else's project is wrong from step one."
+    },
+    {
+      "path": "docs/whats-included.md",
+      "reason": "The inventory of everything Trellis ships. A consumer takes a subset, so the page is wrong on arrival — the same reason CONTEXT-MAP.md is withheld."
+    },
+    {
+      "path": "docs/task-graph-topo.mermaid",
+      "reason": "A rendered graph of this repo's turbo tasks over this repo's packages. Derivable from any workspace, so a consumer's own is a `pnpm graph` away and ours is stale on arrival."
+    },
+    {
+      "path": "docs/full-task-graph-topo.mermaid",
+      "reason": "The same graph unpruned, stale for the same reason."
     },
     {
       "path": "secrets.config.sh",
