@@ -17,9 +17,14 @@
  */
 import { BILLING_DEVELOPMENT_PROFILE } from './development-profile';
 
+/**
+ * Read as a value rather than as its authored literal type. The profile is
+ * `as const`, so comparing the property directly narrows to `"localstripe" ===
+ * "localstripe"` and reads as a dead condition — but the check is on data an
+ * overlay is free to change, and it is the whole decision here.
+ */
+const mode: string = BILLING_DEVELOPMENT_PROFILE.STRIPE_CONNECTION.mode;
+
 export const PROVISIONING = {
-  billing: {
-    needed:
-      BILLING_DEVELOPMENT_PROFILE.STRIPE_CONNECTION.mode === 'localstripe',
-  },
+  billing: { needed: mode === 'localstripe' },
 };

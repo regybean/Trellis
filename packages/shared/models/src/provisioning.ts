@@ -15,19 +15,29 @@
  *   - the port to publish it on and the models to pull, when it is.
  *
  * The port is parsed back out of the base URL that carries it rather than stored
- * beside it — a second field would be a drift source. `baseUrl` is checked for
- * rather than assumed: only the ollama variant of the role union declares one.
+ * beside it — a second field would be a drift source.
  */
 import { MODELS_DEVELOPMENT_PROFILE } from './development-profile';
 
+/**
+ * What provisioning reads off a role, structurally.
+ *
+ * Not the role union from `model-schemas.ts`: this reads the authored literal,
+ * so its `provider` is a single string type and `role.provider === 'ollama'`
+ * reads as a dead condition. `baseUrl` is optional because only the ollama
+ * variant declares one, and this is the reader that has to cope with either.
+ */
+interface RoleValues {
+  readonly provider: string;
+  readonly model: string;
+  readonly baseUrl?: string;
+}
+
 const { MODELS_CHAT, MODELS_EMBED } = MODELS_DEVELOPMENT_PROFILE;
+const roles: readonly RoleValues[] = [MODELS_CHAT, MODELS_EMBED];
 
 /** The role that runs on ollama — chat first — or `undefined` when neither does. */
-const onOllama = [MODELS_CHAT, MODELS_EMBED].find(
-  (role) => role.provider === 'ollama',
-);
-const baseUrl =
-  onOllama && 'baseUrl' in onOllama ? onOllama.baseUrl : undefined;
+const baseUrl = roles.find((role) => role.provider === 'ollama')?.baseUrl;
 
 export const PROVISIONING = {
   ollama: {
