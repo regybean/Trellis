@@ -15,10 +15,11 @@
  * time, so a compile step would leave this broken for the `pnpm lint` that runs
  * immediately after `pnpm install`.
  */
-export type { AdrDirectory, AdrResult, RuleResult } from './adrs';
+export type { AdrCitation, AdrDirectory, AdrResult, RuleResult } from './adrs';
 export {
   ADRS_HELP,
   CONTEXT_MAP,
+  adrCitations,
   adrDirectories,
   carriesCitations,
   checkAdrs,
@@ -48,6 +49,19 @@ export {
 } from './infra';
 
 export { acmeBlock, scriptNames } from './manifest';
+
+export type { PortableResult } from './portable';
+export {
+  NOT_DISTRIBUTED,
+  PORTABLE_HELP,
+  ROOT_ADR_DIR,
+  checkPortable,
+  owningPackage,
+  validateAdrNumbers,
+  validateAdrScope,
+  validateIssueRefs,
+  validateRootAdrApps,
+} from './portable';
 
 export type {
   DeclaredPolicy,

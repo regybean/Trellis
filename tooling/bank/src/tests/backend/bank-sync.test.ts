@@ -45,11 +45,12 @@ import {
 } from './bank-sandbox';
 import { readJson, stringMap } from './json';
 
-/** The commands the root exposes for this package, all four delegated. */
+/** The commands the root exposes for this package, all five delegated. */
 const BANK_SCRIPTS = [
   'bank:contribute',
   'bank:sync',
   'check:bank-paths',
+  'check:bank-tokens',
   'setup:wizard',
 ];
 
@@ -619,9 +620,9 @@ describe('bank:sync --check reports drift', () => {
     /**
      * The bank commands the root manifest actually defines.
      *
-     * In the bank that is all four, asserted below: the bank authors the
+     * In the bank that is all five, asserted below: the bank authors the
      * manifest every consumer receives, so a missing entry here is its own
-     * defect. A vendored copy is the consumer's to edit, and one of the four
+     * defect. A vendored copy is the consumer's to edit, and one of the five
      * can do nothing in their repo — `check:bank-paths` has no inventory to
      * enforce outside a bank and says so — so deleting it is tidying, and the
      * case it feeds is absent there rather than red. What a consumer must

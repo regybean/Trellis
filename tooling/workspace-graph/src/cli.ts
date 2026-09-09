@@ -11,6 +11,7 @@
  * function of the collected violations with a thin exit on top.
  */
 import { execFileSync } from 'node:child_process';
+import { writeSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 /**
@@ -121,10 +122,16 @@ export function formatReport({
 
 /**
  * Write the report and exit with its code — the last line of every checker.
+ *
+ * Written with `writeSync` rather than `process.stdout.write`. Both streams are
+ * pipes whenever a checker runs under `pnpm lint` or into a log, and a write to
+ * a pipe is asynchronous — so `process.exit` discards whatever is still queued
+ * once the report outgrows the ~64KB buffer. A checker that reports a thousand
+ * findings would print the first few hundred and silently drop the rest.
  */
 export function reportAndExit(options: ReportOptions): never {
   const { stdout, stderr, code } = formatReport(options);
-  if (stderr) process.stderr.write(stderr);
-  if (stdout) process.stdout.write(stdout);
+  if (stderr) writeSync(2, stderr);
+  if (stdout) writeSync(1, stdout);
   process.exit(code);
 }

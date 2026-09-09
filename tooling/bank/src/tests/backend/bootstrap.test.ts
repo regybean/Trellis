@@ -45,7 +45,7 @@ const repoRoot = resolve(here, '../../../../../');
  * Every runtime file in the package.
  *
  * Four of them are the hand-copy set (docs/bank.md, step 1); `bank-contribute`
- * and `check-bank-paths` arrive with the first sync. All six are checked,
+ * and the two checkers arrive with the first sync. All seven are checked,
  * because the two libs are shared and a bare specifier in either breaks the
  * pair that bootstraps.
  */
@@ -54,6 +54,7 @@ const sources = [
   'bank-contribute.mjs',
   'setup-wizard.mjs',
   'check-bank-paths.mjs',
+  'check-bank-tokens.mjs',
   'lib/bank.mjs',
   'lib/bank-closure.mjs',
 ];

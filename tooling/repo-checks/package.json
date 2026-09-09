@@ -10,6 +10,7 @@
   "scripts": {
     "check:adrs": "tsx src/bin/check-adrs.ts",
     "check:exports": "tsx src/bin/check-exports.ts",
+    "check:portable": "tsx src/bin/check-portable.ts",
     "clean": "git clean -xdf .cache .turbo node_modules",
     "format": "prettier --check . --ignore-path ../../.prettierignore",
     "lint": "eslint",
