@@ -20,7 +20,6 @@
         ".jscpd.json",
         ".nvmrc",
         ".prettierignore",
-        ".dockerignore",
         ".gitignore",
         "scripts",
         "secrets.config.example.sh",
@@ -89,6 +88,10 @@
     {
       "path": "secrets.config.sh",
       "reason": "Its header says committed and non-secret, which is true and misleading: it maps secret names to each app's env file. A consumer rewrites the mapping wholesale while Trellis edits the same lines whenever it adds an app."
+    },
+    {
+      "path": ".dockerignore",
+      "reason": "Consumer identity, on the reasoning that excludes `apps/`: the build context belongs to the app being imaged, and what to keep out of it follows from that app's Dockerfile — which the bank never distributes. Ours excludes `.env.local` and `.env.*.local` but not `.env`, so distributing it would put a consumer's `.env` back into their build context on whichever sync overwrote the line they added. A file the consumer must own is one the bank must not send."
     },
     {
       "path": "pnpm-lock.yaml",
