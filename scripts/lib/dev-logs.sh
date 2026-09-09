@@ -12,6 +12,15 @@
 # (extracted from compose.sh) keeps engine detection identical across both. The
 # dev-server branch is `dev-capture` (§2): pty-wrap + ANSI-strip + append.
 
+# INFRA_CONTAINER_PREFIX — the container-name prefix infra log mirroring selects
+# on, and strips to get the service slug (`<prefix>localstripe` →
+# infra-localstripe.log). deploy/compose.yaml pins `container_name:` per service,
+# so the prefix is a literal rather than derivable; a consumer running its own
+# compose file sets this instead of editing a distributed script. Assigned here
+# rather than in dev.sh because the file-lifecycle contract for logs/infra-*.log
+# is this library's, and the prefix is half of which file a stream lands in.
+INFRA_CONTAINER_PREFIX="${INFRA_CONTAINER_PREFIX:-trellis-}"
+
 # resolve_engine — echo the container engine to use.
 # Honours CONTAINER_ENGINE override; else docker if usable, else podman, else
 # fails (return 1). Identical logic to the block previously inlined in compose.sh.

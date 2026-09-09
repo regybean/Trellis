@@ -112,20 +112,31 @@ while IFS= read -r app; do
   prepare_log "dev-$slug" "$(dev-log-path "$slug")"
 done <<<"$app_names"
 
-# One `<engine> logs -f` follower per running trellis-* container, addressed by
-# container name (so profile≠name resolves naturally: trellis-localstripe →
-# infra-localstripe.log). `--since "$START"` suppresses the full-history replay a
-# reused container would otherwise dump. Enumerate portably via `<engine> ps`
-# (podman-compose's `ps` lacks `--status`). Skip silently if no engine is usable.
+# One `<engine> logs -f` follower per running $INFRA_CONTAINER_PREFIX* container,
+# addressed by container name (so profile≠name resolves naturally:
+# <prefix>localstripe → infra-localstripe.log). `--since "$START"` suppresses the
+# full-history replay a reused container would otherwise dump. Enumerate portably
+# via `<engine> ps` (podman-compose's `ps` lacks `--status`) and match the prefix
+# in bash rather than grep, so a prefix carrying a regex metacharacter still
+# matches itself. Skip silently if no engine is usable.
+#
+# Matching nothing is reported: mirroring is meant to be the agent's window onto
+# infra, and a prefix that fits no running container leaves an empty
+# logs/infra-*.log as the only symptom — which reads as "the service said
+# nothing", not "we looked in the wrong place".
 pids=()
 if engine="$(resolve_engine 2>/dev/null)"; then
   while IFS= read -r name; do
-    [ -n "$name" ] || continue
-    svc="${name#trellis-}"
+    case "$name" in "$INFRA_CONTAINER_PREFIX"?*) ;; *) continue ;; esac
+    svc="${name#"$INFRA_CONTAINER_PREFIX"}"
     pid="$(mirror_stream "infra-$svc" "logs/infra-$svc.log" \
       "$engine" logs -f --since "$START" "$name")"
     pids+=("$pid")
-  done < <("$engine" ps --filter status=running --format '{{.Names}}' | grep '^trellis-' || true)
+  done < <("$engine" ps --filter status=running --format '{{.Names}}')
+  if [ ${#pids[@]} -eq 0 ]; then
+    echo "dev: no running container is named '$INFRA_CONTAINER_PREFIX*' — no infra logs mirrored." >&2
+    echo "     Set INFRA_CONTAINER_PREFIX if your compose file names containers differently." >&2
+  fi
 fi
 
 # Reap the followers (only) on exit — infra containers stay up for infra:down.

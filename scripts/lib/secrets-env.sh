@@ -28,7 +28,12 @@ cd "$REPO_ROOT" || exit 1
 # round-trip test is the one in-repo caller.
 SECRETS_CONFIG="${SECRETS_CONFIG:-$REPO_ROOT/secrets.config.sh}"
 if [ ! -f "$SECRETS_CONFIG" ]; then
+  # secrets.config.sh maps secret names to each repo's own env files, so it is
+  # never distributed — the template beside it is. Exit 1 either way: someone ran
+  # env:pull, and the only useful answer is the copy that makes it work.
   echo "No secrets config at $SECRETS_CONFIG" >&2
+  echo "  cp secrets.config.example.sh secrets.config.sh" >&2
+  echo "  then edit its SECRET_MAP for the env files you keep in a vault." >&2
   exit 1
 fi
 # shellcheck source=/dev/null

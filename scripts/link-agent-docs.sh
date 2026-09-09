@@ -18,8 +18,24 @@ cd "$repo_root"
 
 canonical="AGENTS.md"
 
-if [ ! -f "$canonical" ] || [ -L "$canonical" ]; then
-  echo "link-agent-docs: $canonical is missing or is itself a symlink — refusing to relink" >&2
+# A missing brief is absence, not breakage. AGENTS.md rides the `agents` bundle
+# and this script rides `root`, so a consumer that took the bank without the
+# agent config has nothing to point the harness entries at — and this runs inside
+# a `set -euo pipefail` postinstall chain, where a refusal fails their first
+# `pnpm install` outright. Exit 0 and say why, the same guard as
+# sync-claudeignore.mjs for the same reason. Running the script directly still
+# reports the skip.
+#
+# A brief that is *present but wrong* is breakage, and still refuses: a symlink
+# has no body to link onto, and anything that is neither is not a brief.
+if [ -L "$canonical" ]; then
+  echo "link-agent-docs: $canonical is itself a symlink — refusing to relink" >&2
+  exit 1
+elif [ ! -e "$canonical" ]; then
+  echo "link-agent-docs: no $canonical — nothing to link"
+  exit 0
+elif [ ! -f "$canonical" ]; then
+  echo "link-agent-docs: $canonical is not a regular file — refusing to relink" >&2
   exit 1
 fi
 
