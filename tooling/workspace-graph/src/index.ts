@@ -33,17 +33,19 @@ export {
 } from './closure';
 
 export type {
-  ComposeEnvironmentInput,
-  ModelRole,
-  ModelsSelection,
-  ProviderSelection,
-  StripeConnection,
+  DiscoveredProfile,
+  ProfileProvisioning,
+  ProfileSeed,
+  ProvisioningDeclaration,
 } from './provisioning';
 export {
+  closureProvisioning,
   composeEnvironment,
-  portOf,
-  pruneInfra,
-  roleUsing,
+  declaredSeeds,
+  discoverProfiles,
+  neededProfiles,
+  neededSeeds,
+  provisioningModule,
 } from './provisioning';
 
 export type { Report, ReportOptions, Violations } from './cli';

@@ -21,6 +21,12 @@ export interface WorkspaceFixture {
   readonly packages: Readonly<
     Record<string, Record<string, unknown> | string | null>
   >;
+  /**
+   * Any other file the fixture needs, relative to the fixture root, mapped to
+   * its contents — the provisioning modules discovery imports, written as
+   * `.mjs` so a bare `import()` loads them with no loader in play.
+   */
+  readonly files?: Readonly<Record<string, string>>;
   /** Raw `pnpm-workspace.yaml` contents, when a test needs a malformed one. */
   readonly workspaceFile?: string;
 }
@@ -31,6 +37,7 @@ const roots: string[] = [];
 export function createWorkspaceFixture({
   globs = ['apps/*', 'packages/shared/*'],
   packages,
+  files = {},
   workspaceFile,
 }: WorkspaceFixture): string {
   const root = mkdtempSync(path.join(tmpdir(), 'workspace-graph-'));
@@ -52,6 +59,12 @@ export function createWorkspaceFixture({
           : `${JSON.stringify(manifest, null, 2)}\n`,
       );
     }
+  }
+
+  for (const [file, contents] of Object.entries(files)) {
+    const absolute = path.join(root, file);
+    mkdirSync(path.dirname(absolute), { recursive: true });
+    writeFileSync(absolute, contents);
   }
 
   return root;
