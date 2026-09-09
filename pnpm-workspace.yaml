@@ -74,7 +74,9 @@ catalog:
   mastra: ^1.13.0
   msw: ^2.11.5
   msw-trpc: ^2.0.1
-  next: ^15.5.22 # GHSA-{m99w-x7hq-7vfj,89xv-2m56-2m9x,p9j2-gv94-2wf4,…} patched >=15.5.21
+  # Two unauthenticated-RCE criticals (windows-hosted servers, and the image
+  # optimizer on AVIF input) are only patched on the 15.5.24 backport line.
+  next: ^15.5.24 # GHSA-{p293-qw3h-jr36,2xp9-vwfh-vxw4,m99w-x7hq-7vfj,…} patched >=15.5.24
   next-themes: ^0.4.6
   officeparser: ^7.5.1
   p-limit: 7.2.0
@@ -156,6 +158,12 @@ overrides:
   # cross-major force onto a parent expecting 5.x.
   pdfjs-dist: ">=6.2.108" # GHSA-hq66-cqwq-w95j (rag>officeparser)
   shell-quote: ">=1.9.0" # GHSA-395f-4hp3-45gv (mastra CLI)
+  # @xmldom/xmldom: one line in tree (0.9.x, under rag>officeparser). Eleven highs
+  # — injection through createElement/setAttribute/PI targets/DocType names, plus
+  # quadratic parsing, attribute dedup and memory blowups on malformed input — all
+  # cleared by 0.9.12. officeparser peers on ^0.9.10, so this stays a within-line
+  # bump; it is a floor, not a pin, so officeparser can still move.
+  "@xmldom/xmldom": ">=0.9.12" # GHSA-{6mj3-qw4j-hgrw,g53g-w8rj-fmg7,w2rr-34g9-rvrj,4w3w-2rp5-g8jm,c7q8-3ch8-vqpv,27p8-2357-5qqv,3px3-54cx-rmw9,vr34-hp96-76pp,8344-3jmq-59r6,965w-775f-mr7g,93r5-fhx6-vmg9}
   lodash: ">=4.18.0" # GHSA-r5fr-rjxr-66jc (mastra CLI>archiver)
   tmp: ">=0.2.6" # GHSA-ph9p-34f9-6g65 (testcontainers)
   flatted: ">=3.4.2" # GHSA-rf6f-7fwh-wjgh (eslint>file-entry-cache)
@@ -163,7 +171,7 @@ overrides:
   # build-time only. Unrelated to the auth migration that surfaced it — the
   # advisories were published after #158 drove the high/critical count to zero.
   browserslist: ">=4.28.7" # GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g
-  sharp: ">=0.35.0" # GHSA-f88m-g3jw-g9cj (next optional dep)
+  sharp: ">=0.35.4" # GHSA-f88m-g3jw-g9cj, GHSA-rgj7-g3m4-5g8c (next optional dep)
   undici: ">=6.27.0" # GHSA-vxpw-j846-p89q +chain (testcontainers, test-only)
   # postcss forced tree-wide: next pins 8.4.31 and the apps declare 8.5.6.
   postcss: ">=8.5.18" # GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849
@@ -180,30 +188,24 @@ overrides:
   # archiver/serve-handler, and minimatch under eslint) and 5.x (glob@13's
   # minimatch). Each kept within-major: v5 switched to a named CJS export, which
   # breaks the `require(...)` default import in the minimatch versions the 1.x/2.x
-  # consumers pin, so they can't be collapsed onto one line (see
-  # auditConfig.ignoreGhsas below). These clear GHSA-3jxr and GHSA-rgw5.
+  # consumers pin, so they can't be collapsed onto one line. Between them these
+  # clear every brace-expansion advisory in tree — GHSA-3jxr, GHSA-rgw5 and the
+  # ReDoS GHSA-mh99, which is why the latter no longer needs an allowlist entry.
   "brace-expansion@>=1.0.0 <1.1.18": "1.1.18" # GHSA-3jxr-9vmj-r5cp, GHSA-rgw5-rvv9-x895 (1.x)
   "brace-expansion@>=2.0.0 <2.1.4": "2.1.4" # GHSA-3jxr-9vmj-r5cp, GHSA-rgw5-rvv9-x895 (2.x)
   "brace-expansion@>=4.0.0 <5.0.9": "5.0.9" # GHSA-rgw5-rvv9-x895 (5.x, glob@13>minimatch)
   # picomatch: 2.x (mastra deployer>fast-glob) and 4.x (vitest) lines
   "picomatch@>=2.0.0 <2.3.2": "2.3.2" # GHSA-c2c7-rcm5-vvqj
   "picomatch@>=4.0.0 <4.0.4": "4.0.4" # GHSA-c2c7-rcm5-vvqj
-  # js-yaml: 3.x (@mastra/core>gray-matter) and 4.x (eslint>@eslint/eslintrc) lines
-  "js-yaml@>=3.0.0 <3.15.1": "3.15.1" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj
-  "js-yaml@>=4.0.0 <4.3.1": "4.3.1" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj
+  # js-yaml: 3.x (@mastra/core>gray-matter) and 4.x (eslint>@eslint/eslintrc) lines.
+  # GHSA-2883-xcg3-v3hh landed on both after the earlier pair, and is patched one
+  # patch up on each line — hence the selector floors moving together.
+  "js-yaml@>=3.0.0 <3.15.2": "3.15.2" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
+  "js-yaml@>=4.0.0 <4.3.2": "4.3.2" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
 
 # Audit allowlist (ADR 0027) — last resort: no compatible reachable patch.
 auditConfig:
   ignoreGhsas:
-    # brace-expansion ReDoS. npm marks every version <=5.0.7 vulnerable; the only
-    # fix (5.0.8) ships a named CJS export that breaks the `require()` default
-    # import in the minimatch versions our tree pins (eslint-plugin-import@2,
-    # readdir-glob, archiver's glob) — verified by "expand is not a function"
-    # across all lint tasks. No fix compatible with these parents exists. Reached
-    # only through build/dev tooling (eslint, mastra CLI archiver) on
-    # non-attacker-controlled glob patterns. Re-check when those parents move to
-    # a minimatch that consumes brace-expansion 5.x. Added 2026-07-28.
-    - GHSA-mh99-v99m-4gvg
     # image-size DoS (infinite loop) in the ICNS parser and the JXL/HEIF parsers.
     # npm reports `patched: <0.0.0` — no fixed version exists on any line, and
     # latest (2.0.2) is itself vulnerable, so neither an override nor a parent
