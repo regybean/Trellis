@@ -100,8 +100,8 @@ full (Clerk) apps pass the signed-in user id via the `@acme/auth` seam; slim
 (no-auth) apps pass the constant `'anon'`. The persister composes
 `buster = appVersion + scopeKey`, so a different user or a new deploy never
 rehydrates a prior snapshot (buster mismatch discards it on restore). This keeps
-features auth-agnostic and mountable in both app families (respects
-[ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md)).
+features auth-agnostic and mountable whether or not the app has an auth provider
+behind it.
 
 **App-driven logout-clear.** `clearPersistedCache(keyPrefix)` empties a feature's
 store. Full apps call it — alongside `queryClient.clear()` — on the Clerk logout

@@ -99,5 +99,5 @@ probably a non-issue, but any deployment with real users needs its own plan.
   the provider is an app-side mapping. [ADR 0003](0003-framework-agnostic-auth-seam.md)
   and [@acme/ui ADR 0001](../../../ui/docs/adr/0001-admin-user-widgets-to-ui.md) need updating for what the
   seam actually covers and for the user shape the admin widgets read.
-- Both `*-slim` apps should come through untouched — a useful check that
-  [ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md) holds.
+- An app that mounts no provider should come through untouched — a useful check
+  that the seam really is optional.

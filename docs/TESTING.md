@@ -408,8 +408,8 @@ diff /tmp/full.md /tmp/slim.md
 ```
 
 The slim closure carries no auth, billing or subscriptions tests. That makes the
-subsetting claim ([ADR 0010](adr/0010-slim-no-auth-apps.md)) observable rather than
-asserted, which is why a test pins it.
+subsetting claim — that dropping auth and billing drops them from the graph —
+observable rather than asserted, which is why a test pins it.
 
 ### Filters
 

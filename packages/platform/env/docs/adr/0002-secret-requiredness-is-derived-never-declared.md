@@ -13,8 +13,7 @@ actually governs every `.optional()` decision in the repo was recorded nowhere.
 
 The pressure is that a secret is not always needed. `OPENROUTER_API_KEY` matters
 only if OpenRouter is the selected chat provider. `BETTER_AUTH_SECRET` matters
-only to an app that mounts auth at all — the `*-slim` apps
-([ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md)) never do. A lint
+only to an app that mounts auth at all, and an app is free not to. A lint
 step can supply none of them. The obvious accommodation is
 `z.string().optional()`, and it is the wrong one: it makes a genuinely missing
 credential a runtime failure at the first request that needs it, on every target,

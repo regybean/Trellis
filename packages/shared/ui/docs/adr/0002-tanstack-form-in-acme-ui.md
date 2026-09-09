@@ -43,10 +43,9 @@ here.
 ## What it does not change
 
 The forms stay presentational and prop-driven. `onSubmit`, `error` and `pending`
-are still the caller's, so `@acme/ui` takes no `@acme/auth` dependency and the
-slim apps' graph gains no auth or billing code
-([ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md)). TanStack Form owns field state and
-validation timing, nothing else. The caller still owns the provider call and
+are still the caller's, so `@acme/ui` takes no `@acme/auth` dependency and an app
+without auth or billing gains no auth or billing code from mounting these forms.
+TanStack Form owns field state and validation timing, nothing else. The caller still owns the provider call and
 still owns clearing `error`.
 
 The swap was invisible to the tests. All 17 existing cases passed unchanged
