@@ -64,7 +64,7 @@ mkdir -p "$STAGE_DIR" logs
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc "$STAGE_DIR"/*.ms 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
-order=(build turbo test check:exports check:bank-paths check:adrs boundaries lint:ws deps:lint test:policy gitleaks audit)
+order=(build turbo test check:exports check:bank-paths check:bank-tokens check:adrs check:portable boundaries lint:ws deps:lint test:policy gitleaks audit)
 
 # Dependency audit (ADR 0027). CI is the hard backstop; locally this stage
 # graceful-degrades on network failure (skip + warn, like gitleaks) so offline
@@ -106,7 +106,11 @@ run_stage() {
 # their own parallel stages.
 launch check:exports    pnpm check:exports
 launch check:bank-paths pnpm check:bank-paths
+# Report-only for now: both print what they found and exit 0, so the stage reads
+# PASS while the backlog is being cleared. The sweep makes them fail.
+launch check:bank-tokens pnpm check:bank-tokens
 launch check:adrs       pnpm check:adrs
+launch check:portable   pnpm check:portable
 launch boundaries       pnpm boundaries
 launch lint:ws          pnpm lint:ws
 launch deps:lint        pnpm deps:lint

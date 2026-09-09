@@ -52,6 +52,7 @@ export { acmeBlock, scriptNames } from './manifest';
 
 export type { PortableResult } from './portable';
 export {
+  NOT_DISTRIBUTED,
   PORTABLE_HELP,
   ROOT_ADR_DIR,
   checkPortable,

@@ -28,6 +28,7 @@
     "boundaries": "turbo boundaries",
     "check:adrs": "pnpm --filter @acme/repo-checks check:adrs",
     "check:bank-paths": "pnpm -C tooling/bank check:bank-paths",
+    "check:bank-tokens": "pnpm -C tooling/bank check:bank-tokens",
     "check:exports": "pnpm --filter @acme/repo-checks check:exports",
     "check:portable": "pnpm --filter @acme/repo-checks check:portable",
     "build": "turbo run build",

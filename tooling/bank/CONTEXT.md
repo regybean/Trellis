@@ -11,6 +11,12 @@ this repo's inventory of itself honest.
   ever, and a test asserts it.
 - `src/check-bank-paths.mjs` — fails `pnpm lint` when a tracked root-level entry
   is in neither a bundle nor `exclude`.
+- `src/check-bank-tokens.mjs` — reports distributable content that names this
+  repo, its owner or one of its apps. It lives here rather than in the shared
+  lint because only the bank knows those three words: the inventory says what is
+  distributable, and git says what this repo is called. `docs/bank.md` is
+  allowlisted — it is addressed to a consumer about consuming Trellis, so naming
+  Trellis there is correct. Report-only until the sweep clears the backlog.
 
 The model is [ADR 0037](../../docs/adr/0037-vendored-git-subset-three-way-merge.md)
 (vendored subset, three-way merge) and

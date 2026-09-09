@@ -99,6 +99,15 @@ describe('a repo violating each rule once', () => {
     expect(stdout).toContain('not failing lint yet');
   });
 
+  it('leaves the distribution inventory alone — it is never distributed', () => {
+    const { stdout } = check({
+      ...clean(),
+      'bank.paths.json': `{ "note": "${bareRef(1)}, ${issueRef(126)}" }\n`,
+    });
+
+    expect(stdout).toContain('carry no reference that only resolves here');
+  });
+
   it('leaves an app alone — the bank never distributes one', () => {
     const { stdout } = check({
       ...clean(),

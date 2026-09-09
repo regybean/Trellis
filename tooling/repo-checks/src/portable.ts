@@ -21,9 +21,28 @@
  *   4. **No root ADR naming an app.** Apps are consumer identity, so a decision
  *      that has to name one is an app-layer decision filed in the wrong place.
  *
- * `apps/` is skipped entirely. The bank never distributes an app, so an app's
- * references are free to name whatever they like — here and in a consumer,
- * where `apps/` holds their own code and none of ours.
+ * **What the rules cover:** every tracked text file, minus `apps/`, minus
+ * symlinks, minus the distribution inventory. Nothing else — in particular this
+ * checker does not ask what is actually distributable, and must not: that
+ * answer lives in the bank's `bank.paths.json`, a different tooling package
+ * away, and a consumer repo has no inventory at all, so a rule that depended on
+ * one would go quiet exactly where it is meant to keep working.
+ *
+ * The two exclusions are the cases where the *whole file* is about this repo
+ * rather than content this repo ships:
+ *
+ *   - `apps/`. The bank never distributes an app, so an app's references are
+ *     free to name whatever they like — here and in a consumer, where `apps/`
+ *     holds their own code and none of ours.
+ *   - The inventory. `bank.paths.json` is bookkeeping *about* distribution and
+ *     is itself withheld, which is why its own issue references and bare ADR
+ *     number are legal. Naming the one file is a constant here; deriving the
+ *     same fact would couple this package to the bank's.
+ *
+ * Everything else is in scope even if some path is currently on `exclude`. A
+ * checker that quietly stopped enforcing a file the moment someone withheld it
+ * would be a rule with a trapdoor, and `exclude` moves — the docs bundle is
+ * being split as this lands.
  *
  * Dead links are not this checker's business: `check-adrs` already reports a
  * citation that resolves to no file, and rule 2 stays quiet on one rather than
@@ -46,6 +65,15 @@ export const ROOT_ADR_DIR = 'docs/adr/';
 
 /** Consumer identity, in this repo and in every consumer. */
 const APPS_DIR = 'apps/';
+
+/**
+ * Bookkeeping about what is distributed, rather than content that is.
+ *
+ * A bank's inventory is withheld from every consumer by construction — it
+ * describes the offer, and each consumer's own is different — so a reference in
+ * it resolves for exactly the readers who will ever have it.
+ */
+export const NOT_DISTRIBUTED = new Set(['bank.paths.json']);
 
 /** The 1-based line an offset falls on, for a report a reader can jump to. */
 function lineAt(text: string, index: number): number {
@@ -267,6 +295,7 @@ export function checkPortable(io: RepoIo): PortableResult {
 
   for (const file of tracked) {
     if (!carriesCitations(file) || file.startsWith(APPS_DIR)) continue;
+    if (NOT_DISTRIBUTED.has(file)) continue;
     // `CLAUDE.md` and `.github/copilot-instructions.md` are symlinks to
     // `AGENTS.md` — the same text reported three times otherwise.
     if (io.isSymlink(file)) continue;

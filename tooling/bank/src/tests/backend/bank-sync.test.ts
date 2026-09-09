@@ -45,11 +45,12 @@ import {
 } from './bank-sandbox';
 import { readJson, stringMap } from './json';
 
-/** The commands the root exposes for this package, all four delegated. */
+/** The commands the root exposes for this package, all five delegated. */
 const BANK_SCRIPTS = [
   'bank:contribute',
   'bank:sync',
   'check:bank-paths',
+  'check:bank-tokens',
   'setup:wizard',
 ];
 
