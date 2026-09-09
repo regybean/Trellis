@@ -32,7 +32,7 @@ Each app's `with-env` loads its own `apps/<app>/.env`; the root `pnpm with-env` 
 SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vault
 ```
 
-There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
+There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](../tooling/secrets-sync/docs/adr/0001-pluggable-secrets-sync.md).
 
 ### Auth: Better Auth secret (required for the full apps)
 
@@ -83,7 +83,7 @@ Manual-only — run it yourself:
 pnpm infra:up
 ```
 
-Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset _that_ app's dependency graph requires ([ADR 0009](adr/0009-graph-derived-dev-infra.md)).
+Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset _that_ app's dependency graph requires ([ADR 0009](../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)).
 
 ## 4. Push the database schema
 

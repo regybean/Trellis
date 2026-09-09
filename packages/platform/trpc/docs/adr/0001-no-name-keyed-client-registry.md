@@ -55,9 +55,9 @@ The names above are stale. `@acme/trpc/server` no longer exists, and neither doe
 own concrete context in `api/trpc.ts`, and writes its own `trpc/server.tsx` RSC
 caller against it; `@acme/trpc` exports `trpcConfig` plus four middleware bodies
 and owns no `initTRPC` call (see
-[ADR 0002](0002-export-the-pieces-not-the-instance.md) and root
-[ADR 0006](../../../../../docs/adr/0006-entitlements-injection-seam.md)'s #264
-amendment for why the generic had to go).
+[ADR 0002](0002-export-the-pieces-not-the-instance.md); the generic context went
+when the entitlements seam moved the context extension out to the feature that
+declares it, which the entitlements package's own ADRs record).
 
 The rejection recorded here still holds, and is why nothing was consolidated
 behind a name key when the wiring moved back into the features:

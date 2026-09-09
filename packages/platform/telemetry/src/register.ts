@@ -10,7 +10,7 @@
  * so HTTP/redis/aws auto-instrumentation patches the runtime before any
  * instrumented module loads (giving an HTTP-parent span). Apps that init at the
  * server boundary instead (e.g. a Nitro startup plugin) call `initTelemetry`
- * directly and do not need this. See docs/adr/0023-ambient-telemetry-no-context-object.md.
+ * directly and do not need this. See ../docs/adr/0001-ambient-telemetry-no-context-object.md.
  */
 import { env } from './env';
 import { initTelemetry } from './index';

@@ -84,6 +84,6 @@ against its own concrete context. Same span name, same attributes, same ordering
 `initTRPC` call it is attached to is the feature's now.
 
 The "concrete-context blocker" behind that placeholder is doubly dead: with
-no `ctx.telemetry` there is nothing to type, and with #264 there is no generic
-context left to type it against. See the
-[#264 amendment to ADR 0006](0006-entitlements-injection-seam.md).
+no `ctx.telemetry` there is nothing to type, and the entitlements seam has since
+removed the generic context there was to type it against — the entitlements
+package's own ADRs record that half.

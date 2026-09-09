@@ -5,8 +5,9 @@
 Postgres gets a first-class platform home — `@acme/db` — owning the
 drizzle/postgres-js **connection** (a client factory) and the `DB_*` connection
 **env**, exactly mirroring how `@acme/redis` owns the Redis clients + env. It is
-created to remove a real duplication, not for tests; the test descriptor
-([ADR 0017](../../../../../docs/adr/0017-test-infra-owned-by-infra-package.md)) only follows for free.
+created to remove a real duplication, not for tests; the test descriptor this
+package exports — because a suite names the infra it wants and the owner
+describes how to build it — only follows for free.
 
 ## The asymmetry it fixes
 
@@ -23,8 +24,9 @@ for the connection values.
 `@acme/db` owns the connection substrate — nothing above it.
 
 - **Features keep their own table schemas.** This is the direct parallel to the
-  Redis **key builder** rule ([ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md)):
-  `@acme/db` owns _how you connect_, the domain package owns _what it stores_.
+  Redis **key builder** rule, where the client package owns the namespace and the
+  domain package owns the key: `@acme/db` owns _how you connect_, the domain
+  package owns _what it stores_.
 - **`@acme/rag` keeps its Mastra `pgVector` / `postgresStore`.** Those are
   `@mastra/pg` constructs, vendor-contained to rag ([@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md));
   moving them into `@acme/db` would couple the platform substrate to Mastra. They

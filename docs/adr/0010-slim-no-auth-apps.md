@@ -2,8 +2,8 @@
 
 **Status:** accepted
 
-The auth seam ([ADR 0003](0003-framework-agnostic-auth-seam.md)) and the
-entitlements seam ([ADR 0006](0006-entitlements-injection-seam.md)) made the
+The auth seam ([ADR 0003](../../packages/shared/auth/docs/adr/0003-framework-agnostic-auth-seam.md)) and the
+entitlements seam ([ADR 0006](../../packages/platform/entitlements/docs/adr/0001-entitlements-injection-seam.md)) made the
 caller's identity and billing policy _injected_ values: the platform substrate
 (`@acme/trpc`) imports no Clerk SDK and no Stripe/Redis implementation. ADR 0006
 named the motivating case — "a single-user `nextjs-slim` app". This ADR records
@@ -41,7 +41,7 @@ nothing else, because no retained feature reads anything else (only
 > Updated by #220: the seam was `{ auth: InjectedAuth, user }` when this ADR was
 > written — a Clerk-shaped `{ userId, sessionClaims }` pair plus a separate
 > `ctx.user`. It is now the single neutral `InjectedSession`
-> ([ADR 0003](0003-framework-agnostic-auth-seam.md), amendment). The decision is
+> ([ADR 0003](../../packages/shared/auth/docs/adr/0003-framework-agnostic-auth-seam.md), amendment). The decision is
 > unchanged; only the shape being injected is.
 
 The surprising consequence — **a no-auth app injects `role: 'admin'`** — is the

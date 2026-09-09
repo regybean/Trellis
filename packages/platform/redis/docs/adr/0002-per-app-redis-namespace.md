@@ -107,8 +107,8 @@ would need quoting and breaks `pgSchema()` / `schemaFilter`). The slim apps
 Postgres/pgvector schema, so they need a distinct identity too.
 
 **The footgun: `NEXT_PUBLIC_WEBAPP` must NEVER be set in the root `.env`.**
-_Superseded by [ADR 0029](0029-per-app-env-ownership.md): the shared root `.env`
-was deprecated, so this footgun no longer exists — each app's `with-env` loads
+_Overtaken by an app-layer decision: each app now owns its full env surface and
+the shared root `.env` is gone, so this footgun no longer exists — each app's `with-env` loads
 only its own `apps/<app>/.env` (`dotenv -e ./.env --`) and there is no root file
 whose value could win. The fail-loud enforcement below still stands._ Each
 app loads env via `with-env` = `dotenv -e ../../.env -- dotenv -e ./.env --`.
@@ -226,8 +226,9 @@ mean four rows, four password hashes and four password resets for one human.
 The exception is narrow and deliberate: it applies to `user`, `session`,
 `account` and `verification`, and to nothing else. Every other app-owned table,
 and the Redis keyspace in its entirety, still partition on `NEXT_PUBLIC_WEBAPP`.
-Rationale, costs and the rejected alternatives are in
-[@acme/auth ADR 0002](../../packages/shared/auth/docs/adr/0002-auth-tables-in-a-dedicated-schema.md).
+Rationale, costs and the rejected alternatives belong to the auth package, whose
+own ADRs record them — this one only records that the Redis keyspace is not part
+of the exception.
 
 ## Amendment — the BullMQ keyspace partitions via BullMQ's `prefix`, not `nsKey`
 

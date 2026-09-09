@@ -2,8 +2,9 @@
 
 **Status:** accepted
 
-The auth seam ([ADR 0003](0003-framework-agnostic-auth-seam.md)) made the
-_current user_ an injected value, but billing stayed hard-wired: `@acme/trpc`'s
+The auth seam — the decision that the app resolves the principal and injects it,
+recorded by the auth package — made the _current user_ an injected value, but
+billing stayed hard-wired: `@acme/trpc`'s
 `createTRPCContext` imported `@acme/subscriptions` directly (Redis + Stripe env)
 to read the caller's subscription, tier, and credit balance. Because every
 feature reuses the platform tRPC substrate, that single import pulled billing —
@@ -74,8 +75,8 @@ Two decisions are load-bearing, mirroring the auth seam:
   the principal is typed via an augmentable `InjectedUser` global (declaration
   merging) rather than a backend Clerk `User` import, so the substrate no longer
   names Clerk at all. (It reached the context as `ctx.user` when this ADR was
-  written; it is `ctx.session.user` since #220 — see
-  [ADR 0003](0003-framework-agnostic-auth-seam.md), amendment.)
+  written; the auth seam has since collapsed it into `ctx.session.user`, and the
+  auth package's own ADRs are where that amendment is recorded.)
 - **`createTRPCContext`'s signature gains a required `entitlements`.** Every
   caller supplies one: both apps' route handlers and the TanStack `clerk-context`
   resolver inject `subscriptionsEntitlements`; the reference RSC callers in chat
@@ -403,13 +404,13 @@ breaking it leaks Credits silently.
   (`getStripeCustomerId`, which `apps/tanstack-start` calls from its Stripe
   success handler) and confining those would push unrelated functions into a file
   that is meant to hold built values only.
-- **Four independent files, free to differ.** No module shared across apps —
-  that would reintroduce the compositions layer [ADR 0011](0011-remove-compositions-layer.md)
-  removed. The full apps build the Stripe/Redis provider from the plan ids
-  `@acme/billing/env` resolves; the slim apps export `unlimitedEntitlements`,
-  which puts the absence of Stripe from their graph in one readable line instead
-  of leaving it inferred from a missing dependency
-  ([ADR 0010](0010-slim-no-auth-apps.md)).
+- **One independent file per app, free to differ.** No module shared across
+  apps — a shared composition module is the layer this repo deliberately does
+  not have, because assembly is app-owned. An app with billing builds the
+  Stripe/Redis provider from the plan ids `@acme/billing/env` resolves; an app
+  without it exports `unlimitedEntitlements`, which puts the absence of Stripe
+  from its graph in one readable line instead of leaving it inferred from a
+  missing dependency.
 - **Construction and resolution are different concerns, and now different
   directories.** Selection is per deployment; resolution is per request — the
   #250 amendment above draws that line. Construction lives in `src/server/`,

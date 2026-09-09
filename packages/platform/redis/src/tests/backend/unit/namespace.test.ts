@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * empty-namespace branch is only reachable when validation is skipped (a missing
  * webapp otherwise fails `env.ts` loudly), so that case sets `CI=true` to take
  * the real `skipValidation` path rather than mocking the env module.
- * See docs/adr/0008-per-app-redis-namespace.md.
+ * See ../../../../docs/adr/0002-per-app-redis-namespace.md.
  */
 
 const loadClient = async (webapp?: string) => {

@@ -80,10 +80,10 @@ fields. The first four are `BaseContext`, which every feature's context extends.
 the features that name it: a deployment has to state whether it has auth and
 whether it meters, rather than inheriting an answer. A build with neither injects
 a constant principal and an unlimited provider — see
-[ADR 0003](../adr/0003-framework-agnostic-auth-seam.md) and
+[ADR 0003](../../packages/shared/auth/docs/adr/0003-framework-agnostic-auth-seam.md) and
 [ADR 0010](../adr/0010-slim-no-auth-apps.md). Which features want more than
 `BaseContext` is theirs to say, not the platform's
-([ADR 0006](../adr/0006-entitlements-injection-seam.md)).
+([ADR 0006](../../packages/platform/entitlements/docs/adr/0001-entitlements-injection-seam.md)).
 
 Injected implementations are **built once per app**, in `src/server/deps.ts`, and
 this file imports them. The seam has a second consumer — the worker

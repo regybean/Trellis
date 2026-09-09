@@ -20,7 +20,7 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
   file. Per-app ownership makes each app's env surface complete and legible on disk.
 - **The shared root `.env` was a footgun.** Because root loaded first and `dotenv`
   doesn't override an already-set var, a value in root `.env` silently won over
-  every app's own `.env` — the collision [ADR 0008](0008-per-app-redis-namespace.md)
+  every app's own `.env` — the collision [ADR 0008](../../packages/platform/redis/docs/adr/0002-per-app-redis-namespace.md)
   had to write an amendment to warn against. Removing the shared file removes the
   footgun outright.
 - **The shared surface had shrunk to almost nothing.** After the config-as-code

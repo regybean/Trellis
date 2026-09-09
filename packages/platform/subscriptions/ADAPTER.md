@@ -29,8 +29,7 @@ to actually meter.
   ([trpc-route.md](../../../docs/mounting/trpc-route.md)) and your worker
   entrypoint ([worker.md](../../../docs/mounting/worker.md)). Two providers, or a
   no-op in the worker, means refunds land somewhere nothing reads — and both
-  typecheck, so one file is the only thing that rules it out
-  ([ADR 0006](../../../docs/adr/0006-entitlements-injection-seam.md)).
+  typecheck, so one file is the only thing that rules it out.
 - Supply the plan ids. They are per-deployment data, so this package takes them
   as an argument rather than reading them; a billing package's env is the usual
   source.

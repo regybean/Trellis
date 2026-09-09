@@ -24,8 +24,7 @@ const getQueryClient = cache(createAppQueryClient);
  *
  * There is no billing seam to wire, because feedback declares no tRPC context
  * extension: no tier to gate on, no credit to spend, so it names no entitlements
- * provider at all. `@acme/chat`'s equivalent does (#256, ADR 0006 amendment).
- * See docs/adr/0003-framework-agnostic-auth-seam.md.
+ * provider at all. `@acme/chat`'s equivalent does.
  *
  * `opts` *is* the context: it is handed to every RSC procedure as it
  * arrives, with only `x-trpc-source` added to the headers. There is no

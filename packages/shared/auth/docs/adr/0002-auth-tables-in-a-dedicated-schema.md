@@ -4,9 +4,9 @@
 
 Every app-owned table in this repo is namespaced under
 `pgSchema(process.env.NEXT_PUBLIC_WEBAPP)`: one Postgres instance, four apps,
-four schemas, no cross-app reads. [ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md)
-names that construct — _one app-identity value partitions every shared
-datastore_.
+four schemas, no cross-app reads. The construct has a name — _one app-identity
+value partitions every shared datastore_ — and the Redis package, which applies
+it to its keyspace, is where it is written down.
 
 Better Auth's four tables (`user`, `session`, `account`, `verification`) are the
 **deliberate exception**. They live in a constant `auth` schema:

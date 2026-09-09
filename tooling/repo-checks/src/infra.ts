@@ -97,8 +97,8 @@ const withoutDot = (rel: string) => rel.replace(/^\.\//, '');
 
 /**
  * What is wrong with one package's provisioning declarations — the two keys
- * `pnpm dev` and `pnpm infra:up` discover beside `acme.infra`
- * ([ADR 0009](../../../docs/adr/0009-graph-derived-dev-infra.md)).
+ * `pnpm dev` and `pnpm infra:up` discover beside `acme.infra`, the manifest key
+ * dev infra is derived from.
  *
  * Both fail the same way `acme.infra` did before it had a validator: in
  * silence. A `provisioning` path that names no file is only found when someone

@@ -91,5 +91,6 @@ barrel exports the router alone, and each app's mount names one of its own
 resolvers, checked against the router's context. `createFeatureTRPC()` no longer
 exists either: this package builds its own instance from `trpcConfig` and the
 shared middleware bodies, against a `NotificationsContext` that is exactly
-`BaseContext` — it still owns no database. See the
-[#264 amendment to ADR 0006](../../../../../docs/adr/0006-entitlements-injection-seam.md).
+`BaseContext` — it still owns no database. The generic context that used to make
+this awkward is gone: the entitlements seam moved the context extension out to
+the feature that declares it.

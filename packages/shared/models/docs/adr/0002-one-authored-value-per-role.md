@@ -89,9 +89,9 @@ load-bearing:
   environment. This slice's `provisioning.ts` does exactly that: it derives the
   local Ollama port and the models to pull, and says whether the `ollama` compose
   profile is needed at all. `pnpm dev` and `pnpm infra:up` discover that
-  declaration rather than importing this package
-  ([ADR 0009](../../../../../docs/adr/0009-graph-derived-dev-infra.md)). Neither
-  value is duplicated in `.env.example`.
+  declaration rather than importing this package — dev infra is derived from the
+  graph, so a package states its own need and nothing maintains a parallel list.
+  Neither value is duplicated in `.env.example`.
 - Both roles' variant types are exported from `model-schemas.ts`, so a provider
   factory's parameter type is the schema's output and cannot drift from what the
   env validates.

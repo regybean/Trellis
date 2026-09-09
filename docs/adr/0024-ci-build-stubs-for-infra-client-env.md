@@ -63,7 +63,7 @@ discriminated union — and both carry an authored profile value, so by the rule
 in the blockquote above they need no stub. (`OLLAMA_CHAT_MODEL` /
 `OLLAMA_EMBED_MODEL` still exist, but as values `@acme/models` _supplies_ for
 the Ollama pull list in compose, from its own `src/provisioning.ts`
-([ADR 0009](0009-graph-derived-dev-infra.md)); no slice's `createEnv` reads
+([ADR 0009](../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)); no slice's `createEnv` reads
 them, so no constructor guard depends on them at import.)
 
 These stubs exist to satisfy Mastra/AI-SDK constructor guards, which run at module

@@ -9,11 +9,12 @@ that owns the infra (`@acme/redis/testing`, `@acme/db/testing`); the suite
 imports them directly and `@acme/test-utils` is a generic engine that turns a
 descriptor into a running container. The non-obvious part is that test infra is
 **declared per-suite, not derived from the dependency graph** — the deliberate
-opposite of dev infra ([ADR 0009](0009-graph-derived-dev-infra.md)).
+opposite of dev infra, which the workspace reader derives from the union of
+`acme.infra` over an app's transitive closure.
 
 ## Why not graph-derive it, like dev does
 
-ADR 0009 derives an app's dev infra from the union of `acme.infra` over its
+Dev derives an app's infra from the union of `acme.infra` over its
 transitive closure — correct there, because a _running_ app really touches
 everything its closure couples to. A _test suite_ does not: it mocks stateful
 dependencies. `@acme/ingest` depends on `@acme/rag` (→ `postgres`) and `@acme/redis`
@@ -22,7 +23,7 @@ suite mocks `@acme/rag/server` and S3 and needs **no** container at all.
 
 A suite's real-infra need is a function of its **mock boundary**, which lives in
 `setup.ts`, not in the dependency graph. So the graph over-includes for tests, and
-the env-prune rules of ADR 0009 are wrong here too (`staticTestEnv` sets
+dev's env-prune rules are wrong here too (`staticTestEnv` sets
 `LLM_PROVIDER=ollama`, so the dev pruner would _keep_ ollama, which tests always
 mock). Rather than invent a second derivation that guesses the mock boundary, the
 suite states its infra outright. The test-real vocabulary is tiny — in practice
@@ -57,9 +58,9 @@ redisContainer])`, wired via
 
 `localPort` has since left the descriptor contract: it named the host port to
 probe when a suite used the local compose stack instead of a container, and that
-path is gone — every suite now starts its own container on a random host port
-([ADR 0034](0034-backend-tests-always-self-provision.md)). A descriptor declares
-`containerPort` only.
+path is gone — every backend suite now starts its own container on a random host
+port, everywhere and identically, with no local stack to prefer. A descriptor
+declares `containerPort` only.
 
 ## LocalStack folds into the same model
 
@@ -71,11 +72,11 @@ package, because LocalStack has no client package to own it: nothing in
 `packages/*` wraps it.
 
 The test and its descriptor now sit in `@acme/secrets-sync`
-(`src/tests/backend/`), which owns the code under test
-([ADR 0040](0040-script-logic-lives-in-a-tooling-package.md)). They were
-originally filed in `@acme/test-utils` for the reason that ADR records: the
-backend under test was the repo's root `scripts/`, which is not a package and so
-had nowhere to put a suite. Only the `env-pull.sh` / `env-push.sh` entry points
+(`src/tests/backend/`), which owns the code under test — a suite lives with the
+package it exercises. They were originally filed in `@acme/test-utils` because
+the backend under test was the repo's root `scripts/`, which is not a package
+and so had nowhere to put a suite; that logic has since moved into a `tooling/*`
+package, and the suite followed it. Only the `env-pull.sh` / `env-push.sh` entry points
 and the `scripts/secrets-backends/*.sh` adapters are still root shell.
 
 ## Considered and rejected

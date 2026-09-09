@@ -2,7 +2,7 @@
 
 Tracing. Your app initialises it once at process start; every mounted package
 then produces spans without being handed anything
-([ADR 0023](../../../docs/adr/0023-ambient-telemetry-no-context-object.md)).
+([ADR 0001](docs/adr/0001-ambient-telemetry-no-context-object.md)).
 
 ## What it gives you
 
@@ -36,7 +36,7 @@ then produces spans without being handed anything
   by the package.
 - Nothing to thread afterwards. Spans are ambient, so no context object is
   passed to features
-  ([ADR 0023](../../../docs/adr/0023-ambient-telemetry-no-context-object.md)).
+  ([ADR 0001](docs/adr/0001-ambient-telemetry-no-context-object.md)).
 - Compose the env factory — [env.md](../../../docs/mounting/env.md).
 
 ## Env

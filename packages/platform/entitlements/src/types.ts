@@ -4,7 +4,7 @@
  * with zero knowledge of how those entitlements are sourced. A full deployment
  * injects the Stripe/Redis-backed adapter from `@acme/subscriptions`; a
  * deployment with no billing injects `unlimitedEntitlements`. See
- * docs/adr/0006-entitlements-injection-seam.md.
+ * ../docs/adr/0001-entitlements-injection-seam.md.
  */
 
 /** The three subscription tiers, ordered `Basic < Standard < Pro`. */

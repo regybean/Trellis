@@ -12,9 +12,9 @@ import {
  * Build the Stripe/Redis-backed `EntitlementsProvider`: reads the cached Stripe
  * subscription, derives the tier (via the injected plan IDs), and
  * reads/decrements the Redis Credit balance. Apps with billing inject the result
- * into the context they build at the route seam; it is the adapter side of
- * docs/adr/0006-entitlements-injection-seam.md — the platform substrate depends
- * only on the neutral contract, never on this module.
+ * into the context they build at the route seam; it is the adapter side of the
+ * entitlements seam — the platform substrate depends only on the neutral
+ * contract, never on this module.
  *
  * A factory (not a const) because the product→tier mapping now needs the
  * billing's authored plan ids, resolved once at the app edge and injected here
