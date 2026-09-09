@@ -611,6 +611,34 @@ describe('bank:sync --check reports drift', () => {
    * looked at nothing. `-C` on a missing directory is an error.
    */
   describe('the root delegation', () => {
+    const rootScripts = stringMap(
+      readJson(join(repoRoot, 'package.json')),
+      'scripts',
+    );
+
+    /**
+     * The bank commands the root manifest actually defines.
+     *
+     * In the bank that is all four, asserted below: the bank authors the
+     * manifest every consumer receives, so a missing entry here is its own
+     * defect. A vendored copy is the consumer's to edit, and one of the four
+     * can do nothing in their repo — `check:bank-paths` has no inventory to
+     * enforce outside a bank and says so — so deleting it is tidying, and the
+     * case it feeds is absent there rather than red. What a consumer must
+     * *keep* is bootstrap.test.ts's rule, derived from the bundles.
+     */
+    const declared = BANK_SCRIPTS.filter((script) => script in rootScripts);
+    const isBank = existsSync(join(repoRoot, 'bank.paths.json'));
+
+    it.skipIf(!isBank)(
+      isBank
+        ? 'is declared for every bank command at the root'
+        : "is declared for every bank command at the root — skipped: needs the bank's own root manifest, the one it authors rather than one it vendored",
+      () => {
+        expect(declared).toEqual(BANK_SCRIPTS);
+      },
+    );
+
     const delegated: string[] = [];
 
     afterEach(() => {
@@ -619,11 +647,7 @@ describe('bank:sync --check reports drift', () => {
 
     /** The real root command, over a stub bank that exits `code`. */
     function scratchWorkspace(script: string, code: number, bank = true) {
-      const scripts = stringMap(
-        readJson(join(repoRoot, 'package.json')),
-        'scripts',
-      );
-      const command = scripts[script] ?? '';
+      const command = rootScripts[script] ?? '';
       expect(command, `root package.json defines ${script}`).not.toBe('');
 
       const dir = mkdtempSync(join(tmpdir(), 'bank-delegation-'));
@@ -666,7 +690,7 @@ describe('bank:sync --check reports drift', () => {
       return run.status ?? -1;
     }
 
-    it.each(BANK_SCRIPTS)(
+    it.each(declared)(
       'passes %s the exit code its package returned, not one of its own',
       (script) => {
         const dir = scratchWorkspace(script, 2);
