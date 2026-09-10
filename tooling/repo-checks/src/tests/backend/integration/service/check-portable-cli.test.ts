@@ -12,6 +12,7 @@
  */
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { NOT_DISTRIBUTED } from '../../../../portable';
 import {
   createRepoFixture,
   manifest,
@@ -99,14 +100,19 @@ describe('a repo violating each rule once', () => {
     expect(stdout).toContain('not failing lint yet');
   });
 
-  it('leaves the distribution inventory alone — it is never distributed', () => {
-    const { stdout } = check({
-      ...clean(),
-      'bank.paths.json': `{ "note": "${bareRef(1)}, ${issueRef(126)}" }\n`,
-    });
+  // Driven off the constant rather than a list here, so adding a file to the
+  // exemption is the same edit as claiming a test for it.
+  it.each([...NOT_DISTRIBUTED])(
+    'leaves %s alone — its subject is this repo, so it is never distributed',
+    (path) => {
+      const { stdout } = check({
+        ...clean(),
+        [path]: `A note about ${bareRef(1)} and ${issueRef(126)}.\n`,
+      });
 
-    expect(stdout).toContain('carry no reference that only resolves here');
-  });
+      expect(stdout).toContain('carry no reference that only resolves here');
+    },
+  );
 
   it('leaves an app alone — the bank never distributes one', () => {
     const { stdout } = check({
