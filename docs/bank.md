@@ -28,17 +28,20 @@ edit anywhere, on either side
 two things no derivation gives you.
 
 - **`bundles`.** Named groups of content that cannot be a package, because the
-  tools that read it require it at a fixed repo-relative path. `root` is always
-  included and holds the root `package.json`, `turbo.json`,
-  `pnpm-workspace.yaml`, `patches/`, `scripts/`, a few `tooling/*` packages and
-  the lint and hook configs. Those tooling packages are workspace packages
-  rather than fixed paths, and they are named here anyway, for two reasons that
-  both end at the root `package.json` being root-bundle content: it delegates
-  the bank commands into `tooling/bank`, so a selection that never asked for it
-  would still arrive calling it; and `pnpm-workspace.yaml` is root-bundle
-  content too, so the config packages those manifests declare `workspace:*` on
-  have to arrive with them or `pnpm install` fails on a dependency that
-  resolves to nothing.
+  tools that read it require it at a fixed repo-relative path. Five of them are
+  always included, and they are one required set split by subject so each says
+  why its own paths are required: `workspace` is what pnpm, turbo and git read
+  from a fixed path; `commands` is the root `package.json` and the `scripts/`
+  its entries invoke; `quality-config` is the lint, hook and format config those
+  entries read; `delegated-tooling` is the `tooling/*` packages they delegate
+  into; and `config-closure` is the config packages those manifests declare.
+  The last two are workspace packages rather than fixed paths, and they are
+  named anyway for two reasons that both end at the root `package.json` being
+  always-included content: it delegates the bank commands into `tooling/bank`,
+  so a selection that never asked for it would still arrive calling it; and
+  `pnpm-workspace.yaml` is always-included too, so the config packages those
+  manifests declare `workspace:*` on have to arrive with them or `pnpm install`
+  fails on a dependency that resolves to nothing.
   The rest are `scaffolding`, `agents`, `ci`, `docs` and `infra` — and `infra`
   selects itself when a package you took declares the services it needs.
 - **`exclude`.** What is left out, with a reason each. `pnpm-lock.yaml`,
@@ -72,8 +75,9 @@ but not one file_, because a resolved path is a prefix.
 
 The root `package.json` is a seed for a narrower reason: only `name` in it is
 yours, and the bank never edits that field, so it cannot conflict. The other six
-are the tooling contract for `scripts/` and `tooling/bank`, which arrive in the
-same bundle — the script entries that invoke those files, and the
+are the tooling contract for `scripts/`, which arrives in the same `commands`
+bundle, and for `tooling/bank`, which arrives with the `delegated-tooling`
+bundle beside it — the script entries that invoke those files, and the
 devDependencies they run on. Take
 `scripts/quality-gate.sh` without the manifest and you have a script with no
 `turbo` installed and no `postinstall` to register the skills. See
@@ -133,7 +137,8 @@ first merge.
 ### 1. Vendor the bank
 
 The bank is the `@acme/bank` package at `tooling/bank`, and `bank.paths.json`
-names that path in the `root` bundle — which no selection can opt out of. So
+names that path in the `delegated-tooling` bundle — one of the five no selection
+can opt out of. So
 after your first sync the bank commands arrive, and update themselves, like
 anything else. Setting up needs them before they exist, so copy four files in by
 hand once:
@@ -179,8 +184,9 @@ offers at that ref — packages grouped by layer, bundles alongside them. Arrow
 keys move, space toggles, enter confirms. Under the rows it shows what your
 selection pulls in and which choice pulled it, so selecting `@acme/billing`
 visibly brings `@acme/auth` and `@acme/subscriptions` with billing named against
-each. `root` shows as always included and cannot be toggled, and `infra` selects
-itself once something in your closure declares `acme.infra`. Nothing is written
+each. The five required bundles show as always included and cannot be toggled,
+and `infra` selects itself once something in your closure declares `acme.infra`.
+Nothing is written
 until you say yes at the review step.
 
 The menu needs a terminal. Piped, or in CI, a bare run refuses and names the
@@ -201,8 +207,8 @@ Either way it fetches the bank at the ref, checks every name exists there, and
 writes the same manifest — so a typo is a refusal that names it rather than a
 sync that fails three steps later. It copies nothing; `bank:sync` below is still
 the only thing that moves files. Both list flags repeat and accept `a,b`, so a
-scripted setup can build them up either way, and `root` is dropped rather than
-recorded, since it cannot be a choice.
+scripted setup can build them up either way, and a required bundle you name is
+dropped rather than recorded, since it cannot be a choice.
 
 To read the offer without opening the menu — the answer to "what is that package
 called?" — `--list` prints it and exits, writing nothing:
@@ -219,7 +225,7 @@ says anything about either.
 
 The wizard authors a selection and nothing else. Neither form takes an `omit`
 flag, and neither the menu nor the arguments say anything about the root
-`package.json`, which arrives in the `root` bundle on your first sync. If your
+`package.json`, which arrives in the `commands` bundle on your first sync. If your
 repo already has one, and it does unless you started from an empty directory,
 [Bringing your own root manifest](#bringing-your-own-root-manifest) is the
 answer. Keep yours and `omit` the bank's, or take the first sync and resolve the
@@ -249,10 +255,11 @@ still has one is refused by name.
   `packages/shared/ui`. Their transitive workspace closure comes with them, so
   list what you import and let the sync work out the rest. A name that does not
   exist at `ref` fails the sync rather than being dropped quietly.
-- **`bundles`.** Bundle names from `bank.paths.json`. `root` is always included —
-  don't list it, and you cannot opt out of it, because without it `pnpm install`
-  does not work. `infra` selects itself when a package in your closure declares
-  the services it needs.
+- **`bundles`.** Bundle names from `bank.paths.json`. `workspace`, `commands`,
+  `quality-config`, `delegated-tooling` and `config-closure` are always included
+  — don't list them, and you cannot opt out of any of them, because without them
+  `pnpm install` does not work. `infra` selects itself when a package in your
+  closure declares the services it needs.
 - **`omit`.** Paths to subtract from your resolved closure, for the case where
   you keep your own. Default empty. See
   [Omitting part of your closure](#omitting-part-of-your-closure).
@@ -395,7 +402,7 @@ need. Copy them across from the bank's manifest.
 | `scripts`         | **Both.** The bank's entries drive `scripts/`; yours are yours. Rename on a genuine collision.            |
 | `devDependencies` | **Both.** The bank's ten are what `scripts/` runs on. Dropping one breaks the entries that call it.       |
 | `engines`         | **The bank's**, or higher. It is the floor the packages are built against.                                |
-| `packageManager`  | **The bank's.** `pnpm-workspace.yaml` arrives in the same bundle and its catalogs assume that pnpm.       |
+| `packageManager`  | **The bank's.** `pnpm-workspace.yaml` is always included beside it and its catalogs assume that pnpm.     |
 | `overrides`       | **Both**, unless they disagree on a version — then yours, and expect the conflict again on the next bump. |
 | `private`         | Either. Both sides say `true`.                                                                            |
 

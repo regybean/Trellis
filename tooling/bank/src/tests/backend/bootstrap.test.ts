@@ -191,12 +191,11 @@ const delivered = (dir: string) =>
  * What keeps the derivation above honest.
  *
  * The required set is several bundles, each holding one argument for why its
- * paths are required. That only stays legible if the flag remains the way in:
- * a rule that named one bundle would go quiet the moment a path moved to a
- * sibling, and would pass while checking a fraction of the set. So the claim
- * is that more than one bundle carries the flag — which is what makes reading
- * it across all of them mean something rather than being a longer spelling of
- * one name.
+ * paths are required. A rule that named one of them instead of reading the flag
+ * would go quiet the moment a path moved to a sibling, and would pass having
+ * checked a fraction of the set. So the claim here is that more than one bundle
+ * carries the flag, which is what stops reading it across all of them from
+ * being a longer spelling of one name.
  */
 describeBank('the required set is several bundles, read by flag', () => {
   const required = recordList(readJson(inventory), 'bundles').filter(

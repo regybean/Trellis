@@ -108,8 +108,9 @@ consumer, so an app-layer ADR may cite freely and nothing may cite it.
 
 Two things the five rules do not reach. A `docs/` file may _link a package's
 docs_ — a `CONTEXT.md`, an `ADAPTER.md` — as long as the package is one a
-consumer is guaranteed to have, meaning one in the always-included `root`
-bundle. That is not a citation and the rules above do not govern it. Pointing
+consumer is guaranteed to have, meaning one in an always-included bundle
+(`delegated-tooling` or `config-closure`). That is not a citation and the rules
+above do not govern it. Pointing
 at a _selectable_ package still leaves a link that dangles for anyone who
 declined it, so say that in prose.
 
