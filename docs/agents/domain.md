@@ -106,10 +106,19 @@ or a doc beside it, and this file may cite both. A package is selectable on its
 own, so it may cite nothing outside itself. `apps/` is withheld from every
 consumer, so an app-layer ADR may cite freely and nothing may cite it.
 
-The `docs/` bundle is the one place that cites _into_ packages, because it
-describes them. It may only name a package a consumer is guaranteed to have —
-one in the always-included `root` bundle. Pointing at a selectable package leaves
-a link that dangles for anyone who declined it, so say it in prose instead.
+Two things the five rules do not reach. A `docs/` file may _link a package's
+docs_ — a `CONTEXT.md`, an `ADAPTER.md` — as long as the package is one a
+consumer is guaranteed to have, meaning one in the always-included `root`
+bundle. That is not a citation and the rules above do not govern it. Pointing
+at a *selectable* package still leaves a link that dangles for anyone who
+declined it, so say that in prose.
+
+And this repo's own front matter and indexes — the project README, the context
+map, the doc index, the getting-started and inventory pages — are exempt
+outright. Each is *about* this repo's shape rather than content it ships, none
+is distributed, and the doc index in particular exists to point across every
+package boundary there is. They are named one by one in the checker; if you
+find yourself wanting to add a sixth, that is a decision, not a convenience.
 
 **When the rule forbids the citation you wanted, write the reason instead.** A
 comment that has to lean on a repo-wide decision states the constraint in prose.
