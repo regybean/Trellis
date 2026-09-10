@@ -299,22 +299,15 @@ describeBank(
  * Why the root manifest is exempt from the filter half of the rule below.
  *
  * Printed under a failure, so the reader of the exception meets the argument
- * for it at the moment they are about to add one.
+ * for it at the moment they are about to add one. The argument itself is not
+ * restated here — it is the dangling-entry section of the bank's own doc,
+ * `docs/bank.md`, and the decision behind it is on record as an ADR.
  */
 const DANGLING_IS_THE_CONSUMERS_TO_DELETE = `
-A root \`package.json\` script entry may name content no always-included bundle
-delivers, an app included. The entry *is* the whole reference: key and command
-are one line, the manifest is documented as the consumer's to edit, and the
-bank's dangling-entry table names each one. Naming an app rather than a feature
-does not weaken that — an app is guaranteed absent rather than merely possibly
-absent, which makes the entry unambiguously theirs to delete instead of
-something that might half-work.
-
-A script *body* is the opposite case, and gets no exemption. There is no line to
-delete inside one, nothing documents it, and a consumer who runs the command
-gets a failure rather than a missing convenience. That is why
-\`scripts/extract-app.sh\` derives its target from the workspace instead of
-defaulting to one of this repo's apps.
+A root \`package.json\` script entry is exempt: it is one line the consumer
+deletes, and the bank's dangling-entry table names each one. A script *body*
+is not — there is no line to delete inside one, so derive the target instead.
+See the dangling-entry section of \`docs/bank.md\`.
 `.trim();
 
 /** Extensions whose text can carry an import. */
@@ -341,7 +334,7 @@ const SOURCING = new Set(['sh', 'bash', 'zsh']);
  * a reader of the text can resolve, and a rule that guessed at them would be
  * inventing the finding.
  */
-export function literalTail(raw: string): string | undefined {
+function literalTail(raw: string) {
   const specifier = raw.replace(/^["']|["']$/g, '');
   if (specifier.includes('$(')) return undefined;
   if (!specifier.includes('$')) return specifier;
@@ -428,21 +421,44 @@ describeBank(
       });
     });
 
-    /** Every literal package filter, outside the exempt root manifest. */
+    /**
+     * The package directories a text runs a command against.
+     *
+     * `--filter @acme/x` resolves through the graph, because the name is what
+     * the text carries and the directory is what a bundle delivers; `pnpm -C`
+     * already names a directory. A filter naming a package this workspace does
+     * not have resolves to nothing and drops out, which is the right answer for
+     * a command aimed at something no selection could deliver either.
+     */
+    const filtersIn = (text: string) => [
+      ...[...text.matchAll(/--filter[= ]"?(@[\w-]+\/[\w-]+)/g)].flatMap(
+        (match) => packages.get(match[1] ?? '')?.dir ?? [],
+      ),
+      ...[...text.matchAll(/\bpnpm\s+-C\s+([\w./-]+)/g)].flatMap(
+        (match) => match[1] ?? [],
+      ),
+    ];
+
+    /**
+     * Every literal package filter, in the files that can actually run one.
+     *
+     * Two kinds of file are skipped, for two unrelated reasons:
+     *
+     *   - `package.json`, which does run its commands — exempt by the argument
+     *     in `DANGLING_IS_THE_CONSUMERS_TO_DELETE`, and the one exemption
+     *     `docs/bank.md` sanctions.
+     *   - Markdown, which runs nothing. A command in prose is an example, and a
+     *     doc naming a selectable package is a dangling *pointer*, which the
+     *     doc rules already govern — not a reach that fails at runtime.
+     */
     const filters = files
       .filter((file) => file !== 'package.json' && extensionOf(file) !== 'md')
-      .flatMap((file) => {
-        const source = readFileSync(join(repoRoot, file), 'utf8');
-
-        return [
-          ...[...source.matchAll(/--filter[= ]"?(@[\w-]+\/[\w-]+)/g)].flatMap(
-            (match) => packages.get(match[1] ?? '')?.dir ?? [],
-          ),
-          ...[...source.matchAll(/\bpnpm\s+-C\s+([\w./-]+)/g)].flatMap(
-            (match) => match[1] ?? [],
-          ),
-        ].map((dir) => ({ file, dir }));
-      });
+      .flatMap((file) =>
+        filtersIn(readFileSync(join(repoRoot, file), 'utf8')).map((dir) => ({
+          file,
+          dir,
+        })),
+      );
 
     it('finds imports to judge, so the rule is not vacuous', () => {
       expect(imports.length).toBeGreaterThan(0);
@@ -469,13 +485,9 @@ describeBank(
       // packages a minimum selection never delivers — so the skip is the
       // decision `DANGLING_IS_THE_CONSUMERS_TO_DELETE` argues for, not an
       // oversight, and this is what fails if the exemption stops mattering.
-      const dangling = [
-        ...Object.values(rootScripts)
-          .join('\n')
-          .matchAll(/--filter[= ]"?(@[\w-]+\/[\w-]+)/g),
-      ]
-        .flatMap((match) => packages.get(match[1] ?? '')?.dir ?? [])
-        .filter((dir) => !delivered(dir));
+      const dangling = filtersIn(Object.values(rootScripts).join('\n')).filter(
+        (dir) => !delivered(dir),
+      );
 
       expect(dangling.length).toBeGreaterThan(0);
     });

@@ -143,6 +143,19 @@ describe('distributable content naming this repo', () => {
     expect(stderr).toContain('docs/guide.md:1');
   });
 
+  it('reads a patch body, which ships and lands in a dependency', () => {
+    // A patch is distributable content twice over: it arrives in the
+    // always-included bundle, and its added lines are injected into the
+    // consumer's node_modules. An extension left off the scanned list is an
+    // allowlist nobody wrote down.
+    const { stderr } = run({
+      ...baseline(),
+      'patches/dep@1.0.0.patch': '+// Vendored from Widgets.\n',
+    });
+
+    expect(stderr).toContain('patches/dep@1.0.0.patch:1');
+  });
+
   it('reports nothing when the same content names none of them', () => {
     const { status, stdout, stderr } = run(baseline());
 
@@ -219,6 +232,35 @@ describe('what it leaves alone', () => {
 
     expect(status).toBe(1);
     expect(stderr).toContain('package.json:');
+  });
+
+  it('bounds the exemption by key position, not by braces in a script body', () => {
+    // A script body is a shell command, so it holds braces and brackets of its
+    // own. Tracking depth over the raw text counts those too: one unbalanced
+    // bracket moves where the block is thought to end, and the exemption
+    // silently covers — or stops covering — the wrong lines. Here the body is
+    // deliberately unbalanced and the offending line sits after `scripts`.
+    const { status, stderr } = run({
+      ...baseline(),
+      'package.json': `${JSON.stringify(
+        {
+          name: 'fixture',
+          scripts: {
+            'build:storefront': 'turbo run build -F @fixture/storefront',
+            ci: '[ -n "$CI" ] && echo }}} || echo {{{',
+          },
+          description: 'Vendored from Widgets.',
+        },
+        null,
+        2,
+      )}\n`,
+    });
+
+    // Exactly one: the description. The script entries stay exempt, and the
+    // unbalanced body neither un-exempts them nor swallows the line after.
+    expect(status).toBe(1);
+    expect(stderr).toContain('package.json:');
+    expect(stderr).toContain('1 distributable lines name');
   });
 
   it('ignores content `exclude` withholds from every consumer', () => {

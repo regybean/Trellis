@@ -61,23 +61,11 @@ const ROOT_MANIFEST = 'package.json';
 /**
  * Why a root `package.json` script entry may name an app.
  *
- * `bootstrap.test.ts` already sanctions a root script entry left *dangling* by
- * a selection: a consumer who took none of the feature a convenience command
- * delegates into gets an entry that calls nothing. The grounds are that the
- * entry *is* the whole reference — key and command are one line, the manifest
- * is documented as the consumer's to edit, and `docs/bank.md` names each
- * dangling entry in a table.
- *
- * Naming an app rather than a feature does not weaken any of that. It
- * strengthens it: `apps/` is the one directory no consumer receives at all, so
- * `build:<app>` is guaranteed dangling rather than conditionally so — nothing
- * to half-work, nothing to diagnose, one line to delete.
- *
- * What the exemption does *not* cover is a script **body**. There is no line to
- * delete inside one, nothing documents it, and a consumer who runs the command
- * gets a failure rather than a missing convenience. That is the reason
- * `scripts/extract-app.sh` derives its target from `apps/*` and refuses without
- * an argument, instead of defaulting to one of this repo's apps.
+ * The argument is the dangling-entry section of `docs/bank.md`, and the
+ * decision behind it is on record as an ADR — neither is restated here. In one
+ * line: the entry *is* the whole reference, so a consumer deletes a line, and
+ * an app is guaranteed absent rather than conditionally so. A script **body**
+ * gets no exemption, because there is no line to delete inside one.
  */
 const SANCTIONED_DANGLING =
   'A root package.json script entry is one line the consumer deletes, and the ' +
@@ -88,9 +76,17 @@ const SANCTIONED_DANGLING =
  *
  * Read off the text rather than the parse, because the exemption is per *line*
  * and only the text has lines. The keys come from the parse, so the exemption
- * covers whatever the manifest happens to declare — but the scan is bounded to
- * the `scripts` block, or a dependency sharing a name with a script would
- * inherit an exemption written for something else.
+ * covers whatever the manifest happens to declare — but the block is found by
+ * key *position*, or a dependency sharing a name with a script would inherit
+ * an exemption written for something else.
+ *
+ * Position means indentation: prettier writes a manifest one key per line, top
+ * level at two spaces and a nested key at four, and `pnpm format` is a gate.
+ * So the block runs from `  "scripts": {` to the next line that starts back at
+ * two spaces, whether that is the closing brace or the next top-level key.
+ * Counting braces instead would count the ones inside a script body — the
+ * `[ -n "$CI" ]` in `postinstall` balances by luck, and an unbalanced bracket
+ * in any command would silently move the block.
  *
  * @param {string} text
  * @returns {Set<number>}
@@ -102,26 +98,34 @@ function scriptEntryLines(text) {
   /** @type {Set<number>} */
   const lines = new Set();
 
-  let depth = 0;
   let inScripts = false;
 
   for (const [index, line] of text.split('\n').entries()) {
-    const key = /^\s*"([^"]+)"\s*:/.exec(line)?.[1];
-    if (inScripts && key !== undefined && keys.has(key)) lines.add(index + 1);
-    // Depth 1 is the manifest's own keys, so `scripts` opens at 1 and its
-    // entries live at 2. Prettier keeps one brace per line in a manifest.
-    if (depth === 1 && key === 'scripts') inScripts = true;
-    depth += line.match(/[{[]/g)?.length ?? 0;
-    depth -= line.match(/[}\]]/g)?.length ?? 0;
-    if (inScripts && depth <= 1) inScripts = false;
+    if (inScripts && /^ {2}\S/.test(line)) break;
+    if (inScripts) {
+      const key = /^ {4}"([^"]+)"\s*:/.exec(line)?.[1];
+      if (key !== undefined && keys.has(key)) lines.add(index + 1);
+      continue;
+    }
+    if (/^ {2}"scripts"\s*:\s*\{\s*$/.test(line)) inScripts = true;
   }
 
   return lines;
 }
 
-/** Text a token can hide in. Anything else is read as bytes, never as prose. */
+/**
+ * Text a token can hide in. Anything else is read as bytes, never as prose.
+ *
+ * An extension left off this list is an allowlist nobody wrote down, so the
+ * list is the census of every text extension the repo tracks. `patch` is the
+ * one that proves it: a patch body ships in the always-included bundle *and*
+ * gets injected into a consumer's `node_modules`, and it went unscanned long
+ * enough to carry this repo's name into one.
+ */
 const TEXT = new Set([
+  'bash',
   'cjs',
+  'css',
   'cts',
   'hbs',
   'js',
@@ -130,8 +134,10 @@ const TEXT = new Set([
   'jsx',
   'md',
   'mdx',
+  'mermaid',
   'mjs',
   'mts',
+  'patch',
   'sh',
   'toml',
   'ts',
