@@ -15,7 +15,8 @@
  *      the decision and the reference survives renumbering.
  *   2. **No ADR citation resolving outside the citing package.** A package may
  *      cite its own ADRs; nothing else's. A file outside every package may cite
- *      the root's, because root ADRs travel with the root.
+ *      the root's, because root ADRs travel with the root — but never `apps/`,
+ *      which travels with nothing.
  *   3. **No bare issue number.** A number alone resolves in whichever tracker
  *      the reader happens to be looking at, which is the problem.
  *   4. **No root ADR naming an app.** Apps are consumer identity, so a decision
@@ -122,6 +123,19 @@ const BARE_ADR_NUMBER = /\bADRs?[ \t\n-]*#?(\d{4})\b/gi;
  */
 const PATH_WINDOW = 240;
 
+/**
+ * The qualifying path: the number, its slug, and `.md`.
+ *
+ * How much directory prefix a citation writes is the citing file's business —
+ * `check-adrs` makes it resolve, and only the spelling that resolves is
+ * allowed. A file inside `docs/` cites its neighbours as `adr/0034-…`, and one
+ * ADR cites its sibling as `0034-…` with no directory at all. What rule 1 is
+ * actually after is the *slug*: that is what names the decision and what
+ * survives a renumber, so the slug is what the window looks for.
+ */
+const qualifyingPath = (number: string) =>
+  new RegExp(`(?<![\\w-])${number}-[\\w.-]*\\.md`);
+
 /** Rule 1: a citation carries the path, never the number alone. */
 export function validateAdrNumbers(file: string, text: string): string[] {
   const errors: string[] = [];
@@ -132,7 +146,7 @@ export function validateAdrNumbers(file: string, text: string): string[] {
       Math.max(0, match.index - PATH_WINDOW),
       match.index + PATH_WINDOW,
     );
-    if (window.includes(`docs/adr/${number}-`)) continue;
+    if (qualifyingPath(number).test(window)) continue;
 
     errors.push(
       `${site(file, text, match.index)}: \`${match[0].trim()}\` cites an ADR by number alone. ` +
@@ -196,17 +210,24 @@ export function validateAdrScope(
     // Resolving nowhere is a dead link, which `check-adrs` reports.
     if (target === undefined) continue;
 
-    const cited = owningPackage(target, packages);
+    // An app-layer ADR has no manifest above it, so `owningPackage` reads it as
+    // the root's. It is not: `apps/` is the one directory nothing outside it
+    // receives, which makes a citation into it the least portable of the three.
+    const inApp = target.startsWith(APPS_DIR);
+    const cited = inApp ? APPS_DIR : owningPackage(target, packages);
     if (cited === owner) continue;
 
     reported.add(path);
     errors.push(
       `${site(file, text, index)}: cites \`${target}\`, ` +
-        (cited === ''
-          ? 'a root ADR. Root decisions do not travel with a package — carry the ' +
-            'constraint in the prose instead, or move the decision into this package.'
-          : `an ADR owned by ${cited}/. A package cites only its own decisions — ` +
-            'carry the constraint in the prose instead.'),
+        (inApp
+          ? `an app-layer ADR. ${APPS_DIR} is consumer identity and travels with ` +
+            'nothing — carry the constraint in the prose instead.'
+          : cited === ''
+            ? 'a root ADR. Root decisions do not travel with a package — carry the ' +
+              'constraint in the prose instead, or move the decision into this package.'
+            : `an ADR owned by ${cited}/. A package cites only its own decisions — ` +
+              'carry the constraint in the prose instead.'),
     );
   }
 
