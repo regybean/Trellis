@@ -22,7 +22,7 @@ import { env as telemetryEnv } from '@acme/telemetry/env';
  * (`trpc.<path>`), not an HTTP parent. DB spans are unaffected (manual
  * `instrumentDrizzleClient`). For full HTTP-parent parity, preload
  * `@acme/telemetry/register` via NODE_OPTIONS instead. See
- * docs/adr/0023-ambient-telemetry-no-context-object.md.
+ * packages/platform/telemetry/docs/adr/0001-ambient-telemetry-no-context-object.md.
  */
 // The OTLP endpoint is authored config, overridable per deploy (@acme/env ADR 0001); the
 // per-app service name stays an app-owned literal (app identity, not shared

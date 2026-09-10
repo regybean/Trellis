@@ -32,11 +32,11 @@ Each app's `with-env` loads its own `apps/<app>/.env`; the root `pnpm with-env` 
 SECRETS_BACKEND=localstack pnpm env:pull   # dev/demo: the infra LocalStack vault
 ```
 
-There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](adr/0001-pluggable-secrets-sync.md).
+There is no default backend — `localstack` (dev/demo, against the always-on infra LocalStack) and `aws` (a real cloud vault) are the shipped examples. `localstack` needs no credentials, but its state is ephemeral: seed it once per fresh `pnpm infra:up` with `SECRETS_BACKEND=localstack pnpm env:push`. The backend wiring lives in [`secrets.config.sh`](../secrets.config.sh); see [ADR 0001](../tooling/secrets-sync/docs/adr/0001-pluggable-secrets-sync.md).
 
 ### Auth: Better Auth secret (required for the full apps)
 
-Auth is self-hosted — sessions are rows in your own Postgres, so there is no third-party account to create and no credential to obtain ([@acme/auth ADR 0001 — self-hosted Better Auth](../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)). The **full** apps (`nextjs`, `tanstack-start`) need one generated secret; the **slim** apps (`nextjs-slim`, `tanstack-slim`) need nothing at all — they inject a constant local principal ([ADR 0010](adr/0010-slim-no-auth-apps.md)), so you can skip this section if you only run those.
+Auth is self-hosted — sessions are rows in your own Postgres, so there is no third-party account to create and no credential to obtain ([@acme/auth ADR 0001 — self-hosted Better Auth](../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)). The **full** apps (`nextjs`, `tanstack-start`) need one generated secret; the **slim** apps (`nextjs-slim`, `tanstack-slim`) need nothing at all — they inject a constant local principal ([ADR 0010](../apps/docs/adr/0001-slim-no-auth-apps.md)), so you can skip this section if you only run those.
 
 Generate a secret and set it in each full app's `.env`:
 
@@ -83,7 +83,7 @@ Manual-only — run it yourself:
 pnpm infra:up
 ```
 
-Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset _that_ app's dependency graph requires ([ADR 0009](adr/0009-graph-derived-dev-infra.md)).
+Brings up, via Docker Compose, the **union of services every app needs**: **Postgres + pgvector**, **Redis**, **LocalStack** (S3), **localstripe** (dev billing), **Jaeger** (OTel traces), and — when `LLM_PROVIDER` or `EMBED_PROVIDER` is `ollama` — **Ollama** (local, CPU-only, so no API keys). `pnpm dev <app>` brings up only the subset _that_ app's dependency graph requires ([ADR 0009](../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)).
 
 ## 4. Push the database schema
 

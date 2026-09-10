@@ -2,7 +2,7 @@
  * Ambient tRPC telemetry helpers.
  *
  * There is no telemetry object threaded through the tRPC context (see
- * docs/adr/0023-ambient-telemetry-no-context-object.md). The telemetry
+ * ../docs/adr/0001-ambient-telemetry-no-context-object.md). The telemetry
  * middleware in `@acme/trpc` creates and *activates* the per-procedure span;
  * everything else reads that span ambiently from the active OTel context.
  *

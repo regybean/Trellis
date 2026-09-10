@@ -6,8 +6,10 @@ The compositions layer (`packages/compositions/`) was introduced as a home for
 cross-app reuse of UI assemblies that depended on more than one feature package.
 Two packages were ever written: `@acme/sidebar` and `@acme/admin`.
 
-In practice neither delivered reuse. The framework-coupling issue ([ADR 0003](0003-framework-agnostic-auth-seam.md))
-meant the slim apps and TanStack Start could not consume them:
+In practice neither delivered reuse. The framework-coupling issue the auth seam
+was written to solve — a package resolving the session itself, and so binding to
+one framework's server SDK — meant the reduced apps and the second framework
+could not consume them:
 
 - `@acme/sidebar` — `NavUser` hardcodes `@clerk/nextjs` and `@acme/billing`;
   `NavHeader`/`NavMain` use `next/image` and `next/link`. All four apps built
@@ -75,6 +77,6 @@ those two files; it does not reopen wholesale composition.
   include its globals. The role guard inlines to a single read, as
   `apps/tanstack-start/src/lib/admin.ts` already does. (At the time that read
   was `sessionClaims?.metadata.role !== 'admin'` against Clerk's
-  `CustomJwtSessionClaims`; since #220 it is `readRole(await auth()) !== 'admin'`
-  — same claim, parsed in one place. See
-  [ADR 0003](0003-framework-agnostic-auth-seam.md), amendment.)
+  `CustomJwtSessionClaims`; the auth seam has since collapsed that to
+  `readRole(await auth()) !== 'admin'` — same claim, parsed in one place, and the
+  auth package's own ADRs record the change.)

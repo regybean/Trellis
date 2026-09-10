@@ -19,8 +19,7 @@ const getQueryClient = cache(createAppQueryClient);
 /**
  * Framework-neutral RSC server caller. The session seam: the *app* resolves
  * whoever is calling at its boundary and injects the result here, so this
- * feature depends on no auth SDK. See
- * docs/adr/0003-framework-agnostic-auth-seam.md.
+ * feature depends on no auth SDK.
  *
  * The options *are* the feature's context, so adding a field in `api/trpc.ts`
  * is all it takes for callers to have to supply it here too — `@acme/chat`'s

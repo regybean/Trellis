@@ -20,7 +20,7 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
   file. Per-app ownership makes each app's env surface complete and legible on disk.
 - **The shared root `.env` was a footgun.** Because root loaded first and `dotenv`
   doesn't override an already-set var, a value in root `.env` silently won over
-  every app's own `.env` — the collision [ADR 0008](0008-per-app-redis-namespace.md)
+  every app's own `.env` — the collision [@acme/redis ADR 0002](../../../packages/platform/redis/docs/adr/0002-per-app-redis-namespace.md)
   had to write an amendment to warn against. Removing the shared file removes the
   footgun outright.
 - **The shared surface had shrunk to almost nothing.** After the config-as-code
@@ -45,12 +45,13 @@ env in `apps/<app>/.env`, and its `with-env` loads only that file
 ## Considered and rejected
 
 - **Keep the shared root `.env` (status quo).** Rejected: it re-introduces the
-  ADR 0008 footgun and leaves apps non-self-contained.
+  root-`.env` footgun the Redis namespace ADR records, and leaves apps
+  non-self-contained.
 - **Promote the shared model secrets to config-as-code instead.** They are genuine
   secrets (leaking grants provider access), so they stay in `process.env`:
   config-as-code is for non-secret values only.
 
-  > **Restated by [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §1.** The
+  > **Restated by [@acme/env ADR 0001](../../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §1.** The
   > conclusion is unchanged and the mechanism is now what enforces it: these keys
   > are declared in `@acme/models`' env call with **no profile value**, which is
   > exactly what makes them secrets. There is no longer a separate config

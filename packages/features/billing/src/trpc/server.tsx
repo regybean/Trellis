@@ -23,8 +23,7 @@ const getQueryClient = cache(createAppQueryClient);
  * boundary, then injects both here. This feature depends on no auth SDK.
  * An app wires its own context resolver's session and `subscriptionsEntitlements` (from
  * `@acme/subscriptions`) into
- * `createServerTRPC`. See docs/adr/0003-framework-agnostic-auth-seam.md and
- * docs/adr/0006-entitlements-injection-seam.md.
+ * `createServerTRPC`.
  *
  * `opts` *is* the context: it is handed to every RSC procedure as it
  * arrives, with only `x-trpc-source` added to the headers. There is no

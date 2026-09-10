@@ -49,13 +49,23 @@ ADR cited only on one package's row can still survive deleting that package, and
 then it stays at the root.
 
 **Apps and tooling packages may own ADRs — the deletion test decides, not the
-directory.** An app passes the same test, though nothing qualifies today. A
-`tooling/*` config package almost never does: its decisions govern the
-repo-wide gate rather than the package, so they stay at the root. `tooling/bank`
-is the standing exception — the bank's duplicated workspace helpers exist
-because it runs before `pnpm install`, and deleting the package takes both the
-duplication and the reason for it
-([its ADR 0001](../../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)).
+directory.** A `tooling/*` package passes it whenever the decision is about the
+thing it does rather than about the gate: the bank's duplicated workspace helpers
+exist because it runs before `pnpm install`
+([its ADR 0001](../../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)),
+and secrets sync, the test-infra engine and the graph-derived dev infra
+resolver each go with their package the same way. What stays at the root is a
+decision about the shape of the monorepo — the gate, the layer boundaries, the
+test policy — which a consumer takes whatever else they select.
+
+**The app layer owns a directory too, at
+[`apps/docs/adr/`](../../apps/docs/adr/).** A decision about the app _set_ — that
+a reduced deployment drops the auth provider, that each app owns its full env
+surface — is filed there rather than at the root, because a consumer's apps are
+their own and the bank never distributes `apps/`. A decision about one app goes
+in that app's own `docs/adr/`; none qualifies today. Nothing the bank distributes
+may cite either, so a package that leans on an app-layer decision states the
+constraint in prose.
 
 **Sequences are per directory, starting at `0001`.** Root and package numbering
 are independent — the same number in both is normal and is never flagged. A
@@ -83,17 +93,24 @@ decision numbered `0007` at once. Write
 `docs/adr/0007-package-test-policy.md`, as a link where the format allows one.
 The slug says which decision you meant even when nobody follows the link.
 
-**Four rules decide whether the citation is allowed at all.**
+**Five rules decide whether the citation is allowed at all.**
 
 - A package may cite its own ADRs.
 - A package may not cite another package's.
 - No distributed file may cite a root ADR.
+- No distributed file may cite an app-layer ADR.
 - Root ADRs citing each other is fine, because they travel together.
 
-The last two are one rule: point only at content that arrives whenever the citing
-file does. Everything under `docs/` is one bundle, so a root ADR may cite a root
-ADR or a doc beside it, and this file may cite both. A package is selectable on
-its own, so it may cite nothing outside itself.
+They are one rule: point only at content that arrives whenever the citing file
+does. Everything under `docs/` is one bundle, so a root ADR may cite a root ADR
+or a doc beside it, and this file may cite both. A package is selectable on its
+own, so it may cite nothing outside itself. `apps/` is withheld from every
+consumer, so an app-layer ADR may cite freely and nothing may cite it.
+
+The `docs/` bundle is the one place that cites _into_ packages, because it
+describes them. It may only name a package a consumer is guaranteed to have —
+one in the always-included `root` bundle. Pointing at a selectable package leaves
+a link that dangles for anyone who declined it, so say it in prose instead.
 
 **When the rule forbids the citation you wanted, write the reason instead.** A
 comment that has to lean on a repo-wide decision states the constraint in prose.

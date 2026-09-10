@@ -4,9 +4,9 @@
 
 Every app-owned table in this repo is namespaced under
 `pgSchema(process.env.NEXT_PUBLIC_WEBAPP)`: one Postgres instance, four apps,
-four schemas, no cross-app reads. [ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md)
-names that construct — _one app-identity value partitions every shared
-datastore_.
+four schemas, no cross-app reads. The construct has a name — _one app-identity
+value partitions every shared datastore_ — and the Redis package, which applies
+it to its keyspace, is where it is written down.
 
 Better Auth's four tables (`user`, `session`, `account`, `verification`) are the
 **deliberate exception**. They live in a constant `auth` schema:
@@ -39,8 +39,9 @@ in `schemaFilter`, so both full apps' `drizzle.config.ts` now read
 `[NEXT_PUBLIC_WEBAPP, 'auth']`. Without the second entry push silently ignores
 the auth tables — no error, just no tables. Both apps also re-export the tables
 from their `src/server/db/schema.ts` (including `authSchema` itself, so drizzle
-owns `CREATE SCHEMA auth`), which is what brings them under push at all
-([ADR 0021](../../../../../docs/adr/0021-test-schema-provisioning-db-push.md)).
+owns `CREATE SCHEMA auth`), which is what brings them under push at all — a table
+reaches both production and the test harness only by being re-exported from the
+app schema that push reads.
 
 **Both full apps push the same four tables.** Idempotent — identical desired
 state from one shared package — but it does mean the DDL has two owners in

@@ -31,7 +31,7 @@ entries AIA has already deleted. The design is proven in a sibling repo rather
 than speculative.
 
 **It makes auth a seam the template can actually swap.** Clerk was named as a
-replaceable provider "behind a seam" ([ADR 0003](../../../../../docs/adr/0003-framework-agnostic-auth-seam.md)),
+replaceable provider "behind a seam" ([ADR 0003](0003-framework-agnostic-auth-seam.md)),
 but the seam only covered _resolution_ — the session _type_ in `@acme/trpc` was
 Clerk's shape (`userId` + `sessionClaims`), and `CustomJwtSessionClaims` was
 declared in seven places. A starter whose auth cannot be self-hosted is a
@@ -96,8 +96,8 @@ probably a non-issue, but any deployment with real users needs its own plan.
   `index.ts` exists solely to stop the Next RSC graph evaluating
   `@clerk/shared` → `swr`; it goes with the dependency.
 - The session type in `@acme/trpc` becomes `{ user: InjectedUser | null }`, so
-  the provider is an app-side mapping. [ADR 0003](../../../../../docs/adr/0003-framework-agnostic-auth-seam.md)
+  the provider is an app-side mapping. [ADR 0003](0003-framework-agnostic-auth-seam.md)
   and [@acme/ui ADR 0001](../../../ui/docs/adr/0001-admin-user-widgets-to-ui.md) need updating for what the
   seam actually covers and for the user shape the admin widgets read.
-- Both `*-slim` apps should come through untouched — a useful check that
-  [ADR 0010](../../../../../docs/adr/0010-slim-no-auth-apps.md) holds.
+- An app that mounts no provider should come through untouched — a useful check
+  that the seam really is optional.

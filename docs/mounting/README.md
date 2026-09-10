@@ -70,7 +70,8 @@ and two feature subsets:
 - `apps/nextjs` and `apps/tanstack-start` — the same slices on Next.js and on
   TanStack Start.
 - `apps/nextjs-slim` and `apps/tanstack-slim` — the same slices with no auth
-  provider and no billing ([ADR 0010](../adr/0010-slim-no-auth-apps.md)).
+  provider and no billing. How those two are built is an app-layer decision,
+  filed under `apps/docs/adr/`.
 
 Reading one alongside its `ADAPTER.md` is the fastest way to see a seam filled
 in. Diffing two of them shows which parts are framework-specific.

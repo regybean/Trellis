@@ -2,7 +2,7 @@
 
 **Status:** accepted
 
-**Related:** [ADR 0006 — entitlements injection seam](../../../../../docs/adr/0006-entitlements-injection-seam.md) (the provider seam this rides on), [ADR 0003](0003-conversation-ownership-as-middleware.md) (ownership runs first), [ADR 0004](0004-generation-worker-and-queue.md) (the worker that refunds)
+**Related:** [ADR 0003](0003-conversation-ownership-as-middleware.md) (ownership runs first), [ADR 0004](0004-generation-worker-and-queue.md) (the worker that refunds). This rides the entitlements seam: the app injects a provider and the substrate depends only on the neutral contract, which the entitlements package's own ADRs record.
 
 ## Context
 

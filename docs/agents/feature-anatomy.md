@@ -47,7 +47,7 @@ Not every feature has every part: a backend-only feature omits `components/`,
 `hooks/`, `trpc/`, and frontend tests (the generator toggles these).
 
 A slice that needs a backing service adds three things, all in its own package
-and none anywhere else ([ADR 0009](../adr/0009-graph-derived-dev-infra.md)):
+and none anywhere else ([ADR 0009](../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)):
 `acme.infra` in its manifest names the compose profiles it needs;
 `acme.provisioning` names a module exporting `PROVISIONING`, which supplies the
 values `compose.yaml` interpolates for those profiles and `needed: false` when

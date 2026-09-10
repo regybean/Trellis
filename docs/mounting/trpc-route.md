@@ -79,11 +79,11 @@ fields. The first four are `BaseContext`, which every feature's context extends.
 `session` is required with no default on purpose, and so is `entitlements` for
 the features that name it: a deployment has to state whether it has auth and
 whether it meters, rather than inheriting an answer. A build with neither injects
-a constant principal and an unlimited provider — see
-[ADR 0003](../adr/0003-framework-agnostic-auth-seam.md) and
-[ADR 0010](../adr/0010-slim-no-auth-apps.md). Which features want more than
-`BaseContext` is theirs to say, not the platform's
-([ADR 0006](../adr/0006-entitlements-injection-seam.md)).
+a constant principal and an unlimited provider. Both seams are recorded where
+they live — the auth package's ADRs for the session, the entitlements package's
+for the provider — and `apps/docs/adr/` for how a no-auth deployment is put
+together. Which features want more than `BaseContext` is theirs to say, not the
+platform's.
 
 Injected implementations are **built once per app**, in `src/server/deps.ts`, and
 this file imports them. The seam has a second consumer — the worker

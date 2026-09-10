@@ -146,8 +146,8 @@ change takes effect on token refresh, exactly as before.
 
 Consequence: swapping Clerk for another provider is a change to `@acme/auth`
 plus the two full apps. The slim apps show the floor — a constant
-`{ user: { id: 'local', role: 'admin' } }` with no provider behind it
-([ADR 0010](0010-slim-no-auth-apps.md)).
+`{ user: { id: 'local', role: 'admin' } }` with no provider behind it. Whether a
+deployment has a provider at all is the app's call, not this package's.
 
 ## Amendment 2 — the same split, under Better Auth (#239)
 
@@ -178,8 +178,8 @@ one provider mapping is exactly the fan-out this ADR exists to prevent.
   app-owned, so the neutral `AuthStatus` context lives in `@acme/hooks`
   (`AuthStatusProvider` / `useAuthStatus`) and each app maps its own
   `useSession` onto it. `@acme/auth` therefore ships no React at all — which is
-  what keeps a provider out of the slim apps' graph
-  ([ADR 0010](0010-slim-no-auth-apps.md)).
+  what keeps a provider out of the graph of an app that has decided to run
+  without one.
 - **The seam is now enforced, not just described.** `banClerkServer` became
   `banBetterAuth` in `tooling/eslint/base.ts`: a runtime `better-auth` import
   fails lint everywhere except the two full apps and `@acme/auth`.
@@ -187,7 +187,7 @@ one provider mapping is exactly the fan-out this ADR exists to prevent.
 What changed behaviourally: the role is a **column**, not a JWT claim, so a role
 change takes effect on the next request rather than on token refresh — sessions
 are database rows and the cookie cache is off
-([@acme/auth ADR 0001](../../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)).
+([ADR 0001](0001-self-hosted-better-auth.md)).
 
 ## Amendment 3 — the principal is a concrete type (#250)
 
@@ -211,8 +211,8 @@ arrived. That reason is gone.
 
 - **`InjectedUser` is exported from `@acme/trpc` and imported like any other
   type**: `{ id: string; role?: Roles; email?: string }`. `email` is optional
-  because the slim apps inject `{ id: 'local', role: 'admin' }` and drop billing
-  entirely ([ADR 0010](0010-slim-no-auth-apps.md)).
+  because an app running without a provider injects
+  `{ id: 'local', role: 'admin' }` and drops billing entirely.
 - **Both augmentation files are deleted**, `@acme/billing`'s `src/global.d.ts`
   and `@acme/auth`'s `src/types/globals.d.ts`, along with the comments in three
   files warning that they had to be kept in agreement by hand, and the `| null`

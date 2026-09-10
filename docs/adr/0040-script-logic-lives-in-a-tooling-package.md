@@ -52,7 +52,7 @@ not a closed list.
    `env-pull.sh`, `env-push.sh`, and `format-staged.sh` from the lefthook
    pre-commit hook. Plus the secrets preamble and `secrets-backends/` adapters
    the two `env-*` scripts dispatch through
-   ([ADR 0001](0001-pluggable-secrets-sync.md) — the adapter seam is shell
+   ([ADR 0001](../../tooling/secrets-sync/docs/adr/0001-pluggable-secrets-sync.md) — the adapter seam is shell
    because a consumer extending it writes shell).
 2. **The install-time helpers** — `sync-claudeignore.mjs`,
    `link-worktree-env.mjs` and `link-agent-docs.sh`, which run on `postinstall`,
@@ -98,7 +98,7 @@ to have.
 
 The boundary rule was never the reason a value had to be _named_. Provisioning
 is now discovered: each package declares its own contribution, and the graph
-loads what the closure holds ([ADR 0009](0009-graph-derived-dev-infra.md)).
+loads what the closure holds ([ADR 0009](../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)).
 Both files shrank to a call over app names, importing nothing from `packages/`
 — so the shim half of this decision is spent, while its point stands: the logic
 lives in a package that can be tested, and nothing under `scripts/` decides

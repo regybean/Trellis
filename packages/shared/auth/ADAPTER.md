@@ -2,7 +2,7 @@
 
 Identity, behind a seam. Your app builds the instance, mounts its routes and
 maps its user onto the neutral principal features read
-([ADR 0003](../../../docs/adr/0003-framework-agnostic-auth-seam.md)). No feature
+([ADR 0003](docs/adr/0003-framework-agnostic-auth-seam.md)). No feature
 imports this package.
 
 ## What it gives you

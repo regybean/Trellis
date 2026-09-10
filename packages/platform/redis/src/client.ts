@@ -22,7 +22,7 @@ const namespace = env.NEXT_PUBLIC_WEBAPP;
  * A Redis key or pub/sub channel that has already been namespaced for this app.
  * Branded so the client below accepts *only* keys built by `nsKey` — a raw
  * string is a compile error, not a silently-unprefixed cross-app collision.
- * See docs/adr/0008-per-app-redis-namespace.md.
+ * See ../docs/adr/0002-per-app-redis-namespace.md.
  */
 export type NamespacedKey = string & { readonly __brand: 'NamespacedKey' };
 

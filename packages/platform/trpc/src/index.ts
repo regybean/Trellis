@@ -14,8 +14,8 @@ import { env } from './env';
 /**
  * The session seam. The *app's* adapter resolves whoever its auth provider says
  * is calling and injects the result here; this package names no provider and
- * depends on no auth SDK. See docs/adr/0003-framework-agnostic-auth-seam.md and
- * docs/adr/0006-entitlements-injection-seam.md.
+ * depends on no auth SDK. Billing rides the same shape: the app injects an
+ * entitlements provider, and this package depends only on the neutral contract.
  */
 
 /** The role union `adminProcedure` gates on. Declared once, here. */

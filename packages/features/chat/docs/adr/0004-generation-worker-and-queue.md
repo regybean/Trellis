@@ -2,7 +2,7 @@
 
 **Status:** accepted
 
-**Related:** [ADR 0002](0002-mastra-memory-owns-conversation-persistence.md) (Mastra Memory owns persistence), [ADR 0003](0003-conversation-ownership-as-middleware.md) (ownership middleware), [ADR 0008](../../../../../docs/adr/0008-per-app-redis-namespace.md) (per-app Redis namespace)
+**Related:** [ADR 0002](0002-mastra-memory-owns-conversation-persistence.md) (Mastra Memory owns persistence), [ADR 0003](0003-conversation-ownership-as-middleware.md) (ownership middleware). The queue's keyspace is partitioned per app by the same app-identity value every shared datastore uses — the Redis package owns that construct.
 
 ## Context
 

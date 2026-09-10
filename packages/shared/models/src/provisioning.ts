@@ -9,9 +9,9 @@
  * override would be the wrong input — [@acme/env ADR 0001](../../../platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6):
  *
  *   - whether the service is `needed` at all. The graph only records that a
- *     package does LLM/embeddings ([ADR 0009](../../../../docs/adr/0009-graph-derived-dev-infra.md)); which provider serves that is
- *     this slice's authored choice, so a selection on Bedrock/OpenRouter prunes
- *     the container away.
+ *     package does LLM/embeddings; which provider serves that is this slice's
+ *     authored choice, so a selection on Bedrock/OpenRouter prunes the
+ *     container away.
  *   - the port to publish it on and the models to pull, when it is.
  *
  * The port is parsed back out of the base URL that carries it rather than stored

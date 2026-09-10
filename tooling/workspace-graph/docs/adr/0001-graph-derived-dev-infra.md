@@ -17,12 +17,12 @@ infra is the **union of `acme.infra` over its transitive workspace closure**
 (`scripts/resolve-infra.ts`, via `pnpm --filter "<app>..." ls`). Each entry is a
 Compose **profile** of the same name in `deploy/compose.yaml`.
 
-This follows the slice contract ([ADR 0010](0010-slim-no-auth-apps.md)): infra need
-travels with the package that owns it, down the dependency edges, exactly like code.
-A slim app that doesn't depend on `@acme/billing` derives no `billing` service —
-**because the dependency graph already encodes that**, not because anyone maintained
-a parallel list. Adding an app needs zero change here; adding infra to a feature is
-one line in that feature's `package.json`.
+This follows the slice contract: infra need travels with the package that owns
+it, down the dependency edges, exactly like code. An app that doesn't depend on
+the billing slice derives no `billing` service — **because the dependency graph
+already encodes that**, not because anyone maintained a parallel list. Adding an
+app needs zero change here; adding infra to a feature is one line in that
+feature's `package.json`.
 
 **There is no `core` / always-on set.** Nothing is assumed running. An app whose
 closure declares no infra starts none — which is the point: it keeps any future
@@ -41,11 +41,11 @@ closure** and discovered from it, under two more manifest keys beside
   authors, and `needed: false` when its own configuration does not want the
   service after all. So `@acme/billing` drops the `billing` (localstripe)
   profile unless the authored Stripe connection is localstripe — real Stripe
-  needs no local container
-  ([@acme/billing ADR 0001](../../packages/features/billing/docs/adr/0001-localstripe-dev-billing.md)) — and `@acme/models` drops `ollama`
-  unless the chat or embed role runs on it, the graph having recorded only that
-  a package does LLM/embeddings
-  ([@acme/models ADR 0001](../../packages/shared/models/docs/adr/0001-multi-provider-models.md)).
+  needs no local container — and `@acme/models` drops `ollama` unless the chat
+  or embed role runs on it, the graph having recorded only that a package does
+  LLM/embeddings. Each of those vetoes is that package's own decision, recorded
+  in its own ADRs; this one only records that the veto is declared rather than
+  guessed here.
 - `acme.seeds` maps a profile to a `package.json` script in the same package,
   run once that profile is up. `@acme/billing` declares its localstripe seed
   there, which is why no script body names it.
@@ -54,9 +54,9 @@ Each module reads its own slice's `development-profile.ts` — the authored valu
 in a module that runs no `createEnv` call — rather than its `env.ts`.
 Provisioning wants what version control declares and never an operator's
 override, and importing `env.ts` would evaluate the whole slice's env just to
-read a mode
-([@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6). The resolver runs via `pnpm exec tsx`
-(not `node`) so those modules load.
+read a mode — one `createEnv` call per slice, validated at import, is the env
+package's decision and its ADRs are where that is written down. The resolver
+runs via `pnpm exec tsx` (not `node`) so those modules load.
 
 The model stays uniform — **graph = candidate set, the closure's packages =
 what to start and with what** — and it now holds for a workspace that took a

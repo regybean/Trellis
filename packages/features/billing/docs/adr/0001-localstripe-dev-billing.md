@@ -44,8 +44,9 @@ load-bearing:
    whose IDs match `STRIPE_STANDARD_PLAN_ID` / `STRIPE_PRO_PLAN_ID`.
 4. **Seeded automatically, granted on demand.** `pnpm infra:up` brings up the
    compose profiles the dependency graph asks for — `billing` among them, because
-   this package declares it in `acme.infra` ([ADR 0009](../../../../../docs/adr/0009-graph-derived-dev-infra.md))
-   — waits for the localstripe container to be healthy, then runs
+   this package declares it in `acme.infra`, and dev infra is the union of that
+   key over an app's closure — waits for the localstripe container to be
+   healthy, then runs
    `seed:localstripe` (idempotent — localstripe state is in-memory, so it
    re-seeds on every start). The seed creates the two products + plans (with GBP
    amounts mirroring `pricing-data.ts`: Standard £30, Pro £80) and registers the
@@ -101,8 +102,8 @@ load-bearing:
   it _without_ an environment and declares the `billing` compose profile
   unneeded unless the authored mode is `localstripe` — real Stripe needs no
   local container. `pnpm dev` and `pnpm infra:up` discover that, along with the
-  seed the profile needs, which this package declares in its `acme.seeds`
-  ([ADR 0009](../../../../../docs/adr/0009-graph-derived-dev-infra.md)).
+  seed the profile needs, which this package declares in its `acme.seeds` —
+  both read off the manifest, never hardcoded in a script.
 - New compose service `localstripe` (image pinned, `billing` profile, python3
   healthcheck — the base image has no curl/wget). `pnpm infra:up` is a script
   (`scripts/infra-up.sh`) that seeds after the container is healthy.

@@ -3,7 +3,7 @@
 A type and a no-op implementation. It is the seam that lets a feature ask "may
 this principal do this, and what does it cost" without knowing whether your app
 has billing at all
-([ADR 0006](../../../docs/adr/0006-entitlements-injection-seam.md)).
+([ADR 0001](docs/adr/0001-entitlements-injection-seam.md)).
 
 ## What it gives you
 
@@ -24,7 +24,7 @@ has billing at all
 - Choose a provider **once**, in your app's composition root
   (`src/server/deps.ts`). It is required with no default, so a deployment has to
   state whether it meters or not
-  ([ADR 0006](../../../docs/adr/0006-entitlements-injection-seam.md)).
+  ([ADR 0001](docs/adr/0001-entitlements-injection-seam.md)).
 - Import it from there in your route seam
   ([trpc-route.md](../../../docs/mounting/trpc-route.md)) and your worker
   entrypoint ([worker.md](../../../docs/mounting/worker.md)). A worker holding a

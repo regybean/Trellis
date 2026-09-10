@@ -1,8 +1,8 @@
 # CI build stubs for infrastructure-client env vars
 
-**Status:** amended by ../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md
+**Status:** amended by ../../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md
 
-> **Rationale updated by [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §3.** The
+> **Rationale updated by [@acme/env ADR 0001](../../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §3.** The
 > stub table below still holds, but not for the reason given here. An
 > `IS_NEXT_BUILD` run no longer skips coercion: `withProfiles` always builds and
 > parses the schema, relaxing only the keys no profile authors. So the stubs no
@@ -63,7 +63,7 @@ discriminated union — and both carry an authored profile value, so by the rule
 in the blockquote above they need no stub. (`OLLAMA_CHAT_MODEL` /
 `OLLAMA_EMBED_MODEL` still exist, but as values `@acme/models` _supplies_ for
 the Ollama pull list in compose, from its own `src/provisioning.ts`
-([ADR 0009](0009-graph-derived-dev-infra.md)); no slice's `createEnv` reads
+([@acme/workspace-graph ADR 0001](../../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)); no slice's `createEnv` reads
 them, so no constructor guard depends on them at import.)
 
 These stubs exist to satisfy Mastra/AI-SDK constructor guards, which run at module
@@ -92,4 +92,4 @@ vars only, so CI step env vars are silently dropped unless listed there.
   its required env var must also be added to the CI stub set. Omitting it produces the
   same class of error (constructor throws, build fails) making it easy to detect.
 - The stub vars are only present in `typecheck` and `build` CI jobs; test jobs still use
-  real env from testcontainers ([ADR 0014](0014-tests-validate-real-env.md)).
+  real env from testcontainers ([ADR 0014](../../../docs/adr/0014-tests-validate-real-env.md)).
