@@ -273,7 +273,7 @@ overrides:
 
 patchedDependencies:
   '@tanstack/query-persist-client-core@5.90.2':
-    hash: 2478eb0fdf0d403a817a00788f05b505e10e7afc59e1f5e10d8e9193a05687e4
+    hash: 233c344a0216678b02044b70d55f1224a7e51b53d36cccd1c33f7903a7fc034d
     path: patches/@tanstack__query-persist-client-core@5.90.2.patch
 
 importers:
@@ -1859,7 +1859,7 @@ importers:
     dependencies:
       '@tanstack/query-persist-client-core':
         specifier: 'catalog:'
-        version: 5.90.2(patch_hash=2478eb0fdf0d403a817a00788f05b505e10e7afc59e1f5e10d8e9193a05687e4)
+        version: 5.90.2(patch_hash=233c344a0216678b02044b70d55f1224a7e51b53d36cccd1c33f7903a7fc034d)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.16(react@19.2.3)
@@ -15937,7 +15937,7 @@ snapshots:
 
   '@tanstack/query-core@5.90.16': {}
 
-  '@tanstack/query-persist-client-core@5.90.2(patch_hash=2478eb0fdf0d403a817a00788f05b505e10e7afc59e1f5e10d8e9193a05687e4)':
+  '@tanstack/query-persist-client-core@5.90.2(patch_hash=233c344a0216678b02044b70d55f1224a7e51b53d36cccd1c33f7903a7fc034d)':
     dependencies:
       '@tanstack/query-core': 5.90.16
 

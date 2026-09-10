@@ -8,7 +8,11 @@
  * Offending references are built rather than written as literals — this file is
  * scanned by the real gate run too.
  */
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
+
+import { repoRoot } from '@acme/workspace-graph';
 
 import { NOT_DISTRIBUTED, PORTABLE_HELP } from '../../../../portable';
 import {
@@ -44,6 +48,33 @@ const clean = (): Record<string, string> => ({
   [`${UI}/src/index.ts`]: `// See ../${ADR_DIR}/${adr(1, 'a-ui-decision')}.\nexport const x = 1;\n`,
   'apps/web/package.json': manifest({ name: '@fixture/web' }),
 });
+
+/**
+ * The paths `bank.paths.json` withholds from every consumer.
+ *
+ * Narrowed rather than asserted: a field that is not the shape expected reads
+ * as absent, so the assertion below fails on a missing path with its own
+ * diagnostic instead of on a `TypeError` from a cast that was never true.
+ */
+function withheldPaths(inventory: string) {
+  const parsed: unknown = JSON.parse(readFileSync(inventory, 'utf8'));
+  const exclude =
+    typeof parsed === 'object' && parsed !== null && 'exclude' in parsed
+      ? parsed.exclude
+      : undefined;
+  if (!Array.isArray(exclude)) return new Set<string>();
+
+  return new Set(
+    exclude.flatMap((entry: unknown) =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      'path' in entry &&
+      typeof entry.path === 'string'
+        ? [entry.path]
+        : [],
+    ),
+  );
+}
 
 const check = (files: Record<string, string>, args: string[] = []) =>
   runCheck('check-portable', [
@@ -120,6 +151,19 @@ describe('a repo violating each rule once', () => {
 
     expect(stdout).toContain('carry no reference that only resolves here');
   });
+
+  it('reads a patch body, which a package manager injects into a dependency', () => {
+    // A patch is distributed content twice over: it ships, and its added lines
+    // end up in a consumer's node_modules. An extension left off the scanned
+    // list is an exemption nobody wrote down, which is how this one went
+    // unnoticed while carrying both a bare citation and an issue number.
+    const { stderr } = check({
+      ...clean(),
+      'patches/dep@1.0.0.patch': `+// ${bareRef(1)}, ${issueRef(126)}.\n`,
+    });
+
+    expect(stderr).toContain('patches/dep@1.0.0.patch:1');
+  });
 });
 
 describe('a report too long for one screen', () => {
@@ -145,5 +189,19 @@ describe('the repo it lives in', () => {
 
     expect(status).toBe(0);
     expect(stdout).toContain('carry no reference that only resolves here');
+  });
+
+  it('exempts only files the bank actually withholds', () => {
+    // `NOT_DISTRIBUTED` is a constant here on purpose — the rules must hold in
+    // a consumer repo, which has no inventory to read. The cost is that it
+    // states an answer owned by `bank.paths.json`, so this is the assertion
+    // that catches the two drifting apart: move an exempt file into a bundle
+    // and the exemption becomes a hole in the rule instead of a statement
+    // about content nobody receives.
+    const withheld = withheldPaths(join(repoRoot(), 'bank.paths.json'));
+
+    expect([...NOT_DISTRIBUTED].filter((path) => !withheld.has(path))).toEqual(
+      [],
+    );
   });
 });

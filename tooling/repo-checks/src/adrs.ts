@@ -55,10 +55,19 @@ export const CONTEXT_MAP = 'CONTEXT-MAP.md';
 /** `0001-slug.md` — the only shape a number can be read off. */
 const ADR_FILENAME = /^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
 
-/** Files whose text can carry an ADR citation. Binaries and lockfiles cannot. */
+/**
+ * Files whose text can carry an ADR citation. Binaries and lockfiles cannot.
+ *
+ * An extension missing from this set is a silent exemption, so the set is the
+ * census of every text extension the repo tracks rather than the ones that
+ * came to mind. `patch` is the one that proves the point: a patch body is a
+ * comment a package manager injects into a dependency, so it is distributed
+ * content twice over, and it sat unscanned while carrying a bare citation.
+ */
 const TEXT_EXTENSIONS = new Set([
   'bash',
   'cjs',
+  'css',
   'cts',
   'hbs',
   'js',
@@ -67,8 +76,10 @@ const TEXT_EXTENSIONS = new Set([
   'jsx',
   'md',
   'mdx',
+  'mermaid',
   'mjs',
   'mts',
+  'patch',
   'sh',
   'toml',
   'ts',
