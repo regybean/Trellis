@@ -60,7 +60,7 @@ narrows Mastra's thread onto it, so `StorageThreadType` never crosses the seam.
   question. The adapter is additive; the rule is the asset.
 - **Mastra stays contained.** `OwnedThread` exposes only the fields callers
   consume, so replacing the memory store means satisfying one small interface —
-  the containment ADR 0001 relies on.
+  the containment [ADR 0001](0001-mastra-rag-and-memory.md) relies on.
 
 The cost: `@acme/rag` ships a transport-shaped export, so the "no framework
 specifics in shared" rule has a documented exception rather than being absolute.

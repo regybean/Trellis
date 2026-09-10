@@ -35,8 +35,8 @@ import {
   createTestUserId,
 } from '../../utils/fixtures';
 
-// CREDITS_PER_TURN has one origin in env (@acme/env ADR 0001) — the same value the
-// worker's refund charges, read here to assert the refund amount.
+// CREDITS_PER_TURN has one origin in env — the same value the worker's refund
+// charges, read here to assert the refund amount.
 const { CREDITS_PER_TURN } = env;
 
 interface RefundCall {

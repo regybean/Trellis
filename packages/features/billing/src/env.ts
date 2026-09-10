@@ -12,7 +12,8 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
 /**
  * How the Stripe SDK connects — a discriminated union so illegal states are
  * unrepresentable. `apiBase` exists *only* in `localstripe` mode (local dev
- * against the fake stateful Stripe server, @acme/billing ADR 0001); the `real` variant
+ * against the fake stateful Stripe server,
+ * [ADR 0001](../docs/adr/0001-localstripe-dev-billing.md)); the `real` variant
  * carries no URL at all, so a staging/production build can never hold a stray
  * localhost address.
  *
@@ -31,9 +32,9 @@ export const stripeConnectionSchema = z.discriminatedUnion('mode', [
 export type StripeConnection = z.output<typeof stripeConnectionSchema>;
 
 /**
- * Billing's environment, declared once (@acme/env ADR 0001) — the slice's browser-safe
- * values, its server-only values and its secrets in one `createEnv` call,
- * composed into an app's env graph via `extends: [billingEnv(), …]`.
+ * Billing's environment, declared once — the slice's browser-safe values, its
+ * server-only values and its secrets in one `createEnv` call, composed into an
+ * app's env graph via `extends: [billingEnv(), …]`.
  *
  * **`shared`** — browser-safe and read on both sides: the plan/product ids, the
  * (publishable, not secret) Stripe key and the billing-portal URL. They are
@@ -50,17 +51,18 @@ export type StripeConnection = z.output<typeof stripeConnectionSchema>;
  * - the checkout redirect paths: app- and env-invariant path+query. Only the
  *   *origin* varies per app, and that is threaded in at the app edge.
  * - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`: the two secrets. The
- *   development profile authors localstripe's fixed placeholders — documented as
- *   not real secrets and gitleaks-allowlisted (ADR 0001) — so a clean checkout
- *   runs billing against the fake server with no `.env` rows; the
+ *   development profile authors localstripe's fixed placeholders — documented
+ *   as not real secrets and gitleaks-allowlisted
+ *   ([ADR 0001](../docs/adr/0001-localstripe-dev-billing.md)) — so a clean
+ *   checkout runs billing against the fake server with no `.env` rows; the
  *   staging/production overlays **unauthor** them, which makes them demanded
  *   secrets on those targets by the same mechanical rule as every other secret.
  *
- * Every key is in `runtimeEnv`, so every key is env-overridable (@acme/env ADR 0001 §4) —
- * which for this slice is the difference between "point a deploy at a different
- * Stripe account" and "edit a profile, commit, rebuild the image". Override
- * reaches the *server*; a browser resolves `shared` keys from the authored
- * profile, because a browser has no environment to be overridden from.
+ * Every key is in `runtimeEnv`, so every key is env-overridable — which for
+ * this slice is the difference between "point a deploy at a different Stripe
+ * account" and "edit a profile, commit, rebuild the image". Override reaches
+ * the *server*; a browser resolves `shared` keys from the authored profile,
+ * because a browser has no environment to be overridden from.
  */
 export function billingEnv() {
   return createEnv({
@@ -125,12 +127,12 @@ export function billingEnv() {
 export const env = billingEnv();
 
 /**
- * The single env→`PlanIds` mapper (@acme/env ADR 0001). Every edge that needs the
- * product→tier plan ids — the tRPC route, the tRPC context, the generation
- * workers, and `usePricing` — threads its values through here rather than each
- * hand-rolling `{ standardPlanId, proPlanId }` (a data clump). Adding a plan
- * touches this mapper alone. Shape matches `@acme/subscriptions`' `PlanIds`,
- * consumed by `createSubscriptionsEntitlements` / `buildPricingPlans`.
+ * The single env→`PlanIds` mapper. Every edge that needs the product→tier plan
+ * ids — the tRPC route, the tRPC context, the generation workers, and
+ * `usePricing` — threads its values through here rather than each hand-rolling
+ * `{ standardPlanId, proPlanId }` (a data clump). Adding a plan touches this
+ * mapper alone. Shape matches `@acme/subscriptions`' `PlanIds`, consumed by
+ * `createSubscriptionsEntitlements` / `buildPricingPlans`.
  *
  * It takes its values rather than reading `env` directly because both sides call
  * it: a server edge passes this slice's `env`, and `usePricing` passes what

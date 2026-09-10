@@ -1,5 +1,5 @@
 /**
- * PricingPage — integration/components (ADR 0018).
+ * PricingPage — integration/components.
  *
  * The real tRPC client + real usePricing hook run through a real QueryClient
  * with the network faked at the HTTP boundary via MSW (trpcMsw). The viewer's

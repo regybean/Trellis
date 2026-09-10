@@ -4,8 +4,7 @@
  * Setup wizard — author a consumer's `bank.manifest.json` from a selection.
  *
  * This is the first command a repo adopting the bank runs. It writes one file
- * and stops: the manifest naming the packages and bundles you take
- * ([ADR 0039](../../../docs/adr/0039-the-selection-is-the-contract.md)). It never
+ * and stops: the manifest naming the packages and bundles you take. It never
  * copies anything, never writes into `packages/`, and never touches the working
  * tree beyond that one file. `bank:sync` moves files, so seeding a new repo and
  * updating an old one are the same code path and the first sync is exercised on
@@ -13,8 +12,8 @@
  *
  * It records the names you gave and nothing more. The transitive closure is
  * **not** expanded into `packages`, because the sync resolves it at the pinned
- * ref — expanding it here would put back the authoring-time snapshot ADR 0039
- * removed, correct the day it is written and stale on the next upstream
+ * ref — expanding it here would put back an authoring-time snapshot of the
+ * closure, correct the day it is written and stale on the next upstream
  * dependency edit. What it does do is resolve the closure once, before writing,
  * to check every name exists at `ref`: the same failure the sync would give,
  * moved to the point where it is cheap to fix.
@@ -553,7 +552,7 @@ async function authorManifest(root, options, sha, offer, confirm) {
       'Nothing has been copied. To take the files:',
       '',
       '  node tooling/bank/src/bank-sync.mjs',
-      '  git merge --allow-unrelated-histories vendor/trellis',
+      '  git merge --allow-unrelated-histories vendor/bank',
       '',
       'Then wire each package in by reading its ADAPTER.md.',
       '',

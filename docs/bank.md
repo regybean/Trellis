@@ -65,7 +65,7 @@ Three paths arrive as **seeds** rather than as shared code: the root
 `@acme/env` is a hard dependency of thirteen of the nineteen runtime packages, so
 excluding it makes nearly every selection fail to install with nothing to copy
 from — and the per-app part of env is the app's composition, which the bank never
-distributes, not this package ([@acme/env ADR 0001](../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md)).
+distributes, not this package.
 `theme.css` is the same shape one level down: `@acme/tailwind-config` is a hard
 dependency of every UI package, and there is no way to express _take the package
 but not one file_, because a resolved path is a prefix.
@@ -92,8 +92,8 @@ your tree the same way it resolves here, and a package's own ADRs are the only
 ADRs its own files cite
 ([ADR 0042](adr/0042-distributed-content-carries-no-local-only-reference.md)).
 
-What follows from that is what you will not find: no bare `ADR 0031` whose number
-means something else in your own `docs/adr/`, no `#126` pointing into a tracker
+What follows from that is what you will not find: no bare `ADR NNNN` whose number
+means something else in your own `docs/adr/`, no `#<n>` pointing into a tracker
 that is not yours, and no app or repo name outside a marked example. This
 document is the exception, because it is about consuming this bank and naming it
 is the point.
@@ -152,8 +152,7 @@ the paths as written — the two commands find their libs beside them.
 
 They need nothing installed. Plain node and git are enough, which is why setup
 works in a repo with no `node_modules`, and it is the constraint that keeps this
-package on `node:` builtins with no build step
-([its ADR 0001](../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)).
+package on `node:` builtins with no build step.
 `tooling/bank/src/bank-contribute.mjs` arrives with your first sync; you do not
 need it to pull.
 
@@ -268,7 +267,7 @@ the sync itself delivers:
 
 ```bash
 node tooling/bank/src/bank-sync.mjs
-git merge --allow-unrelated-histories vendor/trellis
+git merge --allow-unrelated-histories vendor/bank
 ```
 
 The root `package.json` arrives in that merge, so from the second sync on it is
@@ -317,12 +316,12 @@ names `secrets.config.sh` with nothing to copy from — write it from
 Updating is two commands, and they stay two commands forever:
 
 ```bash
-pnpm bank:sync                 # rewrites vendor/trellis; merges nothing
-git merge vendor/trellis       # your call, your conflicts
+pnpm bank:sync          # rewrites vendor/bank; merges nothing
+git merge vendor/bank   # your call, your conflicts
 ```
 
 `bank:sync` fetches the bank at `ref`, resolves your selection to paths **at that
-ref**, and rewrites your local `vendor/trellis` branch so its tree is bank@ref
+ref**, and rewrites your local `vendor/bank` branch so its tree is bank@ref
 filtered down to them and nothing else, committed on top of the previous vendor
 commit. Then it stops. It does not check anything out and does not touch your
 working tree or index, so it is safe to run on a dirty branch.
@@ -331,7 +330,7 @@ Resolving at the ref rather than at authoring time is what keeps the selection
 correct as the bank changes shape. A package that gains a dependency, moves
 directory or is renamed arrives right on the next sync, with nothing to edit. The
 vendor commit message records both what you selected and what it resolved to, so
-`git log vendor/trellis` says why a path is in your tree.
+`git log vendor/bank` says why a path is in your tree.
 
 A bundle is the exception, and it is the one worth knowing about: a bundle's
 paths are literal prefixes, so nothing derives them and a reorganisation upstream
@@ -342,13 +341,17 @@ same thing at both refs without refusing, so you see it before you bump `ref`.
 
 Three rules keep the mechanism working.
 
-- **`vendor/trellis` is pristine.** It holds upstream content only. Never commit
+- **`vendor/bank` is pristine.** It holds upstream content only. Never commit
   to it. Edit it and you have destroyed the merge base, which is the only thing
   it exists to be.
 - **Don't delete it.** It is state you cannot afford to lose. Recovery means
   re-syncing at the last ref you merged, then syncing forward again.
 - **Merge is yours.** The sync never merges, so nothing lands in your history
   without you running `git merge`.
+- **It used to be called `vendor/trellis`.** If you synced before the rename,
+  rename yours to match before the next sync — `git branch -m vendor/trellis vendor/bank`
+  — or the sync builds a fresh orphan branch and the merge base you already
+  have is stranded on the old one.
 
 To take a newer bank, bump `ref` in the manifest and run the same two commands.
 
@@ -419,6 +422,18 @@ Delete the ones you have no use for. They are seven lines in a file the bank
 treats as a seed, so deleting them conflicts only if the bank edits the same
 lines. Nothing else in the manifest depends on them.
 
+This table is the whole reason the manifest is allowed to name a Trellis app at
+all. `check:bank-tokens` otherwise rejects any distributed line naming this
+repo or one of its apps, and it makes exactly one line-level exception: a
+`scripts` entry in the root `package.json`. The grounds are that the entry _is_
+the whole reference — one line, in a file documented as yours to edit, listed
+here by name. A script _body_ gets no such exception, which is why
+`scripts/extract-app.sh` takes the app you mean as an argument and defaults to
+the first of your own `apps/` rather than to one of Trellis's. This section is
+where that exception is written down; the decision behind it is
+[ADR 0042](adr/0042-distributed-content-carries-no-local-only-reference.md), and
+the two checks that enforce it point back here rather than restating it.
+
 ## Reading and resolving a conflict
 
 Because the previous vendor commit is a genuine merge base, `git merge` replays
@@ -433,10 +448,10 @@ A conflict looks like any other:
 export const timeout = 30_000; // ours: raised for the slow ingest path
 =======
 export const timeout = 10_000; // theirs: bank@a1b2c3d4
->>>>>>> vendor/trellis
+>>>>>>> vendor/bank
 ```
 
-`HEAD` is your repo. `vendor/trellis` is the bank. Resolve it as you would any
+`HEAD` is your repo. `vendor/bank` is the bank. Resolve it as you would any
 merge:
 
 ```bash
@@ -470,7 +485,7 @@ your side:
 pnpm bank:sync --check
 ```
 
-It writes nothing. No commits, no move of `vendor/trellis`, no change to your
+It writes nothing. No commits, no move of `vendor/bank`, no change to your
 working tree. It fetches objects and reads refs, and that is all.
 
 ```
@@ -510,7 +525,7 @@ closure only moves when `ref` does — it is never news independent of being
 behind.
 
 It measures those modifications against the merge base of `HEAD` and
-`vendor/trellis`, the last vendor commit you actually merged. So a sync you have
+`vendor/bank`, the last vendor commit you actually merged. So a sync you have
 not merged yet does not show up as your drift.
 
 When everything is current:
@@ -525,7 +540,7 @@ Up to date with bank/2026-08-26 (a1b2c3d4) — nothing unpulled, no locally modi
 | ---- | -------------- | ---------------------------------------------------------------------------------------- |
 | `0`  | **up to date** | Nothing unpulled. Locally modified paths may still be reported. Those are yours to keep. |
 | `1`  | **error**      | Bad manifest, unreachable bank, or a `ref` that does not resolve.                        |
-| `2`  | **behind**     | The bank has commits you have not taken, or `vendor/trellis` is not at the pinned `ref`. |
+| `2`  | **behind**     | The bank has commits you have not taken, or `vendor/bank` is not at the pinned `ref`.    |
 
 Three outcomes, three codes, so any CI can gate on them.
 
@@ -545,7 +560,7 @@ on a rhythm, not on discovery.
 - **Accidental.** A local hack nobody remembers. Revert it and take the bank's
   version back.
 
-**`vendor/trellis` does not hold the pinned ref.** You changed your selection or
+**`vendor/bank` does not hold the pinned ref.** You changed your selection or
 `ref` without syncing — or the bank moved a path your selection covers. Run
 `pnpm bank:sync`.
 
@@ -569,7 +584,7 @@ order:
    This runs first, before anything is fetched or cloned, so a refusal reaches
    the network with nothing.
 2. **The base.** The patch is diffed against the merge base of `HEAD` and
-   `vendor/trellis`, the last vendor commit you actually merged. That commit
+   `vendor/bank`, the last vendor commit you actually merged. That commit
    records the bank sha it was built from, and the PR branch is cut from exactly
    that commit. So the patch applies to the bank by construction, and the PR
    shows your change and nothing else.
@@ -613,9 +628,8 @@ per-path question and it is not one this command can ask.
 **Empty.** Every consumer starts with `"contributable": []`, and that is the
 recommended day-one value rather than an oversight.
 
-[#219](https://github.com/regybean/Trellis/issues/219) named one candidate to
-seed the list with, `hooks/base-url.ts`. That file does not exist. The logic it
-referred to is now `getBaseUrl` inside
+One candidate was once named to seed the list with, `hooks/base-url.ts`. That
+file does not exist. The logic it referred to is now `getBaseUrl` inside
 [`packages/shared/hooks/src/create-feature-client.tsx`](../packages/shared/hooks/src/create-feature-client.tsx),
 a private function at the bottom of a 300-line factory. It cannot be contributed
 on its own. Allowlisting it means allowlisting a path that carries the whole
@@ -631,10 +645,10 @@ decided it is generic.
 ## Why no CI workflow ships with the bank
 
 `--check` is a command rather than a GitHub Actions workflow, and that is
-deliberate. [#219](https://github.com/regybean/Trellis/issues/219) originally
-asked for two CI jobs, but the known consumer runs on Azure DevOps, where GitHub
-workflow YAML is dead weight. Shipping a workflow that one consumer must delete
-and another must translate is worse than shipping neither.
+deliberate. Two CI jobs were originally asked for, but the known consumer runs on
+Azure DevOps, where GitHub workflow YAML is dead weight. Shipping a workflow
+that one consumer must delete and another must translate is worse than shipping
+neither.
 
 So the bank ships behaviour with documented exit codes and each consumer wires
 its own CI. Nothing was forgotten. Don't add a workflow here on the assumption

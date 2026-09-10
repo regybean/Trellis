@@ -1,5 +1,5 @@
 /**
- * UploadDocumentsButton — integration/components (ADR 0018).
+ * UploadDocumentsButton — integration/components.
  *
  * The button is UI-only: it drives the shared `useDocumentUpload` (via
  * `IngestUploadProvider`) that `IngestProgress` also reads, so a batch triggered

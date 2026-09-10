@@ -19,23 +19,23 @@ import '@testing-library/jest-dom';
 import '@acme/test-utils/jsdom';
 
 // jsdom ships no IndexedDB; `fake-indexeddb/auto` installs an in-memory one so
-// the query persister (@acme/hooks ADR 0001) can be exercised. A fresh factory per test
-// keeps persisted caches from leaking across cases.
+// the query persister can be exercised. A fresh factory per test keeps
+// persisted caches from leaking across cases.
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
-// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
-// msw-trpc can intercept. Env is real (validated by ../../env). We fake the
-// network at the HTTP boundary with MSW and assert what renders — never mock the
-// tRPC client, a feature hook, or react-toastify (ADR 0018).
+// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain
+// httpLink msw-trpc can intercept. Env is real (validated by ../../env). We
+// fake the network at the HTTP boundary with MSW and assert what renders —
+// never mock the tRPC client, a feature hook, or react-toastify.
 
 /**
- * Providers every chat frontend test renders under: the app's single QueryClient
- * (ADR 0036 — a feature provider renders none of its own, so a test has to mount
- * one exactly as an app does), the feature's tRPC provider, plus a real
+ * Providers every chat frontend test renders under: the app's single
+ * QueryClient (a feature provider renders none of its own, so a test has to
+ * mount one exactly as an app does), the feature's tRPC provider, plus a real
  * `<ToastContainer />` so the orphan-reconcile "credits refunded" toast is
- * asserted as DOM text (ADR 0018), never via a mocked `toast`.
+ * asserted as DOM text, never via a mocked `toast`.
  *
  * `AppQueryClientProvider` builds its client in `useState`, so each `render` /
  * `renderHook` gets its own — a fresh mount is a genuine cold cache and nothing
@@ -51,16 +51,16 @@ export const Providers = ({ children }: { children: ReactNode }) => (
 );
 
 /**
- * Providers with the query persister wired for a given per-user `scopeKey`
- * (@acme/hooks ADR 0001). Used by the offline-restore tests to prime and then cold-restore a
- * persisted cache; the default `Providers` passes no `scopeKey`, so persistence
- * stays off for every other test (network-only, unchanged).
+ * Providers with the query persister wired for a given per-user `scopeKey`.
+ * Used by the offline-restore tests to prime and then cold-restore a persisted
+ * cache; the default `Providers` passes no `scopeKey`, so persistence stays off
+ * for every other test (network-only, unchanged).
  *
- * This used to nest a second, persister-less `QueryClientProvider` between chat's
- * provider and the component, as a regression guard for the pinning that #82
- * needed. There is nothing left to guard: chat's queries carry their persister in
- * their own options now, and a nested client would be a bug in the test rather
- * than a hazard the feature has to survive.
+ * This used to nest a second, persister-less `QueryClientProvider` between
+ * chat's provider and the component, as a regression guard for the pinning the
+ * offline-read work needed. There is nothing left to guard: chat's queries
+ * carry their persister in their own options now, and a nested client would be
+ * a bug in the test rather than a hazard the feature has to survive.
  */
 export const ScopedProviders =
   (scopeKey: string) =>

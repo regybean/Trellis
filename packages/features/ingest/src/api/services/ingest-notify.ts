@@ -2,8 +2,8 @@ import { publish } from '@acme/notifications/server';
 
 // The `kind` the ingest completion notification carries — the open dispatch key
 // the app's renderer registry keys off (dotted `feature.event`, ADR: colon is
-// reserved for `nsKey` Redis segments). The client (#189) registers a renderer
-// for this exact string; an unregistered app falls back to the default toast.
+// reserved for `nsKey` Redis segments). The client registers a renderer for
+// this exact string; an unregistered app falls back to the default toast.
 export const INGEST_JOB_COMPLETE_KIND = 'ingest.job-complete';
 
 // One content-failed Upload in a settled Job's tally: the file plus why it failed.
@@ -23,7 +23,7 @@ export interface JobCompleteSummary {
   failed: JobFailure[];
 }
 
-// Ingest's typed one-line wrapper around the generic `publish` (@acme/notifications ADR 0001 — the
+// Ingest's typed one-line wrapper around the generic `publish` (the
 // notifications core owns the envelope, never the kinds; a feature owns its own
 // wrapper). Fired exactly once, on the settled path, by the processor.
 export function notifyJobComplete(userId: string, summary: JobCompleteSummary) {

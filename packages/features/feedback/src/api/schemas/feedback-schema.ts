@@ -5,12 +5,13 @@ import { z } from 'zod';
 import { env } from '../../env';
 
 // Message feedback is the first app-owned, Drizzle-managed table in the repo —
-// the concrete proof of the @acme/rag ADR 0001 ownership seam. It references Mastra-owned
+// the concrete proof of the ownership seam. It references Mastra-owned
 // identifiers (`messageId`, `threadId`) but holds NO foreign key to the
 // `mastra_*` tables: Mastra owns that DDL at runtime, drizzle-kit owns this
 // table, and the two never cross with a database-level constraint. Integrity
 // across the seam is enforced in the router (verify the thread is owned, verify
-// the message exists via the `@acme/rag` Drizzle mirror) rather than by Postgres.
+// the message exists via the `@acme/rag` Drizzle mirror) rather than by
+// Postgres.
 
 // Same per-app Postgres schema Mastra and the knowledge base namespace under
 // (NEXT_PUBLIC_WEBAPP). Declaring it here is idempotent — drizzle-kit dedupes by

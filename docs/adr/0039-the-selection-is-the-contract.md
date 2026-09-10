@@ -2,15 +2,13 @@
 
 **Status:** accepted
 
-> Implements [#267](https://github.com/regybean/Trellis/issues/267), and amends
-> [ADR 0037](0037-vendored-git-subset-three-way-merge.md) — the mechanism stands
-> unchanged; what a manifest holds and what `bank.paths.json` lists do not.
+> Amends [ADR 0037](0037-vendored-git-subset-three-way-merge.md) — the mechanism
+> stands unchanged; what a manifest holds and what `bank.paths.json` lists do not.
 >
-> It also shrinks [#240](https://github.com/regybean/Trellis/issues/240), the
-> setup wizard: with the package set derived and the closure resolved at sync
-> time, the wizard owns no closure resolver, no gate check and no `include`
-> authoring. What is left is a picker over a derived list that writes `packages`
-> and `bundles`.
+> It also shrinks the setup wizard: with the package set derived and the closure
+> resolved at sync time, the wizard owns no closure resolver, no gate check and no
+> `include` authoring. What is left is a picker over a derived list that writes
+> `packages` and `bundles`.
 
 [ADR 0037](0037-vendored-git-subset-three-way-merge.md) gave the bank a
 distribution mechanism and left two hand-written lists behind it. The bank listed
@@ -20,9 +18,9 @@ consumer listed the paths it took in its manifest's `include`.
 Both lists were wrong in the same way. `bank.paths.json`'s array was exactly the
 set the `pnpm-workspace.yaml` globs already matched, so it selected nothing and
 could only drift; a package added, moved or renamed left it stale, which is the
-failure the file was written to end (#254). And a consumer's `include` was a
-closure snapshotted at authoring time: the first time an upstream package gained
-a workspace dependency, the consumer's vendored tree stopped installing, and the
+failure the file was written to end. And a consumer's `include` was a closure
+snapshotted at authoring time: the first time an upstream package gained a
+workspace dependency, the consumer's vendored tree stopped installing, and the
 error arrived at `pnpm install` rather than at the manifest that caused it.
 
 ## Decision
@@ -32,17 +30,17 @@ consumer's `include` is resolved.
 
 **The bank derives its package set.** It is every workspace package the
 `pnpm-workspace.yaml` globs match, minus anything under `bank.paths.json`'s
-`exclude` — which is how `apps/*` stays out without anything naming it twice.
-The `packages` array is gone. `bank.paths.json` keeps the two things that cannot
-be derived: `bundles`, the named groups of content that cannot be a package
-because the tools that read it require it at a fixed repo-relative path, and
-`exclude`, the withheld paths with a reason each.
+`exclude` — which is how the app layer stays out without anything naming it
+twice. The `packages` array is gone. `bank.paths.json` keeps the two things that
+cannot be derived: `bundles`, the named groups of content that cannot be a
+package because the tools that read it require it at a fixed repo-relative path,
+and `exclude`, the withheld paths with a reason each.
 
 **A consumer's manifest records a selection**, never paths:
 
 ```json
 {
-  "upstream": "https://github.com/regybean/Trellis.git",
+  "upstream": "https://github.com/<owner>/<bank>.git",
   "ref": "bank/2026-08-26",
   "packages": ["@acme/billing"],
   "bundles": ["docs"],
@@ -117,9 +115,9 @@ against this one.
 ## Considered and rejected
 
 - **Keep `packages` and add an opt-out flag.** A flag would earn the array back,
-  but nothing needs one today: every workspace package outside `apps/*` is on
-  offer. A list kept for a hypothetical is a list that drifts for a certainty.
-  Add the flag when a package needs it, and the array with it.
+  but nothing needs one today: every workspace package outside the app layer is
+  on offer. A list kept for a hypothetical is a list that drifts for a
+  certainty. Add the flag when a package needs it, and the array with it.
 - **Resolve the closure at authoring time** (a wizard writing a flat `include`).
   That is the status quo with better ergonomics: correct the day it is written
   and stale on the next upstream dependency edit. Resolution has to happen at the

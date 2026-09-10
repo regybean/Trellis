@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Push each env file's secrets to the selected backend. ONLY sensitive keys
 # travel: a key is sensitive when <file>.example declares it empty and it is not
-# a NEXT_PUBLIC_ var (ADR 0001). Non-secret config never leaves the repo.
+# a NEXT_PUBLIC_ var. Non-secret config never leaves the repo.
 #
 # This script is the entry point and the prompts. What to send is decided by
 # @acme/secrets-sync — see scripts/lib/secrets-env.sh.

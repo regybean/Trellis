@@ -55,21 +55,22 @@ real `<ToastContainer />` in the DOM. This keeps one consistent rule ("assert
 what renders") rather than carving a mock-call exception that reopens the door
 the tRPC-client ban closes. Framework externals that genuinely can't be observed
 in jsdom — `next/navigation`, `@acme/auth` — remain mockable, mirroring the
-backend's blessed mock list (ADR 0014); prefer observable navigation
-(`<Link href>` in the DOM) over asserting an imperative `router.push`.
+backend's blessed mock list ([ADR 0014](0014-tests-validate-real-env.md));
+prefer observable navigation (`<Link href>` in the DOM) over asserting an
+imperative `router.push`.
 
 ## SSE subscriptions: assert the mutations, not the stream
 
-`@acme/chat`'s durable-stream flow (spec #44) splits a chat turn across a tRPC
+`@acme/chat`'s durable-stream flow splits a chat turn across a tRPC
 **subscription** (`chat.stream`, a pure SSE reader of a Redis Stream) and three
-**mutations** (`chat.send` / `chat.stop` / `chat.reconcileTurn`). The subscription
-is where this doctrine's HTTP-boundary fake stops working: **MSW cannot drive a
-tRPC SSE subscription in jsdom.** Under `NODE_ENV==='test'` the client routes
-subscriptions through `httpSubscriptionLink` (query/mutation still go through the
-MSW-interceptable `httpLink`), and an enabled reader only ever transitions
-`connecting → error` — it never delivers `onData` deltas/terminals or a clean
-`idle` close. So token append and the `done`/`cancelled`/`error` terminal
-outcomes are **not assertable** in a frontend test.
+**mutations** (`chat.send` / `chat.stop` / `chat.reconcileTurn`). The
+subscription is where this doctrine's HTTP-boundary fake stops working: **MSW
+cannot drive a tRPC SSE subscription in jsdom.** Under `NODE_ENV==='test'` the
+client routes subscriptions through `httpSubscriptionLink` (query/mutation still
+go through the MSW-interceptable `httpLink`), and an enabled reader only ever
+transitions `connecting → error` — it never delivers `onData` deltas/terminals
+or a clean `idle` close. So token append and the `done`/`cancelled`/`error`
+terminal outcomes are **not assertable** in a frontend test.
 
 The workaround follows the layer split the slice contract already draws:
 

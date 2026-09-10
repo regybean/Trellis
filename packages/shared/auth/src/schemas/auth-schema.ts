@@ -5,11 +5,12 @@ import { pgSchema, uniqueIndex } from 'drizzle-orm/pg-core';
  *
  * **Why a dedicated `auth` schema, not the per-app one.** Every other app-owned
  * table lives under `pgSchema(NEXT_PUBLIC_WEBAPP)` so the four apps sharing one
- * Postgres can't see each other's rows (ADR 0008). Identity is the deliberate
- * exception: a person signing in to `nextjs` and to `tanstack-start` is the same
- * person, and a per-app identity store would mean four rows, four password
- * hashes and four sessions for one human. The schema name is therefore a
- * constant, not derived from `NEXT_PUBLIC_WEBAPP`. See ADR 0002.
+ * Postgres can't see each other's rows. Identity is the deliberate exception: a
+ * person signing in to two of them is the same person, and a per-app identity
+ * store would mean four rows, four password hashes and four sessions for one
+ * human. The schema name is therefore a constant, not derived from
+ * `NEXT_PUBLIC_WEBAPP`. See
+ * [ADR 0002](../../docs/adr/0002-auth-tables-in-a-dedicated-schema.md).
  *
  * **Why hand-authored.** `@better-auth/cli generate` can emit `pgSchema()` (its
  * drizzle adapter takes a `schemaName`), but wiring a codegen step for four
@@ -58,9 +59,10 @@ export const authUser = authSchema.table('user', (t) => ({
 }));
 
 /**
- * Sessions are rows, not stateless cookies (ADR 0001). `token` is the opaque
- * value the session cookie carries; deleting the row revokes the session on the
- * next request. `impersonatedBy` is the admin plugin's.
+ * Sessions are rows, not stateless cookies
+ * ([ADR 0001](../../docs/adr/0001-self-hosted-better-auth.md)). `token` is the
+ * opaque value the session cookie carries; deleting the row revokes the session
+ * on the next request. `impersonatedBy` is the admin plugin's.
  */
 export const authSession = authSchema.table('session', (t) => ({
   id: t.text('id').primaryKey(),

@@ -14,22 +14,22 @@ import {
 /**
  * The feature's tRPC instance, built on the feature's own concrete context.
  *
- * The session is *injected* by the app at its edge (ADR 0003), so nothing here
- * imports an auth SDK. Procedures read the caller off `ctx.session.user`.
+ * The session is *injected* by the app at its edge, so nothing here imports an
+ * auth SDK. Procedures read the caller off `ctx.session.user`.
  *
  * Anything else a procedure needs per request is a field this feature adds to
  * its own context, which the app's resolver then supplies at the mount. Billing
  * is the worked example: `@acme/chat` and `@acme/billing` add an
  * `entitlements: EntitlementsProvider` because they meter and gate;
  * `@acme/feedback` and `@acme/ingest` add nothing and their context is exactly
- * `BaseContext` (#256, ADR 0006).
+ * `BaseContext`.
  */
 export type {{ pascalCase name }}Context = BaseContext;
 
 /**
  * The feature's Drizzle client, instrumented for tracing once at module load.
  * Routers import it directly — it is a module singleton, so threading it
- * through a middleware as `ctx.db` only bought a second name for it (#264).
+ * through a middleware as `ctx.db` only bought a second name for it.
  */
 export const db = createDb();
 
@@ -39,8 +39,7 @@ const t = initTRPC.context<{{ pascalCase name }}Context>().create(trpcConfig);
 
 // The shared middleware stack — telemetry span, timing log, and the two auth
 // gates — composed against this feature's concrete context. The bodies live
-// once in `@acme/trpc` as plain async helpers; only this wiring is per-feature
-// (#264).
+// once in `@acme/trpc` as plain async helpers; only this wiring is per-feature.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );

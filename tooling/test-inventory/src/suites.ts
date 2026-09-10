@@ -4,7 +4,7 @@
  *
  * The workspace itself is read through `@acme/workspace-graph` — the directory
  * list, the package walk and the token match are the same answers `pnpm dev`
- * gets, so `nextjs` means one app across every command that takes a target.
+ * gets, so a token names one app across every command that takes a target.
  */
 import { existsSync } from 'node:fs';
 import { basename, join } from 'node:path';
@@ -119,8 +119,8 @@ export function findSuites(
  * The packages a target token stands for: an app expands to its transitive
  * closure, anything else is just itself.
  *
- * Apps are checked first and by the shared matcher, so `nextjs` names the same
- * app `pnpm dev nextjs` starts. A token naming nothing, or naming two things,
+ * Apps are checked first and by the shared matcher, so a token names the same
+ * app `pnpm dev` starts with it. A token naming nothing, or naming two things,
  * is a usage error rather than an empty report — silently printing nothing for
  * a typo is the failure worth ruling out.
  *

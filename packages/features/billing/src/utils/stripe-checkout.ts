@@ -18,7 +18,7 @@ const DEFAULT_QUANTITY = 1;
 const SUBSCRIPTION_SEARCH_LIMIT = 1;
 
 // Build an absolute Stripe redirect URL from the app's own `origin` (threaded
-// from the app edge) and an authored, env-invariant path+query (@acme/env ADR 0001).
+// from the app edge) and an authored, env-invariant path+query.
 const checkoutUrl = (origin: string, path: string) =>
   new URL(path, origin).toString();
 
@@ -39,8 +39,7 @@ export async function getProductWithPrice(
 
         // localstripe (and legacy data) predates the Prices API: products carry
         // no default_price, only legacy Plans. Fall back to the product's plan,
-        // whose id is accepted as line_items[].price. No-op on real Stripe. See
-        // ADR-0003.
+        // whose id is accepted as line_items[].price. No-op on real Stripe.
         if (!defaultPriceId) {
           const plans = await stripe.plans.list({
             product: productId,

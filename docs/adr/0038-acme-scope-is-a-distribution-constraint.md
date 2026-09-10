@@ -14,10 +14,9 @@ on those lines, because upstream keeps editing files whose imports the consumer
 rewrote wholesale. The merge stops being worth running and the consumer is back
 to copy-and-own with extra ceremony.
 
-The divergence measured in
-[#219](https://github.com/regybean/Trellis/issues/219) was readable only because
-both repos happened to keep `@acme`. What it found was real semantic drift. Under
-a renamed scope the same measurement would have drowned in import churn.
+The divergence measured on the first consumer was readable only because both
+repos happened to keep `@acme`. What it found was real semantic drift. Under a
+renamed scope the same measurement would have drowned in import churn.
 
 ## Decision
 
@@ -71,9 +70,8 @@ save.
 
 - **`@acme` cannot double as a signal of anything else.** It names no org, client
   or product. That is a cost, and we accept it.
-- **Publishing to npm would need a real scope.** Out of scope by
-  [#219](https://github.com/regybean/Trellis/issues/219), and if it ever happens,
-  the published name and the workspace name are separable through a publish-time
-  alias rather than a repo-wide rename.
+- **Publishing to npm would need a real scope.** Out of scope here, and if it
+  ever happens, the published name and the workspace name are separable through
+  a publish-time alias rather than a repo-wide rename.
 - **A new consumer inherits the constraint on day one**, before it has anything
   to merge, which is the moment renaming still looks free and is most tempting.

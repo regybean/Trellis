@@ -51,7 +51,6 @@ jobs:
         # Stubs satisfy module-level infrastructure client constructors without
         # making real connections. IS_NEXT_BUILD skips T3 validation so these
         # bypass T3 entirely and only serve Mastra/AI SDK constructor guards.
-        # See ADR 0024.
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -170,7 +169,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build
-        # Stubs — see ADR 0024 and typecheck job above.
+        # Stubs — see the typecheck job above.
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -205,7 +204,8 @@ jobs:
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz gitleaks
           ./gitleaks git --no-banner --redact --config .gitleaks.toml .
 
-  # Dependency vulnerability audit — blocking gate on high/critical (ADR 0027)
+  # Dependency vulnerability audit — blocking gate on high/critical
+  # (../../docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)
   audit:
     runs-on: ubuntu-latest
     continue-on-error: false

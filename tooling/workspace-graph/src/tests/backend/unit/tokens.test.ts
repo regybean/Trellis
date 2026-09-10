@@ -15,8 +15,8 @@ const packages = workspacePackages(
   createWorkspaceFixture({
     globs: ['apps/*', 'packages/shared/*'],
     packages: {
-      'apps/nextjs': { name: '@fixture/nextjs' },
-      'apps/nextjs-slim': { name: '@fixture/nextjs-slim' },
+      'apps/web': { name: '@fixture/web' },
+      'apps/web-slim': { name: '@fixture/web-slim' },
       'packages/shared/ui': { name: '@fixture/ui' },
       'packages/shared/chat': { name: '@other/chat' },
       'packages/shared/chat-ui': { name: '@fixture/chat' },
@@ -26,13 +26,13 @@ const packages = workspacePackages(
 
 describe('matchToken', () => {
   it('resolves a full name, an unscoped tail and a directory to one package', () => {
-    const byFullName = matchToken('@fixture/nextjs', packages);
-    const byTail = matchToken('nextjs', packages);
-    const byDirectory = matchToken('nextjs-slim', packages);
+    const byFullName = matchToken('@fixture/web', packages);
+    const byTail = matchToken('web', packages);
+    const byDirectory = matchToken('web-slim', packages);
 
-    expect(byFullName?.name).toBe('@fixture/nextjs');
+    expect(byFullName?.name).toBe('@fixture/web');
     expect(byTail).toBe(byFullName);
-    expect(byDirectory?.name).toBe('@fixture/nextjs-slim');
+    expect(byDirectory?.name).toBe('@fixture/web-slim');
   });
 
   it('prefers an exact name over a tail another package shares', () => {

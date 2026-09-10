@@ -29,7 +29,7 @@ export function SignInForm({
 }: SignInFormProps) {
   // The rejected attempt, which only this component ever sees: it is set from
   // the caller's own resolution and cleared when a fresh attempt starts, so a
-  // previous rejection cannot outlive it (#239).
+  // previous rejection cannot outlive it.
   const [error, setError] = useState<string | null>(null);
 
   // TanStack Form takes the zod schema directly as a Standard Schema validator

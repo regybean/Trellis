@@ -1,5 +1,5 @@
 /**
- * The per-package test policy (ADR 0007, docs/TESTING.md).
+ * The per-package test policy (docs/TESTING.md).
  *
  * Every workspace package declares its test capability in package.json:
  *
@@ -24,8 +24,8 @@
  *      `integration/{hooks,components}/`.
  *   4. **Unit purity.** A unit test that reaches for `vi.mock` / `vi.spyOn` /
  *      `vi.fn` needs collaborators, so it is an integration test.
- *   5. **The frontend seam-mock ban** (ADR 0018). ESLint cannot carry this one:
- *      every `tests/` directory is globally ignored there, because tests read
+ *   5. **The frontend seam-mock ban.** ESLint cannot carry this one: every
+ *      `tests/` directory is globally ignored there, because tests read
  *      `process.env`.
  *
  * Each takes the values it reads and returns what is wrong. The rules used to
@@ -104,11 +104,11 @@ const BACKEND_SEGMENTS = [
 ];
 
 /**
- * The only folders a *frontend* test (`*.test.tsx`, under `tests/frontend/`) may
- * live in — the unit / integration(hooks·components) taxonomy from
- * docs/TESTING.md + ADR 0018. "integration" on the frontend means a React tree
- * wired to a real QueryClient with the network faked at the HTTP boundary (MSW);
- * there is no real-infra tier, so the term is weaker here than on the backend.
+ * The only folders a *frontend* test (`*.test.tsx`, under `tests/frontend/`)
+ * may live in — the unit / integration(hooks·components) taxonomy from
+ * docs/TESTING.md. "integration" on the frontend means a React tree wired to a
+ * real QueryClient with the network faked at the HTTP boundary (MSW); there is
+ * no real-infra tier, so the term is weaker here than on the backend.
  */
 const FRONTEND_SEGMENTS = [
   '/unit/',
@@ -120,10 +120,10 @@ const FRONTEND_SEGMENTS = [
 const MOCK_CALLS = ['vi.mock(', 'vi.spyOn(', 'vi.fn('];
 
 /**
- * Seams a frontend test must not mock (ADR 0018): the tRPC client, the
- * feature's own hooks, react-toastify. Fake the network at the HTTP boundary
- * (MSW) and assert what renders. Framework externals (`next/navigation`,
- * `@acme/auth`) stay mockable and aren't matched.
+ * Seams a frontend test must not mock: the tRPC client, the feature's own
+ * hooks, react-toastify. Fake the network at the HTTP boundary (MSW) and assert
+ * what renders. Framework externals (`next/navigation`, `@acme/auth`) stay
+ * mockable and aren't matched.
  */
 const FRONTEND_SEAM_MOCKS = [
   {
@@ -411,7 +411,7 @@ export function validateUnitPurity(
   return errors;
 }
 
-/** Rule 5: a frontend test never mocks a seam the feature owns (ADR 0018). */
+/** Rule 5: a frontend test never mocks a seam the feature owns. */
 export function validateFrontendSeamMocks(
   rel: string,
   files: readonly SourceFile[],
@@ -420,7 +420,7 @@ export function validateFrontendSeamMocks(
   for (const file of files) {
     for (const { re, why } of FRONTEND_SEAM_MOCKS) {
       if (re.test(file.text)) {
-        errors.push(`${rel}: frontend test ${why} (ADR 0018): ${file.rel}`);
+        errors.push(`${rel}: frontend test ${why}: ${file.rel}`);
       }
     }
   }

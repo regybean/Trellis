@@ -1,12 +1,12 @@
 # Git hooks managed by lefthook — https://lefthook.dev
 # Installed automatically via the root `prepare` script (`lefthook install`).
 #
-# Strategy (ADR 0020): commit *tidies*, it never *verifies*. Pre-commit runs only
-# deterministic, non-blocking auto-fixers on the staged files (Prettier) plus a
-# staged secret scan. Everything fail-able — ESLint, typecheck, tests,
-# boundaries, deps — runs once at the end of a task via `pnpm quality-gate`, and
-# again in CI as the hard backstop. This keeps commits sub-second and stops an
-# agent round-tripping on a hook that can block.
+# Strategy (docs/adr/0020-commit-tidies-gate-verifies.md): commit *tidies*, it
+# never *verifies*. Pre-commit runs only deterministic, non-blocking auto-fixers
+# on the staged files (Prettier) plus a staged secret scan. Everything fail-able
+# — ESLint, typecheck, tests, boundaries, deps — runs once at the end of a task
+# via `pnpm quality-gate`, and again in CI as the hard backstop. This keeps
+# commits sub-second and stops an agent round-tripping on a hook that can block.
 
 # format (Prettier, writes working tree) and gitleaks (reads the staged index)
 # are independent — formatting can't add or hide a secret — so they run in

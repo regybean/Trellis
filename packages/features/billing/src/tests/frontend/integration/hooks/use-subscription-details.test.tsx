@@ -1,5 +1,5 @@
 /**
- * useSubscriptionDetails — integration/hooks (ADR 0018).
+ * useSubscriptionDetails — integration/hooks.
  *
  * The hook is the frontend's contract: it reads the viewer's Subscription +
  * Credit usage, gated on the auth seam being loaded + signed in. Drive the real
@@ -7,7 +7,7 @@
  * (MSW), and assert the *returned state* — never mock trpc/react or spy on
  * procedures. Auth is not mocked either: `setAuth` renders the real
  * `AuthStatusProvider` the app mounts, because the seam is a plain context the
- * feature owns (ADR 0018).
+ * feature owns.
  */
 import { renderHook, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';

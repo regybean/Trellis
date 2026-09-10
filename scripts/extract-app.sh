@@ -13,20 +13,72 @@
 # Usage:
 #   scripts/extract-app.sh [APP] [OUT_DIR]
 #
-#   APP      Workspace package to keep (default: @acme/nextjs)
+#   APP      Workspace package to keep (default: the first buildable app
+#            under apps/)
 #   OUT_DIR  Output dir under out/ (default: repo-copy)
 #
 # Examples:
 #   scripts/extract-app.sh
-#   scripts/extract-app.sh @acme/tanstack-start tanstack-copy
+#   scripts/extract-app.sh @acme/<app> <app>-copy
+#
+# The default is *derived* from this workspace rather than written down. An app
+# is the one thing nothing outside this repo receives, so a default naming one
+# would be a command aimed at a package the reader may never have had; asking
+# the tree which apps exist answers correctly in any workspace, this one
+# included. Whichever it picks is logged before any work happens.
 
 set -euo pipefail
 
-APP="${1:-@acme/nextjs}"
-OUT_NAME="${2:-repo-copy}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+
+# The deployable apps, in directory order: the package name each manifest under
+# apps/ declares, keeping only those that declare a `build`. That test is what
+# separates an app from a directory that merely lives under apps/ holding docs
+# or app-layer decisions — pruning to one of those yields a tree with nothing to
+# build. Read with a JSON parser rather than a pattern over the text, so a
+# nested `"name"` cannot answer in the manifest's place; node is already a hard
+# requirement here (turbo).
+buildable_apps() {
+  node -e '
+    const { readdirSync, readFileSync } = require("node:fs");
+    const { join } = require("node:path");
+
+    const apps = join(process.argv[1], "apps");
+    let entries = [];
+    try {
+      entries = readdirSync(apps, { withFileTypes: true });
+    } catch {
+      process.exit(0);
+    }
+
+    for (const entry of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (!entry.isDirectory()) continue;
+      try {
+        const manifest = join(apps, entry.name, "package.json");
+        const { name, scripts } = JSON.parse(readFileSync(manifest, "utf8"));
+        if (name && scripts?.build) console.log(name);
+      } catch {
+        // Not an app: no manifest, or one that does not parse.
+      }
+    }
+  ' "$REPO_ROOT"
+}
+
+APP="${1:-}"
+if [[ -z "$APP" ]]; then
+  APP="$(buildable_apps | head -1)"
+  if [[ -z "$APP" ]]; then
+    echo "usage: scripts/extract-app.sh <app> [out-dir]" >&2
+    echo "no buildable app under $REPO_ROOT/apps — name the workspace package to keep" >&2
+    exit 1
+  fi
+  log "No app given; taking the first buildable one under apps/: $APP"
+fi
+
+OUT_NAME="${2:-repo-copy}"
 OUT_DIR="$REPO_ROOT/out/$OUT_NAME"
 
 # Caches / generated dirs we never want to copy. node_modules and lockfile-derived
@@ -41,8 +93,6 @@ RSYNC_EXCLUDES=(
   --exclude=.claude/
   --exclude=/out/
 )
-
-log() { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
 
 command -v rsync >/dev/null 2>&1 || { echo "rsync is required" >&2; exit 1; }
 
@@ -91,5 +141,5 @@ mv "$PRUNED" "$OUT_DIR"
 log "Done."
 echo
 echo "  Single-app slice for '$APP' -> out/$OUT_NAME"
-echo "  Next:  cd out/$OUT_NAME && pnpm install && pnpm build:nextjs"
+echo "  Next:  cd out/$OUT_NAME && pnpm install && pnpm turbo run build -F '$APP...'"
 echo

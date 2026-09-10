@@ -1,13 +1,12 @@
 // @ts-check
 /**
  * Shared machinery for the bank commands — `bank:sync` (pull) and
- * `bank:contribute` (back-flow). See
- * docs/adr/0037-vendored-git-subset-three-way-merge.md for the model and
- * docs/bank.md for the consumer-facing guide.
+ * `bank:contribute` (back-flow). See docs/bank.md for the model and the
+ * consumer-facing guide.
  *
  * Both commands read the same `bank.manifest.json`, talk to the same upstream,
- * and agree on the `vendor/trellis` commit format. That agreement is why this
- * file exists rather than each script carrying its own copy: the bank sha
+ * and agree on the `vendor/bank` commit format. That agreement is why this file
+ * exists rather than each script carrying its own copy: the bank sha
  * `bank:contribute` bases its patch on is the one `bank:sync` recorded.
  */
 import { execFileSync } from 'node:child_process';
@@ -15,7 +14,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export const MANIFEST = 'bank.manifest.json';
-export const VENDOR_BRANCH = 'vendor/trellis';
+export const VENDOR_BRANCH = 'vendor/bank';
 export const VENDOR_REF = `refs/heads/${VENDOR_BRANCH}`;
 
 /** Namespace the all-refs fallback fetch lands in, so it shadows nothing local. */
@@ -58,7 +57,7 @@ export function fail(message) {
  *
  * These reads only became visible when the bank moved into a package and fell
  * under the repo's `noUncheckedIndexedAccess`
- * ([ADR 0001](../../docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)).
+ * (../../docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md).
  *
  * @template T
  * @param {ArrayLike<T | undefined>} list
@@ -179,7 +178,7 @@ export function repoRelative(entry, what) {
  * @property {string[]} contributable Paths allowed to flow back upstream.
  *
  * A manifest records a **selection**, never paths: `bank:sync` resolves it to
- * the paths at the pinned ref (ADR 0039). `include` is not a field.
+ * the paths at the pinned ref. `include` is not a field.
  */
 
 /**
@@ -246,8 +245,9 @@ export function readManifestIfAny(root) {
     return value;
   };
 
-  // A manifest that still authors paths is a pre-ADR-0039 one. Naming the
-  // replacement beats resolving an empty selection and syncing almost nothing.
+  // A manifest that still authors paths predates the selection contract. Naming
+  // the replacement beats resolving an empty selection and syncing almost
+  // nothing.
   if ('include' in parsed)
     return fail(
       `${MANIFEST}: "include" is no longer authored — name what you take in "packages" (e.g. "@acme/ui") and "bundles", and bank:sync resolves the paths at "ref". See docs/bank.md.`,
@@ -372,9 +372,9 @@ export function fetchBank(upstream, ref) {
 }
 
 /**
- * The bank's canonical branch. ADR 0037 makes that whatever `HEAD` points at
- * upstream rather than a name hardcoded here. `HEAD` is itself a fetchable ref,
- * so it is a safe fallback when the server sends no symref.
+ * The bank's canonical branch: whatever `HEAD` points at upstream rather than a
+ * name hardcoded here. `HEAD` is itself a fetchable ref, so it is a safe
+ * fallback when the server sends no symref.
  *
  * @param {string} upstream
  * @returns {string}
@@ -387,10 +387,10 @@ export function defaultBranch(upstream) {
 }
 
 /**
- * The `vendor/trellis` commit message. It is the only record of which bank
- * commit a vendor commit holds, and `bank:contribute` reads it back out to base
- * its patch on that exact commit — so the two halves have to agree on the
- * format, and this is where they do.
+ * The `vendor/bank` commit message. It is the only record of which bank commit
+ * a vendor commit holds, and `bank:contribute` reads it back out to base its
+ * patch on that exact commit — so the two halves have to agree on the format,
+ * and this is where they do.
  *
  * It records the selection as well as the paths it resolved to, so a vendor
  * commit says both what was asked for and what arrived — which is the pair you

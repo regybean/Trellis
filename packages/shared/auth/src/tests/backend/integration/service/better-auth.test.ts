@@ -4,8 +4,11 @@
  * This is the demo for the self-hosted instance: a user can be created and
  * signed in with an email and password, a session resolves from the cookie, and
  * the hand-authored tables in the `auth` schema are what all of it reads and
- * writes. See ADR 0001 (the self-hosted provider) and ADR 0002 (the `auth`
- * schema).
+ * writes. See
+ * [ADR 0001](../../../../../docs/adr/0001-self-hosted-better-auth.md) (the
+ * self-hosted provider) and
+ * [ADR 0002](../../../../../docs/adr/0002-auth-tables-in-a-dedicated-schema.md)
+ * (the `auth` schema).
  */
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';

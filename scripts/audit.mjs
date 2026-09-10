@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-// Dependency-audit gate (ADR 0027): fail on high/critical advisories, honouring
-// the `auditConfig.ignoreGhsas` allowlist.
+// Dependency-audit gate
+// (../docs/adr/0027-dependency-audit-gate-and-suppression-policy.md): fail on
+// high/critical advisories, honouring the `auditConfig.ignoreGhsas` allowlist.
 //
 // Why this exists rather than a bare `pnpm audit --audit-level=high`: pnpm
 // filters allowlisted advisories out of the *report* but still counts them in

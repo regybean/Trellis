@@ -1,6 +1,6 @@
 # Agent workflow
 
-Trellis is built to be navigated and _extended_ by coding agents as much as by humans. This is the overview of how that works; each linked doc is the detail.
+This repo is built to be navigated and _extended_ by coding agents as much as by humans. This is the overview of how that works; each linked doc is the detail.
 
 ## The core loop: plan → build in parallel → human reviews
 

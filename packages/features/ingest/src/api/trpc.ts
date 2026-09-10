@@ -13,7 +13,7 @@ import {
  * Ingest's tRPC instance, built on its own concrete context: the neutral
  * `BaseContext` the app adapter injects, and nothing else. Ingest owns no
  * database and has no tier to gate on, so it names neither a Drizzle client nor
- * a billing type (#256, ADR 0006).
+ * a billing type.
  */
 export type IngestContext = BaseContext;
 
@@ -21,7 +21,7 @@ const t = initTRPC.context<IngestContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against ingest's own concrete context.
 // The bodies live once in `@acme/trpc` as plain async helpers; only this wiring
-// is per-feature (#264).
+// is per-feature.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );

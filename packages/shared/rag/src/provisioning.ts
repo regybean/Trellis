@@ -6,9 +6,9 @@
  *
  * The name comes from the **authored** development profile and never
  * `process.env`: this decides what compose PROVISIONS, so an operator's
- * override would be circular ([@acme/env ADR 0001](../../../platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6). Overriding
- * `DB_VECTOR_NAME` therefore points a *connection* at a different database; it
- * does not rename the one compose creates.
+ * override would be circular. Overriding `DB_VECTOR_NAME` therefore points a
+ * *connection* at a different database; it does not rename the one compose
+ * creates.
  */
 import { RAG_DEVELOPMENT_PROFILE } from './development-profile';
 

@@ -9,12 +9,12 @@ import { syncStripeDataToKV } from '../../utils/stripe';
  * Post-checkout RSC: syncs the buyer's Stripe data into Redis before the app
  * routes them on. Blessed Next-coupled adapter — exported only via
  * `@acme/billing/server-next` (the app-facing Next surface), never the neutral
- * seam, because of the `next/navigation` redirect. See ADR 0003.
+ * seam, because of the `next/navigation` redirect.
  *
  * The viewer's id arrives as a prop rather than being resolved here: auth
- * resolution is app-owned (ADR 0003), and the two full apps are on different
- * providers mid-migration (#218). A signed-out caller is the app's redirect to
- * make, so `userId` is required.
+ * resolution is app-owned, and the two full apps are on different providers
+ * mid-migration. A signed-out caller is the app's redirect to make, so `userId`
+ * is required.
  */
 export async function StripeSuccessHandler({ userId }: { userId: string }) {
   // Get the stripe customer ID from Redis

@@ -16,9 +16,9 @@ import { shouldTailNotifications } from '../../../../notifications-provider';
 // is the gate.
 //
 // It is asserted directly, and deliberately NOT at the HTTP boundary this suite
-// otherwise prefers (ADR 0018). The SSE transport never connects under jsdom, so
-// no request is made whether the tail is enabled or not: an "assert no request
-// was sent" test passes identically against the fixed and the unfixed component,
+// otherwise prefers. The SSE transport never connects under jsdom, so no
+// request is made whether the tail is enabled or not: an "assert no request was
+// sent" test passes identically against the fixed and the unfixed component,
 // which is the definition of a test that cannot fail. Verified by breaking the
 // gate on purpose and confirming the assertions below go red.
 
@@ -29,8 +29,8 @@ describe('notifications auth gate', () => {
 
   it('tails in an app with no auth provider', () => {
     // The slim apps mount this provider with no `AuthStatusProvider` and inject
-    // a synthetic session server-side (ADR 0010), so an absent provider means
-    // "always authorized" — it must NOT read as signed-out and go dark.
+    // a synthetic session server-side, so an absent provider means "always
+    // authorized" — it must NOT read as signed-out and go dark.
     expect(shouldTailNotifications(null)).toBe(true);
   });
 

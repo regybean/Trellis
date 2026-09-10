@@ -1,5 +1,5 @@
 /**
- * useRateLimitAdmin — integration/hooks (ADR 0018).
+ * useRateLimitAdmin — integration/hooks.
  *
  * The hook's contract: read a user's rate-limit status + Subscription, and
  * expose three Redis-manipulating actions (reset / maxOut / override) that each

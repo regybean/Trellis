@@ -15,17 +15,17 @@ import '@acme/test-utils/jsdom';
 // NODE_ENV='test' (from the shared vitest base env) makes the provider use a
 // plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
 // real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
-// Never vi.mock the tRPC client, a feature hook, or react-toastify (ADR 0018);
-// fake the network at the HTTP boundary via `trpcMsw` + `setupServer` instead.
+// Never vi.mock the tRPC client, a feature hook, or react-toastify; fake the
+// network at the HTTP boundary via `trpcMsw` + `setupServer` instead.
 
 /**
  * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
  * the `renderHook` wrapper for `integration/hooks` tests. If the feature toasts,
  * render a real `<ToastContainer />` here so tests assert the message in the DOM.
  *
- * `AppQueryClientProvider` is the app's single `QueryClient` (ADR 0036): the
- * feature's own provider renders none, so a test has to mount one exactly as an
- * app does. It builds its client in `useState`, so each render is a cold cache.
+ * `AppQueryClientProvider` is the app's single `QueryClient`: the feature's own
+ * provider renders none, so a test has to mount one exactly as an app does. It
+ * builds its client in `useState`, so each render is a cold cache.
  */
 export const Providers = ({ children }: { children: ReactNode }) => (
   <AppQueryClientProvider>

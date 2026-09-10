@@ -23,9 +23,9 @@ the origin.
 Two reasons, in order of weight.
 
 **It removes the largest divergence from the AIA fork.** `platform/trpc` and
-`shared/auth` are the two files AIA and Trellis both edited most (424 and 386
+`shared/auth` are the two files AIA and this repo both edited most (424 and 386
 changed lines), and both diverged for the same reason: AIA swapped Clerk for
-Better Auth and recorded it in its ADR 0031. Converging removes most of the
+Better Auth and recorded it in an ADR of its own. Converging removes most of the
 conflict surface before the first full sync, including the five Clerk catalog
 entries AIA has already deleted. The design is proven in a sibling repo rather
 than speculative.
@@ -62,7 +62,7 @@ Clerk's `CustomJwtSessionClaims`. The admin plugin puts `role` on the user row
 - **Keep Clerk.** Cheapest today, and it keeps the prebuilt sign-in/up UI that
   Better Auth does not ship. Rejected because it leaves the AIA divergence in the
   two hottest files and keeps a vendor mandatory in a template.
-- **Keycloak, or any external identity provider.** AIA needs one; Trellis does
+- **Keycloak, or any external identity provider.** AIA needs one; this repo does
   not, and it would add an infra service to the local compose stack for no gain
   here. Rejected — out of scope, not wrong.
 - **Copy AIA's implementation.** AIA's code is a reference to read, not content
@@ -77,27 +77,26 @@ Clerk's prebuilt components have no Better Auth equivalent. Sign-in, sign-up,
 the user button and the admin user-management widget all need authoring against
 `@acme/ui`, and `user-detailed-management.tsx` in particular reads Clerk's
 `emailAddresses` array, `imageUrl`, `publicMetadata` and `lastSignInAt`. That UI
-work, not the auth wiring, is the schedule risk in #218.
+work, not the auth wiring, is the schedule risk in this migration.
 
-**How that landed (#225):** cheaper than feared, because the answer was
-subtraction. The widgets were cut back to the columns Better Auth actually
-stores rather than reproducing Clerk's shape, so `emailAddresses` /
-`primaryEmailAddressId` collapsed to the single `email` that is the row's unique
-key, and `lastSignInAt` was dropped rather than tracked — the core schema
-records none, and inventing it meant writing session-history tracking to fill a
-line of UI. See [@acme/ui ADR 0001](../../../ui/docs/adr/0001-admin-user-widgets-to-ui.md).
+**How that landed:** cheaper than feared, because the answer was subtraction.
+The widgets were cut back to the columns Better Auth actually stores rather than
+reproducing Clerk's shape, so `emailAddresses` / `primaryEmailAddressId`
+collapsed to the single `email` that is the row's unique key, and `lastSignInAt`
+was dropped rather than tracked — the core schema records none, and inventing it
+meant writing session-history tracking to fill a line of UI.
 
 Existing Clerk users have no migration path. For a template repo that is
 probably a non-issue, but any deployment with real users needs its own plan.
 
-## Notes for the migration (#218)
+## Notes for the migration
 
 - `@acme/auth` stops shipping React components. The `'use client'` directive in
   `index.ts` exists solely to stop the Next RSC graph evaluating
   `@clerk/shared` → `swr`; it goes with the dependency.
 - The session type in `@acme/trpc` becomes `{ user: InjectedUser | null }`, so
   the provider is an app-side mapping. [ADR 0003](0003-framework-agnostic-auth-seam.md)
-  and [@acme/ui ADR 0001](../../../ui/docs/adr/0001-admin-user-widgets-to-ui.md) need updating for what the
-  seam actually covers and for the user shape the admin widgets read.
+  needs updating for what the seam actually covers, and the admin widgets in
+  `@acme/ui` for the user shape they read.
 - An app that mounts no provider should come through untouched — a useful check
   that the seam really is optional.

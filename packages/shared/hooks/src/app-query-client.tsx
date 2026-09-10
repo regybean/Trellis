@@ -9,12 +9,12 @@ import {
 } from '@tanstack/react-query';
 import SuperJSON from 'superjson';
 
-// The app's single `QueryClient` (ADR 0036). Every feature's queries live in it,
+// The app's single `QueryClient`. Every feature's queries live in it,
 // namespaced by tRPC's `keyPrefix`, so `useQuery` has exactly one client to
-// resolve to and a hook can never bind to the wrong one (#82). Feature-specific
-// cache policy — persister, `gcTime`, `staleTime` — is declared per query
-// (`usePersistedQueryOptions`), not here: this client is deliberately ignorant of
-// which features an app mounts.
+// resolve to and a hook can never bind to the wrong one. Feature-specific cache
+// policy — persister, `gcTime`, `staleTime` — is declared per query
+// (`usePersistedQueryOptions`), not here: this client is deliberately ignorant
+// of which features an app mounts.
 
 /**
  * Build an app's `QueryClient`. The only defaults it carries are transport-level
@@ -26,10 +26,11 @@ import SuperJSON from 'superjson';
  * - **`shouldDehydrateQuery` widened to `pending`.** Streamed SSR ships a query
  *   that hasn't settled yet and lets the client await it.
  *
- * No `staleTime`: react-query's default of `0` is the honest one here. A non-zero
- * app default would silently break every persisted query (ADR 0001 — the
- * persister only revalidates `if (query.isStale())`), and the queries that want a
- * longer window are better off saying so at the call site.
+ * No `staleTime`: react-query's default of `0` is the honest one here. A
+ * non-zero app default would silently break every persisted query
+ * ([ADR 0001](../docs/adr/0001-per-query-indexeddb-persister.md) — the
+ * persister only revalidates `if (query.isStale())`), and the queries that want
+ * a longer window are better off saying so at the call site.
  */
 export const createAppQueryClient = () =>
   new QueryClient({

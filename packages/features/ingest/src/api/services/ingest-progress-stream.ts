@@ -7,12 +7,12 @@ import { ingestProgressKey } from '../ingest-keys';
 import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 
 // The per-user progress Stream, on the shared `@acme/redis` durable-stream
-// primitive (#196). The primitive owns the transport — the XRANGE poll loop with
-// idle backoff, the abort-aware poll `delay`, the exclusive cursor, atomic
+// primitive. The primitive owns the transport — the XRANGE poll loop with idle
+// backoff, the abort-aware poll `delay`, the exclusive cursor, atomic
 // append-with-TTL — that ingest used to hand-copy alongside chat and
 // notifications. What stays here is ingest's own: the wire codec (encode/decode
 // off the one `ingestProgressEventSchema`) and the fresh-connect cursor-seed
-// policy. Its tunables are authored config in `env.ts` (@acme/env ADR 0001).
+// policy. Its tunables are authored config in `env.ts`.
 
 // A validated event → the flat field record `xAdd` writes. `stage` is always
 // emitted; `error` rides only on `failed`. Pure — the inverse of `decodeProgress`,
@@ -76,12 +76,13 @@ export function createIngestProgressWriter(userId: string, jobId: string) {
 export type IngestProgressEntry = StreamEntry<IngestProgressEvent>;
 
 // Page-scoped, always-on tail of a user's progress Stream — the ingest
-// cursor-seed policy made concrete. Reconnect resumes from tRPC's `lastEventId`;
-// a fresh mount from the snapshot's `lastId` (`sinceId`) so prior in-flight
-// progress survives a refresh (snapshot → resume-from-lastId, #194); absent both,
-// the stream head. Every branch is a REAL Redis id — there is NO `Date.now()`
-// cursor to skew against Redis' clock. No `keepGoing` (never self-closes — the
-// stream carries no per-Job terminal) and no `transform` (each stage is discrete).
+// cursor-seed policy made concrete. Reconnect resumes from tRPC's
+// `lastEventId`; a fresh mount from the snapshot's `lastId` (`sinceId`) so
+// prior in-flight progress survives a refresh (snapshot → resume-from-lastId);
+// absent both, the stream head. Every branch is a REAL Redis id — there is NO
+// `Date.now()` cursor to skew against Redis' clock. No `keepGoing` (never
+// self-closes — the stream carries no per-Job terminal) and no `transform`
+// (each stage is discrete).
 export function tailIngestProgress(
   userId: string,
   cursor: { lastEventId?: string | null; sinceId?: string | null },

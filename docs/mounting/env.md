@@ -1,10 +1,8 @@
 # Recipe: the env composition
 
 Each package declares its whole environment in one `createEnv` call in its own
-`env.ts`, exported from its `./env` subpath
-([@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md)). Your app composes those
-factories into one call. That call is your app's only sanctioned `process.env`
-edge.
+`env.ts`, exported from its `./env` subpath. Your app composes those factories
+into one call. That call is your app's only sanctioned `process.env` edge.
 
 ## 1. Compose the factories you mount
 

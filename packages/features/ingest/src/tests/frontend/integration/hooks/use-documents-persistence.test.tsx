@@ -1,15 +1,15 @@
 /**
- * Offline read of the Documents pane (#216, @acme/hooks ADR 0001).
+ * Offline read of the Documents pane.
  *
- * The behaviour under test at the rendered-DOM seam (ADR 0018): `documents.list`
- * paints from IndexedDB on a cold cache instead of the "Loading
- * documents…" skeleton. `documents.list` revalidates on every mount
- * (`staleTime: 0` — the lever that makes the persister's post-restore refetch
- * fire; `refetchOnMount` does NOT, see trpc/react.tsx), so the guarantee is
- * stale-while-revalidate: the restored snapshot renders instantly AND a failed
- * background revalidation must never blank it (nor throw an unhandled rejection
- * — the persister is patched to `.catch()` it, and vitest fails the run if that
- * patch stops applying to ingest's usage).
+ * The behaviour under test at the rendered-DOM seam: `documents.list` paints
+ * from IndexedDB on a cold cache instead of the "Loading documents…" skeleton.
+ * `documents.list` revalidates on every mount (`staleTime: 0` — the lever that
+ * makes the persister's post-restore refetch fire; `refetchOnMount` does NOT,
+ * see trpc/react.tsx), so the guarantee is stale-while-revalidate: the restored
+ * snapshot renders instantly AND a failed background revalidation must never
+ * blank it (nor throw an unhandled rejection — the persister is patched to
+ * `.catch()` it, and vitest fails the run if that patch stops applying to
+ * ingest's usage).
  *
  * Each case primes the cache with the network available, then mounts a fresh
  * client. Two stand-ins for "no server truth" are used deliberately: `offline`

@@ -8,9 +8,9 @@
   // `exports` and `types` are deliberately absent. Every package here is a
   // library consumed across a workspace boundary through its `exports` map, and
   // the apps are reference compositions rather than the full set of intended
-  // consumers (ADR 0010) — so a slice export with no in-repo caller is the normal
-  // state of its public API, not dead code. Reporting it trains the reader to
-  // ignore the gate.
+  // consumers — so a slice export with no in-repo caller is the normal state of
+  // its public API, not dead code. Reporting it trains the reader to ignore the
+  // gate.
   "include": [
     "files",
     "dependencies",
@@ -48,15 +48,18 @@
       "project": ["scripts/*.ts", "turbo/**/*.ts"],
     },
     "apps/*": {
-      // drizzle-kit CLI reads it via `--config`; the drizzle plugin only knows
-      // about the default `drizzle.config.ts`.
-      "entry": ["drizzle.push.config.ts"],
-    },
-    "apps/tanstack-slim": {
-      // `src/env.ts` is the app's one composition edge (@acme/env ADR 0001) — a root of the
-      // graph, not something another module imports. Declared an entry so its
-      // own imports still count. That nothing *loads* it at boot is a separate
-      // defect: issue #235.
+      // Two roots of the graph, per app. `drizzle.push.config.ts` is read by
+      // the drizzle-kit CLI via `--config`, and the drizzle plugin only knows
+      // about the default `drizzle.config.ts`. `src/env.ts` is the app's one
+      // env composition edge — nothing imports it, so declaring it an entry is
+      // what keeps its own imports counted. Stated for every app because it is
+      // the convention rather than one app's quirk.
+      //
+      // Known defect this therefore hides, recorded here because nothing else
+      // records it: one slim app never *loads* its `src/env.ts` at boot, so its
+      // env is validated by nothing at startup. Declaring the entry was always
+      // orthogonal to that — knip asks what imports a file, not what runs it —
+      // and the fix is an import in the app's server entry, not a knip key.
       "entry": ["drizzle.push.config.ts", "src/env.ts"],
     },
     "packages/features/ingest": {

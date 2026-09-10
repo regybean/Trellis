@@ -73,5 +73,5 @@ another's mechanism.
   an app can import a slice with its flag off, or set the flag with nothing
   mounted.
 - **One optional "secrets" bag validated by hand at boot.** Restores a second
-  validation mechanism beside `createEnv` and loses per-key error messages, which
-  is the split ADR 0001 removed.
+  validation mechanism beside `createEnv` and loses per-key error messages,
+  which is the split [ADR 0001](0001-one-env-factory-per-slice.md) removed.

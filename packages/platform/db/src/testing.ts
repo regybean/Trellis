@@ -13,10 +13,10 @@ import { DB_DEVELOPMENT_PROFILE } from './development-profile';
 
 // The throwaway credentials for the ephemeral test container come from the same
 // authored development profile the app connects with, so a suite validates
-// against the values it provisions (@acme/env ADR 0001 §6). `DB_VECTOR_NAME` is
-// `@acme/rag`'s to author, so it stays a literal here rather than making this
-// package depend on that one; the two agree by convention and the init script
-// defaults to the same name.
+// against the values it provisions. `DB_VECTOR_NAME` is `@acme/rag`'s to
+// author, so it stays a literal here rather than making this package depend on
+// that one; the two agree by convention and the init script defaults to the
+// same name.
 const { DB_USER: TEST_USER, DB_NAME: TEST_DB } = DB_DEVELOPMENT_PROFILE;
 // The container's throwaway password — a secret on every target (no profile
 // authors it), so it stays a literal here, matching `deploy/.env.example`.

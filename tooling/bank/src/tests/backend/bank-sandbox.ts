@@ -1,6 +1,6 @@
 /**
  * A throwaway bank and a throwaway consumer, in a temp dir, for the bank suites
- * ([ADR 0037](../../../../../docs/adr/0037-vendored-git-subset-three-way-merge.md)).
+ * as an ordinary three-way merge.
  *
  * Both halves of the bank are tested against real git repositories rather than
  * a fake: what is being asserted is what git itself does with the ancestry the
@@ -154,7 +154,7 @@ export function writePackage(
  * A bank that is a real pnpm workspace, because the closure is resolved from
  * one: `pnpm-workspace.yaml` defines the package set, each `package.json`
  * carries the dependency edges, and `bank.paths.json` carries the bundles and
- * the exclusions ([ADR 0039](../../../../../docs/adr/0039-the-selection-is-the-contract.md)).
+ * the exclusions.
  *
  * The graph is small but has every shape the resolver has to handle: a package
  * with a workspace dependency (`@acme/db` → `@acme/logger` → the eslint config),
@@ -372,7 +372,7 @@ export function sync(consumer: string) {
 
 /** Merges the vendor branch the way the script tells the human to. */
 export function merge(consumer: string, extra: string[] = []) {
-  return git(consumer, ['merge', '--no-edit', ...extra, 'vendor/trellis']);
+  return git(consumer, ['merge', '--no-edit', ...extra, 'vendor/bank']);
 }
 
 /** Sync and take the first merge — the state every later assertion starts from. */

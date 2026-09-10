@@ -1,8 +1,8 @@
 /**
  * Turning a CLI token into a workspace package.
  *
- * "Short name" has to mean the same thing to `pnpm dev nextjs` as it does to
- * `pnpm test:inventory nextjs`, so the rule lives here once rather than in each
+ * "Short name" has to mean the same thing to `pnpm dev <app>` as it does to
+ * `pnpm test:inventory <app>`, so the rule lives here once rather than in each
  * command that takes a package argument.
  */
 import path from 'node:path';
@@ -12,10 +12,10 @@ import type { WorkspacePackage } from './workspace';
 /**
  * The package a CLI token names, or `undefined` when none does.
  *
- * A token may be the full name (`@acme/nextjs`), the unscoped tail (`nextjs`),
- * or the directory (`nextjs-slim`). The tail is matched against the scope
- * actually present rather than a hardcoded `@acme/`, so a renamed scope needs
- * no change here.
+ * A token may be the full name (`@acme/web`), the unscoped tail (`web`), or the
+ * directory (`web-slim`). The tail is matched against the scope actually
+ * present rather than a hardcoded `@acme/`, so a renamed scope needs no change
+ * here.
  *
  * @throws when the token is a tail two packages share — silently picking one is
  * the failure mode worth ruling out.

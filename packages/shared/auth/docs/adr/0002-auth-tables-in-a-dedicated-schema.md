@@ -17,10 +17,10 @@ export const authSchema = pgSchema('auth');
 
 ## Why identity is different
 
-A person who signs in to `nextjs` and to `tanstack-start` is one person. Under
-the per-app rule they would be four rows, four password hashes, four sets of
-sessions, and four separate password resets — and "log in once" across the 2×2 of
-apps would be impossible by construction. The partitioning rule exists to stop
+A person who signs in to two of the apps is one person. Under the per-app rule
+they would be a separate row, password hash, session set and password reset in
+each one — and "log in once" across the 2×2 of apps would be impossible by
+construction. The partitioning rule exists to stop
 apps reading _each other's domain data_; identity is not domain data, it is the
 thing the domain data is keyed by.
 
@@ -73,15 +73,16 @@ are in `auth` and not in the suite's per-app schema.
 
 ## Considered and rejected
 
-- **Per-app auth tables** (follow ADR 0008 without exception). Consistent, and
-  keeps every table under one rule. Rejected: it makes one human four users, and
-  makes shared sign-in impossible rather than merely unimplemented.
+- **Per-app auth tables** (follow the per-app schema rule without exception).
+  Consistent, and keeps every table under one rule. Rejected: it makes one
+  human four users, and makes shared sign-in impossible rather than merely
+  unimplemented.
 - **A separate `auth` _database_, not a schema.** Stronger isolation, and the
   right answer if identity ever needs separate credentials or backup policy.
   Rejected for now: it forks the connection factory (`createDb({ database })`
   exists, but every consumer would need to know which database it is talking to)
   for isolation nothing currently asks for.
 - **Sourcing the schema name from env** (`AUTH_SCHEMA`). Rejected: a per-deploy
-  override is exactly the footgun ADR 0008's amendment describes — two apps
-  resolving different values would silently split the identity store, with no
+  override is exactly the footgun the per-app schema rule warns about — two
+  apps resolving different values would silently split the identity store, with no
   error.

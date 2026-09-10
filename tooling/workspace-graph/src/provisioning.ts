@@ -29,12 +29,11 @@
  * (`acme.infra`) and nothing else: a contribution to a profile no package in
  * the closure asked for has nothing to provision.
  *
- * The declared values are the AUTHORED development ones and never
- * `process.env` ([@acme/env ADR 0001](../../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6) — these decide what to
- * PROVISION, so an operator's override would be the wrong input, and in the
- * compose case a circular one, since `compose.sh` exports this output back into
- * the environment. Keeping that rule is the declaring package's job now; it is
- * the one reading its own profile.
+ * The declared values are the AUTHORED development ones and never `process.env`
+ * — these decide what to PROVISION, so an operator's override would be the
+ * wrong input, and in the compose case a circular one, since `compose.sh`
+ * exports this output back into the environment. Keeping that rule is the
+ * declaring package's job now; it is the one reading its own profile.
  */
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';

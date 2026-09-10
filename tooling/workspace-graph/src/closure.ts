@@ -60,9 +60,10 @@ export function workspaceClosure(
  *
  * Infra travels with the package that owns it, down the dependency edges,
  * exactly like code — so the infra a deployable needs is this union over its
- * closure and nothing is assumed on (ADR 0009). Non-string entries are ignored:
- * validating the field is a checker's job, and this query stays usable while a
- * manifest is wrong.
+ * closure and nothing is assumed on
+ * ([ADR 0001](../docs/adr/0001-graph-derived-dev-infra.md)). Non-string entries
+ * are ignored: validating the field is a checker's job, and this query stays
+ * usable while a manifest is wrong.
  */
 export function declaredInfra(packages: readonly WorkspacePackage[]): string[] {
   const infra = new Set<string>();
@@ -89,7 +90,8 @@ export function closurePackages(
 
 /**
  * The infrastructure the closure of `names` declares — the graph query behind
- * `pnpm dev` and `pnpm infra:up` (ADR 0009).
+ * `pnpm dev` and `pnpm infra:up`
+ * ([ADR 0001](../docs/adr/0001-graph-derived-dev-infra.md)).
  *
  * This is the candidate set: `pruneInfra` drops the services only needed under
  * a given configuration, from provider values the caller passes in — because

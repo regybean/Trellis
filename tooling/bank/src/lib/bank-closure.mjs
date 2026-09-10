@@ -2,13 +2,12 @@
 /**
  * Resolve a consumer's selection to the paths it takes from the bank.
  *
- * A manifest names **packages and bundles**, never paths
- * ([ADR 0039](../../../../docs/adr/0039-the-selection-is-the-contract.md)). This file
- * turns that selection into the flat prefix list `bank:sync` filters the bank
- * tree down to, reading everything out of the bank commit itself:
- * `pnpm-workspace.yaml` for the globs that define the package set, every
- * `package.json` under them for the names and the dependency edges, and
- * `bank.paths.json` for the bundles and the exclusions.
+ * A manifest names **packages and bundles**, never paths. This file turns that
+ * selection into the flat prefix list `bank:sync` filters the bank tree down
+ * to, reading everything out of the bank commit itself: `pnpm-workspace.yaml`
+ * for the globs that define the package set, every `package.json` under them
+ * for the names and the dependency edges, and `bank.paths.json` for the bundles
+ * and the exclusions.
  *
  * Resolving at the pinned ref rather than at authoring time is the whole point:
  * a package that gains a dependency, moves directory or is renamed upstream

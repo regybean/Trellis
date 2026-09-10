@@ -2,16 +2,15 @@
 
 **Status:** accepted
 
-The two apps (`nextjs`, `tanstack-start`) share one Redis instance the same way
-they share one Postgres instance. Postgres isolation already exists and is
-invisible: each app writes to a per-app schema created with
-`pgSchema(process.env.NEXT_PUBLIC_WEBAPP)`, and the pgvector store mirrors it via
-Mastra's `schemaName`. Redis had no equivalent — every credit balance
-(`credits:<user>:<tier>`) and Stripe cache entry (`stripe:user:<id>`,
-`stripe:customer:<id>`) landed in one flat keyspace. Two apps pointed at the same
-Redis would read and clobber each other's keys, and there was no documented
-construct naming the shared "one app-identity value partitions every shared
-datastore" pattern that Postgres already relied on.
+The apps share one Redis instance the same way they share one Postgres instance.
+Postgres isolation already exists and is invisible: each app writes to a per-app
+schema created with `pgSchema(process.env.NEXT_PUBLIC_WEBAPP)`, and the pgvector
+store mirrors it via Mastra's `schemaName`. Redis had no equivalent — every
+credit balance (`credits:<user>:<tier>`) and Stripe cache entry
+(`stripe:user:<id>`, `stripe:customer:<id>`) landed in one flat keyspace. Two
+apps pointed at the same Redis would read and clobber each other's keys, and
+there was no documented construct naming the shared "one app-identity value
+partitions every shared datastore" pattern that Postgres already relied on.
 
 The fix mirrors the database construct rather than inventing a new axis of
 isolation: **`NEXT_PUBLIC_WEBAPP` is the single app-identity value, and it now
@@ -35,8 +34,8 @@ Three decisions are load-bearing:
    `pUnsubscribe`). Every other member (`flushDb`, `duplicate`, `connect`, `on`,
    `multi`, `ping`, …) passes through untouched. Call sites keep their literal
    keys (`creditKey()` still returns `credits:<user>:<tier>`); the prefix is
-   applied at the boundary. Keys become `nextjs:credits:…` /
-   `tanstack-start:stripe:user:…`.
+   applied at the boundary. Keys become `<app>:credits:…` /
+   `<app>:stripe:user:…`.
 
 3. **An empty namespace yields raw keys with no leading colon, and that is the
    test path.** The prefix rule is `namespace ? \`${namespace}:${key}\` : key`.
@@ -91,20 +90,15 @@ The construct above is only sound if every app actually resolves a _distinct_
 `NEXT_PUBLIC_WEBAPP`. Two operational facts make that fragile, so they are
 recorded here.
 
-**Canonical identities (one per app, Postgres-identifier-safe):**
-
-| App                   | `NEXT_PUBLIC_WEBAPP` |
-| --------------------- | -------------------- |
-| `apps/nextjs`         | `nextjs`             |
-| `apps/nextjs-slim`    | `nextjs_slim`        |
-| `apps/tanstack-start` | `tanstack_start`     |
-| `apps/tanstack-slim`  | `tanstack_slim`      |
+**Canonical identities (one per app, Postgres-identifier-safe):** an app's
+identity is its directory name under `apps/` with hyphens replaced by
+underscores, so no two apps collide and none has to invent one.
 
 The value names a Postgres schema and a Redis prefix, so it must be a valid
-unquoted Postgres identifier — **underscores, never hyphens** (`tanstack-start`
-would need quoting and breaks `pgSchema()` / `schemaFilter`). The slim apps
-(`*_slim`) carry no Redis or billing, but they _do_ take a per-app
-Postgres/pgvector schema, so they need a distinct identity too.
+unquoted Postgres identifier — **underscores, never hyphens** (a hyphenated name
+would need quoting and breaks `pgSchema()` / `schemaFilter`). An app carrying no
+Redis or billing still _does_ take a per-app Postgres/pgvector schema, so it
+needs a distinct identity too.
 
 **The footgun: `NEXT_PUBLIC_WEBAPP` must NEVER be set in the root `.env`.**
 _Overtaken by an app-layer decision: each app now owns its full env surface and
@@ -219,9 +213,9 @@ now has a documented exception: **Better Auth's four tables live in a constant
 `auth` Postgres schema, not in `pgSchema(NEXT_PUBLIC_WEBAPP)`.**
 
 The rule exists to stop apps reading each other's _domain data_. Identity is not
-domain data — it is what the domain data is keyed by — and a person signing in to
-`nextjs` and to `tanstack-start` is one person, not two. Partitioning it would
-mean four rows, four password hashes and four password resets for one human.
+domain data — it is what the domain data is keyed by — and a person signing in
+to one app and to another is one person, not two. Partitioning it would mean a
+separate row, password hash and password reset per app for one human.
 
 The exception is narrow and deliberate: it applies to `user`, `session`,
 `account` and `verification`, and to nothing else. Every other app-owned table,
@@ -236,8 +230,8 @@ of the exception.
 above cannot reach it. BullMQ owns its own ioredis connection and builds its own
 keys, so the branded `NamespacedKey` that makes the rule a compile error never
 touches them. The partitioning rides BullMQ's own option instead:
-`createQueue` / `createWorker` set `prefix: NEXT_PUBLIC_WEBAPP`, so `nextjs`
-owns `nextjs:generation:*` and `tanstack-slim` owns `tanstack-slim:generation:*`.
+`createQueue` / `createWorker` set `prefix: NEXT_PUBLIC_WEBAPP`, so each app
+owns `<app>:generation:*` and can reach no other app's.
 
 This is recorded rather than left to the code because **the reversal is silent.**
 Dropping the prefix compiles and passes every single-app test; what it buys is

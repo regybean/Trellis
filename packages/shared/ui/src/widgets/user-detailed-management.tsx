@@ -30,15 +30,14 @@ export type UserManagementRole = 'user' | 'admin';
  * columns these widgets don't show.
  *
  * Declared here, rather than imported from `@acme/auth`, so `@acme/ui` (shared)
- * takes no dependency on the auth seam and the slim apps' graph stays free of it
- * (ADR 0010). The edge runs the other way: `@acme/auth` names this type to
- * describe what its adapter returns.
+ * takes no dependency on the auth seam and the slim apps' graph stays free of
+ * it. The edge runs the other way: `@acme/auth` names this type to describe
+ * what its adapter returns.
  *
- * Every field is one Better Auth actually stores. Until #225 this carried a
+ * Every field is one Better Auth actually stores. This once carried a
  * multi-address email shape and a `lastSignInAt`, neither of which had a source
- * behind it (@acme/auth ADR 0001): Better Auth keeps exactly one email per user (it is the
- * row's unique key) and records no last-sign-in. Both are gone rather than
- * faked.
+ * behind it: Better Auth keeps exactly one email per user (it is the row's
+ * unique key) and records no last-sign-in. Both are gone rather than faked.
  *
  * `role` is optional because it is a nullable free-text column that Better Auth
  * omits from `getSession`'s static type; an absent value reads as the default,
@@ -64,7 +63,7 @@ interface UserDetailedManagementProps {
    * old `removeRole` prop was a second name for this call.
    *
    * A plain typed callback, not the `(FormData) => Promise<void>` server-action
-   * signature this took until #225: that shape is Next.js's, and it forced the
+   * signature this used to take: that shape is Next.js's, and it forced the
    * TanStack Start app to manufacture a `FormData` to satisfy a
    * framework-neutral package. Each app binds this to whatever it uses.
    *
@@ -78,9 +77,9 @@ interface UserDetailedManagementProps {
   }) => void | Promise<void>;
   /**
    * App-supplied billing panels (e.g. `@acme/billing`'s `RateLimitManagement` /
-   * `TierManagement`). Injected via prop so `@acme/ui` stays free of the billing
-   * feature dependency — the exact coupling ADR 0011 folded these back into apps
-   * over. Slim apps can omit it.
+   * `TierManagement`). Injected via prop so `@acme/ui` stays free of the
+   * billing feature dependency — the exact coupling that once had these folded
+   * back into the apps. Slim apps can omit it.
    */
   billingPanels?: ReactNode;
 }

@@ -1,7 +1,7 @@
 # Pull requests
 
-How PRs are opened and iterated on in this repo (GitHub, `regybean/Trellis`, `gh`
-CLI). Skills reference this doc rather than embedding the commands.
+How PRs are opened and iterated on in this repo (GitHub, `gh` CLI). Skills
+reference this doc rather than embedding the commands.
 
 ## Open a PR
 

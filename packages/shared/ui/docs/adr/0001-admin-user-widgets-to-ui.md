@@ -1,31 +1,31 @@
 # Framework-agnostic admin user widgets belong in `@acme/ui`, not duplicated per app
 
-**Status:** accepted — refines [ADR 0011](../../../../../docs/adr/0011-remove-compositions-layer.md) for two files only
+**Status:** accepted
 
-> Since amended by #239 (the user shape is Better Auth's, adapted once) and #225
-> (the widgets render Better Auth's columns directly; the role mutation is one
-> typed callback).
+> Since amended below: the user shape is Better Auth's, adapted once, and the
+> widgets render Better Auth's columns directly; the role mutation is one typed
+> callback.
 
-[ADR 0011](../../../../../docs/adr/0011-remove-compositions-layer.md) deleted the `@acme/admin` composition
-and folded its components back into the two consuming apps, because those
-components coupled to a specific auth provider and framework: `AdminDashboard`
-called `auth()` from `@clerk/nextjs/server`, and `SearchUsers` used
-`useRouter`/`usePathname`/`useSearchParams` from `next/navigation`. A component
-that can't cross the Next.js / TanStack Start boundary isn't reusable, so folding
-it into the apps was correct.
+The decision that removed the compositions layer deleted the `@acme/admin`
+composition and folded its components back into the two consuming apps, because
+those components coupled to a specific auth provider and framework:
+`AdminDashboard` called Clerk's `auth()` from its Next server SDK, and
+`SearchUsers` used `useRouter`/`usePathname`/`useSearchParams` from
+`next/navigation`. A component that can't cross the Next.js / TanStack Start
+boundary isn't reusable, so folding it into the apps was correct.
 
 That reasoning does **not** apply to two of the folded pieces. After the fold,
-`apps/nextjs/src/components/admin/user-management.tsx` and
-`user-detailed-management.tsx` were **byte-identical** to their
-`apps/tanstack-start/src/components/admin/` counterparts, and the duplication was
-pure — the same source lived in two apps with no per-app divergence.
+the Next app's `src/components/admin/user-management.tsx` and
+`user-detailed-management.tsx` were **byte-identical** to the Start app's
+`src/components/admin/` counterparts, and the duplication was pure — the same
+source lived in two apps with no per-app divergence.
 
 ## The deletion test
 
-ADR 0011 itself blesses the escape hatch: "If two apps share a UI assembly, the
-right move is to extract the stateless presentational piece into `@acme/ui`." The
-test for whether a component qualifies is: **does it import anything framework- or
-router-specific?**
+That decision itself blesses the escape hatch: "If two apps share a UI assembly,
+the right move is to extract the stateless presentational piece into
+`@acme/ui`." The test for whether a component qualifies is: **does it import
+anything framework- or router-specific?**
 
 - `user-management.tsx` — imports `react` (`useState`), `lucide-react`, `@acme/ui`
   primitives, and `SerializableUser` (a type) from `@acme/auth`. No `next/*`, no
@@ -35,22 +35,22 @@ router-specific?**
   `TierManagement` from `@acme/billing`.
 
 Both pass the deletion test on framework coupling. They are the "stateless
-presentational piece" 0011 names.
+presentational piece" that rule names.
 
 ## Why this does not reopen wholesale composition
 
-This promotes exactly two leaf presentational components into a **shared package**
-(`@acme/ui`), not a new `packages/compositions/` entry. It changes nothing about
-0011's core ruling: shell/chrome (`AdminDashboard`, `SearchUsers`, server actions)
-stays app-owned. `AdminDashboard` still lives in each app and still supplies the
-framework-specific mutations. Creating a new composition package would still
-require its own ADR.
+This promotes exactly two leaf presentational components into a **shared
+package** (`@acme/ui`), not a new `packages/compositions/` entry. It changes
+nothing about that ruling's core: shell/chrome (`AdminDashboard`, `SearchUsers`,
+server actions) stays app-owned. `AdminDashboard` still lives in each app and
+still supplies the framework-specific mutations. Creating a new composition
+package would still require its own ADR.
 
 ## Keeping `@acme/ui` in the `shared` layer honest
 
 Two couplings had to be kept out of `@acme/ui` (a `shared` package that may only
 depend on `shared`/`platform`/`tooling`, and that the **slim apps depend on** —
-ADR 0010 requires the slim graph carry no `@acme/auth`/`@acme/billing`):
+the slim graph must carry no `@acme/auth`/`@acme/billing`):
 
 - **`@acme/billing` (a `feature`)** — `shared` cannot depend on `feature`, and the
   slim apps must not gain billing. So `UserDetailedManagement` no longer imports
@@ -64,34 +64,33 @@ ADR 0010 requires the slim graph carry no `@acme/auth`/`@acme/billing`):
   owns. Apps keep passing `SerializableUser` (assignable by structure); no new
   package edge is created.
 
-The net effect: `@acme/ui` gains two widgets and **zero new package dependencies**;
-the billing/auth coupling stays at the app seam where 0011 wants it.
+The net effect: `@acme/ui` gains two widgets and **zero new package
+dependencies**; the billing/auth coupling stays at the app seam where that
+ruling wants it.
 
 ## What was done
 
 - Added `UserManagement` + `UserDetailedManagement` (and the `UserManagementUser`
   type) to `packages/shared/ui/src/widgets/`, exported from `@acme/ui`.
-- Deleted the four duplicated files under `apps/nextjs/src/components/admin/` and
-  `apps/tanstack-start/src/components/admin/`.
+- Deleted the four duplicated files under each app's `src/components/admin/`.
 - Both apps' `AdminDashboard` now import `UserManagement` from `@acme/ui` and pass
   `renderBillingPanels`.
 
-## Amendment — the shape is Clerk's, and now nothing produces it (#239)
+## Amendment — the shape is Clerk's, and now nothing produces it
 
 `UserManagementUser` was authored as a structural twin of Clerk's user: an
 `emailAddresses` array with a `primaryEmailAddressId` pointing into it,
 `publicMetadata.role`, and `lastSignInAt`. Under Clerk that was a faithful
-picture of the data; under Better Auth ([@acme/auth ADR 0001](../../../auth/docs/adr/0001-self-hosted-better-auth.md))
-it is a costume. Better Auth keeps exactly **one** email per user (it is the
-row's unique key) and records **no** last-sign-in on the user row, so two of
-those fields have no honest source.
+picture of the data; under Better Auth it is a costume. Better Auth keeps
+exactly **one** email per user (it is the row's unique key) and records **no**
+last-sign-in on the user row, so two of those fields have no honest source.
 
-The widget is unchanged, and that is deliberate — reshaping it is #225. What
-changed is where the costume is put on: one adapter, `toManagementUser` in
-`@acme/auth/server`, marks both fabrications in place (`primaryEmailAddressId`
-reuses the user id; `lastSignInAt` is `null`, which the widget already renders as
-"omit the line"). Before #239 that adapter existed twice, once per app, under two
-names.
+The widget is unchanged, and that is deliberate — reshaping it is the next
+amendment's job. What changed is where the costume is put on: one adapter,
+`toManagementUser` in `@acme/auth/server`, marks both fabrications in place
+(`primaryEmailAddressId` reuses the user id; `lastSignInAt` is `null`, which the
+widget already renders as "omit the line"). That adapter previously existed
+twice, once per app, under two names.
 
 Two consequences for the reasoning above:
 
@@ -106,20 +105,20 @@ Two consequences for the reasoning above:
   signature in a framework-neutral package, which forces the TanStack Start app
   to manufacture a `FormData` to satisfy it. Nothing in the admin surface needs a
   server function — `auth.api.*` takes plain `Headers` and `adminProcedure`
-  already exists — so #225 replaces both props with hooks off an admin tRPC
-  router. #239 records that decision without executing it, so that this ticket
-  lands one shape rather than two.
+  already exists — so a follow-up replaces both props with hooks off an admin
+  tRPC router. This amendment records that decision without executing it, so that
+  the change lands one shape rather than two.
 
-## Amendment — the costume comes off (#225)
+## Amendment — the costume comes off
 
-#239 left the widget wearing Clerk's shape and put the costume on in one
-adapter. #225 takes it off. `UserManagementUser` now names the Better Auth
-columns the widgets render — `id`, `name`, `email`, `emailVerified`, `image`,
-`createdAt`, `role` — and the two fields with no source behind them are **gone
-rather than faked**: the `emailAddresses` array with its `primaryEmailAddressId`
-(Better Auth keeps one email per user; it is the row's unique key) and
-`lastSignInAt` (the core schema records no such thing). If last-sign-in turns
-out to matter it is its own ticket, and its own tracking.
+The amendment above left the widget wearing Clerk's shape and put the costume on
+in one adapter. This one takes it off. `UserManagementUser` now names the Better
+Auth columns the widgets render — `id`, `name`, `email`, `emailVerified`,
+`image`, `createdAt`, `role` — and the two fields with no source behind them are
+**gone rather than faked**: the `emailAddresses` array with its
+`primaryEmailAddressId` (Better Auth keeps one email per user; it is the row's
+unique key) and `lastSignInAt` (the core schema records no such thing). If
+last-sign-in turns out to matter it is its own ticket, and its own tracking.
 
 `toManagementUser` becomes `toAdminUser`, and it survives the rename because one
 honest job is left: `role` is a nullable free-text column Better Auth omits from
@@ -138,22 +137,23 @@ Two props collapsed to one typed callback:
   so demoting _is_ assigning `user`. The two props were one call under two
   names, and the widget's third menu item ("Demote to User") did exactly what
   "Make User" did.
-- **`(FormData) => Promise<void>` is gone**, as #239 said it must be. It is a
-  Next.js server-action signature in a framework-neutral package, and it made
-  the TanStack Start app manufacture a `FormData` purely so the widget could
-  hand the fields back. `setRole` now takes `{ userId, role }`.
+- **`(FormData) => Promise<void>` is gone**, as the amendment above said it must
+  be. It is a Next.js server-action signature in a framework-neutral package,
+  and it made the TanStack Start app manufacture a `FormData` purely so the
+  widget could hand the fields back. `setRole` now takes `{ userId, role }`.
 
-**What #239 predicted and this did not do:** #239 said #225 would replace the
-props "with hooks off an admin tRPC router". It didn't, because that turns out to
-contradict the constraint this ADR is mostly about. For the widget to call such
-hooks itself, the hooks must be reachable from `@acme/ui` — which means either an
-`@acme/auth` edge into a package the slim apps depend on (against ADR 0010, and
-against #225's own acceptance criteria) or moving the widgets back out of
-`@acme/ui` (reversing this ADR). The typed callback gets what #239 actually
-objected to — a framework-specific signature in a neutral package — at no such
-cost. An app is free to bind the callback to a tRPC mutation; nothing here stops
-it. Whether the admin surface should have a router of its own is a live question,
-and a separate one.
+**What the amendment above predicted and this did not do:** it said the props
+would be replaced "with hooks off an admin tRPC router". They weren't, because
+that turns out to contradict the constraint this ADR is mostly about. For the
+widget to call such hooks itself, the hooks must be reachable from `@acme/ui` —
+which means either an `@acme/auth` edge into a package the slim apps depend on
+(the slim graph must stay auth-free, which this change's own acceptance criteria
+also required) or moving the widgets back out of `@acme/ui` (reversing this
+ADR). The typed callback gets what was actually objected to — a
+framework-specific signature in a neutral package — at no such cost. An app is
+free to bind the callback to a tRPC mutation; nothing here stops it. Whether the
+admin surface should have a router of its own is a live question, and a separate
+one.
 
 `@acme/ui` still declares the shape itself and still has no `@acme/auth`
 dependency, so the slim graph stays auth-free.
@@ -161,14 +161,15 @@ dependency, so the slim graph stays auth-free.
 ## Considered and rejected
 
 - **Leave the two files duplicated per app.** Rejected — byte-identical, purely
-  presentational, framework-free. This is the exact case 0011's escape hatch names;
-  keeping the copies is the navigability cost 0011 set out to reduce.
-- **Move them to a new `packages/compositions/` entry.** Rejected — 0011 requires a
-  dedicated ADR justifying why an assembly can't live in an app or `@acme/ui`. It
-  can live in `@acme/ui`, so it does.
-- **Import `SerializableUser` from `@acme/auth` in `@acme/ui`.** Rejected — adds an
-  `@acme/auth` edge to a package the slim apps depend on, re-coupling the slim graph
-  to auth (against ADR 0010). A UI-owned structural type avoids the edge.
+  presentational, framework-free. This is the exact case the escape hatch names;
+  keeping the copies is the navigability cost the compositions ruling set out to
+  reduce.
+- **Move them to a new `packages/compositions/` entry.** Rejected — a new entry
+  requires a dedicated ADR justifying why an assembly can't live in an app or
+  `@acme/ui`. It can live in `@acme/ui`, so it does.
+- **Import `SerializableUser` from `@acme/auth` in `@acme/ui`.** Rejected — adds
+  an `@acme/auth` edge to a package the slim apps depend on, re-coupling the
+  slim graph to auth. A UI-owned structural type avoids the edge.
 - **Import `@acme/billing` panels directly in `@acme/ui`.** Rejected — `shared`
   cannot depend on `feature`, and it would drag billing into the slim graph. Inject
   via prop instead.

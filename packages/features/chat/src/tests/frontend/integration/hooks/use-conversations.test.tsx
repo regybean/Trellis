@@ -1,5 +1,5 @@
 /**
- * useConversations — integration/hooks (ADR 0018).
+ * useConversations — integration/hooks.
  *
  * Drives the REAL useConversations hook through a real QueryClient with the
  * network faked at the HTTP boundary (MSW via trpcMsw). Asserts returned state

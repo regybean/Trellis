@@ -49,9 +49,9 @@ TanStack Form owns field state and validation timing, nothing else. The caller s
 still owns clearing `error`.
 
 The swap was invisible to the tests. All 17 existing cases passed unchanged
-across the rewrite, because they assert rendered DOM rather than form internals
-([ADR 0018](../../../../../docs/adr/0018-frontend-test-doctrine.md)). That is the evidence the seam sits
-in the right place, and the reason a future swap stays cheap.
+across the rewrite, because they assert rendered DOM rather than form internals.
+That is the evidence the seam sits in the right place, and the reason a future
+swap stays cheap.
 
 ## Consequences
 

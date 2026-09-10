@@ -2,8 +2,7 @@
 
 The client-side data-fetching substrate features are built on. Features import
 it directly; what your app owns is the single `QueryClient` above them and the
-auth status they read
-([ADR 0036](../../../docs/adr/0036-one-app-owned-query-client.md)).
+auth status they read.
 
 ## What it gives you
 

@@ -28,16 +28,17 @@ export type Roles = 'admin' | 'user';
  * It used to be an augmentable global, because the one field beyond `id`/`role`
  * that anyone added was Clerk's nested primary-address object — a shape a
  * platform package could not name without depending on Clerk's SDK. Clerk is
- * gone; Better Auth stores `user.email: string`, and
- * platform can name a string perfectly well. So the mechanism outlived its
- * reason and was costing two hand-synced declarations, two app tsconfigs
- * reaching across the workspace by relative path to load them, and no compiler
- * check that any of it agreed (#250, ADR 0003 amendment).
+ * gone; Better Auth stores `user.email: string`, and platform can name a string
+ * perfectly well. So the mechanism outlived its reason and was costing two
+ * hand-synced declarations, two app tsconfigs reaching across the workspace by
+ * relative path to load them, and no compiler check that any of it agreed
+ * ([ADR 0003](../docs/adr/0003-handler-plumbing-here-resolver-in-the-app.md)
+ * amendment).
  *
  * The substrate itself still reads only `id` (identity) and `role` (the
- * `adminProcedure` gate). `email` is here because `@acme/billing` opens a Stripe
- * customer against it, and optional because the slim apps inject a constant
- * `{ id: 'local', role: 'admin' }` and drop billing entirely (ADR 0010).
+ * `adminProcedure` gate). `email` is here because `@acme/billing` opens a
+ * Stripe customer against it, and optional because the slim apps inject a
+ * constant `{ id: 'local', role: 'admin' }` and drop billing entirely.
  */
 export interface InjectedUser {
   id: string;
@@ -60,14 +61,14 @@ export interface InjectedSession {
  * `initTRPC.context<…>()` — see any feature's `api/trpc.ts`.
  *
  * One name for both roles, because they are one object: what the app adapter's
- * resolver returns *is* `ctx`, handed to the fetch handler untouched (#264).
+ * resolver returns *is* `ctx`, handed to the fetch handler untouched.
  *
  * Billing used to be a field here. `entitlements: EntitlementsProvider` was
  * required on every context, so constructing one meant importing the billing
  * contract — in `@acme/feedback`, in `@acme/ingest`, in the slim apps, none of
- * which have a tier or a credit to their name. Nothing in the substrate had read
- * it since #250; the type was the last of the coupling. It is now a field on
- * `@acme/billing` and `@acme/chat`'s own contexts (#256, ADR 0006 amendment).
+ * which have a tier or a credit to their name. Nothing in the substrate read it
+ * any more; the type was the last of the coupling. It is now a field on
+ * `@acme/billing` and `@acme/chat`'s own contexts.
  */
 export interface BaseContext {
   headers: Headers;
@@ -77,15 +78,16 @@ export interface BaseContext {
    * The app's own public origin (scheme + host + port), injected by the app
    * adapter — its `PORT` in dev, its deploy origin in prod. Optional: a build
    * that never constructs an absolute redirect URL (e.g. the slim apps, which
-   * strip billing) need not thread it. Billing combines it with the config-owned
-   * checkout paths to build the Stripe redirect URLs (@acme/env ADR 0001).
+   * strip billing) need not thread it. Billing combines it with the
+   * config-owned checkout paths to build the Stripe redirect URLs.
    */
   origin?: string;
   /**
    * The resolved session, injected by the app adapter (`user: null` when signed
    * out). Mapping a provider's user onto `InjectedUser` is the app's job — the
    * full apps share `@acme/auth`'s `toPrincipal`, the slim apps inject a
-   * constant (ADR 0003 / 0010).
+   * constant
+   * ([ADR 0003](../docs/adr/0003-handler-plumbing-here-resolver-in-the-app.md)).
    */
   session: InjectedSession;
 }
@@ -95,10 +97,10 @@ export interface BaseContext {
  * the wire, and a `zodError` tree on the error shape so a client can map a
  * validation failure back onto its form fields.
  *
- * A feature passes it straight to `initTRPC.context<MyContext>().create()`. That
- * is the whole of what this package has to say about *initialisation*; the
+ * A feature passes it straight to `initTRPC.context<MyContext>().create()`.
+ * That is the whole of what this package has to say about *initialisation*; the
  * middleware stack is the four helpers below, which a feature composes against
- * its own concrete context (#264).
+ * its own concrete context.
  *
  * `errorFormatter`'s parameter is annotated rather than contextually typed,
  * because it is written here and called there — it reads two of the six fields
@@ -192,7 +194,7 @@ export async function withProcedureSpan<T>(
  * threaded in as a parameter. Every feature passed `t._config.isDev`, which
  * made "how do we detect dev" a fact six files knew (five wirings plus the
  * generator template) and reached into tRPC's private `_config` to learn — so
- * retuning it meant editing all six (#265 review).
+ * retuning it meant editing all six.
  *
  * `=== 'development'` is also the honest test: tRPC's `isDev` defaults to
  * `NODE_ENV !== 'production'`, so the stall used to fire under `test` too — a

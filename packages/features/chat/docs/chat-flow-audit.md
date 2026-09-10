@@ -2,7 +2,7 @@
 
 A description of what the chat feature **actually** does at runtime — the
 control plane, the data plane, the frontend Turn state machine, and every
-page-refresh variation. Reflects the Turn-lifecycle simplification of #115.
+page-refresh variation. Reflects the Turn-lifecycle simplification.
 
 Diagrams are kept as standalone `.mermaid` files (repo convention, cf.
 `docs/task-graph-topo.mermaid`) so they render in the same tooling:
@@ -22,9 +22,10 @@ Source of truth for the code: `hooks/use-chat.ts`, `api/routers/chat.ts`,
 
 ## 1. The two planes
 
-Generation is fully decoupled from the client connection (ADR 0004). The system
-splits into a **control plane** (request/response tRPC mutations) and a **data
-plane** (a durable Redis Stream tailed by a pure subscription). See
+Generation is fully decoupled from the client connection
+([ADR 0004](adr/0004-generation-worker-and-queue.md)). The system splits into a
+**control plane** (request/response tRPC mutations) and a **data plane** (a
+durable Redis Stream tailed by a pure subscription). See
 [`chat-flow-overview.mermaid`](chat-flow-overview.mermaid).
 
 | Concern                | Where it lives                                    | Notes                                                                                        |
@@ -35,7 +36,7 @@ plane** (a durable Redis Stream tailed by a pure subscription). See
 | Cancel                 | `chat.stop`                                       | publishes abort key; worker observes, persists partial, emits `cancelled`                    |
 | Orphan cleanup         | `chat.reconcileTurn`                              | idempotent refund + teardown                                                                 |
 | Resume probe           | `chat.inflightTurn`                               | returns lock's `turnId` or null                                                              |
-| History / render state | `chat.get` (persisted, @acme/hooks ADR 0001)      | **single source of truth** — the optimistic user msg + streamed deltas are written here too  |
+| History / render state | `chat.get` (persisted)                            | **single source of truth** — the optimistic user msg + streamed deltas are written here too  |
 | Sidebar                | `chat.list` (persisted)                           | optimistic "New chat"                                                                        |
 
 The In-flight lock (`chat:inflight:{cid}` = `turnId`) is **not** renewed by the
@@ -85,24 +86,24 @@ what `chat.inflightTurn` + `chat.get` return at mount. See
 [`chat-flow-refresh.mermaid`](chat-flow-refresh.mermaid).
 
 Chat's persisted queries carry **`staleTime: 0`** (`usePersistedQueryOptions`,
-trpc/react.tsx) so every persisted
-read (`chat.get`, `chat.list`) paints its restored snapshot instantly (@acme/hooks ADR 0001)
-but revalidates against server truth on every mount. This is load-bearing: the
-persister only stores _successful fetches_, but these caches are also written
-optimistically via `setQueryData` (the streamed Messages; the "New chat" sidebar
-row), and those writes never reach the persisted snapshot. So the restored
-snapshot lags reality — a first-Turn Conversation persists the empty greeting
-load (`[]`) with a _recent_ `dataUpdatedAt`; the sidebar persists the list
-_before_ the new thread. The lever is `staleTime`, NOT `refetchOnMount`: on a
-cold open the persister _is_ the queryFn — it restores and returns the snapshot,
-then background-refetches only `if (query.isStale())`, which reads `staleTime` and
-ignores `refetchOnMount` (see the @acme/hooks ADR 0001 note). So any `staleTime > 0` served
-the stale-but-"fresh" snapshot without revalidating, and on refresh the message
-pane stayed blank whenever the resume path didn't fire (Turn already settled, or
-the lock released as we reloaded — the resume-adopt was the _only_ thing
-repainting `base`) **and** the just-created Conversation was missing from the
-sidebar. `staleTime: 0` makes every restored entry stale so the refetch always
-fires. Two further consequences:
+trpc/react.tsx) so every persisted read (`chat.get`, `chat.list`) paints its
+restored snapshot instantly but revalidates against server truth on every mount.
+This is load-bearing: the persister only stores _successful fetches_, but these
+caches are also written optimistically via `setQueryData` (the streamed
+Messages; the "New chat" sidebar row), and those writes never reach the
+persisted snapshot. So the restored snapshot lags reality — a first-Turn
+Conversation persists the empty greeting load (`[]`) with a _recent_
+`dataUpdatedAt`; the sidebar persists the list _before_ the new thread. The
+lever is `staleTime`, NOT `refetchOnMount`: on a cold open the persister _is_
+the queryFn — it restores and returns the snapshot, then background-refetches
+only `if (query.isStale())`, which reads `staleTime` and ignores
+`refetchOnMount`. So any `staleTime > 0` served the stale-but-"fresh" snapshot
+without revalidating, and on refresh the message pane stayed blank whenever the
+resume path didn't fire (Turn already settled, or the lock released as we
+reloaded — the resume-adopt was the _only_ thing repainting `base`) **and** the
+just-created Conversation was missing from the sidebar. `staleTime: 0` makes
+every restored entry stale so the refetch always fires. Two further
+consequences:
 
 - **`isHistoryLoading` keys on `isFetching` while `base` is empty**, not just the
   no-data `isLoading`. So the mount revalidation of a stale/empty snapshot shows
@@ -124,7 +125,7 @@ fires. Two further consequences:
 
 ---
 
-## 5. How the fragile bits were resolved (#115)
+## 5. How the fragile bits were resolved
 
 The prior audit flagged six issues; this is how the current code addresses them.
 
@@ -140,7 +141,7 @@ The prior audit flagged six issues; this is how the current code addresses them.
    `resumeSeed` / `adoptFreshHistory` and `reconcileOrAdopt`'s "drop
    localMessages" branch are gone. Trade-off: the in-flight assistant partial is
    briefly held (and, via the persister, briefly persisted) in `chat.get` — an
-   accepted amendment to @acme/hooks ADR 0001.
+   accepted amendment to the per-query persistence rules.
 4. **Six-variable Turn model — one `phase`.** See §2.
 5. **Settle on `idle` — now settles on the terminal.** The `terminalReceived`
    bridge and the "missed terminal" ambiguity are gone: a close without a

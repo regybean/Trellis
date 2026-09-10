@@ -6,7 +6,7 @@
  *
  * The DSN comes from the **authored** development profile and never
  * `process.env`: this decides what compose PROVISIONS, so an operator's
- * override would be circular ([@acme/env ADR 0001](../../env/docs/adr/0001-one-env-factory-per-slice.md) §6).
+ * override would be circular.
  */
 import { REDIS_DEVELOPMENT_PROFILE } from './development-profile';
 

@@ -49,18 +49,19 @@ function authOptions(options: InitAuthOptions) {
     baseURL: options.baseUrl,
     trustedOrigins: options.trustedOrigins,
     emailAndPassword: {
-      // Email + password only, no social provider. #218 left the question open;
-      // a provider is purely additive (an `account` row with the OAuth columns
-      // populated — the schema already carries them) and needs client-id secrets
-      // per app, so it is deliberately not part of this change.
+      // Email + password only, no social provider. The question is left open: a
+      // provider is purely additive (an `account` row with the OAuth columns
+      // populated — the schema already carries them) and needs client-id
+      // secrets per app, so it is deliberately not part of this change.
       enabled: true,
     },
     session: {
       // Sessions are database rows, and every request resolves them by reading
-      // one. Better Auth defaults this off; it is set explicitly because it is a
-      // load-bearing decision, not a tuning knob — with the cookie cache on, a
-      // deleted or revoked session row would keep resolving until the cached
-      // cookie expired. See ADR 0001.
+      // one. Better Auth defaults this off; it is set explicitly because it is
+      // a load-bearing decision, not a tuning knob — with the cookie cache on,
+      // a deleted or revoked session row would keep resolving until the cached
+      // cookie expired. See
+      // [ADR 0001](../docs/adr/0001-self-hosted-better-auth.md).
       cookieCache: { enabled: false },
     },
     plugins: [

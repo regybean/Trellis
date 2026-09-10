@@ -1,7 +1,7 @@
 # Bytes go browser→S3 direct, and a batch fails per file
 
 **Status:** accepted — the original upload path; its third step reshaped by the
-async migration (server #188, client #189)
+async migration
 
 ## Context
 

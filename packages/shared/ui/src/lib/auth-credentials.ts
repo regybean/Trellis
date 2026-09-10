@@ -5,9 +5,9 @@ import { z } from 'zod';
  *
  * These live in `@acme/ui` rather than `@acme/auth` on purpose: the forms are
  * presentational and prop-driven, so the package takes no dependency on the
- * auth seam and the slim apps' graph is unaffected (ADR 0010). The caller's
- * `onSubmit` receives the parsed credentials and owns the call to whatever
- * provider is wired up.
+ * auth seam and the slim apps' graph is unaffected. The caller's `onSubmit`
+ * receives the parsed credentials and owns the call to whatever provider is
+ * wired up.
  *
  * The schemas are handed to TanStack Form as Standard Schema validators, so
  * zod stays the single source of the messages — no resolver package, and no
@@ -80,7 +80,7 @@ export function firstErrorMessage(errors: readonly unknown[]) {
  * a form: four copies across the two full apps, and four chances to leave a
  * stale rejection on screen. The form already runs the submission through
  * TanStack Form, so it knows when one is in flight and when one came back — it
- * just had to be told the outcome (#239).
+ * just had to be told the outcome.
  */
 export interface AuthFormProps<Credentials> {
   /**
@@ -90,7 +90,7 @@ export interface AuthFormProps<Credentials> {
    * Auth's client returns.
    *
    * The form never talks to a provider, so `@acme/ui` needs no `@acme/auth`
-   * dependency and the slim apps' graph is unaffected (ADR 0010).
+   * dependency and the slim apps' graph is unaffected.
    */
   onSubmit: (credentials: Credentials) => Promise<string | null>;
   className?: string;

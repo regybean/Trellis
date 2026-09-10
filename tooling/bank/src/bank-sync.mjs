@@ -3,18 +3,17 @@
 /**
  * Bank sync — rebuild the pristine vendor branch from a filtered bank subset.
  *
- * Reads `bank.manifest.json` (see docs/adr/0037-vendored-git-subset-three-way-merge.md),
- * fetches the bank at `ref`, resolves the manifest's **selection** — package and
- * bundle names — to the paths those cover at that ref, and rewrites the local
- * `vendor/trellis` branch so its tree is bank@ref filtered down to them and
- * nothing else. The new commit's parent is the previous vendor commit, so the
- * previous sync is a genuine merge base and `git merge` is an ordinary
- * three-way merge.
+ * Reads `bank.manifest.json`, fetches the bank at `ref`, resolves the
+ * manifest's **selection** — package and bundle names — to the paths those
+ * cover at that ref, and rewrites the local `vendor/bank` branch so its tree is
+ * bank@ref filtered down to them and nothing else. The new commit's parent is
+ * the previous vendor commit, so the previous sync is a genuine merge base and
+ * `git merge` is an ordinary three-way merge.
  *
  * Nobody authors paths on either side: the closure is resolved from the bank's
  * own `pnpm-workspace.yaml`, `package.json` files and `bank.paths.json` at the
- * pinned ref (ADR 0039, src/lib/bank-closure.mjs). So a package that gains
- * a dependency upstream is taken on the next sync without a manifest edit.
+ * pinned ref (src/lib/bank-closure.mjs). So a package that gains a dependency
+ * upstream is taken on the next sync without a manifest edit.
  *
  * It stops there. It never merges, never checks anything out, and never touches
  * the working tree or the index — the rewrite runs entirely through plumbing
@@ -187,8 +186,7 @@ function localModifications(vendor, include) {
 
 /**
  * Report drift and exit. Writes nothing: it fetches into the object store and
- * reads refs, and never touches `vendor/trellis`, the index or the working
- * tree.
+ * reads refs, and never touches `vendor/bank`, the index or the working tree.
  *
  * @param {string} root
  * @param {import("./lib/bank.mjs").Manifest} manifest
@@ -314,7 +312,7 @@ function runCheck(root, manifest) {
 }
 
 /**
- * Rewrite `vendor/trellis` to the filtered bank subset, then print the merge
+ * Rewrite `vendor/bank` to the filtered bank subset, then print the merge
  * command for the human to run.
  *
  * @param {string} root

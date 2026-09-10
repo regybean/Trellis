@@ -7,12 +7,14 @@
  * is stubbed: the checker enumerates with `git ls-files` and asks git for the
  * remote.
  *
- * Two cases carry the weight. The allowlist, because `docs/bank.md` is
+ * Three cases carry the weight. The allowlist, because `docs/bank.md` is
  * addressed to a consumer about consuming this repo and naming it there is
  * correct — a checker that flagged it would train the reader to ignore the
- * report. And the derivation of what is distributable, because it comes from
+ * report. The derivation of what is distributable, because it comes from
  * `exclude` rather than a list here: content withheld from every consumer is
- * free to name whatever it likes.
+ * free to name whatever it likes. And the root manifest's script entries, which
+ * are the one *line*-level exemption, so the rest of that same file stays in
+ * scope.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -58,7 +60,16 @@ const inventory = (exclude: string[]) =>
 function baseline(): Record<string, string> {
   return {
     'bank.paths.json': inventory(['apps', 'bank.paths.json', 'README.md']),
-    'package.json': '{ "name": "fixture" }\n',
+    'package.json': `${JSON.stringify(
+      {
+        name: 'fixture',
+        scripts: {
+          'build:storefront': 'turbo run build -F @fixture/storefront',
+        },
+      },
+      null,
+      2,
+    )}\n`,
     'README.md': '# Widgets, by octocat\n',
     'docs/bank.md': '# Taking Widgets\n\nSync from octocat/Widgets.\n',
     'docs/guide.md': '# The guide\n\nNothing here names anybody.\n',
@@ -132,6 +143,19 @@ describe('distributable content naming this repo', () => {
     expect(stderr).toContain('docs/guide.md:1');
   });
 
+  it('reads a patch body, which ships and lands in a dependency', () => {
+    // A patch is distributable content twice over: it arrives in the
+    // always-included bundle, and its added lines are injected into the
+    // consumer's node_modules. An extension left off the scanned list is an
+    // allowlist nobody wrote down.
+    const { stderr } = run({
+      ...baseline(),
+      'patches/dep@1.0.0.patch': '+// Vendored from Widgets.\n',
+    });
+
+    expect(stderr).toContain('patches/dep@1.0.0.patch:1');
+  });
+
   it('reports nothing when the same content names none of them', () => {
     const { status, stdout, stderr } = run(baseline());
 
@@ -149,15 +173,14 @@ describe('distributable content naming this repo', () => {
     expect(stderr).toBe('');
   });
 
-  it('reports without failing, and prints the count', () => {
-    const { status, stdout } = run({
+  it('fails, and prints the count', () => {
+    const { status, stderr } = run({
       ...baseline(),
       'docs/guide.md': 'Widgets, by octocat.\n',
     });
 
-    expect(status).toBe(0);
-    expect(stdout).toContain('2 distributable lines name');
-    expect(stdout).toContain('not failing the gate yet');
+    expect(status).toBe(1);
+    expect(stderr).toContain('2 distributable lines name');
   });
 });
 
@@ -166,6 +189,78 @@ describe('what it leaves alone', () => {
     const { stderr } = run(baseline());
 
     expect(stderr).not.toContain('docs/bank.md');
+  });
+
+  it('allows a root manifest script entry, which is one line to delete', () => {
+    // The baseline manifest has a `build:storefront` entry naming the app.
+    const { status, stderr } = run(baseline());
+
+    expect(status).toBe(0);
+    expect(stderr).not.toContain('package.json');
+  });
+
+  it('still reads the rest of the root manifest', () => {
+    const { stderr } = run({
+      ...baseline(),
+      'package.json': `${JSON.stringify(
+        { name: 'fixture', description: 'Vendored from Widgets.' },
+        null,
+        2,
+      )}\n`,
+    });
+
+    expect(stderr).toContain('package.json:');
+  });
+
+  it('does not lend the exemption to a dependency of the same name', () => {
+    // The exemption is per line and keyed on script names, so it has to be
+    // bounded to the `scripts` block — otherwise a dependency that happens to
+    // share a name with a script inherits an argument written for something
+    // else entirely.
+    const { status, stderr } = run({
+      ...baseline(),
+      'package.json': `${JSON.stringify(
+        {
+          name: 'fixture',
+          scripts: { 'build:storefront': 'turbo run build' },
+          devDependencies: { 'build:storefront': 'Widgets' },
+        },
+        null,
+        2,
+      )}\n`,
+    });
+
+    expect(status).toBe(1);
+    expect(stderr).toContain('package.json:');
+  });
+
+  it('bounds the exemption by key position, not by braces in a script body', () => {
+    // A script body is a shell command, so it holds braces and brackets of its
+    // own. Tracking depth over the raw text counts those too: one unbalanced
+    // bracket moves where the block is thought to end, and the exemption
+    // silently covers — or stops covering — the wrong lines. Here the body is
+    // deliberately unbalanced and the offending line sits after `scripts`.
+    const { status, stderr } = run({
+      ...baseline(),
+      'package.json': `${JSON.stringify(
+        {
+          name: 'fixture',
+          scripts: {
+            'build:storefront': 'turbo run build -F @fixture/storefront',
+            ci: '[ -n "$CI" ] && echo }}} || echo {{{',
+          },
+          description: 'Vendored from Widgets.',
+        },
+        null,
+        2,
+      )}\n`,
+    });
+
+    // Exactly one: the description. The script entries stay exempt, and the
+    // unbalanced body neither un-exempts them nor swallows the line after.
+    expect(status).toBe(1);
+    expect(stderr).toContain('package.json:');
+    expect(stderr).toContain('1 distributable lines name');
   });
 
   it('ignores content `exclude` withholds from every consumer', () => {

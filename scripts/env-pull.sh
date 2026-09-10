@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fetch each env file's secrets from the selected backend and rebuild the file:
-# non-secret values from <file>.example, secrets from the vault (ADR 0001).
+# non-secret values from <file>.example, secrets from the vault.
 #
 # This script is the entry point and the prompts. What to write is decided by
 # @acme/secrets-sync — see scripts/lib/secrets-env.sh.

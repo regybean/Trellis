@@ -72,12 +72,12 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
   const dependencies: Record<string, string> = {};
   if (o.api) {
     // No auth SDK and no billing contract: the session is injected by the app
-    // (ADR 0003) and every procedure is built from `@acme/trpc`'s pieces. A
-    // generated feature's context is exactly `BaseContext`, so it needs neither
+    // and every procedure is built from `@acme/trpc`'s pieces. A generated
+    // feature's context is exactly `BaseContext`, so it needs neither
     // `@acme/entitlements` nor anything else beyond the substrate — adding a
-    // field is a deliberate edit to `api/trpc.ts` plus a dependency here (#256).
+    // field is a deliberate edit to `api/trpc.ts` plus a dependency here.
     // `@acme/telemetry` is here because the feature instruments its own Drizzle
-    // client now that the substrate no longer does (#264).
+    // client now that the substrate no longer does.
     Object.assign(dependencies, {
       "@acme/db": "workspace:*",
       "@acme/env": "workspace:*",
@@ -345,9 +345,11 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
             "src/tests/frontend/setup.tsx",
             t("src/tests/frontend/setup.tsx.hbs"),
           ),
-          // Taxonomy per ADR 0018: the hook is the contract
-          // (integration/hooks), the component renders through its providers
-          // (integration/components); pure logic would go under unit/.
+          // Taxonomy per
+          // [ADR 0018](../../docs/adr/0018-frontend-test-doctrine.md): the hook
+          // is the contract (integration/hooks), the component renders through
+          // its providers (integration/components); pure logic would go under
+          // unit/.
           add(
             `src/tests/frontend/integration/hooks/use-${name}.test.tsx`,
             x("frontend-hook-test.tsx.hbs"),

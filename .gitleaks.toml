@@ -17,16 +17,16 @@ paths = [
 # Stripe account/keys involved). See docs/adr/0003.
 #
 # Publishable keys (Stripe `pk_test_`/`pk_live_`) are non-secret by design —
-# they ship in the browser bundle. Config-as-code (ADR 0026) moved them out of the
-# path-allowlisted `.env.*` files into code, and @acme/env ADR 0001 folded that into each
+# they ship in the browser bundle. Config-as-code moved them out of the
+# path-allowlisted `.env.*` files into code, and @acme/env folded that into each
 # slice's `env.ts` as an authored profile value, so allowlist the prefix.
 regexes = [
   '''sk_test_localstripe''',
   '''whsec_localstripe''',
   '''pk_test_localstripe''',
-  # Publishable keys (Stripe `pk_test_`/`pk_live_`) are PUBLIC by design —
-  # they ship in the client bundle — and now live in config-as-code (ADR 0026)
-  # rather than env, so the entropy-based generic rule must not flag them. Only
-  # publishable (`pk_`) keys; secret keys (`sk_`, `whsec_`) stay caught.
+  # Publishable keys (Stripe `pk_test_`/`pk_live_`) are PUBLIC by design — they
+  # ship in the client bundle — and now live in config-as-code rather than env,
+  # so the entropy-based generic rule must not flag them. Only publishable
+  # (`pk_`) keys; secret keys (`sk_`, `whsec_`) stay caught.
   '''pk_(test|live)_[A-Za-z0-9]+''',
 ]

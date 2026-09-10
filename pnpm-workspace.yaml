@@ -36,8 +36,7 @@ catalog:
   # and puts two copies in the graph. Which one wins the root hoist then depends
   # on the package subset, and prettier-plugin-tailwindcss sorts classes
   # differently per version — so a bank consumer taking a different app subset
-  # fails `format` on files this repo formats clean (#254). Bump all three
-  # together.
+  # fails `format` on files this repo formats clean. Bump all three together.
   "@tailwindcss/postcss": 4.3.3
   "@tailwindcss/vite": 4.3.3
   "@turbo/gen": ^2.7.5
@@ -45,7 +44,7 @@ catalog:
   # (no caret) so a patch bump can't silently change the persister contract.
   # This package is versioned independently of react-query and its query-core
   # dep rarely matches; the `@tanstack/query-core` override below forces a single
-  # copy so the persister's QueryClient brand matches react-query's. See @acme/hooks ADR 0001.
+  # copy so the persister's QueryClient brand matches react-query's.
   "@tanstack/query-persist-client-core": 5.90.2
   "@tanstack/react-form": ^1.33.5
   "@tanstack/react-query": ^5.87.1
@@ -121,7 +120,7 @@ patchedDependencies:
   # (createPersister.js) and `Query.fetch()` re-throws on failure — so with
   # `staleTime: 0` (chat's QueryClient, needed so a recent persisted snapshot
   # still revalidates) a failed offline refetch becomes an unhandled rejection.
-  # The patch adds `.catch()`. Re-verify on any persister bump (@acme/hooks ADR 0001).
+  # The patch adds `.catch()`. Re-verify on any persister bump.
   "@tanstack/query-persist-client-core@5.90.2": patches/@tanstack__query-persist-client-core@5.90.2.patch
 
 overrides:
@@ -129,7 +128,7 @@ overrides:
   # (@tanstack/query-persist-client-core) and react-query share one QueryClient
   # brand — without this they resolve two copies whose #private fields clash.
   # Pinned to react-query's exact query-core; bump in lockstep if react-query
-  # moves (@acme/hooks ADR 0001).
+  # moves.
   "@tanstack/query-core": 5.90.16
   "@types/minimatch": 5.1.2
   import-in-the-middle: 2.0.4
@@ -137,11 +136,12 @@ overrides:
   vite: "catalog:"
   vitest: "catalog:"
   qs: 6.14.1
-  # --- Security overrides (ADR 0027): force patched transitive versions whose
-  # parent hasn't shipped a fix. Ranges (not hard pins) so parents can still
-  # move; each carries its GHSA. Leaves with multiple in-tree majors use
-  # version-range selectors (`pkg@>=x <y`) with a concrete target, so a fix on
-  # one line can't force an incompatible major onto another. ---
+  # --- Security overrides (docs/adr/0027-dependency-audit-gate-and-suppression-policy.md):
+  # force patched transitive versions whose parent hasn't shipped a fix. Ranges
+  # (not hard pins) so parents can still move; each carries its GHSA. Leaves
+  # with multiple in-tree majors use version-range selectors (`pkg@>=x <y`) with
+  # a concrete target, so a fix on one line can't force an incompatible major
+  # onto another. ---
   fast-xml-parser: ">=5.10.1" # GHSA-8r6m-32jq-jx6q (@aws-sdk)
   "@grpc/grpc-js": ">=1.14.4" # GHSA-5375-pq7m-f5r2, GHSA-99f4-grh7-6pcq (@a2a-js/sdk)
   # fast-uri: the original two highs (GHSA-v2hh-gcrm-f6hx, GHSA-7p8r-x3mc-p8w7)
@@ -169,7 +169,8 @@ overrides:
   flatted: ">=3.4.2" # GHSA-rf6f-7fwh-wjgh (eslint>file-entry-cache)
   # browserslist: one line in tree, under @vitejs/plugin-react>@babel/core, so
   # build-time only. Unrelated to the auth migration that surfaced it — the
-  # advisories were published after #158 drove the high/critical count to zero.
+  # advisories were published after an earlier sweep drove the high/critical
+  # count to zero.
   browserslist: ">=4.28.7" # GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g
   sharp: ">=0.35.4" # GHSA-f88m-g3jw-g9cj, GHSA-rgj7-g3m4-5g8c (next optional dep)
   undici: ">=6.27.0" # GHSA-vxpw-j846-p89q +chain (testcontainers, test-only)
@@ -203,7 +204,8 @@ overrides:
   "js-yaml@>=3.0.0 <3.15.2": "3.15.2" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
   "js-yaml@>=4.0.0 <4.3.2": "4.3.2" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
 
-# Audit allowlist (ADR 0027) — last resort: no compatible reachable patch.
+# Audit allowlist (docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)
+# — last resort: no compatible reachable patch.
 auditConfig:
   ignoreGhsas:
     # image-size DoS (infinite loop) in the ICNS parser and the JXL/HEIF parsers.

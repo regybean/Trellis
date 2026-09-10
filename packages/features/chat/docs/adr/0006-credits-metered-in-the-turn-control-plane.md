@@ -108,4 +108,4 @@ failure mode worth spending a credit to avoid.
 
 Closing the gap requires the credit-back to carry chat's idempotency key
 _across_ the provider seam, which is an amendment to the entitlements seam ADR
-and a change to every provider implementation. Deliberately not taken (#198).
+and a change to every provider implementation. Deliberately not taken.

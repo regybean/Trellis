@@ -15,8 +15,8 @@
 import { env } from './env';
 import { initTelemetry } from './index';
 
-// This preload runs before any app composition, so it reads the slice's own env
-// (@acme/env ADR 0001): the values are authored as profile defaults and any of them can be
+// This preload runs before any app composition, so it reads the slice's own
+// env: the values are authored as profile defaults and any of them can be
 // retuned by a same-named variable, which is how a deploy points at its own
 // collector. `serviceVersion`/`debug` stay `process.env`/`NODE_ENV` reads — a
 // build signal and a runtime mode, not config.

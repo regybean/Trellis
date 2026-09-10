@@ -1,21 +1,20 @@
 # One durable Redis-stream primitive behind chat / ingest / notifications
 
-**Status:** accepted — ticket #196
+**Status:** accepted
 
 ## Context
 
 Three features delivered per-user real-time updates over a Redis Stream — chat's
-token stream, ingest's progress stream ([@acme/ingest ADR 0001](../../../../features/ingest/docs/adr/0001-ingest-progress-survives-refresh.md)),
-and the notifications stream ([@acme/notifications ADR 0001](../../../../shared/notifications/docs/adr/0001-notifications-seam.md)) — and each
+token stream, ingest's progress stream, and the notifications stream — and each
 had hand-copied the same transport triplet: an `xRange` poll-loop with idle
 backoff, a byte-identical abort-aware `delay(ms, signal)` timer, the same
 cursor / `rangeStart` logic, and an encode/parse pair off one zod schema. There
 was no shared home, so fixes did not propagate. Two concrete drifts proved the
-cost: the `${Date.now()}-0` clock-skew seed that ingest deleted in #194 still
-lived in the notifications reader (an app-clock cursor that, under podman-VM
-drift, lands in Redis' future and silently drops every live entry), and the
-non-atomic `xAdd` + `expire` that ingest replaced with `xAddWithTtl` still lived
-in `publish` (a crash between the two can leave the stream immortal).
+cost: the `${Date.now()}-0` clock-skew seed that ingest deleted still lived in
+the notifications reader (an app-clock cursor that, under podman-VM drift, lands
+in Redis' future and silently drops every live entry), and the non-atomic `xAdd` +
+`expire` that ingest replaced with `xAddWithTtl` still lived in `publish` (a
+crash between the two can leave the stream immortal).
 
 ## Decision
 
@@ -64,8 +63,8 @@ logical DB). Each consumer keeps only its own contract tests.
   substrate three features depend on; this ADR is where that coupling is written
   down. A fourth consumer adds a codec + seed, not a new poll loop.
 - **Accepted — one more `@acme/redis` op.** `xRevRange` is added to the facade
-  (superseding @acme/notifications ADR 0001's "no `xRevRange`, no new `@acme/redis` surface"); the
-  clock-skew failure it removes is worth the one-method surface growth.
+  (superseding notifications' "no `xRevRange`, no new `@acme/redis` surface");
+  the clock-skew failure it removes is worth the one-method surface growth.
 - **Unchanged behaviour.** chat/ingest observable outcomes are identical;
   notifications' leave-and-return still shows nothing (tail-from-now intent
   preserved via the last-id seed).

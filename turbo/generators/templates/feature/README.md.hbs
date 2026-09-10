@@ -17,13 +17,13 @@ src/
     root.ts                 # appRouter — aggregates routers
     routers/{{ kebabCase name }}.ts        # sample CRUD router
     schemas/item-schema.ts  # drizzle table + zod schemas
-  env.ts                    # the slice env: one createEnv call, APP_ENV profiles (@acme/env ADR 0001)
+  env.ts                    # the slice env: one createEnv call, APP_ENV profiles
 {{/if}}{{#if react}}  components/{{ kebabCase name }}-list.tsx # sample UI (presentational)
   hooks/use-{{ kebabCase name }}.ts        # data-access hook (tRPC + React Query)
   trpc/                     # client (react.tsx), RSC (server.tsx)
 {{/if}}  index.ts{{#if api}} | index-server.ts | index-schema.ts{{/if}}   # public entrypoints
 {{#if backendTests}}  tests/backend/            # setup, global-setup (testcontainers), utils, router tests
-{{/if}}{{#if frontendTests}}  tests/frontend/           # setup (renderWithProviders + trpcMsw), then per ADR 0018:
+{{/if}}{{#if frontendTests}}  tests/frontend/           # setup (renderWithProviders + trpcMsw), then:
     unit/                   #   pure logic, no React tree
     integration/hooks/      #   hook via real QueryClient + MSW (the contract)
     integration/components/ #   component through its providers, assert DOM
@@ -47,8 +47,8 @@ throwaway PostgreSQL + Redis containers. **Docker/Podman must be running.**
 {{/if}}{{#if frontendTests}}
 ### Frontend (`test:frontend`) — MSW at the HTTP boundary, no DB
 
-Doctrine: [ADR 0018](../../../docs/adr/0018-frontend-test-doctrine.md) — **fake the
-network at the HTTP boundary (msw-trpc + `setupServer`), assert what renders.**
+Doctrine: **fake the network at the HTTP boundary (msw-trpc +
+`setupServer`), assert what renders.**
 Never `vi.mock` the tRPC client, a feature hook, or `react-toastify`; assert the
 observable outcome (DOM / returned hook state), never `expect(mock).toHaveBeenCalled`.
 The provider switches to a plain `httpLink` when `NODE_ENV==='test'` so MSW can
@@ -70,7 +70,7 @@ const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Provi
 2. Add the API route handler:
 
    ```ts
-   // apps/nextjs/src/app/api/trpc/{{ kebabCase name }}/[trpc]/route.ts
+   // apps/<app>/src/app/api/trpc/{{ kebabCase name }}/[trpc]/route.ts
    import { appRouter } from '@acme/{{ kebabCase name }}/server';
 
    import { createTRPCRouteHandlers, resolveContext } from '~/server/trpc-route';
@@ -84,7 +84,7 @@ const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Provi
 
    The resolver is checked against the router's own context, so if you add a
    field to `{{ pascalCase name }}Context` the mount won't compile until the app
-   supplies it (#264).
+   supplies it.
 {{#if react}}
 3. Wrap the relevant tree with `{{ pascalCase name }}TRPCProvider` (from `@acme/{{ kebabCase name }}`).
 {{/if}}
@@ -97,5 +97,4 @@ This package owns its own ADRs. If deleting `@acme/{{ kebabCase name }}` would
 take a decision with it, write it as `docs/adr/0001-<slug>.md` here — the
 sequence is this directory's, independent of the root's, and a repo-wide
 decision goes in the root `docs/adr/` instead. Then add the row to
-`CONTEXT-MAP.md`, which `pnpm lint` requires. Full rule:
-[docs/agents/domain.md](../../../docs/agents/domain.md#where-an-adr-lives).
+`CONTEXT-MAP.md`, which `pnpm lint` requires.

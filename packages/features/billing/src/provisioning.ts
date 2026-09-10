@@ -8,8 +8,7 @@
  * real Stripe connection needs no local container
  * ([ADR 0001](../docs/adr/0001-localstripe-dev-billing.md)). The authored value
  * rather than `process.env`, because this decides what to PROVISION and an
- * operator's override would be the wrong input
- * ([@acme/env ADR 0001](../../../platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6).
+ * operator's override would be the wrong input.
  *
  * The seed the service needs is declared in this package's `acme.seeds`, beside
  * the `acme.infra` entry: localstripe holds its products and plans in memory, so

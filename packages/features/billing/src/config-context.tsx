@@ -3,10 +3,10 @@
 import { createContext, useContext } from 'react';
 
 /**
- * The client-readable billing values (@acme/env ADR 0001): the four Stripe keys this
- * slice's env declares `shared`. The app narrows its env at the edge
- * (`toBillingClientConfig`) and threads them in here — feature runtime never reads
- * `process.env` for these, nor re-resolves `APP_ENV`.
+ * The client-readable billing values: the four Stripe keys this slice's env
+ * declares `shared`. The app narrows its env at the edge
+ * (`toBillingClientConfig`) and threads them in here — feature runtime never
+ * reads `process.env` for these, nor re-resolves `APP_ENV`.
  */
 export interface BillingConfigValues {
   STRIPE_STANDARD_PLAN_ID: string;
@@ -17,10 +17,9 @@ export interface BillingConfigValues {
 
 /**
  * What the feature reads through the provider: the threaded config values plus
- * `localstripeMode` — the single localstripe-vs-real-Stripe signal, derived once
- * on the server from `env.STRIPE_CONNECTION` (@acme/env ADR 0001) and threaded
- * here so the client reads one value instead of proxying the condition through
- * `NODE_ENV`.
+ * `localstripeMode` — the single localstripe-vs-real-Stripe signal, derived
+ * once on the server from `env.STRIPE_CONNECTION` and threaded here so the
+ * client reads one value instead of proxying the condition through `NODE_ENV`.
  */
 export interface BillingClientConfig extends BillingConfigValues {
   localstripeMode: boolean;
@@ -61,7 +60,7 @@ export function useBillingConfig() {
   if (!config) {
     throw new Error(
       'useBillingConfig must be used within a <BillingConfigProvider>. ' +
-        'Mount it at the app edge with the narrowed billing env (@acme/env ADR 0001).',
+        'Mount it at the app edge with the narrowed billing env.',
     );
   }
   return config;

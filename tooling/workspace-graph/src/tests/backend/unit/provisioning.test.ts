@@ -1,8 +1,8 @@
 /**
  * Discovery against fixture repos rather than this one: what a closure declares
- * is the input, so the honest test is a workspace built to declare it. Asserting
- * against Trellis's own package set would encode this repo's slices in the
- * assertions — the coupling the discovery replaced.
+ * is the input, so the honest test is a workspace built to declare it.
+ * Asserting against this checkout's own package set would encode its slices in
+ * the assertions — the coupling the discovery replaced.
  */
 import { afterAll, describe, expect, it } from 'vitest';
 

@@ -6,14 +6,13 @@ import { env } from '../../env';
 import { chatStreamKey } from '../chat-keys';
 import { streamReaderEventSchema } from '../schemas/chat-schema';
 
-// The chat token Stream, on the shared `@acme/redis` durable-stream primitive
-// (#196). The primitive owns the transport — the XRANGE poll loop, the
-// abort-aware poll `delay`, the cursor policy, atomic append-with-TTL — that this
-// feature used to hand-copy alongside ingest and notifications. What stays here
-// is only chat's own: the wire codec (encode/decode off the one
+// The chat token Stream, on the shared `@acme/redis` durable-stream primitive.
+// The primitive owns the transport — the XRANGE poll loop, the abort-aware poll
+// `delay`, the cursor policy, atomic append-with-TTL — that this feature used
+// to hand-copy alongside ingest and notifications. What stays here is only
+// chat's own: the wire codec (encode/decode off the one
 // `streamReaderEventSchema`), the delta-coalesce it passes as the tail
-// `transform`, and the terminal predicate the router closes on. Config-as-code
-// (@acme/env ADR 0001).
+// `transform`, and the terminal predicate the router closes on. Config-as-code.
 
 // The pure inverse of `decodeEvent`: a validated event → the flat field record
 // `xAdd` writes. A `delta` carries only `chunk` (no `type`, so an absent `type`

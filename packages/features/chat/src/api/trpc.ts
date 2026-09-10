@@ -18,7 +18,7 @@ import {
  * Chat's Drizzle client, instrumented for tracing once at module load. Routers
  * import it directly rather than reading it off `ctx.db`: it is a module
  * singleton, no test ever swaps it, and threading it through a middleware only
- * bought a second name for the same object (#264).
+ * bought a second name for the same object.
  */
 export const db = createDb();
 
@@ -27,9 +27,10 @@ instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
 /**
  * Chat's request context — the neutral base the app adapter injects, plus the
  * `EntitlementsProvider`. Chat meters credits inline in `send` and refunds
- * through the same seam in `reconcileTurn` (ADR 0006, #109 amendment), so it
- * names the provider it resolves against. The substrate names it for nobody
- * (#256), and no longer carries it as a type parameter either (#264).
+ * through the same seam in `reconcileTurn`
+ * ([ADR 0006](../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)),
+ * so it names the provider it resolves against. The substrate names it for
+ * nobody, and no longer carries it as a type parameter either.
  */
 export interface ChatContext extends BaseContext {
   entitlements: EntitlementsProvider;
@@ -39,7 +40,7 @@ const t = initTRPC.context<ChatContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against chat's own concrete context.
 // The bodies live once in `@acme/trpc` as plain async helpers; only this wiring
-// is per-feature (#264).
+// is per-feature.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );

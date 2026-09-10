@@ -1,5 +1,5 @@
 /**
- * `pnpm test:policy` — the per-package test policy gate (ADR 0007).
+ * `pnpm test:policy` — the per-package test policy gate.
  *
  * Usage:
  *   tsx src/bin/check-test-policy.ts           # enforce policy (exit 1 on violation)

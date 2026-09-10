@@ -1,15 +1,14 @@
 /**
  * Backend test setup — runs before each backend test file.
  *
- * **Env is not mocked** (ADR 0014). `@acme/test-utils`'s infra setup has already
- * populated `process.env` with the running testcontainers' DB/Redis details by
- * the time this file loads, so `src/env.ts` validates against the real services
- * — a broken env schema fails the suite instead of hiding behind a stub.
+ * **Env is not mocked**. `@acme/test-utils`'s infra setup has already populated
+ * `process.env` with the running testcontainers' DB/Redis details by the time
+ * this file loads, so `src/env.ts` validates against the real services — a
+ * broken env schema fails the suite instead of hiding behind a stub.
  *
  * Only behavioural / external-service mocks belong here. The container
- * lifecycle lives in `global-setup.ts`; app-owned tables are provisioned once by
- * the global `drizzle-kit push --force` into this suite's isolated schema
- * (ADR 0021).
+ * lifecycle lives in `global-setup.ts`; app-owned tables are provisioned once
+ * by the global `drizzle-kit push --force` into this suite's isolated schema.
  */
 import { afterEach, vi } from 'vitest';
 

@@ -19,13 +19,14 @@ import { notificationStream } from './notification-stream';
  *      react-toastify `toastId`) and `createdAt` (server clock); and
  *   3. hands the envelope to the durable stream, which encodes it as a single
  *      `payload` JSON field and appends it with an atomically-restamped rolling
- *      TTL (`xAddWithTtl`) — so an unread stream simply expires, and a crash can
- *      never split the append from the TTL and leave the key immortal (the
- *      non-atomic `xAdd`+`expire` this replaced, #196).
+ *      TTL (`xAddWithTtl`) — so an unread stream simply expires, and a crash
+ *      can never split the append from the TTL and leave the key immortal (the
+ *      non-atomic `xAdd`+`expire` this replaced).
  *
  * There is deliberately NO core "kind factory": a feature writes its own typed
  * one-line wrapper around `publish` (ingest's `notifyJobComplete`). Delivery is
- * best-effort — a publish with no reader attached is never seen (ADR 0001).
+ * best-effort — a publish with no reader attached is never seen
+ * ([ADR 0001](../../../docs/adr/0001-notifications-seam.md)).
  */
 export async function publish(userId: string, input: PublishInput) {
   const parsed = publishInputSchema.parse(input);

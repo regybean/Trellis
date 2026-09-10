@@ -1,5 +1,5 @@
 /**
- * ConversationView — navigation contract (ADR 0018, ticket #65).
+ * ConversationView — navigation contract.
  *
  * Renders the REAL <ConversationView> (sidebar + active Conversation) driving the
  * REAL useChat / useConversations hooks, network faked at the HTTP boundary via

@@ -20,7 +20,7 @@ import {
  * The knobs billing's backend tests vary: the principal, plus the tier and
  * credits its mock provider resolves to. The tier knobs are billing's to expose
  * because `BillingContext` is billing's — a feature with no tier gate names
- * neither (#256).
+ * neither.
  */
 export interface TestContextOptions
   extends FeatureTestContextOptions, TestEntitlementsOptions {}

@@ -3,10 +3,9 @@
 /**
  * `bank.paths.json` completeness gate.
  *
- * The bank's *package* set is derived, so it cannot go stale
- * ([ADR 0039](../../../docs/adr/0039-the-selection-is-the-contract.md)). Everything at
- * the repo root is the opposite: a new root-level file or directory is invisible
- * to the derivation, so unless someone remembers to put it in a bundle or in
+ * The bank's *package* set is derived, so it cannot go stale. Everything at the
+ * repo root is the opposite: a new root-level file or directory is invisible to
+ * the derivation, so unless someone remembers to put it in a bundle or in
  * `exclude`, it silently becomes content no consumer can take and no reader can
  * see was left out.
  *

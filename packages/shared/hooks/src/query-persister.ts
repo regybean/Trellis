@@ -10,7 +10,8 @@ import { clear, createStore, del, get, set } from 'idb-keyval';
 // Per-query (NOT whole-client): built on `experimental_createQueryPersister`,
 // so each query is written under its own hash, lazily. The deciding factor is
 // feedback's one-query-per-Message pattern, which a whole-client persister
-// would rewrite in full on every Message. See ADR 0001.
+// would rewrite in full on every Message. See
+// [ADR 0001](../docs/adr/0001-per-query-indexeddb-persister.md).
 
 /**
  * Spread into a query's `meta` to opt it into persistence:
@@ -26,11 +27,11 @@ export const persistMeta = { persist: true } satisfies Record<string, unknown>;
  *
  * Deliberately NOT react-query's exported `QueryPersister`, which fixes
  * `T = unknown` and `TQueryKey = QueryKey`. That was fine while the persister
- * only ever sat on `defaultOptions.queries`, but it is now attached to individual
- * queries whose data and key types are narrower — and an `unknown`-returning,
- * `readonly unknown[]`-keyed signature does not fit those slots. This alias keeps
- * the function's own `<T, TQueryKey>` so each query instantiates it at its own
- * types (ADR 0036).
+ * only ever sat on `defaultOptions.queries`, but it is now attached to
+ * individual queries whose data and key types are narrower — and an
+ * `unknown`-returning, `readonly unknown[]`-keyed signature does not fit those
+ * slots. This alias keeps the function's own `<T, TQueryKey>` so each query
+ * instantiates it at its own types.
  */
 export type FeatureQueryPersister = ReturnType<
   typeof experimental_createQueryPersister<PersistedQuery>

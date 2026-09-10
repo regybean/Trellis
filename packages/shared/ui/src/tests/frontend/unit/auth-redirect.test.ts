@@ -1,11 +1,11 @@
 /**
  * The same-site rule for `?redirect=`.
  *
- * `apps/nextjs` shipped its sign-in page without this check (#238), so
+ * One of the apps shipped its sign-in page without this check, so
  * `?redirect=https://evil.example` navigated the visitor off-site the moment
- * they authenticated. The rule now lives here, shared by both apps (#239) — and
- * a rule that is one `startsWith` away from an open redirect is worth pinning
- * case by case.
+ * they authenticated. The rule now lives here, shared by both apps — and a rule
+ * that is one `startsWith` away from an open redirect is worth pinning case by
+ * case.
  */
 import { describe, expect, it } from 'vitest';
 

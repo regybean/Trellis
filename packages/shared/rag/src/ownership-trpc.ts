@@ -12,9 +12,10 @@ import { assertThreadOwned, ThreadOwnershipError } from './ownership';
 // annotates Mastra-owned data (chat's ownership builders, feedback's `submit`).
 //
 // It is boundary-legal for `@acme/rag` (shared) to depend on `@acme/trpc`'s
-// transport error type here: shared may depend on platform. Only `assertThreadOwned`
-// (the rule) is transport-free; this adapter is the deliberate, named seam that
-// consumes it. See @acme/rag ADR 0004.
+// transport error type here: shared may depend on platform. Only
+// `assertThreadOwned` (the rule) is transport-free; this adapter is the
+// deliberate, named seam that consumes it. See
+// [ADR 0004](../docs/adr/0004-thread-ownership-rule-and-its-one-trpc-adapter.md).
 
 // Maps a caught error onto tRPC: a `ThreadOwnershipError` becomes FORBIDDEN;
 // anything else is rethrown unchanged. Absence (a null thread) is NOT decided

@@ -15,8 +15,8 @@ export function useDocuments() {
   const queryClient = useQueryClient();
   const persisted = usePersistedQueryOptions();
 
-  // The Documents pane persists for offline read (@acme/hooks ADR 0001) — it is the query
-  // that buys the paint on a surface operators revisit constantly.
+  // The Documents pane persists for offline read — it is the query that buys
+  // the paint on a surface operators revisit constantly.
   const documentsQuery = useQuery(
     trpc.documents.list.queryOptions(undefined, persisted),
   );

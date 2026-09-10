@@ -1,15 +1,12 @@
 # `documents.list` is the only persisted query
 
-**Status:** accepted — ticket #216
+**Status:** accepted
 
 ## Context
 
 Operators revisit the documents page constantly, and every visit cold-opened to
 skeletons while `documents.list` round-tripped. The shared per-query IndexedDB
-persister exists for exactly this
-([@acme/hooks ADR 0001](../../../../shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md)),
-and the app owns the single `QueryClient`
-([ADR 0036](../../../../../docs/adr/0036-one-app-owned-query-client.md)), so
+persister exists for exactly this, and the app owns the single `QueryClient`, so
 opting in is per query rather than client-wide.
 
 Ingest has two queries, and only one of them wants this. The other,

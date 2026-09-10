@@ -1,18 +1,18 @@
 /**
- * Offline read of Conversation History + Messages (#84, @acme/hooks ADR 0001).
+ * Offline read of Conversation History + Messages.
  *
- * The behaviour under test at the existing hook seam (ADR 0018): a persisted
- * query paints from IndexedDB on a cold cache. Chat’s persisted queries revalidate
- * on every mount (`staleTime: 0` — the lever that makes the persister's
- * post-restore refetch fire; `refetchOnMount` does NOT, see trpc/react.tsx), so
- * the guarantee is stale-while-revalidate: the restored snapshot renders
- * instantly AND a failed background revalidation must never blank it (nor throw
- * an unhandled rejection — the persister is patched to `.catch()` it). Each case
+ * The behaviour under test at the existing hook seam: a persisted query paints
+ * from IndexedDB on a cold cache. Chat’s persisted queries revalidate on every
+ * mount (`staleTime: 0` — the lever that makes the persister's post-restore
+ * refetch fire; `refetchOnMount` does NOT, see trpc/react.tsx), so the
+ * guarantee is stale-while-revalidate: the restored snapshot renders instantly
+ * AND a failed background revalidation must never blank it (nor throw an
+ * unhandled rejection — the persister is patched to `.catch()` it). Each case
  * primes the cache with the network available, then mounts a fresh client whose
  * only handler for the persisted query THROWS (a stand-in for offline / an
  * unreachable endpoint) — so a pass proves the restored data survives even when
- * the revalidation fetch fails. Asserts hook state only; no mock call counts, no
- * persister internals.
+ * the revalidation fetch fails. Asserts hook state only; no mock call counts,
+ * no persister internals.
  */
 import { renderHook, waitFor } from '@testing-library/react';
 import { createStore, keys } from 'idb-keyval';

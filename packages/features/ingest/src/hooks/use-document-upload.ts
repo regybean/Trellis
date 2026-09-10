@@ -38,7 +38,7 @@ const reasonMessage = (reason: unknown) =>
   reason instanceof Error ? reason.message : String(reason);
 
 /**
- * Deep module for async, live-progress Document ingestion (#180).
+ * Deep module for async, live-progress Document ingestion.
  *
  * The three-step upload protocol (presign → direct S3 PUT → `startIngestJob`
  * enqueue) plus the always-on per-user progress subscription are fused behind a
@@ -52,8 +52,8 @@ const reasonMessage = (reason: unknown) =>
  * (presign → PUT) + optimistic `queued` (on enqueue success); the server authors
  * `parsing`/`embedding`/`done`/`failed` (+ real `queued`) via the subscription.
  *
- * Toast split (#180): request-level failures (validation / presign / enqueue)
- * toast; per-file failures (PUT reject, server `failed`) render in-list, never
+ * Toast split: request-level failures (validation / presign / enqueue) toast;
+ * per-file failures (PUT reject, server `failed`) render in-list, never
  * toasted; the completion toast is DROPPED — it is now the app-level
  * `ingest.job-complete` notification (@acme/notifications).
  */
@@ -84,17 +84,18 @@ export function useDocumentUpload() {
     trpc.documents.startIngestJob.mutationOptions({ onError: reportError }),
   );
 
-  // Cold-mount seed (#194): fold the retained progress Stream to the latest stage
-  // per in-flight/`failed` Upload + a resume cursor. This is what lets progress
+  // Cold-mount seed: fold the retained progress Stream to the latest stage per
+  // in-flight/`failed` Upload + a resume cursor. This is what lets progress
   // survive a refresh — without it a fresh mount tailed-from-now into a blank
-  // panel. `retry: false` keeps a transient failure from thrashing (the tail still
-  // delivers live stages; a missed seed self-heals via seed-on-unknown below).
+  // panel. `retry: false` keeps a transient failure from thrashing (the tail
+  // still delivers live stages; a missed seed self-heals via seed-on-unknown
+  // below).
   //
-  // Deliberately does NOT take `usePersistedQueryOptions()` (@acme/hooks ADR 0001 is opt-in
-  // per query): this is in-flight Upload state whose whole point is to be read
-  // fresh from the retained Stream. A persisted copy would re-seed the panel on a
-  // cold open with rows that finished hours ago and a `lastId` cursor the Stream
-  // has since expired past.
+  // Deliberately does NOT take `usePersistedQueryOptions()` (persistence is
+  // opt-in per query): this is in-flight Upload state whose whole point is to
+  // be read fresh from the retained Stream. A persisted copy would re-seed the
+  // panel on a cold open with rows that finished hours ago and a `lastId`
+  // cursor the Stream has since expired past.
   const snapshot = useQuery(
     trpc.documents.progressSnapshot.queryOptions(undefined, { retry: false }),
   );
@@ -109,12 +110,12 @@ export function useDocumentUpload() {
     dispatch({ type: 'hydrate', uploads: snapshot.data.uploads });
   }, [snapshot.isSuccess, snapshot.data]);
 
-  // Progress tail — page-scoped, enabled once the snapshot resolves so it resumes
-  // strictly AFTER the snapshot's `lastId` (`sinceId`): snapshot → resume-from-
-  // lastId (#194), no replay, no gap, and no `Date.now()` cursor to skew. A live
-  // entry for an Upload this mount never saw seeds its own row (seed-on-unknown).
-  // SSE, so not drivable in jsdom; reconnect is silent (tRPC retries recoverable
-  // drops and replays `lastEventId`).
+  // Progress tail — page-scoped, enabled once the snapshot resolves so it
+  // resumes strictly AFTER the snapshot's `lastId` (`sinceId`): snapshot →
+  // resume-from- lastId, no replay, no gap, and no `Date.now()` cursor to skew.
+  // A live entry for an Upload this mount never saw seeds its own row
+  // (seed-on-unknown). SSE, so not drivable in jsdom; reconnect is silent (tRPC
+  // retries recoverable drops and replays `lastEventId`).
   useSubscription({
     ...trpc.documents.progress.subscriptionOptions({
       sinceId: snapshot.data?.lastId,
@@ -231,11 +232,11 @@ export function useDocumentUpload() {
     .join(',');
 
   // The one side-effect: fold server truth back into the documents list once a
-  // Job's Uploads have all settled, then RETIRE that Job's `done` rows (#194) so a
-  // completed file shows only in the refreshed list, not as a lingering duplicate
-  // "Done" row. `failed` rows stay. Keyed on the completed-jobId set, so it fires
-  // once per newly-completed Job and is StrictMode-safe (the completion toast is
-  // the app-level notification's job, not this hook's).
+  // Job's Uploads have all settled, then RETIRE that Job's `done` rows so a
+  // completed file shows only in the refreshed list, not as a lingering
+  // duplicate "Done" row. `failed` rows stay. Keyed on the completed-jobId set,
+  // so it fires once per newly-completed Job and is StrictMode-safe (the
+  // completion toast is the app-level notification's job, not this hook's).
   useEffect(() => {
     if (completedKey.length === 0) return;
     void queryClient.invalidateQueries(trpc.documents.list.pathFilter());

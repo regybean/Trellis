@@ -1,6 +1,6 @@
 # Ingest progress survives a refresh: snapshot → resume-from-lastId
 
-**Status:** accepted — ticket #194, follow-up to #189 / epic #171
+**Status:** accepted
 
 ## Context
 
@@ -39,14 +39,14 @@ which would replay an hour of completed jobs and worsen the duplicate.
    stream is the durable store, bounded by its existing 1h TTL. This is ingest's
    `chat.get` + `chat.inflightTurn` collapsed into one.
 
-2. **Seed the reducer, then resume the tail from `snapshot.lastId`.** On mount the
-   hook `hydrate`s the reducer from the snapshot, then enables the subscription
-   with `sinceId = lastId`. The reader cursor becomes
+2. **Seed the reducer, then resume the tail from `snapshot.lastId`.** On mount
+   the hook `hydrate`s the reducer from the snapshot, then enables the
+   subscription with `sinceId = lastId`. The reader cursor becomes
    `lastEventId ?? sinceId ?? '0-0'` — **every branch a real Redis stream id**.
    This is snapshot → resume-from-lastId: no replay, no gap. It also
    **structurally removes the clock-skew bug** — there is no `Date.now()` cursor
-   left to skew (symptom #3 is fixed as a side effect, no separate `redis.time()`
-   helper).
+   left to skew (the third failure above is fixed as a side effect, no separate
+   `redis.time()` helper).
 
 3. **Seed-on-unknown for live server stages.** A `serverStage` entry now carries
    the full wire identity (`jobId` + `filename`), so an event for an `uploadId`
@@ -55,17 +55,15 @@ which would replay an hour of completed jobs and worsen the duplicate.
    events even if the snapshot missed them.
 
 4. **Retire `done` rows on `documents.list` invalidation.** When a Job's Uploads
-   all settle, the hook invalidates `documents.list` **and** `retire`s that Job's
-   `done` rows from the reducer. The panel shows only in-flight + `failed`;
-   completion is signalled by the existing notification toast. This kills the
-   duplicate (symptom #2).
+   all settle, the hook invalidates `documents.list` **and** `retire`s that
+   Job's `done` rows from the reducer. The panel shows only in-flight +
+   `failed`; completion is signalled by the existing notification toast. This
+   kills the duplicate (the second failure above).
 
-The IndexedDB persister
-([@acme/hooks ADR 0001](../../../../shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md))
-is deliberately **not** used: progress is a subscription-fed reducer, not a
-query; the server-side fold is multi-tab correct and reuses durable data the
-stream already holds. The persister stays for `documents.list`
-([ADR 0005](0005-documents-list-is-the-only-persisted-query.md)).
+The IndexedDB persister is deliberately **not** used: progress is a
+subscription-fed reducer, not a query; the server-side fold is multi-tab correct
+and reuses durable data the stream already holds. The persister stays for
+`documents.list` ([ADR 0005](0005-documents-list-is-the-only-persisted-query.md)).
 
 ## Consequences
 

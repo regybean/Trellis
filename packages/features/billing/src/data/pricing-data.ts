@@ -3,9 +3,9 @@
 import { BarChart3, FileText, HelpCircle, MessageSquare } from 'lucide-react';
 
 // The Stripe product IDs the paid tiers map to are `@acme/subscriptions`' own
-// `PlanIds` (@acme/env ADR 0001) — read from `useBillingConfig` via `toPlanIds` and passed
-// in, never from `process.env`. Imported rather than redeclared so the shape has
-// one home.
+// `PlanIds` — read from `useBillingConfig` via `toPlanIds` and passed in, never
+// from `process.env`. Imported rather than redeclared so the shape has one
+// home.
 import type { PlanIds } from '@acme/subscriptions';
 
 export interface PricingFeature {
@@ -27,9 +27,9 @@ export interface PricingPlan {
 }
 
 /**
- * The pricing cards. The two paid tiers' `id`s are billing-env plan ids
- * (@acme/env ADR 0001), so this is a builder taking the resolved ids rather than a module
- * const — call it from `usePricing` with `useBillingConfig`'s values.
+ * The pricing cards. The two paid tiers' `id`s are billing-env plan ids, so
+ * this is a builder taking the resolved ids rather than a module const — call
+ * it from `usePricing` with `useBillingConfig`'s values.
  */
 export const buildPricingPlans = (planIds: PlanIds) => [
   {

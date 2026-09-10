@@ -11,10 +11,10 @@ import { z } from 'zod';
  * navigation that reads as a path, and `?redirect=` is handed to the browser at
  * the exact moment the visitor has just authenticated.
  *
- * This lives beside `auth-credentials.ts` rather than in either app because both
- * apps have the same hole to close and it is framework-free — the guards differ,
- * the rule does not. `apps/nextjs` shipped without the check (#238); this is
- * `apps/tanstack-start`'s version (#237), shared (#239).
+ * This lives beside `auth-credentials.ts` rather than in either app because
+ * both apps have the same hole to close and it is framework-free — the guards
+ * differ, the rule does not. One of them shipped without the check; this is the
+ * other's version, now shared.
  *
  * A transform rather than a validation, so it cannot fail: a malformed
  * `redirect` should drop the visitor on the home page, not 400 the sign-in form

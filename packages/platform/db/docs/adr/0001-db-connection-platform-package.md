@@ -28,9 +28,9 @@ for the connection values.
   domain package owns the key: `@acme/db` owns _how you connect_, the domain
   package owns _what it stores_.
 - **`@acme/rag` keeps its Mastra `pgVector` / `postgresStore`.** Those are
-  `@mastra/pg` constructs, vendor-contained to rag ([@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md));
-  moving them into `@acme/db` would couple the platform substrate to Mastra. They
-  read host/creds from `@acme/db/env` and stay put.
+  `@mastra/pg` constructs, vendor-contained to rag; moving them into `@acme/db`
+  would couple the platform substrate to Mastra. They read host/creds from
+  `@acme/db/env` and stay put.
 - **No `vdb` package.** The vector database (`DB_VECTOR_NAME`) has exactly one
   consumer (rag). A package with a single consumer would only externalise rag's
   internals. Instead the `@acme/db` factory takes a database name
@@ -48,7 +48,7 @@ for the connection values.
   through it for a plain connection. Connection is substrate, not a RAG concern; it
   belongs in `platform` beside `@acme/redis`.
 - **`@acme/db` absorbs rag's `pgVector`/`postgresStore` too** (single Postgres
-  owner). Rejected — breaks vendor containment (@acme/rag ADR 0001) and couples the platform
+  owner). Rejected — breaks vendor containment and couples the platform
   substrate to `@mastra/pg`.
 - **A separate `vdb` package** for the vector database. Rejected — one consumer;
   fails to earn its keep. Parameterise the factory by database name instead.

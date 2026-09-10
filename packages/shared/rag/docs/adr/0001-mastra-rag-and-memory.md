@@ -1,11 +1,11 @@
 # Mastra owns RAG + Memory; Drizzle mirrors are query-only read models
 
-**Status:** amended by ../../../models/docs/adr/0001-multi-provider-models.md
+**Status:** accepted — decision 3 amended in place below
 
-> **Decision 3 amended by [@acme/models ADR 0001](../../../models/docs/adr/0001-multi-provider-models.md).** "Bedrock
-> via an AI-SDK provider instance" still holds as a mechanism, but the instance
-> is produced by `@acme/models` — one of three selectable providers — rather than
-> constructed here.
+> **Decision 3 amended by `@acme/models`.** "Bedrock via an AI-SDK provider
+> instance" still holds as a mechanism, but the instance is produced by
+> `@acme/models` — one of three selectable providers — rather than constructed
+> here.
 
 RAG and conversation persistence run on Mastra (`@mastra/core`, `@mastra/rag`,
 `@mastra/pg`, `@mastra/memory`), wrapped by a new shared package `@acme/rag`.
@@ -45,7 +45,7 @@ decisions are load-bearing:
    table-prefix option, so both stores set `schemaName: NEXT_PUBLIC_WEBAPP`. Each app
    gets its own schema. **Drizzle owns the app database's schema creation:** the app
    exports an `appSchema = pgSchema(NEXT_PUBLIC_WEBAPP)`
-   (`apps/nextjs/src/server/app-schema.ts`) through the app DB drizzle-kit entrypoint
+   (in its own `src/server/app-schema.ts`) through the app DB drizzle-kit entrypoint
    so `CREATE SCHEMA` is emitted. Mastra also issues `CREATE SCHEMA IF NOT EXISTS`
    for the same name at runtime — idempotent, so a harmless no-op once drizzle
    created it. **Run drizzle before the app on a fresh app DB** (`db:push` in dev,
@@ -61,8 +61,8 @@ decisions are load-bearing:
    provider instance directly as the agent/embedding model (Claude chat + Cohere
    `embed-english-v3`, with `inputType` — `search_document` vs. `search_query` —
    distinguishing document from query embeddings).
-   **Superseded by [@acme/models ADR 0001](../../../models/docs/adr/0001-multi-provider-models.md):** the AI-SDK-instance
-   approach stands, but the instance is now resolved by `@acme/models` (one of
+   **Superseded by `@acme/models`:** the AI-SDK-instance approach stands, but
+   the instance is now resolved by `@acme/models` (one of
    Bedrock / OpenRouter / Ollama, Ollama default) rather than constructed in
    `@acme/rag`. Bedrock is no longer the only — or default — provider.
 
@@ -91,8 +91,8 @@ decisions are load-bearing:
   `with-env` to load `.env`). Keeping the scripts in the feature avoids declaring a
   workspace dependency on a feature at the root, which would pull the root package
   into the turbo boundary graph.
-- The generated migrations bake `NEXT_PUBLIC_WEBAPP` (default `nextjs`) into the SQL
-  schema name; an app on a different schema regenerates with its own value.
+- The generated migrations bake `NEXT_PUBLIC_WEBAPP` into the SQL schema name;
+  an app on a different schema regenerates with its own value.
 - Document parsing is now local (`officeparser`: `.pdf`/`.docx`, native read for
   `.txt`; legacy `.doc` dropped) — no LlamaParse/LlamaCloud dependency.
 - **Every app that mounts a rag consumer must keep `officeparser` unbundled**

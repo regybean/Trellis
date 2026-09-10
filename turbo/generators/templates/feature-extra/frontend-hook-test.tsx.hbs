@@ -3,7 +3,6 @@
  *
  * The hook is the frontend's contract (logic lives in `src/hooks/` per the
  * slice contract), so this is the analog of a backend `integration/api` test.
- * Doctrine: ADR 0018.
  * - Drive the REAL hook via `renderHook(..., { wrapper: Providers })` through a
  *   real `QueryClient`; fake the network only at the HTTP boundary with `trpcMsw`.
  * - Assert RETURNED STATE (the observable contract) and cache transitions,

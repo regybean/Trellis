@@ -1,51 +1,26 @@
 /**
  * `pnpm check:portable` — the portable-reference gate.
  *
- * **Report-only for now.** The repo carries a backlog of bare ADR numbers and
- * issue references that predates the rules, so every violation is downgraded to
- * a warning and the run exits 0. The sweep that clears the backlog deletes the
- * downgrade below and passes `violations` straight through, at which point the
- * rules fail `lint` — which is the whole point of landing them early: the count
- * is reviewable before 500 edits are made in its name.
+ * A hard failure: a bare ADR number, a citation resolving outside the citing
+ * package, an issue reference or a root ADR naming an app fails `pnpm lint`. It
+ * landed report-only first, so the count the rules produced across the whole
+ * repo was reviewable — and the rules arguable — before the sweep that cleared
+ * it was made in their name.
  *
- * Usage:
- *   tsx src/bin/check-portable.ts [repo-root] [--all]
+ * Usage: tsx src/bin/check-portable.ts [repo-root]
  */
-import {
-  collectViolations,
-  reportAndExit,
-  resolveRoot,
-} from '@acme/workspace-graph';
+import { reportAndExit, resolveRoot } from '@acme/workspace-graph';
 
 import { repoIo } from '../io';
 import { checkPortable, PORTABLE_HELP } from '../portable';
 
-/** How many violations a report-only run lists before it summarises the rest. */
-const LISTED = 20;
-
-const args = process.argv.slice(2);
-const { violations, scanned } = checkPortable(repoIo(resolveRoot(args)));
-const found = violations.errors.length;
-
-// The downgrade. Capped, because it is read on every `lint`; `--all` prints the
-// backlog in full, which is what reviewing the rules needs.
-const shown = args.includes('--all')
-  ? violations.errors
-  : violations.errors.slice(0, LISTED);
-const reported = collectViolations();
-for (const error of shown) reported.warn(error);
-if (found > shown.length) {
-  reported.warn(
-    `…and ${found - shown.length} more. Run \`pnpm check:portable --all\` to see them.`,
-  );
-}
+const { violations, scanned } = checkPortable(
+  repoIo(resolveRoot(process.argv.slice(2))),
+);
 
 reportAndExit({
   name: 'check-portable',
-  violations: reported,
-  summary:
-    found === 0
-      ? `check-portable: ${scanned} files carry no reference that only resolves here.`
-      : `check-portable: ${found} non-portable references across ${scanned} files — ` +
-        `reporting only, not failing lint yet. ${PORTABLE_HELP}`,
+  violations,
+  help: PORTABLE_HELP,
+  summary: `check-portable: ${scanned} files carry no reference that only resolves here.`,
 });

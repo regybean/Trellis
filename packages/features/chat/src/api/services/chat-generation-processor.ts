@@ -45,11 +45,13 @@ async function handleAbort(
 
 // Factory for the BullMQ job processor. It closes over an injected
 // `EntitlementsProvider` so the request-less worker refunds through the SAME
-// seam the request path does (ADR 0006 / ADR 0010): each app's worker entrypoint
-// (apps/*/worker.ts) injects the exact provider its route handler injects — full
-// apps `subscriptionsEntitlements`, slim apps `unlimitedEntitlements`. Ownership
-// was asserted by chat.send before enqueueing; userId from the job payload
-// stamps resourceId for Mastra. See ADR 0004.
+// seam the request path does
+// ([ADR 0006](../../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)):
+// each app's worker entrypoint (apps/*/worker.ts) injects the exact provider
+// its route handler injects — full apps `subscriptionsEntitlements`, slim apps
+// `unlimitedEntitlements`. Ownership was asserted by chat.send before
+// enqueueing; userId from the job payload stamps resourceId for Mastra. See
+// [ADR 0004](../../../docs/adr/0004-generation-worker-and-queue.md).
 export function createChatGenerationProcessor(
   entitlements: EntitlementsProvider,
 ) {

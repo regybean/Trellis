@@ -92,7 +92,7 @@ describe('tailNotifications', () => {
     expect(r3.done).toBe(true);
   });
 
-  it('is immune to host/Redis clock skew — a fresh reader still skips the backlog and delivers new (#196)', async () => {
+  it('is immune to host/Redis clock skew — a fresh reader still skips the backlog and delivers new', async () => {
     // The old fresh-connect seed was `${Date.now()}-0` — the APP clock, while
     // Redis assigns ids from its OWN. Under podman-VM drift that seed landed in
     // Redis' future and every real entry was silently dropped. The seed is now the

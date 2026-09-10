@@ -1,5 +1,5 @@
 /**
- * Client Turn state machine — unit (#132, ADR 0018 tier 3).
+ * Client Turn state machine — unit.
  *
  * Pure input→output over the reducer: given a `TurnState` + a reader/mutation
  * `TurnEvent`, assert the next state and the declarative Cache intents. No React,

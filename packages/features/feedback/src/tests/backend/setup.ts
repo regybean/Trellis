@@ -5,8 +5,8 @@
  * already populated `process.env` with the testcontainer DB/Redis details).
  * Every `env.ts` therefore validates against the real running services — no env
  * mocks. Only behavioral/external-service mocks live here. App-owned tables
- * (incl. `message_feedback`) are provisioned once by the global `drizzle-kit
- * push --force` into this suite's isolated schema (ADR 0021) — not here.
+ * (incl. `message_feedback`) are provisioned once by the global
+ * `drizzle-kit push --force` into this suite's isolated schema — not here.
  * Mastra's `mastra_*` tables are created lazily by the memory fixtures.
  */
 import { afterEach, vi } from 'vitest';

@@ -17,15 +17,15 @@ import {
 
 /**
  * Service tests for the Credit storage layer against a REAL Redis (the isolated
- * logical DB from this suite's vitest config). No `@acme/redis` mock — per ADR
- * 0014 in-repo infra is exercised for real. The pure limit/window policy is
- * covered in `tests/domain/credit-policy.test.ts`.
+ * logical DB from this suite's vitest config). No `@acme/redis` mock — in-repo
+ * infra is exercised for real. The pure limit/window policy is covered in
+ * `tests/domain/credit-policy.test.ts`.
  *
  * Tier is controlled the way production sets it: by seeding the Stripe
  * subscription cache in Redis (`setStripeCustomerId` + `setSubscriptionCache`),
- * which `getUserSubscriptionFromRedis` + `getSubscriptionType` then resolve. The
- * `credits.*` admin ops take the resolved `(subscription, tier)` (@acme/env ADR 0001 — plan
- * IDs are config, injected, not read from env); `resolve` below stands in for the
+ * which `getUserSubscriptionFromRedis` + `getSubscriptionType` then resolve.
+ * The `credits.*` admin ops take the resolved `(subscription, tier)` (plan IDs
+ * are config, injected, not read from env); `resolve` below stands in for the
  * entitlements provider, mapping the seeded product ids via `PLAN_IDS`.
  */
 

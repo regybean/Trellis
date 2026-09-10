@@ -1,5 +1,5 @@
 /**
- * ChatAssistant — integration/components (ADR 0018).
+ * ChatAssistant — integration/components.
  *
  * Renders the REAL <ChatAssistant> driving the REAL useChat hook. Network faked
  * at the HTTP boundary via `trpcMsw` (msw-trpc). No vi.mock of the hook or

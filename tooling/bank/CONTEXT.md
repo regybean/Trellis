@@ -1,8 +1,8 @@
 # Bank (`@acme/bank`)
 
-The distribution mechanism: the three commands a consumer runs to take Trellis
-packages into their own repo and to send changes back, plus the gate that keeps
-this repo's inventory of itself honest.
+The distribution mechanism: the three commands a consumer runs to take this
+repo's packages into their own and to send changes back, plus the gate that
+keeps this repo's inventory of itself honest.
 
 - `src/setup-wizard.mjs` — authors `bank.manifest.json`. Copies nothing.
 - `src/bank-sync.mjs` — the pull half. Resolves the manifest at the pinned ref
@@ -11,17 +11,15 @@ this repo's inventory of itself honest.
   ever, and a test asserts it.
 - `src/check-bank-paths.mjs` — fails `pnpm lint` when a tracked root-level entry
   is in neither a bundle nor `exclude`.
-- `src/check-bank-tokens.mjs` — reports distributable content that names this
-  repo, its owner or one of its apps. It lives here rather than in the shared
+- `src/check-bank-tokens.mjs` — fails the gate on distributable content that
+  names this repo, its owner or one of its apps. It lives here rather than in the shared
   lint because only the bank knows those three words: the inventory says what is
   distributable, and git says what this repo is called. `docs/bank.md` is
-  allowlisted — it is addressed to a consumer about consuming Trellis, so naming
-  Trellis there is correct. Report-only until the sweep clears the backlog.
+  allowlisted — it is addressed to a consumer about consuming this repo, so
+  naming it there is correct.
 
-The model is [ADR 0037](../../docs/adr/0037-vendored-git-subset-three-way-merge.md)
-(vendored subset, three-way merge) and
-[ADR 0039](../../docs/adr/0039-the-selection-is-the-contract.md) (neither side
-enumerates paths). The consumer-facing guide is [docs/bank.md](../../docs/bank.md).
+The model is a vendored subset merged three ways, with neither side enumerating
+paths. The consumer-facing guide is [docs/bank.md](../../docs/bank.md).
 
 **This package is plain `.mjs` on `node:` builtins, with no build step and no
 runtime dependencies.** It runs hand-copied into a repo that has installed
@@ -55,7 +53,7 @@ What a consumer's manifest records — package _names_ and bundle _names_, never
 paths. `bank:sync` resolves it to paths at the pinned ref on every run, so a
 package that is renamed, moved or gains a dependency upstream changes what
 arrives with nobody editing a list. The single most important thing about the
-mechanism, and the reason `include` is not a manifest field (ADR 0039).
+mechanism, and the reason `include` is not a manifest field.
 _Avoid_: "the path list", "the include list"
 
 **Closure**:
@@ -80,11 +78,11 @@ _Avoid_: "the extras", "the non-package stuff"
 The consumer's pin, in their repo: `upstream`, `ref`, the selection
 (`packages`, `bundles`), `omit` and `contributable`. Written by the wizard, read
 by both commands, and never edited by a sync. A manifest that still authors
-`include` is pre-ADR-0039 and is rejected by name rather than silently
-resolving to nothing.
+`include` predates the selection contract and is rejected by name rather than
+silently resolving to nothing.
 _Avoid_: "the config", "the bank file"
 
-**Vendor branch** (`vendor/trellis`):
+**Vendor branch** (`vendor/bank`):
 An orphan branch in the consumer's repo holding the bank's filtered tree and
 nothing else. Each sync commits the newly resolved tree onto it; the consumer
 merges it into their own history, so git does the three-way merge against a real
