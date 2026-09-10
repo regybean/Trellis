@@ -36,8 +36,8 @@ identically written second one. A job failure that refunds through a different
 provider refunds a ledger nobody is reading, and both versions typecheck.
 
 So the app builds it once, in `src/server/deps.ts`, and both entry points import
-the result. Lint keeps the factories out of every other file in the app
-([ADR 0006](../../packages/platform/entitlements/docs/adr/0001-entitlements-injection-seam.md)).
+the result. Lint keeps the factories out of every other file in the app — the
+entitlements package's own ADRs record why the provider is built at one site.
 
 ```ts
 import { entitlements } from "./src/server/deps";
