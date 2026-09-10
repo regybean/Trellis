@@ -13,9 +13,13 @@
  * perfectly green.
  *
  * The three rules below it are the same failure a layer out: root
- * `package.json` is itself `root`-bundle content, so a consumer receives our
+ * `package.json` is itself always-included content, so a consumer receives our
  * script entries and our workspace whether or not they receive what those
  * entries invoke, what that content declares, and what its file bodies import.
+ *
+ * Always-included is several bundles rather than one, split by subject — which
+ * is why every rule below derives the delivered set from the `alwaysIncluded`
+ * flag across all of them and never from a bundle name.
  *
  * All four are silent by construction in a repo where everything is present,
  * which is why they are tests rather than comments.
@@ -183,6 +187,41 @@ const delivered = (dir: string) =>
     (prefix) => dir === prefix || dir.startsWith(`${prefix}/`),
   );
 
+/**
+ * What keeps the derivation above honest.
+ *
+ * The required set is several bundles, each holding one argument for why its
+ * paths are required. That only stays legible if the flag remains the way in:
+ * a rule that named one bundle would go quiet the moment a path moved to a
+ * sibling, and would pass while checking a fraction of the set. So the claim
+ * is that more than one bundle carries the flag — which is what makes reading
+ * it across all of them mean something rather than being a longer spelling of
+ * one name.
+ */
+describeBank('the required set is several bundles, read by flag', () => {
+  const required = recordList(readJson(inventory), 'bundles').filter(
+    (bundle) => bundle.alwaysIncluded === true,
+  );
+
+  it('is split across bundles, so reading the flag is not one name spelled out', () => {
+    expect(required.length).toBeGreaterThan(1);
+  });
+
+  it.each(required.map((bundle) => stringField(bundle, 'name') ?? ''))(
+    '%s says why its paths are required',
+    (name) => {
+      const bundle = required.find(
+        (entry) => stringField(entry, 'name') === name,
+      );
+
+      expect(
+        stringField(bundle ?? {}, 'description')?.length ?? 0,
+        `bundle "${name}" is required and carries no argument for it — the flag says a consumer cannot decline these paths, and nothing else says why`,
+      ).toBeGreaterThan(0);
+    },
+  );
+});
+
 const rootScripts = stringMap(
   readJson(join(repoRoot, 'package.json')),
   'scripts',
@@ -205,7 +244,7 @@ const rootScripts = stringMap(
  * rest of `scripts/` moved into tooling packages.
  */
 describeBank(
-  'every delegated tooling command arrives with the root bundle',
+  'every delegated tooling command arrives with the always-included bundles',
   () => {
     /**
      * The package directory each root script delegates into. Both spellings
@@ -244,7 +283,7 @@ describeBank(
  * A bundle contributes **paths**; only a *selected package* has its dependency
  * edges walked. So a package a bundle delivers arrives with its manifest and
  * without the workspace packages that manifest declares — and
- * `pnpm-workspace.yaml` is root-bundle content too, which means the consumer's
+ * `pnpm-workspace.yaml` is always-included content too, which means the consumer's
  * install resolves that manifest whether they wanted the package or not. One
  * unreachable `workspace:*` and `pnpm install` fails outright, in a repo whose
  * selection was otherwise perfectly legitimate.
@@ -254,7 +293,7 @@ describeBank(
  * package pulls the config packages in through its own closure.
  */
 describeBank(
-  'a package the root bundle delivers arrives with what it declares',
+  'a package an always-included bundle delivers arrives with what it declares',
   () => {
     const deliveredPackages = [...packages.values()]
       .filter((pkg) => delivered(pkg.dir))
@@ -370,7 +409,7 @@ function literalTail(raw: string) {
  * rule asks about imports rather than mentions.
  */
 describeBank(
-  'a file the root bundle delivers reaches only for what the root bundle delivers',
+  'a delivered file reaches only for what the always-included bundles deliver',
   () => {
     const files = execFileSync(
       'git',
@@ -468,9 +507,9 @@ describeBank(
     it('has something to withhold, so `delivered` is not constantly true', () => {
       // A repo whose every bundle were always-included would pass all three
       // rules by construction and prove nothing about any of them. Overlap is
-      // allowed and real — the agents bundle names two scripts the root bundle
-      // already covers, so a consumer who takes it gets them either way — so
-      // the claim is that *some* bundle path is withheld, not every one.
+      // allowed and real — the agents bundle names two scripts the `commands`
+      // bundle already covers, so a consumer who takes it gets them either way
+      // — so the claim is that *some* bundle path is withheld, not every one.
       const optional = recordList(readJson(inventory), 'bundles')
         .filter((bundle) => bundle.alwaysIncluded !== true)
         .flatMap((bundle) => stringList(bundle, 'paths'));

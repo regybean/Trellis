@@ -26,7 +26,7 @@ function toGlobs(raw) {
   return dirOnly ? [`${base}/**`] : [base, `${base}/**`];
 }
 
-// .claudeignore rides in the `agents` bundle, this script in `root`, so a
+// .claudeignore rides in the `agents` bundle, this script in `commands`, so a
 // consumer that took the bank without the agent config has no source to compile
 // and nothing to write. Same guard as register-skills.sh, for the same reason:
 // this runs on every postinstall.

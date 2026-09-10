@@ -29,12 +29,14 @@ rather than importing the shared kernel — see
 removing that duplication.
 
 The root delegates every command here with `pnpm -C tooling/bank`, so
-`tooling/bank` rides the always-included `root` bundle in `bank.paths.json`: a
-consumer who never selected this package by name still receives it, because
-otherwise their next sync would delete the tool that performs the one after it.
-The four config packages this one declares `workspace:*` on ride the same bundle
-— a bundle contributes paths and never walks dependency edges, so a manifest it
-delivers has to name only packages the same bundle delivers.
+`tooling/bank` rides the always-included `delegated-tooling` bundle in
+`bank.paths.json`: a consumer who never selected this package by name still
+receives it, because otherwise their next sync would delete the tool that
+performs the one after it. The four config packages this one declares
+`workspace:*` on ride `config-closure`, which is always-included for that
+reason alone — a bundle contributes paths and never walks dependency edges, so a
+manifest one delivers has to name only packages the always-included set
+delivers.
 
 `-C` rather than `--filter` is deliberate, and not for the reason it looks like:
 on the pinned pnpm both spellings pass the child's exit code through, so

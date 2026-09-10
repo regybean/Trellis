@@ -317,8 +317,8 @@ function readBankPaths(sha) {
  * builds — so a package added, moved or renamed upstream changes the menu with
  * no list here to edit. Which is also why `alwaysIncluded` is read through this
  * rather than through a second entry point beside it: whatever authors a
- * manifest needs the flag to know that naming `root` records a choice nobody
- * made, and it already has the offer in hand.
+ * manifest needs the flag to know that naming an always-included bundle records
+ * a choice nobody made, and it already has the offer in hand.
  *
  * @param {string} sha
  * @returns {Offer}

@@ -41,8 +41,8 @@ const rootArg = process.argv.slice(2).find((arg) => !arg.startsWith('--'));
 const ROOT = rootArg ? resolve(rootArg) : repoRoot();
 const PATHS_FILE = 'bank.paths.json';
 
-// Like the paths gate: this file rides the always-included `root` bundle, so it
-// arrives in every consumer, where there is no inventory and nothing is being
+// Like the paths gate: this file rides an always-included bundle, so it arrives
+// in every consumer, where there is no inventory and nothing is being
 // distributed onwards.
 if (!existsSync(join(ROOT, PATHS_FILE))) {
   console.log(`check-bank-tokens: no ${PATHS_FILE} — this repo is not a bank.`);
