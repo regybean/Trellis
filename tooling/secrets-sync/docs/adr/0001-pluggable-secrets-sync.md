@@ -41,5 +41,6 @@ apart on escape handling.
   every adapter, so it should change rarely.
 - `.env.example` is now an input to the scripts, not just documentation — every
   key must be declared there, and a key's emptiness decides its sensitivity.
-- `@acme/secrets-sync` is named in the bank's always-included `root` bundle: the
+- `@acme/secrets-sync` is named in the bank's always-included `delegated-tooling`
+  bundle: the
   scripts that call it arrive with every selection, so it has to as well.

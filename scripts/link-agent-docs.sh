@@ -19,7 +19,7 @@ cd "$repo_root"
 canonical="AGENTS.md"
 
 # A missing brief is absence, not breakage. AGENTS.md rides the `agents` bundle
-# and this script rides `root`, so a consumer that took the bank without the
+# and this script rides `commands`, so a consumer that took the bank without the
 # agent config has nothing to point the harness entries at — and this runs inside
 # a `set -euo pipefail` postinstall chain, where a refusal fails their first
 # `pnpm install` outright. Exit 0 and say why, the same guard as

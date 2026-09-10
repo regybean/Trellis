@@ -39,7 +39,7 @@
  *   node tooling/bank/src/setup-wizard.mjs --upstream <git url> --ref <bank tag> \
  *     [--packages @acme/ui,@acme/logger] [--bundles docs,ci] [--force]
  *
- *   # or, once the root bundle has arrived: pnpm setup:wizard -- --upstream ...
+ *   # or, once the first sync has arrived: pnpm setup:wizard -- --upstream ...
  *
  * Exit codes:
  *   0  bank.manifest.json written, the offer listed, or the review backed out of
@@ -238,10 +238,10 @@ const PREVIEW_ROWS = 8;
  * The menu, as rows.
  *
  * Rebuilt from the offer and the current preview on every keystroke rather than
- * mutated, because two rows are not the user's to decide: `root` arrives with
- * every selection, and `infra` is selected by a package in the closure declaring
- * `acme.infra`. Deriving both means the menu shows what the sync will do rather
- * than what was toggled.
+ * mutated, because two kinds of row are not the user's to decide: an
+ * `alwaysIncluded` bundle arrives with every selection, and `infra` is selected
+ * by a package in the closure declaring `acme.infra`. Deriving both means the
+ * menu shows what the sync will do rather than what was toggled.
  *
  * @param {import("./lib/bank-closure.mjs").Offer} offer
  * @param {import("./lib/bank-closure.mjs").Preview} preview
@@ -503,7 +503,7 @@ async function authorManifest(root, options, sha, offer, confirm) {
   // read like an opt-*out* were it ever removed. Asking for what you were
   // getting anyway is a reasonable thing to type, so it is dropped and said so
   // rather than refused. The flag is read off the offer at `sha`, which is why
-  // nothing here says `root`; an unknown name is left in for `resolveInclude`
+  // no bundle name appears here; an unknown name is left in for `resolveInclude`
   // to reject, so the "no such bundle" message stays in one place.
   const always = offer.bundles
     .filter((bundle) => bundle.alwaysIncluded)

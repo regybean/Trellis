@@ -151,12 +151,12 @@ decision is the bank's own rather than this one.
   `passWithNoTests` stays on, so the total was captured before the first ticket
   and compared after each.
 - **The moved paths are paths consumers have already vendored.** `scripts/` ships
-  in the bank's `root` bundle, which is `alwaysIncluded`
+  in the bank's `commands` bundle, which is `alwaysIncluded`
   ([ADR 0039](0039-the-selection-is-the-contract.md)), so every package path had
-  to join that bundle before anything moved. Anything root `package.json`
-  invokes must arrive with the root bundle, because root `package.json` is itself
-  root-bundle content. That constraint applies to every future script package
-  too.
+  to join the always-included set — `delegated-tooling` — before anything moved.
+  Anything root `package.json` invokes must arrive with that set, because root
+  `package.json` is itself always-included content. That constraint applies to
+  every future script package too.
 - **Root `scripts/` can be read in one screen**, and what is left there is
   self-describing: if it is not something a human types or something that runs
   before the packages are built, it is in the wrong directory.

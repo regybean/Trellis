@@ -138,8 +138,8 @@ against this one.
   it is on `exclude`. Vendoring it would put a second, always-staler copy in a
   repo that already reads the authoritative one.
 - **The bank must carry a `pnpm-workspace.yaml` at every ref a consumer pins.**
-  It is in the `root` bundle already, and the resolution fails naming it if a ref
-  predates it.
+  It is in the `workspace` bundle already, which is always included, and the
+  resolution fails naming it if a ref predates it.
 - **A `pnpm-workspace.yaml` rewrite is a distribution change.** Moving a package
   out of the globs removes it from the bank, silently, with no edit to
   `bank.paths.json` at all. That is the point of deriving, and it is the one

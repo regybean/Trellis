@@ -40,9 +40,9 @@ import { repoRoot } from './lib/bank.mjs';
 const ROOT = process.argv[2] ? resolve(process.argv[2]) : repoRoot();
 const PATHS_FILE = 'bank.paths.json';
 
-// `tooling/bank` is itself bank content — it rides the always-included `root`
-// bundle — so this file arrives in every consumer repo, where there is no
-// inventory to check and nothing to enforce.
+// `tooling/bank` is itself bank content — it rides the always-included
+// `delegated-tooling` bundle — so this file arrives in every consumer repo,
+// where there is no inventory to check and nothing to enforce.
 if (!existsSync(join(ROOT, PATHS_FILE))) {
   console.log(`check-bank-paths: no ${PATHS_FILE} — this repo is not a bank.`);
   process.exit(0);
