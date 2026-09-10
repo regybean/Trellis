@@ -12,7 +12,7 @@ The local path is the dishonest one. It runs against whatever state the dev
 database happens to be in: a stale `pnpm db:push`, a half-finished manual edit,
 another suite's leftovers. It also skips the provisioning step entirely, so the
 step CI depends on was only ever exercised elsewhere — the failure mode
-[ADR 0021](0021-test-schema-provisioning-db-push.md) was written to chase.
+[@acme/test-utils ADR 0002](../../tooling/test-utils/docs/adr/0002-test-schema-provisioning-db-push.md) was written to chase.
 A local pass did not mean what a CI pass meant.
 
 ## Decision

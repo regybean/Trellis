@@ -327,8 +327,10 @@ push dev uses (`pnpm db:push`), reading `schema.ts` directly (this repo has no
 migration SQL, so `migrate` provisions nothing). One push creates every
 push-managed table (the app re-exports each feature's schema) into that schema;
 suites add no provisioning of their own. `mastra_*` and pgvector tables are
-excluded by the push config's `tablesFilter` and created lazily at runtime. See
-[ADR 0021](adr/0021-test-schema-provisioning-db-push.md).
+excluded by the push config's `tablesFilter` and created lazily at runtime. The
+app that serves the push is discovered — whichever app carries a
+`drizzle.push.config.ts` — never named; `@acme/test-utils` owns that decision and
+records it in its own ADRs.
 
 ## Mocking conventions
 

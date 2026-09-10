@@ -138,20 +138,22 @@ export async function stopInfra(): Promise<void> {
  * Directory of the app whose aggregated Drizzle schema owns every push-managed
  * table.
  *
- * Discovered rather than named. This package is bank content (#254), so a
- * hardcoded `apps/nextjs` makes backend tests unrunnable in any consumer whose
- * app is called something else — `spawn` fails on a cwd that does not exist,
- * and reports it as a missing `pnpm`. The marker is the push config itself:
- * `drizzle.push.config.ts` is what the command below reads, so an app that has
- * one can serve the push. `nextjs` still wins when present, which keeps
- * Trellis's own behaviour byte-identical.
+ * Discovered, and no app is named. This package is distributed content, so a
+ * hardcoded app directory makes backend tests unrunnable in any repo whose apps
+ * are called something else — `spawn` fails on a cwd that does not exist, and
+ * reports it as a missing `pnpm`. The marker is the push config itself:
+ * `drizzle.push.config.ts` is what the command below passes to drizzle-kit, so
+ * an app that has one can serve the push.
+ *
+ * Sorted-first among the candidates, arbitrarily on purpose. Where several apps
+ * aggregate the same push-managed tables, each provisions the same schema and a
+ * preference would have nothing to be right about; where they differ, the fix is
+ * one app owning the aggregate rather than a tiebreak here.
  */
 function findPushApp(): string {
   const apps = resolve(REPO_ROOT, 'apps');
   const hasConfig = (name: string) =>
     existsSync(resolve(apps, name, 'drizzle.push.config.ts'));
-
-  if (hasConfig('nextjs')) return resolve(apps, 'nextjs');
 
   const candidates = existsSync(apps)
     ? readdirSync(apps, { withFileTypes: true })
@@ -175,10 +177,11 @@ function findPushApp(): string {
  *
  * Push (not migrate): this repo is push-based — an app's `migrations/` holds no
  * SQL, so `drizzle-kit migrate` creates nothing. `push` reads `schema.ts`
- * directly and force-syncs it, exactly like `pnpm db:push` in dev. See ADR 0021.
+ * directly and force-syncs it, exactly like `pnpm db:push` in dev. See
+ * ../docs/adr/0002-test-schema-provisioning-db-push.md.
  *
- * The push app (`findPushApp`, `nextjs` here) aggregates every feature's
- * push-managed schema, so one push creates all of them. `targetSchema` is the
+ * The push app (`findPushApp`) aggregates every feature's push-managed schema,
+ * so one push creates all of them. `targetSchema` is the
  * suite's isolated Postgres
  * schema (`NEXT_PUBLIC_WEBAPP`) — the app's `pgSchema(NEXT_PUBLIC_WEBAPP)` tables
  * (and `CREATE SCHEMA`) land there. Mastra/pgvector tables are created lazily at
@@ -193,8 +196,8 @@ function findPushApp(): string {
 export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
   console.log(`📊 Pushing database schemas into "${targetSchema}"...`);
   // Host/port are the dynamic bits (a testcontainer hands back a mapped port);
-  // user/name are authored config (`@acme/db` `postgres`/`testdb`, @acme/env ADR 0001),
-  // so they no longer ride `process.env` here.
+  // user/name are authored config the owning slice declares (`@acme/db`
+  // `postgres`/`testdb`), so they no longer ride `process.env` here.
   console.log(`   DB target: ${process.env.DB_HOST}:${process.env.DB_PORT}`);
 
   await new Promise<void>((resolvePromise, reject) => {

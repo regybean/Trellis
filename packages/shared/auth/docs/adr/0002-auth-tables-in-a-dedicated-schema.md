@@ -39,8 +39,9 @@ in `schemaFilter`, so both full apps' `drizzle.config.ts` now read
 `[NEXT_PUBLIC_WEBAPP, 'auth']`. Without the second entry push silently ignores
 the auth tables — no error, just no tables. Both apps also re-export the tables
 from their `src/server/db/schema.ts` (including `authSchema` itself, so drizzle
-owns `CREATE SCHEMA auth`), which is what brings them under push at all
-([ADR 0021](../../../../../docs/adr/0021-test-schema-provisioning-db-push.md)).
+owns `CREATE SCHEMA auth`), which is what brings them under push at all — a table
+reaches both production and the test harness only by being re-exported from the
+app schema that push reads.
 
 **Both full apps push the same four tables.** Idempotent — identical desired
 state from one shared package — but it does mean the DDL has two owners in
