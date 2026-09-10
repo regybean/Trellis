@@ -42,10 +42,11 @@ because the edges are what people get wrong:
 - A package may cite its own ADRs.
 - A package may not cite another package's.
 - No distributed file may cite a root ADR.
-- No file at all may cite an app-layer ADR, from anywhere. The app layer is the
-  one directory nothing outside it receives, so a citation into it travels with
-  nothing. It needs saying separately because an app-layer ADR has no package
-  manifest above it and so reads as the root's unless the rule names it.
+- No distributed file may cite an app-layer ADR, wherever in the tree it sits.
+  The app layer is the one directory nothing outside it receives, so a citation
+  into it travels with nothing. It needs saying separately because an app-layer
+  ADR has no package manifest above it and so reads as the root's unless the
+  rule names it.
 - Root ADRs citing each other is fine, because they travel together.
 
 The last two are one rule read from both sides: a citation may only point at
