@@ -448,6 +448,21 @@ describeBank(
       expect(imports.some(({ target }) => delivered(target))).toBe(true);
     });
 
+    it('has something to withhold, so `delivered` is not constantly true', () => {
+      // A repo whose every bundle were always-included would pass all three
+      // rules by construction and prove nothing about any of them. Overlap is
+      // allowed and real — the agents bundle names two scripts the root bundle
+      // already covers, so a consumer who takes it gets them either way — so
+      // the claim is that *some* bundle path is withheld, not every one.
+      const optional = recordList(readJson(inventory), 'bundles')
+        .filter((bundle) => bundle.alwaysIncluded !== true)
+        .flatMap((bundle) => stringList(bundle, 'paths'));
+
+      expect(
+        optional.filter((path) => !delivered(path)).length,
+      ).toBeGreaterThan(0);
+    });
+
     it('exempts a root manifest that really does name what the minimum lacks', () => {
       // The same extraction over the one file the filter half skips. It names
       // packages a minimum selection never delivers — so the skip is the
