@@ -116,9 +116,14 @@ const site = (file: string, text: string, index: number) =>
  * fell across the wrap in a `//` run read as two unrelated tokens and hid from
  * this rule entirely, which is how a reference to a since-deleted root ADR sat
  * in a distributed file through the whole report-only period.
+ *
+ * One wrap, and each part of the gap matched by exactly one branch: horizontal
+ * space before the wrap, the indent and leader after it. An earlier spelling
+ * let the whole gap repeat, so `\t\n\t\n…` had exponentially many ways to be
+ * read and a crafted comment could hang the gate on a single line.
  */
 const BARE_ADR_NUMBER =
-  /\bADRs?(?:[ \t-]|\n[ \t]*(?:\*|\/\/|#)?[ \t]*)*#?(\d{4})\b/gi;
+  /\bADRs?[ \t-]*(?:\n[ \t]*(?:(?:\*|\/\/|#)[ \t]*)?)?#?(\d{4})\b/gi;
 
 /**
  * How far either side of a number the path that qualifies it may sit.
@@ -155,6 +160,16 @@ const qualifyingPath = (number: string) =>
  */
 const NAMES_A_PACKAGE = /@[\w-]+\/([\w.-]+)`?[ \t\n]*$/;
 
+/**
+ * How far back of a number the package name qualifying it may sit.
+ *
+ * Short on purpose, and much shorter than `PATH_WINDOW`: the pattern above is
+ * anchored to the number, so this only has to hold `@scope/name` plus the
+ * backtick and space between it and `ADR`. A wider window would let a package
+ * named two sentences earlier claim a citation it has nothing to do with.
+ */
+const SCOPE_WINDOW = 60;
+
 /** Rule 1: a citation carries the path, never the number alone. */
 export function validateAdrNumbers(file: string, text: string): string[] {
   const errors: string[] = [];
@@ -166,7 +181,7 @@ export function validateAdrNumbers(file: string, text: string): string[] {
       match.index + PATH_WINDOW,
     );
     const named = NAMES_A_PACKAGE.exec(
-      text.slice(Math.max(0, match.index - 60), match.index),
+      text.slice(Math.max(0, match.index - SCOPE_WINDOW), match.index),
     )?.[1];
     const qualifies =
       named === undefined

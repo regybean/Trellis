@@ -61,26 +61,28 @@ function appPair() {
     .map((app) => ({
       name: app.name,
       short: app.rel.slice('apps/'.length),
-      carries: new Set(
+      closure: new Set(
         closurePackages(root, [app.name]).map((pkg) => pkg.name),
       ),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
   const candidates = apps
-    .filter((app) => SUBSET_EXCLUDES.every((pkg) => app.carries.has(pkg)))
+    .filter((app) => SUBSET_EXCLUDES.every((pkg) => app.closure.has(pkg)))
     .flatMap((full) =>
       apps
-        .filter((app) => SUBSET_EXCLUDES.every((pkg) => !app.carries.has(pkg)))
+        .filter((app) => SUBSET_EXCLUDES.every((pkg) => !app.closure.has(pkg)))
         .map((slim) => ({
           full,
           slim,
-          apart: [...full.carries, ...slim.carries].filter(
-            (pkg) => full.carries.has(pkg) !== slim.carries.has(pkg),
+          // How many packages the two closures disagree about — the size of
+          // their symmetric difference, and the tie-break below.
+          packagesDiffering: [...full.closure, ...slim.closure].filter(
+            (pkg) => full.closure.has(pkg) !== slim.closure.has(pkg),
           ).length,
         })),
     )
-    .sort((a, b) => a.apart - b.apart);
+    .sort((a, b) => a.packagesDiffering - b.packagesDiffering);
 
   return candidates[0];
 }

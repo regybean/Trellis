@@ -134,9 +134,9 @@ app-layer home and can no longer be filed at the root by accident.
   reference goes.** That is the expensive part of the sweep and the part worth
   doing.
 - **The rule is agent protocol, not only an ADR.**
-  [docs/agents/domain.md](../agents/domain.md) carries the four bullets, because
-  that is where an agent looks before writing a citation rather than after a
-  checker rejects one.
+  [docs/agents/domain.md](../agents/domain.md) carries the five rules and both
+  exemptions, because that is where an agent looks before writing a citation
+  rather than after a checker rejects one.
 - **A cross-package amendment loses its machine-readable pointer.** The status
   vocabulary offers `accepted` or `amended by <path>`, and `check-adrs` requires
   that path to resolve — but the citation rule forbids it resolving into another
