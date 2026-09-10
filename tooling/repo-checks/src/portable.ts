@@ -109,8 +109,16 @@ function lineAt(text: string, index: number): number {
 const site = (file: string, text: string, index: number) =>
   `${file}:${lineAt(text, index)}`;
 
-/** `ADR NNNN`, `ADRs NNNN`, `ADR-NNNN`, `ADR #NNNN` — a number with no path. */
-const BARE_ADR_NUMBER = /\bADRs?[ \t\n-]*#?(\d{4})\b/gi;
+/**
+ * `ADR NNNN`, `ADRs NNNN`, `ADR-NNNN`, `ADR #NNNN` — a number with no path.
+ *
+ * The gap tolerates a wrapped line *and its comment leader*. A citation that
+ * fell across the wrap in a `//` run read as two unrelated tokens and hid from
+ * this rule entirely, which is how a reference to a since-deleted root ADR sat
+ * in a distributed file through the whole report-only period.
+ */
+const BARE_ADR_NUMBER =
+  /\bADRs?(?:[ \t-]|\n[ \t]*(?:\*|\/\/|#)?[ \t]*)*#?(\d{4})\b/gi;
 
 /**
  * How far either side of a number the path that qualifies it may sit.

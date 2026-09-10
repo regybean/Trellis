@@ -20,9 +20,9 @@ decisions are load-bearing:
    `transformUserForClient`. Each app picks the matching server SDK and resolves
    auth at its HTTP boundary, then injects it:
    - The Next app resolves via Clerk's Next server SDK in its route handlers.
-   - The Start app resolves via `@clerk/tanstack-react-start/server`
-     (`auth()` + `clerkClient().users.getUser`) in `src/lib/clerk-context.ts`,
-     after registering `clerkMiddleware()` in `createStart()` (`src/start.ts`).
+   - The Start app resolves via `@clerk/tanstack-react-start/server` (`auth()` +
+     `clerkClient().users.getUser`) in `src/lib/clerk-context.ts`, after
+     registering `clerkMiddleware()` in `createStart()` (`src/start.ts`).
 
 ## Considered and rejected
 
@@ -32,15 +32,16 @@ decisions are load-bearing:
   dependency graph and couple the platform layer to the set of frameworks we
   happen to support. Rejected — the platform layer should not know frameworks
   exist.
-- **A Vite alias shim mapping the Next server SDK → the Start SDK.** A build-time
-  alias would let the Next-shaped imports survive unchanged, but it hides the
-  coupling in build config, breaks type-checking (the shapes differ), and only
-  works for the bundler — not for `tsc` or tests. Rejected.
+- **A Vite alias shim mapping the Next server SDK → the Start SDK.** A
+  build-time alias would let the Next-shaped imports survive unchanged, but it
+  hides the coupling in build config, breaks type-checking (the shapes differ),
+  and only works for the bundler — not for `tsc` or tests. Rejected.
 
 ## Consequences
 
 - `@acme/auth` drops its `next` and Clerk-Next dependencies; client feature
-  imports (e.g. billing `useAuth`, the sidebar `UserButton`) repoint to `@acme/auth`.
+  imports (e.g. billing `useAuth`, the sidebar `UserButton`) repoint to
+  `@acme/auth`.
 - `createTRPCContext`'s signature gains `auth` + `user`. Every caller (both apps'
   route handlers) must resolve and pass them — there is no implicit fallback, so a
   missing resolver is a type error, not a silent unauthenticated context.
@@ -63,8 +64,8 @@ decisions are load-bearing:
   `tooling/eslint/base.ts`): Clerk's two framework server SDKs are banned in
   every package by default; apps opt back in via
   `containmentOverride({ allowClerk: true })`. `@acme/auth` needs no exception —
-  it uses `@clerk/clerk-react` / `@clerk/backend`, not the framework server SDKs.
-  Type-only imports are allowed (they don't couple runtime).
+  it uses `@clerk/clerk-react` / `@clerk/backend`, not the framework server
+  SDKs. Type-only imports are allowed (they don't couple runtime).
 - **One blessed feature-level exception:** `@acme/billing` ships a Next-coupled
   RSC (`stripe-success-handler.tsx`, exported only via `@acme/billing/server-next`,
   never the neutral `@acme/billing/server`). It resolves Clerk directly and

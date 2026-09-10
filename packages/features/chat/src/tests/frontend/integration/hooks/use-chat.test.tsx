@@ -4,9 +4,10 @@
  * Drives the REAL useChat hook through a real QueryClient with the network
  * faked at the HTTP boundary (MSW via trpcMsw). Asserts returned state.
  *
- * SUBSCRIPTION CONSTRAINT: MSW cannot drive a tRPC SSE subscription
- * in jsdom — an enabled reader only ever transitions `connecting → error`, never
- * delivering `onData` deltas/terminals or a clean `idle` close. So the split is:
+ * SUBSCRIPTION CONSTRAINT: MSW cannot drive a tRPC SSE subscription in jsdom —
+ * an enabled reader only ever transitions `connecting → error`, never
+ * delivering `onData` deltas/terminals or a clean `idle` close. So the split
+ * is:
  *   - The control-plane MUTATIONS (`chat.send` / `chat.stop` / `chat.reconcileTurn`)
  *     ARE MSW-interceptable, so their contract is asserted here.
  *   - Streaming OUTCOMES (token append, `done`/`cancelled`/`error` terminals)
@@ -188,9 +189,9 @@ describe('useChat – message length validation', () => {
     const longText = 'a'.repeat(MAX_MESSAGE_LENGTH + 1);
     act(() => result.current.send(longText));
 
-    // `messages` now derives from the reactive chat.get cache; the
-    // validation path writes it without a co-incident React setState, so the
-    // re-render lands on the next microtask — observe via waitFor.
+    // `messages` now derives from the reactive chat.get cache; the validation
+    // path writes it without a co-incident React setState, so the re-render
+    // lands on the next microtask — observe via waitFor.
     await waitFor(() => {
       const errorMsg = result.current.messages.find(
         (m) => m.error && m.role === 'assistant',

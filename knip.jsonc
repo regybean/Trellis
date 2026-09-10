@@ -53,8 +53,13 @@
       // about the default `drizzle.config.ts`. `src/env.ts` is the app's one
       // env composition edge — nothing imports it, so declaring it an entry is
       // what keeps its own imports counted. Stated for every app because it is
-      // the convention rather than one app's quirk; whether each app actually
-      // *loads* its edge at boot is a separate question, and not knip's.
+      // the convention rather than one app's quirk.
+      //
+      // Known defect this therefore hides, recorded here because nothing else
+      // records it: one slim app never *loads* its `src/env.ts` at boot, so its
+      // env is validated by nothing at startup. Declaring the entry was always
+      // orthogonal to that — knip asks what imports a file, not what runs it —
+      // and the fix is an import in the app's server entry, not a knip key.
       "entry": ["drizzle.push.config.ts", "src/env.ts"],
     },
     "packages/features/ingest": {

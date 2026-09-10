@@ -22,9 +22,9 @@ const envelope = (over: Partial<Notification> = {}): Notification => ({
   ...over,
 });
 
-// The app's single QueryClient wraps the provider: the notifications
-// provider renders none of its own, so mounting it needs one exactly as an app
-// supplies one.
+// The app's single QueryClient wraps the provider: the notifications provider
+// renders none of its own, so mounting it needs one exactly as an app supplies
+// one.
 function renderHarness(renderers?: NotificationRenderers) {
   return render(
     <AppQueryClientProvider>
@@ -51,7 +51,8 @@ describe('notification dispatch', () => {
 
   it('lets a registered kind win over the default renderer', async () => {
     // A custom renderer zod-parses its own opaque `data` and composes its own
-    // toast — the core never ships feature renderers ([ADR 0001](../../../../../docs/adr/0001-notifications-seam.md)).
+    // toast — the core never ships feature renderers
+    // ([ADR 0001](../../../../../docs/adr/0001-notifications-seam.md)).
     const renderers: NotificationRenderers = {
       'ingest.job-complete': (n) => {
         const { total } = z.object({ total: z.number() }).parse(n.data);

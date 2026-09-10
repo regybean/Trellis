@@ -2,10 +2,10 @@
  * Test context.
  *
  * The tRPC caller context comes from the one canonical builder
- * (`@acme/trpc/testing`) — it stubs the session (`ctx.session.user`) and nothing
- * else: the db/redis clients are the REAL ones, pointed at testcontainers.
- * Telemetry is ambient — no span in a caller test, so nothing to stub. This
- * file owns only the data cleanup.
+ * (`@acme/trpc/testing`) — it stubs the session (`ctx.session.user`) and
+ * nothing else: the db/redis clients are the REAL ones, pointed at
+ * testcontainers. Telemetry is ambient — no span in a caller test, so nothing
+ * to stub. This file owns only the data cleanup.
  */
 import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';

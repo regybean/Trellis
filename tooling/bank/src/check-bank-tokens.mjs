@@ -63,9 +63,10 @@ const ROOT_MANIFEST = 'package.json';
  *
  * `bootstrap.test.ts` already sanctions a root script entry left *dangling* by
  * a selection: a consumer who took none of the feature a convenience command
- * delegates into gets an entry that calls nothing. The grounds are that the entry *is* the whole reference — key
- * and command are one line, the manifest is documented as the consumer's to
- * edit, and `docs/bank.md` names each dangling entry in a table.
+ * delegates into gets an entry that calls nothing. The grounds are that the
+ * entry *is* the whole reference — key and command are one line, the manifest
+ * is documented as the consumer's to edit, and `docs/bank.md` names each
+ * dangling entry in a table.
  *
  * Naming an app rather than a feature does not weaken any of that. It
  * strengthens it: `apps/` is the one directory no consumer receives at all, so
@@ -86,8 +87,10 @@ const SANCTIONED_DANGLING =
  * The line numbers of the root manifest's `scripts` entries.
  *
  * Read off the text rather than the parse, because the exemption is per *line*
- * and only the text has lines. Derived from the parsed keys, so it covers
- * whatever the manifest happens to declare.
+ * and only the text has lines. The keys come from the parse, so the exemption
+ * covers whatever the manifest happens to declare — but the scan is bounded to
+ * the `scripts` block, or a dependency sharing a name with a script would
+ * inherit an exemption written for something else.
  *
  * @param {string} text
  * @returns {Set<number>}
@@ -99,9 +102,18 @@ function scriptEntryLines(text) {
   /** @type {Set<number>} */
   const lines = new Set();
 
+  let depth = 0;
+  let inScripts = false;
+
   for (const [index, line] of text.split('\n').entries()) {
     const key = /^\s*"([^"]+)"\s*:/.exec(line)?.[1];
-    if (key !== undefined && keys.has(key)) lines.add(index + 1);
+    if (inScripts && key !== undefined && keys.has(key)) lines.add(index + 1);
+    // Depth 1 is the manifest's own keys, so `scripts` opens at 1 and its
+    // entries live at 2. Prettier keeps one brace per line in a manifest.
+    if (depth === 1 && key === 'scripts') inScripts = true;
+    depth += line.match(/[{[]/g)?.length ?? 0;
+    depth -= line.match(/[}\]]/g)?.length ?? 0;
+    if (inScripts && depth <= 1) inScripts = false;
   }
 
   return lines;

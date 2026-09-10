@@ -22,8 +22,8 @@ const t = initTRPC.context<NotificationsContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against this package's own concrete
 // context. The bodies live once in `@acme/trpc` as plain async helpers; only
-// this wiring is per-package. No admin gate — every notifications
-// procedure is the caller's own stream.
+// this wiring is per-package. No admin gate — every notifications procedure is
+// the caller's own stream.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );

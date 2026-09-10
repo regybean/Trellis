@@ -19,9 +19,9 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * chunker knobs and the conversation-memory tunables (previously hardcoded in
  * `memory.ts`) are authored here as profile values, and every one of them is
  * env-overridable — they are the operational knobs most likely to be retuned on
- * a live deploy. The DB connection host/port/creds stay
- * with `@acme/db`; only the vector *name* is rag's. Server-side — ingestion, the
- * vector store and memory all run on the backend.
+ * a live deploy. The DB connection host/port/creds stay with `@acme/db`; only
+ * the vector *name* is rag's. Server-side — ingestion, the vector store and
+ * memory all run on the backend.
  *
  * `MEMORY_SEMANTIC_RECALL` goes through `jsonEnv` rather than
  * `z.coerce.boolean()`: coercion is JavaScript truthiness, so `'false'` would

@@ -4,10 +4,10 @@ import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
 import type { OllamaChatConfig, OllamaEmbedConfig } from './model-schemas';
 
 // Base URL + model ids arrive as the narrowed Ollama variant (`config.chat` /
-// `env.MODELS_EMBED`); Ollama has no secret, so these factories read
-// nothing from env. Ollama speaks the OpenAI-compatible API on `/v1`, which
-// covers both chat and embeddings, so one provider instance serves both. Dev/test
-// default: tiny CPU-only models, no GPU assumed.
+// `env.MODELS_EMBED`); Ollama has no secret, so these factories read nothing
+// from env. Ollama speaks the OpenAI-compatible API on `/v1`, which covers both
+// chat and embeddings, so one provider instance serves both. Dev/test default:
+// tiny CPU-only models, no GPU assumed.
 function ollamaProvider(baseUrl: string) {
   return createOpenAICompatible({ name: 'ollama', baseURL: baseUrl });
 }

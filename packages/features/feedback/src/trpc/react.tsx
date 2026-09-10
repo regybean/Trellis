@@ -6,11 +6,11 @@ import type { AppRouter } from '../api/root';
 import { env } from '../env';
 
 /**
- * Max age of a persisted feedback entry — 24h. Rating state is worth
- * keeping for a day, not a week: shorter than chat's 7d because it's cheaper to
- * refetch and bounds how long this PII lives at rest. It is also the `gcTime`
- * every persisted feedback query gets, so a restored entry is never
- * garbage-collected before it can be read.
+ * Max age of a persisted feedback entry — 24h. Rating state is worth keeping
+ * for a day, not a week: shorter than chat's 7d because it's cheaper to refetch
+ * and bounds how long this PII lives at rest. It is also the `gcTime` every
+ * persisted feedback query gets, so a restored entry is never garbage-collected
+ * before it can be read.
  */
 const FEEDBACK_PERSIST_MAX_AGE = 24 * 60 * 60 * 1000;
 
@@ -21,11 +21,11 @@ const FEEDBACK_PERSIST_MAX_AGE = 24 * 60 * 60 * 1000;
  */
 const FEEDBACK_PERSIST_VERSION = 'v1';
 
-// Feedback's client half, assembled from the shared factory (`@acme/hooks`). The
-// scaffold lives once in the factory; feedback's variation is its router type,
-// endpoint (`rq-feedback` / `/api/trpc/feedback`), the batch-stream transport (no
-// subscription, no file uploads), and the 24-hour per-query persister.
-// The app owns the `QueryClient`, so there is none to configure.
+// Feedback's client half, assembled from the shared factory (`@acme/hooks`).
+// The scaffold lives once in the factory; feedback's variation is its router
+// type, endpoint (`rq-feedback` / `/api/trpc/feedback`), the batch-stream
+// transport (no subscription, no file uploads), and the 24-hour per-query
+// persister. The app owns the `QueryClient`, so there is none to configure.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: 'feedback',
   nodeEnv: env.NODE_ENV,

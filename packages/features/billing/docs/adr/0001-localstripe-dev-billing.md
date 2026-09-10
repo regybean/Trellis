@@ -89,14 +89,14 @@ load-bearing:
 - **The connection and both secrets are authored config, not environment.**
   `src/development-profile.ts` authors `STRIPE_CONNECTION`
   (`{ mode: 'localstripe', apiBase }`) plus localstripe's fixed placeholder
-  `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`, so a clean checkout runs billing
-  against the fake server with no environment at all.
-  The staging and production overlays resolve the connection to `real` and
-  **unauthor** the two secrets, which makes them demanded secrets on those
-  targets by the same mechanical rule as every other secret; turbo's `globalEnv`
-  carries only those two keys. (Originally an optional `STRIPE_API_BASE` in
-  turbo's `globalEnv`/`globalPassThroughEnv`, with the localstripe defaults
-  shipped uncommented in `.env.example`.)
+  `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`, so a clean checkout runs
+  billing against the fake server with no environment at all. The staging and
+  production overlays resolve the connection to `real` and **unauthor** the two
+  secrets, which makes them demanded secrets on those targets by the same
+  mechanical rule as every other secret; turbo's `globalEnv` carries only those
+  two keys. (Originally an optional `STRIPE_API_BASE` in turbo's
+  `globalEnv`/`globalPassThroughEnv`, with the localstripe defaults shipped
+  uncommented in `.env.example`.)
 - Because the connection is authored, this slice's `src/provisioning.ts` reads
   it _without_ an environment and declares the `billing` compose profile
   unneeded unless the authored mode is `localstripe` — real Stripe needs no

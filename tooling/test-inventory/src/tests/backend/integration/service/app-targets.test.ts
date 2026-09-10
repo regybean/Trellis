@@ -10,10 +10,10 @@
  *
  * The subsetting assertion is why it earns its keep. The slim app is the repo's
  * claim that a no-auth/no-billing subset really does drop those slices from the
- * graph; comparing its inventory with the full app's makes that claim observable
- * instead of asserted. It has already paid for itself — writing it surfaced an
- * unused `@acme/auth` devDependency on chat and ingest that was pulling auth
- * into every slim closure.
+ * graph; comparing its inventory with the full app's makes that claim
+ * observable instead of asserted. It has already paid for itself — writing it
+ * surfaced an unused `@acme/auth` devDependency on chat and ingest that was
+ * pulling auth into every slim closure.
  *
  * Cost: three collections of most of the repo. They run concurrently in
  * `beforeAll` and share one result each, so the file is roughly one and a half

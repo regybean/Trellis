@@ -22,9 +22,10 @@ Source of truth for the code: `hooks/use-chat.ts`, `api/routers/chat.ts`,
 
 ## 1. The two planes
 
-Generation is fully decoupled from the client connection ([ADR 0004](adr/0004-generation-worker-and-queue.md)). The system
-splits into a **control plane** (request/response tRPC mutations) and a **data
-plane** (a durable Redis Stream tailed by a pure subscription). See
+Generation is fully decoupled from the client connection
+([ADR 0004](adr/0004-generation-worker-and-queue.md)). The system splits into a
+**control plane** (request/response tRPC mutations) and a **data plane** (a
+durable Redis Stream tailed by a pure subscription). See
 [`chat-flow-overview.mermaid`](chat-flow-overview.mermaid).
 
 | Concern                | Where it lives                                    | Notes                                                                                        |
@@ -85,24 +86,24 @@ what `chat.inflightTurn` + `chat.get` return at mount. See
 [`chat-flow-refresh.mermaid`](chat-flow-refresh.mermaid).
 
 Chat's persisted queries carry **`staleTime: 0`** (`usePersistedQueryOptions`,
-trpc/react.tsx) so every persisted
-read (`chat.get`, `chat.list`) paints its restored snapshot instantly but
-revalidates against server truth on every mount. This is load-bearing: the
-persister only stores _successful fetches_, but these caches are also written
-optimistically via `setQueryData` (the streamed Messages; the "New chat" sidebar
-row), and those writes never reach the persisted snapshot. So the restored
-snapshot lags reality — a first-Turn Conversation persists the empty greeting
-load (`[]`) with a _recent_ `dataUpdatedAt`; the sidebar persists the list
-_before_ the new thread. The lever is `staleTime`, NOT `refetchOnMount`: on a
-cold open the persister _is_ the queryFn — it restores and returns the snapshot,
-then background-refetches only `if (query.isStale())`, which reads `staleTime` and
-ignores `refetchOnMount`. So any `staleTime > 0` served
-the stale-but-"fresh" snapshot without revalidating, and on refresh the message
-pane stayed blank whenever the resume path didn't fire (Turn already settled, or
-the lock released as we reloaded — the resume-adopt was the _only_ thing
-repainting `base`) **and** the just-created Conversation was missing from the
-sidebar. `staleTime: 0` makes every restored entry stale so the refetch always
-fires. Two further consequences:
+trpc/react.tsx) so every persisted read (`chat.get`, `chat.list`) paints its
+restored snapshot instantly but revalidates against server truth on every mount.
+This is load-bearing: the persister only stores _successful fetches_, but these
+caches are also written optimistically via `setQueryData` (the streamed
+Messages; the "New chat" sidebar row), and those writes never reach the
+persisted snapshot. So the restored snapshot lags reality — a first-Turn
+Conversation persists the empty greeting load (`[]`) with a _recent_
+`dataUpdatedAt`; the sidebar persists the list _before_ the new thread. The
+lever is `staleTime`, NOT `refetchOnMount`: on a cold open the persister _is_
+the queryFn — it restores and returns the snapshot, then background-refetches
+only `if (query.isStale())`, which reads `staleTime` and ignores
+`refetchOnMount`. So any `staleTime > 0` served the stale-but-"fresh" snapshot
+without revalidating, and on refresh the message pane stayed blank whenever the
+resume path didn't fire (Turn already settled, or the lock released as we
+reloaded — the resume-adopt was the _only_ thing repainting `base`) **and** the
+just-created Conversation was missing from the sidebar. `staleTime: 0` makes
+every restored entry stale so the refetch always fires. Two further
+consequences:
 
 - **`isHistoryLoading` keys on `isFetching` while `base` is empty**, not just the
   no-data `isLoading`. So the mount revalidation of a stale/empty snapshot shows

@@ -5,9 +5,9 @@
 > **Amends [ADR 0001](0001-multi-provider-models.md) on how a selection is
 > expressed.** Three providers behind one package, one file each, chat and embed
 > selected independently, and eager failure at import all stand. What changed is
-> the shape of the selection — [ADR 0001](0001-multi-provider-models.md)'s `LLM_PROVIDER` / `EMBED_PROVIDER` enums
-> and the loose `EMBED_DIMENSIONS` sibling are gone — and where a provider's
-> secrets are demanded.
+> the shape of the selection — [ADR 0001](0001-multi-provider-models.md)'s
+> `LLM_PROVIDER` / `EMBED_PROVIDER` enums and the loose `EMBED_DIMENSIONS`
+> sibling are gone — and where a provider's secrets are demanded.
 
 A role's selection is **one authored value**, validated against a discriminated
 union keyed by `provider`: `MODELS_CHAT` (`ollama` | `bedrock` | `openrouter`)
@@ -37,15 +37,17 @@ load-bearing:
    `documents-schema` reads the dimension at module load in contexts (drizzle-kit,
    an app's schema barrel) where a `server` key would fail.
 5. **Secrets are demanded from the resolved selection, at one eager entry
-   point.** `validateModelSecrets()` calls only the active providers' `createEnv`
-   groups: the AWS pair when Bedrock is either role, `OPENROUTER_API_KEY` when
-   OpenRouter is chat, nothing for Ollama. It runs once at `resolve.ts` import, so
-   a credential-less app still fails fast. This is **validation only** — the
-   provider SDKs keep reading those credentials implicitly (Bedrock via the AWS
-   chain, OpenRouter inside `createOpenRouter`) and the values are never threaded
-   back into the factories. [ADR 0001](0001-multi-provider-models.md)'s decision 2 got the same "only the active
-   provider is required" property by calling `createEnv` _inside_ each factory,
-   which spread the rule across three files and tied it to the factory running.
+   point.** `validateModelSecrets()` calls only the active providers'
+   `createEnv` groups: the AWS pair when Bedrock is either role,
+   `OPENROUTER_API_KEY` when OpenRouter is chat, nothing for Ollama. It runs
+   once at `resolve.ts` import, so a credential-less app still fails fast. This
+   is **validation only** — the provider SDKs keep reading those credentials
+   implicitly (Bedrock via the AWS chain, OpenRouter inside `createOpenRouter`)
+   and the values are never threaded back into the factories.
+   [ADR 0001](0001-multi-provider-models.md)'s decision 2 got the same "only the
+   active provider is required" property by calling `createEnv` _inside_ each
+   factory, which spread the rule across three files and tied it to the factory
+   running.
 
 ## Considered and rejected
 

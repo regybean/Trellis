@@ -42,14 +42,14 @@ because the edges are what people get wrong:
 - A package may cite its own ADRs.
 - A package may not cite another package's.
 - No distributed file may cite a root ADR.
+- Root ADRs citing each other is fine, because they travel together.
 - No distributed file may cite an app-layer ADR, wherever in the tree it sits.
   The app layer is the one directory nothing outside it receives, so a citation
   into it travels with nothing. It needs saying separately because an app-layer
   ADR has no package manifest above it and so reads as the root's unless the
   rule names it.
-- Root ADRs citing each other is fine, because they travel together.
 
-The last two are one rule read from both sides: a citation may only point at
+The root-ADR pair is one rule read from both sides: a citation may only point at
 content that arrives whenever the citing file does. Everything under `docs/` is
 one bundle, so a root ADR pointing at a root ADR, or at the agent protocol docs
 beside it, always resolves. A package arrives without that bundle, so it may not
@@ -66,23 +66,23 @@ first, and only then is the reference deleted.
 distributed file that names an app describes someone else's repo, and an agent
 brief that grants autonomous issue writes against this repo's tracker is worse
 than wrong. [docs/bank.md](../bank.md) is the one sanctioned exception at the
-level of a whole *file*, and the check allowlists it: it is addressed to a
+level of a whole _file_, and the check allowlists it: it is addressed to a
 consumer about consuming this bank, so naming the bank there is correct.
 
-One exception at the level of a *line*: a `scripts` entry in the root
+One exception at the level of a _line_: a `scripts` entry in the root
 `package.json`. [ADR 0041](0041-always-included-content-survives-the-minimum-selection.md)
 already sanctions such an entry left dangling by a selection, on the grounds
 that the entry is the whole reference — one line, in a file documented as the
 consumer's to edit, listed by name in `docs/bank.md`. Naming an app rather than
 a feature does not weaken that argument; it is the same argument with a
 guaranteed rather than a conditional absence. The distinction 0041 draws holds
-here unchanged: a script *body* gets no exception, which is why
+here unchanged: a script _body_ gets no exception, which is why
 `scripts/extract-app.sh` asks which app you mean and lists the workspace's own
 rather than defaulting to one of this repo's.
 
-Under the last clause a root ADR cannot name an app, which is the mechanical
-version of the placement rule. An app-layer decision has an app-layer home and
-can no longer be filed at the root by accident.
+Under the no-app-name rule a root ADR cannot name an app, which is the
+mechanical version of the placement rule. An app-layer decision has an
+app-layer home and can no longer be filed at the root by accident.
 
 ## Considered and rejected
 
@@ -106,7 +106,7 @@ can no longer be filed at the root by accident.
   distributes them, so their citations are free to name whatever they like.
 - **Sweep this repo's own front matter and indexes** — the project README, the
   context map, the doc index, the getting-started and inventory pages. Same
-  argument as the app layer, one file at a time: each is *about* this repo's
+  argument as the app layer, one file at a time: each is _about_ this repo's
   shape rather than content this repo ships, each is on `exclude`, and a
   consumer writes their own. The doc index in particular exists to point across
   every package boundary in the repo, which is also where `check-adrs` demands
@@ -140,7 +140,7 @@ can no longer be filed at the root by accident.
 - **A cross-package amendment loses its machine-readable pointer.** The status
   vocabulary offers `accepted` or `amended by <path>`, and `check-adrs` requires
   that path to resolve — but the citation rule forbids it resolving into another
-  package, so the two rules together leave no way to *spell* "amended by another
+  package, so the two rules together leave no way to _spell_ "amended by another
   package's decision". Three ADRs hit this and now read `accepted` with the
   amendment carried, in full, by the blockquote directly beneath. Nothing is
   lost to a reader; what is lost is the field a tool could read. Widening the

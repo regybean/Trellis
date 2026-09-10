@@ -1,9 +1,9 @@
 /**
  * ingest-progress-reducer — frontend/unit.
  *
- * The pure per-file progress state machine: no React, no tRPC.
- * Asserts the merge contract directly — forward-only ranks (advance-if-greater /
- * ignore lower), `failed` absorbing, seed-on-unknown for live server stages, the
+ * The pure per-file progress state machine: no React, no tRPC. Asserts the
+ * merge contract directly — forward-only ranks (advance-if-greater / ignore
+ * lower), `failed` absorbing, seed-on-unknown for live server stages, the
  * per-`jobId` completion set, and the snapshot `hydrate` / `retire` reconcilers
  * that make progress survive a refresh and de-duplicate completed files.
  */

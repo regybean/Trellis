@@ -34,9 +34,10 @@ import { enqueueGenerationTurn } from './chat-queue';
 
 // The TTLs are authored config. The In-flight lock's TTL
 // (`env.INFLIGHT_LOCK_TTL`) doubles as the crash-recovery bound: the worker
-// does NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
-// the lock to self-expire, after which the next `beginTurn` can re-acquire. Until
-// then a wedged Conversation is recovered by `reconcileTurn` (client-driven refund
+// does NOT renew it (there is no heartbeat), so a worker that dies mid-Turn
+// leaves the lock to self-expire, after which the next `beginTurn` can
+// re-acquire. Until then a wedged Conversation is recovered by `reconcileTurn`
+// (client-driven refund
 // + teardown when a reader closes with no terminal). The abort signal
 // (`env.ABORT_SIGNAL_TTL`) shares the value so a never-observed stop cannot
 // linger past its Turn. After a terminal the Stream is shortened to a brief safety
@@ -57,11 +58,13 @@ export interface TurnRef {
   turnId: string;
 }
 
-// Steps `chat.send` still authors but `beginTurn` orders and guards. `consume` is
-// the credit gate + consume closure: it stays inline in `chat.send` (@acme/chat
-// [ADR 0006](../../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)) so a rejected send consumes nothing, and `beginTurn` runs it at the
-// one correct point in the ordering — after ownership + lock and the
-// user-Message persist, before enqueue.
+// Steps `chat.send` still authors but `beginTurn` orders and guards. `consume`
+// is the credit gate + consume closure: it stays inline in `chat.send`
+// (@acme/chat
+// [ADR 0006](../../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md))
+// so a rejected send consumes nothing, and `beginTurn` runs it at the one
+// correct point in the ordering — after ownership + lock and the user-Message
+// persist, before enqueue.
 export interface BeginTurnInput extends TurnRef {
   userId: string;
   tier: SubscriptionTier;
@@ -91,13 +94,13 @@ async function releaseInflightLock({ conversationId, turnId }: TurnRef) {
   return redis.compareAndDelete(chatInflightKey(conversationId), turnId);
 }
 
-// Next-Turn cleanup. The Stream is Conversation-keyed and survives a terminal for
-// a brief TTL (so late reconnects still see it), so a fresh Turn would tail from
-// the head and re-read the PRIOR Turn's deltas + terminal — replaying the last
-// response and colliding on its messageId. `beginTurn` runs this after it wins the
-// lock (winner path only — an `alreadyInflight` caller must NOT delete a live
-// stream) and before enqueue, so the worker writes onto a clean Stream. Safe under
-// the lock: no concurrent worker is writing this key.
+// Next-Turn cleanup. The Stream is Conversation-keyed and survives a terminal
+// for a brief TTL (so late reconnects still see it), so a fresh Turn would tail
+// from the head and re-read the PRIOR Turn's deltas + terminal — replaying the
+// last response and colliding on its messageId. `beginTurn` runs this after it
+// wins the lock (winner path only — an `alreadyInflight` caller must NOT delete
+// a live stream) and before enqueue, so the worker writes onto a clean Stream.
+// Safe under the lock: no concurrent worker is writing this key.
 async function discardStaleStream(conversationId: string) {
   await redis.del(chatStreamKey(conversationId));
 }
@@ -128,14 +131,14 @@ export async function isTurnAborted({ conversationId, turnId }: TurnRef) {
 // here). Returns whether this call performed the refund (false ⇒ already refunded).
 //
 // The guard and the credit-back are two writes, not one commit, and CANNOT be
-// fused from here: the credit-back lands on the provider's own storage, which this
-// module deliberately cannot name (that seam is what keeps `@acme/chat` free of
-// `@acme/subscriptions`). So a crash in between leaves the Turn marked refunded
-// with the credit not returned. The order is the deliberate bias: guard-first
-// loses at most one credit, refund-first would hand out a free one on every
-// crash, and the guard is permanent (no TTL) so a replayed `reconcileTurn` can
-// never mint credits. Closing the window entirely needs the credit-back to carry
-// chat's idempotency key across the seam.
+// fused from here: the credit-back lands on the provider's own storage, which
+// this module deliberately cannot name (that seam is what keeps `@acme/chat`
+// free of `@acme/subscriptions`). So a crash in between leaves the Turn marked
+// refunded with the credit not returned. The order is the deliberate bias:
+// guard-first loses at most one credit, refund-first would hand out a free one
+// on every crash, and the guard is permanent (no TTL) so a replayed
+// `reconcileTurn` can never mint credits. Closing the window entirely needs the
+// credit-back to carry chat's idempotency key across the seam.
 export async function refundTurnCredits(
   refund: EntitlementsProvider['refund'],
   userId: string,
@@ -186,14 +189,15 @@ export async function beginTurn(input: BeginTurnInput) {
   }
 }
 
-// Settle a Turn on a worker terminal (was `finalizeTurn`). All three kinds share
-// this teardown: the Stream is NOT deleted, it is shortened to the post-terminal
-// window so a client that reconnects *after* generation finished still reads the
-// terminal (done / cancelled / error) instead of an empty stream, then it
-// self-expires. Drops the abort signal and releases the lock. (Deleting on
-// terminal would race a reconnecting reader and lose the terminal; hard-delete of
-// an orphan's Stream is `reconcileTurn`, and the stale-stream discard that stops
-// the *next* Turn re-reading this one is inside `beginTurn`.)
+// Settle a Turn on a worker terminal (was `finalizeTurn`). All three kinds
+// share this teardown: the Stream is NOT deleted, it is shortened to the
+// post-terminal window so a client that reconnects *after* generation finished
+// still reads the terminal (done / cancelled / error) instead of an empty
+// stream, then it self-expires. Drops the abort signal and releases the lock.
+// (Deleting on terminal would race a reconnecting reader and lose the terminal;
+// hard-delete of an orphan's Stream is `reconcileTurn`, and the stale-stream
+// discard that stops the *next* Turn re-reading this one is inside
+// `beginTurn`.)
 export async function settleTurn(kind: TurnTerminalKind, ref: TurnRef) {
   const { conversationId, turnId } = ref;
   logger.debug({ conversationId, turnId, kind }, 'chat: turn settled');

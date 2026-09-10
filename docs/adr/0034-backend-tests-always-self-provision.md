@@ -37,8 +37,8 @@ What goes with it:
 **`CI` comes out of the test tasks' turbo hash.** The env factory's `VITEST`
 carve-out already means `CI` no longer changes env validation under vitest. Once
 the infra branch goes, `CI` has no effect on test results at all — so hashing it
-only splits one honest result across three partitions. `CI` is
-removed from the `env` of `test`, `test:backend` and `test:frontend`, and stays in
+only splits one honest result across three partitions. `CI` is removed from the
+`env` of `test`, `test:backend` and `test:frontend`, and stays in
 `globalPassThroughEnv` for every other task. `scripts/test.sh` stops forcing
 `CI=true` in a worktree. Local, worktree and CI runs now share one cache
 partition — the reuse the old CI-mirroring scheme had to give up to stay
@@ -100,8 +100,8 @@ error naming the fix, instead of one opaque socket error per descriptor per suit
   nothing cached; M-series mac, 16 GB rootless podman machine, images already
   pulled). A re-run with no source changes is **FULL TURBO at ~3.5s** — 34/34
   replayed. The cost is real and was free locally before: each Postgres suite
-  boots pgvector and pushes the full aggregated app schema. We accept it. If
-  a cold run becomes intolerable, revisit — but not with a prebaked artifact.
+  boots pgvector and pushes the full aggregated app schema. We accept it. If a
+  cold run becomes intolerable, revisit — but not with a prebaked artifact.
 - **A container runtime is now a hard prerequisite for backend tests everywhere.**
   `pnpm infra:up` is no longer one; it is dev infra only. `podman machine start`
   is the whole setup.

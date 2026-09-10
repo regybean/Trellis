@@ -107,9 +107,10 @@ export const documentsRouter = createTRPCRouter({
   /**
    * Cold-mount seed: fold the caller's retained progress Stream to the latest
    * stage per in-flight/`failed` Upload plus a resume cursor. This is how
-   * progress survives a refresh — the client seeds its rows from here, then opens
-   * `progress` with `sinceId = lastId`. `done` Uploads are dropped (they live in
-   * `documents.list`), so a completed file never re-seeds as a duplicate row.
+   * progress survives a refresh — the client seeds its rows from here, then
+   * opens `progress` with `sinceId = lastId`. `done` Uploads are dropped (they
+   * live in `documents.list`), so a completed file never re-seeds as a
+   * duplicate row.
    */
   progressSnapshot: adminProcedure.input(z.void()).query(async ({ ctx }) => {
     const userId = ctx.session.user.id;

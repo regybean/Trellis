@@ -47,8 +47,8 @@ throwaway PostgreSQL + Redis containers. **Docker/Podman must be running.**
 {{/if}}{{#if frontendTests}}
 ### Frontend (`test:frontend`) — MSW at the HTTP boundary, no DB
 
-Doctrine: [ADR 0018](../../../docs/adr/0018-frontend-test-doctrine.md) — **fake the
-network at the HTTP boundary (msw-trpc + `setupServer`), assert what renders.**
+Doctrine: **fake the network at the HTTP boundary (msw-trpc +
+`setupServer`), assert what renders.**
 Never `vi.mock` the tRPC client, a feature hook, or `react-toastify`; assert the
 observable outcome (DOM / returned hook state), never `expect(mock).toHaveBeenCalled`.
 The provider switches to a plain `httpLink` when `NODE_ENV==='test'` so MSW can
@@ -97,5 +97,4 @@ This package owns its own ADRs. If deleting `@acme/{{ kebabCase name }}` would
 take a decision with it, write it as `docs/adr/0001-<slug>.md` here — the
 sequence is this directory's, independent of the root's, and a repo-wide
 decision goes in the root `docs/adr/` instead. Then add the row to
-`CONTEXT-MAP.md`, which `pnpm lint` requires. Full rule:
-[docs/agents/domain.md](../../../docs/agents/domain.md#where-an-adr-lives).
+`CONTEXT-MAP.md`, which `pnpm lint` requires.

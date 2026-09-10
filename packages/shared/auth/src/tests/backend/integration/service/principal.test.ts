@@ -4,10 +4,10 @@
  * These three used to exist twice, once per app, each migration writing its own
  * copy; they are collapsed here, so this is where a promote/demote is proved to
  * reach the admin gate — through one implementation, for both apps. Nothing is
- * mocked: the role comes back on a session resolved from a real cookie against a
- * real Postgres, which is the only way to exercise the gap this code exists to
- * cross (Better Auth omits the admin plugin's columns from `getSession`'s static
- * type, so the value is there and the type says otherwise).
+ * mocked: the role comes back on a session resolved from a real cookie against
+ * a real Postgres, which is the only way to exercise the gap this code exists
+ * to cross (Better Auth omits the admin plugin's columns from `getSession`'s
+ * static type, so the value is there and the type says otherwise).
  */
 import { TRPCError } from '@trpc/server';
 import { eq } from 'drizzle-orm';
@@ -74,7 +74,8 @@ describe('readSessionRole', () => {
     expect(await currentRole()).toBe('admin');
 
     // Demotion is `setRole(…, 'user')`, not a clear: the column has a
-    // `defaultRole`, so plain membership *is* a role ([ADR 0001](../../../../../docs/adr/0001-self-hosted-better-auth.md)).
+    // `defaultRole`, so plain membership *is* a role
+    // ([ADR 0001](../../../../../docs/adr/0001-self-hosted-better-auth.md)).
     await auth.api.setRole({
       body: { userId: created.id, role: 'user' },
       headers: adminHeaders,

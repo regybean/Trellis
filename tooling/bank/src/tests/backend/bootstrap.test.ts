@@ -150,11 +150,12 @@ const packages = new Map<string, WorkspacePackage>(
  * present here and absent in every consumer.
  *
  * The three rules below are claims about *this* repo's bundles, and the
- * inventory has no generic substitute: a consumer's always-included set is whatever their
- * own bank decided, and with no inventory there is no set to derive at all. So
- * they skip in a repo that is not a bank, naming the content the claim wanted,
- * rather than failing on a file a consumer was never sent. Everything above
- * this line is about the package's own source and holds anywhere.
+ * inventory has no generic substitute: a consumer's always-included set is
+ * whatever their own bank decided, and with no inventory there is no set to
+ * derive at all. So they skip in a repo that is not a bank, naming the content
+ * the claim wanted, rather than failing on a file a consumer was never sent.
+ * Everything above this line is about the package's own source and holds
+ * anywhere.
  */
 const inventory = join(repoRoot, 'bank.paths.json');
 const isBank = existsSync(inventory);
@@ -200,8 +201,8 @@ const rootScripts = stringMap(
  * omits the feature is meant to leave the script dangling rather than drag the
  * whole slice in. A repo *command* is not optional in the same way.
  *
- * Derived from the manifests rather than a list here, so it kept holding as
- * the rest of `scripts/` moved into tooling packages.
+ * Derived from the manifests rather than a list here, so it kept holding as the
+ * rest of `scripts/` moved into tooling packages.
  */
 describeBank(
   'every delegated tooling command arrives with the root bundle',

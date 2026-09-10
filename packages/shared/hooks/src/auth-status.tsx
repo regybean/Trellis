@@ -49,9 +49,9 @@ export function resolvedAuthStatus(userId: string | null): AuthStatus {
 const AuthStatusContext = createContext<AuthStatus | null>(null);
 
 /**
- * The client half of the app-owned auth seam. The *app* resolves the
- * session with whatever provider it uses — Better Auth's `useSession` in both
- * full apps, seeded from the server-resolved id — and feeds the result in here;
+ * The client half of the app-owned auth seam. The *app* resolves the session
+ * with whatever provider it uses — Better Auth's `useSession` in both full
+ * apps, seeded from the server-resolved id — and feeds the result in here;
  * features read it back through `useAuthStatus` and never learn which provider
  * is mounted.
  *
@@ -101,9 +101,9 @@ export function useAuthStatus() {
  * For the one case `useAuthStatus`'s throw gets wrong: a feature that the
  * **no-auth apps also mount**. The slim apps deliberately have no auth provider
  * and inject a synthetic session server-side instead (`LOCAL_SESSION` in their
- * `trpc-route`), so for them "no provider" does not mean "signed out",
- * it means "always authorized". A feature mounted in all four apps cannot use
- * the throwing hook, and cannot treat the absent provider as signed-out either
+ * `trpc-route`), so for them "no provider" does not mean "signed out", it means
+ * "always authorized". A feature mounted in all four apps cannot use the
+ * throwing hook, and cannot treat the absent provider as signed-out either
  * without going dark in slim.
  *
  * So `null` here means "this app does not do auth", NOT "signed out" — that is

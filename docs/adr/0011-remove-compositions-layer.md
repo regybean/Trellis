@@ -32,11 +32,11 @@ that mattered.
 components were folded into the two consuming apps:
 
 - The Next.js app — `AdminDashboard`, `SearchUsers`, `UserManagement`,
-  `UserDetailedManagement`, and server actions (`setRole`/`removeRole`) moved
-  to `src/components/admin/` + `src/lib/admin.ts`, mirroring the layout the
+  `UserDetailedManagement`, and server actions (`setRole`/`removeRole`) moved to
+  `src/components/admin/` + `src/lib/admin.ts`, mirroring the layout the
   TanStack Start app had already established.
-- The TanStack Start app — `UserManagement` + `UserDetailedManagement` moved
-  to `src/components/admin/`; `SearchUsers` and server functions were already
+- The TanStack Start app — `UserManagement` + `UserDetailedManagement` moved to
+  `src/components/admin/`; `SearchUsers` and server functions were already
   app-owned.
 
 The `composition` turbo boundary tag was **renamed to `app`** — not deleted. All
@@ -75,8 +75,8 @@ wholesale composition.
 - **Keep admin's `global.d.ts` / `checkRole` indirection when folding in.**
   Rejected — `@acme/auth` already owns the role vocabulary, and both apps
   include its globals. The role guard inlines to a single read, as the TanStack
-  Start app's `src/lib/admin.ts` already does. (At the time that read
-  was `sessionClaims?.metadata.role !== 'admin'` against Clerk's
+  Start app's `src/lib/admin.ts` already does. (At the time that read was
+  `sessionClaims?.metadata.role !== 'admin'` against Clerk's
   `CustomJwtSessionClaims`; the auth seam has since collapsed that to
-  `readRole(await auth()) !== 'admin'` — same claim, parsed in one place, and the
-  auth package's own ADRs record the change.)
+  `readRole(await auth()) !== 'admin'` — same claim, parsed in one place, and
+  the auth package's own ADRs record the change.)

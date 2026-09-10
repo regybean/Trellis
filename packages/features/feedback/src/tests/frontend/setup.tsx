@@ -19,9 +19,9 @@ import '@acme/test-utils/jsdom';
 // plain httpLink (see trpc/react.tsx), which msw-trpc can intercept. Env is
 // real (validated by ../../env) — see @acme/test-utils/vitest staticTestEnv.
 
-// jsdom has no IndexedDB; `fake-indexeddb/auto` installs an in-memory one on the
-// global. Swap in a fresh factory before each test so persisted caches never
-// leak across cases.
+// jsdom has no IndexedDB; `fake-indexeddb/auto` installs an in-memory one on
+// the global. Swap in a fresh factory before each test so persisted caches
+// never leak across cases.
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });

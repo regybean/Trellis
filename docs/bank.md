@@ -316,8 +316,8 @@ names `secrets.config.sh` with nothing to copy from — write it from
 Updating is two commands, and they stay two commands forever:
 
 ```bash
-pnpm bank:sync                 # rewrites vendor/bank; merges nothing
-git merge vendor/bank       # your call, your conflicts
+pnpm bank:sync          # rewrites vendor/bank; merges nothing
+git merge vendor/bank   # your call, your conflicts
 ```
 
 `bank:sync` fetches the bank at `ref`, resolves your selection to paths **at that
@@ -348,6 +348,10 @@ Three rules keep the mechanism working.
   re-syncing at the last ref you merged, then syncing forward again.
 - **Merge is yours.** The sync never merges, so nothing lands in your history
   without you running `git merge`.
+- **It used to be called `vendor/trellis`.** If you synced before the rename,
+  rename yours to match before the next sync — `git branch -m vendor/trellis vendor/bank`
+  — or the sync builds a fresh orphan branch and the merge base you already
+  have is stranded on the old one.
 
 To take a newer bank, bump `ref` in the manifest and run the same two commands.
 
@@ -420,9 +424,9 @@ lines. Nothing else in the manifest depends on them.
 This table is the whole reason the manifest is allowed to name a Trellis app at
 all. `check:bank-tokens` otherwise rejects any distributed line naming this
 repo or one of its apps, and it makes exactly one line-level exception: a
-`scripts` entry in the root `package.json`. The grounds are that the entry *is*
+`scripts` entry in the root `package.json`. The grounds are that the entry _is_
 the whole reference — one line, in a file documented as yours to edit, listed
-here by name. A script *body* gets no such exception, which is why
+here by name. A script _body_ gets no such exception, which is why
 `scripts/extract-app.sh` asks which app you mean and lists your own `apps/`
 rather than defaulting to one of Trellis's.
 
@@ -532,7 +536,7 @@ Up to date with bank/2026-08-26 (a1b2c3d4) — nothing unpulled, no locally modi
 | ---- | -------------- | ---------------------------------------------------------------------------------------- |
 | `0`  | **up to date** | Nothing unpulled. Locally modified paths may still be reported. Those are yours to keep. |
 | `1`  | **error**      | Bad manifest, unreachable bank, or a `ref` that does not resolve.                        |
-| `2`  | **behind**     | The bank has commits you have not taken, or `vendor/bank` is not at the pinned `ref`. |
+| `2`  | **behind**     | The bank has commits you have not taken, or `vendor/bank` is not at the pinned `ref`.    |
 
 Three outcomes, three codes, so any CI can gate on them.
 

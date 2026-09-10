@@ -5,9 +5,9 @@
  * `env.ts` authors its `default` profile from this object, and
  * `scripts/resolve-compose-env.ts` reads it *without* an environment:
  * `DB_VECTOR_NAME` names the vector database compose creates, and provisioning
- * wants the authored value rather than an operator's override.
- * Overriding the variable therefore points a *connection* at a different
- * database; it does not rename the one compose provisions.
+ * wants the authored value rather than an operator's override. Overriding the
+ * variable therefore points a *connection* at a different database; it does not
+ * rename the one compose provisions.
  */
 export const RAG_DEVELOPMENT_PROFILE = {
   DB_VECTOR_NAME: 'vectordb',

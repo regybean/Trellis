@@ -112,9 +112,9 @@ export function validateExports(name: string, exportsMap: unknown): string[] {
  *
  * The runtime layers only. Apps ship no `exports`; `tooling/*` packages
  * deliberately use a different shape (freeform config subpaths, consumed as
- * config rather than JIT-transpiled runtime) and are out of scope.
- * Derived from the path rather than listed, so the layer directories cannot
- * drift from `pnpm-workspace.yaml` the way the old hardcoded list did.
+ * config rather than JIT-transpiled runtime) and are out of scope. Derived from
+ * the path rather than listed, so the layer directories cannot drift from
+ * `pnpm-workspace.yaml` the way the old hardcoded list did.
  */
 export const isGoverned = (rel: string) => rel.startsWith('packages/');
 

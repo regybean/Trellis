@@ -110,12 +110,12 @@ Two things the five rules do not reach. A `docs/` file may _link a package's
 docs_ — a `CONTEXT.md`, an `ADAPTER.md` — as long as the package is one a
 consumer is guaranteed to have, meaning one in the always-included `root`
 bundle. That is not a citation and the rules above do not govern it. Pointing
-at a *selectable* package still leaves a link that dangles for anyone who
+at a _selectable_ package still leaves a link that dangles for anyone who
 declined it, so say that in prose.
 
 And this repo's own front matter and indexes — the project README, the context
 map, the doc index, the getting-started and inventory pages — are exempt
-outright. Each is *about* this repo's shape rather than content it ships, none
+outright. Each is _about_ this repo's shape rather than content it ships, none
 is distributed, and the doc index in particular exists to point across every
 package boundary there is. They are named one by one in the checker; if you
 find yourself wanting to add a sixth, that is a decision, not a convenience.

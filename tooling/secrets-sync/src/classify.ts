@@ -1,7 +1,7 @@
 /**
- * Which keys are secret. `<file>.example` is the contract ([ADR 0001](../docs/adr/0001-pluggable-secrets-sync.md)): it
- * declares every key the file may hold, and a key's emptiness there declares
- * its sensitivity.
+ * Which keys are secret. `<file>.example` is the contract
+ * ([ADR 0001](../docs/adr/0001-pluggable-secrets-sync.md)): it declares every
+ * key the file may hold, and a key's emptiness there declares its sensitivity.
  *
  * Pull and push both ask this module, so the two directions cannot drift into
  * disagreeing about what a secret is.

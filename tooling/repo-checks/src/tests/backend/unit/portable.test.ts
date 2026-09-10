@@ -77,6 +77,57 @@ describe('a citation carries the path', () => {
     ).toEqual([]);
   });
 
+  it.each([
+    ['a line comment', `// … (${bareRef(39, 'ADR')}\n// 0039)`],
+    ['a docblock', ` * … (${bareRef(39, 'ADR')}\n * 0039)`],
+    ['a shell comment', `# … (${bareRef(39, 'ADR')}\n# 0039)`],
+    ['plain prose', `… (${bareRef(39, 'ADR')}\n0039)`],
+  ])(
+    'still finds the number when the citation wraps across %s',
+    (_where, text) => {
+      // The gap between `ADR` and its number crosses a newline *and* the
+      // leader of the continuation line. Read as two tokens, a citation like
+      // this hid from the rule completely.
+      expect(validateAdrNumbers('a.ts', `${text}\n`)).toHaveLength(1);
+    },
+  );
+
+  it('accepts a wrapped citation that a path still qualifies', () => {
+    expect(
+      validateAdrNumbers(
+        'a.ts',
+        `// See ${bareRef(39, 'ADR')}\n// 0039 at ${decision}.\n`,
+      ),
+    ).toEqual([]);
+  });
+
+  describe('a citation that names a package', () => {
+    const own = `packages/platform/env/${ADR_DIR}/${adr(1, 'one-env-factory-per-slice')}`;
+    const named = `@acme/env ${bareRef(1)}`;
+
+    it('is not qualified by another directory carrying the same number', () => {
+      // The whole point: a file that owns its own 0001 writes that path
+      // nearby, and every other package's 0001 it mentions used to ride in on
+      // it. That reads as clean and means the wrong decision.
+      const found = validateAdrNumbers(
+        'packages/platform/telemetry/src/register.ts',
+        `// See ../${ADR_DIR}/${adr(1, 'ambient-telemetry')}.\n// Reads env (${named}).\n`,
+      );
+
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('register.ts:2');
+    });
+
+    it('is qualified by that package’s own path', () => {
+      expect(
+        validateAdrNumbers(
+          'a.ts',
+          `// Reads env ([${named}](../../${own})).\n`,
+        ),
+      ).toEqual([]);
+    });
+  });
+
   it('still reports the bare one when a paragraph cites two ADRs', () => {
     const other = `${ADR_DIR}/${adr(40, 'script-logic-lives-in-a-tooling-package')}`;
     const found = validateAdrNumbers(

@@ -8,15 +8,16 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
  * Chat's environment, declared once — the slice's whole surface in one
- * `createEnv` call, composed into an app's env graph via `extends: [chatEnv(), …]`.
+ * `createEnv` call, composed into an app's env graph via
+ * `extends: [chatEnv(), …]`.
  *
  * **Config** — the Turn-lifecycle TTLs, the stream poll interval, the per-Turn
  * credit charge and the BullMQ retention counts were hardcoded across the
- * `api/services` layer. They are operational tunables that can differ per deploy
- * target, so they are authored here as profile values, and each is
- * env-overridable — retuning a TTL on a live deploy should not need
- * a rebuild. All server-side: the durable-stream control plane runs on the
- * backend / worker.
+ * `api/services` layer. They are operational tunables that can differ per
+ * deploy target, so they are authored here as profile values, and each is
+ * env-overridable — retuning a TTL on a live deploy should not need a rebuild.
+ * All server-side: the durable-stream control plane runs on the backend /
+ * worker.
  *
  * **Selectors** — `NODE_ENV` and `NEXT_PUBLIC_WEBAPP` (the per-app
  * Postgres/pgvector schema + Redis prefix) stay written longhand in `runtimeEnv`:

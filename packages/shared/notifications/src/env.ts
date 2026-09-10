@@ -11,8 +11,8 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * idle backoff bounds are operational tunables that can differ per deploy
  * target, so they are authored here as profile values rather than hardcoded in
  * the service layer — and each is env-overridable, so a noisy deploy can be
- * retuned without a rebuild. All server-side: `publish` and
- * `tailNotifications` run on the backend.
+ * retuned without a rebuild. All server-side: `publish` and `tailNotifications`
+ * run on the backend.
  */
 export const env = createEnv({
   clientPrefix: 'NEXT_PUBLIC_',
@@ -22,8 +22,9 @@ export const env = createEnv({
   },
   server: {
     // Rolling TTL (seconds) refreshed on every `publish`. No MAXLEN — a stream
-    // with no reader simply expires. Delivery is best-effort ([ADR 0001](../docs/adr/0001-notifications-seam.md)): a
-    // publish with no page open is never delivered.
+    // with no reader simply expires. Delivery is best-effort
+    // ([ADR 0001](../docs/adr/0001-notifications-seam.md)): a publish with no
+    // page open is never delivered.
     NOTIFICATION_TTL: z.coerce.number().int().positive(),
     // Reader idle backoff (ms): starts at MIN, doubles up to MAX while the
     // stream is empty, snaps back to MIN on the first new entry.

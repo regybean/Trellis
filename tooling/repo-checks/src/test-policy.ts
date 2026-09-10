@@ -104,8 +104,8 @@ const BACKEND_SEGMENTS = [
 ];
 
 /**
- * The only folders a *frontend* test (`*.test.tsx`, under `tests/frontend/`) may
- * live in — the unit / integration(hooks·components) taxonomy from
+ * The only folders a *frontend* test (`*.test.tsx`, under `tests/frontend/`)
+ * may live in — the unit / integration(hooks·components) taxonomy from
  * docs/TESTING.md. "integration" on the frontend means a React tree wired to a
  * real QueryClient with the network faked at the HTTP boundary (MSW); there is
  * no real-infra tier, so the term is weaker here than on the backend.
@@ -121,9 +121,9 @@ const MOCK_CALLS = ['vi.mock(', 'vi.spyOn(', 'vi.fn('];
 
 /**
  * Seams a frontend test must not mock: the tRPC client, the feature's own
- * hooks, react-toastify. Fake the network at the HTTP boundary
- * (MSW) and assert what renders. Framework externals (`next/navigation`,
- * `@acme/auth`) stay mockable and aren't matched.
+ * hooks, react-toastify. Fake the network at the HTTP boundary (MSW) and assert
+ * what renders. Framework externals (`next/navigation`, `@acme/auth`) stay
+ * mockable and aren't matched.
  */
 const FRONTEND_SEAM_MOCKS = [
   {

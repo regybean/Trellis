@@ -213,8 +213,8 @@ now has a documented exception: **Better Auth's four tables live in a constant
 `auth` Postgres schema, not in `pgSchema(NEXT_PUBLIC_WEBAPP)`.**
 
 The rule exists to stop apps reading each other's _domain data_. Identity is not
-domain data — it is what the domain data is keyed by — and a person signing in to
-one app and to another is one person, not two. Partitioning it would mean a
+domain data — it is what the domain data is keyed by — and a person signing in
+to one app and to another is one person, not two. Partitioning it would mean a
 separate row, password hash and password reset per app for one human.
 
 The exception is narrow and deliberate: it applies to `user`, `session`,

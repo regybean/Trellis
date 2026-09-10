@@ -19,8 +19,8 @@ import { env } from '../src/env';
 
 // The Stripe connection is authored config: localstripe (dev) carries the
 // `apiBase`; real Stripe carries none and needs no seeding. Read off the
-// slice's own env, so seeding follows a `STRIPE_CONNECTION` override rather than
-// the profile's value when one is set.
+// slice's own env, so seeding follows a `STRIPE_CONNECTION` override rather
+// than the profile's value when one is set.
 const connection = env.STRIPE_CONNECTION;
 if (connection.mode === 'real') {
   console.log('Stripe connection is real — using real Stripe, skipping seed.');

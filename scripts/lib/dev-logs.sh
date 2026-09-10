@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Shared library for dev/compose log capture ([ADR 0028](../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md)).
+# Shared library for dev/compose log capture
+# (../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md).
 #
 # Dual-mode: `compose.sh`/`dev.sh` SOURCE it for the functions; each app's
 # package.json `dev` script EXECUTES it as `dev-logs.sh dev-capture <slug> …`
@@ -42,10 +43,11 @@ resolve_engine() {
 }
 
 # prepare_log <label> <file> — start a fresh single-generation log: truncate
-# <file>, then write the dated freshness header `# <label> started <ISO8601Z>` as
-# line 1. The timestamp is single-sourced from $START (set once per pnpm dev
+# <file>, then write the dated freshness header `# <label> started <ISO8601Z>`
+# as line 1. The timestamp is single-sourced from $START (set once per pnpm dev
 # session by dev.sh), so every file from one launch shares the same instant and
-# the newest header across logs/*.log marks that launch ([ADR 0028](../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §1, §6).
+# the newest header across logs/*.log marks that launch
+# (../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §1, §6).
 prepare_log() {
   local label="$1" file="$2"
   : >"$file"
@@ -55,7 +57,8 @@ prepare_log() {
 # mirror_stream <label> <file> <cmd…> — prepare_log, then run <cmd…> as a
 # backgrounded follower appending its stdout+stderr to <file>. Echoes the
 # follower PID so the caller can collect it for the reap trap. Infra-only: the
-# dev-server branch appends below turbo instead ([ADR 0028](../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §2, §5).
+# dev-server branch appends below turbo instead
+# (../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §2, §5).
 mirror_stream() {
   local label="$1" file="$2"
   shift 2
@@ -74,11 +77,12 @@ dev-log-path() {
 }
 
 # _dev_ansi_strip — filter turning a raw pty capture into clean readable text
-# ([ADR 0028](../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §1): drop CSI colour/cursor escapes and OSC title sets, fold the
-# CRLF pty line ending to LF, and collapse carriage-return spinner frames
-# (Next/Vite) to their final rendered frame. Autoflushed ($|=1) so the file
-# stays live for the agent. perl (present on macOS + CI) handles \e/\a portably —
-# BSD sed has no \xNN escape.
+# (../../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §1):
+# drop CSI colour/cursor escapes and OSC title sets, fold the CRLF pty line
+# ending to LF, and collapse carriage-return spinner frames (Next/Vite) to their
+# final rendered frame. Autoflushed ($|=1) so the file stays live for the agent.
+# perl (present on macOS + CI) handles \e/\a portably — BSD sed has no \xNN
+# escape.
 _dev_ansi_strip() {
   perl -pe 'BEGIN { $| = 1 }
     s/\e\[[0-9;?]*[ -\/]*[@-~]//g;    # CSI: colour, cursor moves, erase-line

@@ -3,19 +3,19 @@
 **Status:** accepted
 
 Conversation History lets a user group their Conversations into **Folders**. Two
-facts have to live somewhere: the Folder _definition_ (its name, who owns it) and
-the _assignment_ of a Conversation to a Folder. Conversations are Mastra Memory
-threads (`@acme/rag`), whose DDL Mastra owns at runtime; the chat feature owns no
-thread table.
+facts have to live somewhere: the Folder _definition_ (its name, who owns it)
+and the _assignment_ of a Conversation to a Folder. Conversations are Mastra
+Memory threads (`@acme/rag`), whose DDL Mastra owns at runtime; the chat feature
+owns no thread table.
 
 ## Decision
 
 The two facts are stored in two different places, on purpose:
 
-- **Folder definitions** live in `chat_folder`, an app-owned, drizzle-kit-managed
-  table (`id`, `userId`, `name`, `createdAt`) — the same ownership seam as
-  `message_feedback`. The feature defines the columns; each app
-  re-exports it through `db/schema.ts` so push/generate own its DDL.
+- **Folder definitions** live in `chat_folder`, an app-owned,
+  drizzle-kit-managed table (`id`, `userId`, `name`, `createdAt`) — the same
+  ownership seam as `message_feedback`. The feature defines the columns; each
+  app re-exports it through `db/schema.ts` so push/generate own its DDL.
 - **The assignment** lives on the Mastra thread as `metadata.folderId`, a single
   scalar. One field ⇒ a Conversation is in **at most one** Folder by
   construction — exclusivity needs no check and cannot drift.
@@ -71,8 +71,8 @@ the input.
 
 ## Considered and rejected
 
-- **One table owning both definition and assignment** (a `chat_folder` row plus a
-  join table keyed by threadId). Rejected — it duplicates the Conversation
+- **One table owning both definition and assignment** (a `chat_folder` row plus
+  a join table keyed by threadId). Rejected — it duplicates the Conversation
   identity the Mastra thread already owns and reintroduces a cross-seam foreign
   key the Mastra-owned schema deliberately avoids. Exclusivity would then need a
   unique constraint or a check instead of being free.
@@ -84,5 +84,5 @@ the input.
   `updateThread` writes for a purely cosmetic cleanup the client already handles
   by failing to resolve the id. Revisit if dangling metadata ever needs reaping.
 - **A folderId column on a chat-owned mirror of the threads table.** Rejected —
-  Mastra owns thread DDL; a parallel app-owned thread table would
-  fork the source of truth for Conversation identity.
+  Mastra owns thread DDL; a parallel app-owned thread table would fork the
+  source of truth for Conversation identity.

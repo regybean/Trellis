@@ -45,8 +45,8 @@ header is what tells you which launch a file belongs to.
 Relative, self-contained, zero tooling — **read the header line first**:
 
 1. The **newest** header across `logs/*.log` marks the last `pnpm dev` launch.
-2. A file with an **older** header (or none) was not part of that run → treat its
-   contents as **stale / not-live**. A subset run (`pnpm dev <app>`) only
+2. A file with an **older** header (or none) was not part of that run → treat
+   its contents as **stale / not-live**. A subset run (`pnpm dev <app>`) only
    refreshes the apps it launches; every other file survives untouched as
    stale-but-dated.
 

@@ -58,8 +58,8 @@ EOF
 )"
 ```
 
-Note `#<n>` in a body creates a **cross-reference** on the target issue — that is
-load-bearing for the spec frontier below, not just prose.
+Note `#<n>` in a body creates a **cross-reference** on the target issue — that
+is load-bearing for the spec frontier below, not just prose.
 
 ### Ticket house style
 
@@ -164,8 +164,8 @@ A `type:spec` issue is a `/to-tickets` parent. Its implementation tickets bind b
 **body convention**, not native sub-issues/dependencies (a spec has no GitHub
 sub-issues; tickets report `blocked_by: 0`) — so the query above does not apply:
 
-1. **Children**: each ticket's `## Parent` line is a GitHub cross-reference on the
-   spec — read them off its timeline rather than a title-prefix search:
+1. **Children**: each ticket's `## Parent` line is a GitHub cross-reference on
+   the spec — read them off its timeline rather than a title-prefix search:
    `gh api "repos/{owner}/{repo}/issues/<spec>/timeline" --paginate --jq '.[] | select(.event=="cross-referenced") | .source.issue'`.
    Keep entries that are open, not a PR, and labelled `type:ticket`.
 2. **Unclaimed**: drop any with an assignee.

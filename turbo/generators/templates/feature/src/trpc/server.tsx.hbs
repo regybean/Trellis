@@ -10,9 +10,9 @@ import type { {{ pascalCase name }}Context } from '../api/trpc';
 import { appRouter } from '../api/root';
 import { createAppQueryClient } from '@acme/hooks';
 
-// The RSC half's own client — a fresh one per request, from the same factory the
-// app mounts in the browser. Not the app's client: an RSC render has no React
-// context to read one from, and its cache is dehydrated into the response
+// The RSC half's own client — a fresh one per request, from the same factory
+// the app mounts in the browser. Not the app's client: an RSC render has no
+// React context to read one from, and its cache is dehydrated into the response
 // rather than shared.
 const getQueryClient = cache(createAppQueryClient);
 

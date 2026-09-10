@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Test entry wrapper. Every root test script routes through here so the
-# concurrency cap below applies to every one-shot test run. See [ADR 0034](../docs/adr/0034-backend-tests-always-self-provision.md).
+# concurrency cap below applies to every one-shot test run. See
+# ../docs/adr/0034-backend-tests-always-self-provision.md.
 #
 # `CI` is deliberately *not* set or read here: backend suites always
 # self-provision testcontainers, and the `VITEST` carve-out in @acme/env means `CI` no

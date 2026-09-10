@@ -30,9 +30,9 @@ interface UserButtonProps {
   /** Sign-out is the caller's call — this widget only triggers it. */
   onSignOut: () => void;
   /**
-   * Extra entries for the menu, rendered above sign-out. App-owned: what belongs
-   * in a signed-in menu beyond "sign out" is product chrome, and the two apps
-   * differ (one of them puts the subscription + billing-portal actions
+   * Extra entries for the menu, rendered above sign-out. App-owned: what
+   * belongs in a signed-in menu beyond "sign out" is product chrome, and the
+   * two apps differ (one of them puts the subscription + billing-portal actions
    * here). Pass `DropdownMenuItem`s — both are exported from this package.
    *
    * Sign-out stays the widget's own, and stays last, because it is the one entry

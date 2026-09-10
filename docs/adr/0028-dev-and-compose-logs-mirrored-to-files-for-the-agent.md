@@ -67,8 +67,8 @@ capture must sit _beneath_ it.
   `ui: "tui"` hands each task a **pty**. A plain `tee` (pipe between the app and
   turbo) would make the app drop colour in the human's TUI pane — a regression.
   So the child is **pty-wrapped** (`script` / `unbuffer`) so turbo still sees a
-  pty, and the captured branch is tee'd off and **ANSI-stripped**
-  down to clean text (§1) before `>> logs/dev-<app>.log`.
+  pty, and the captured branch is tee'd off and **ANSI-stripped** down to clean
+  text (§1) before `>> logs/dev-<app>.log`.
 - **Append-only below turbo.** The per-app wrapper writes with `>>` exclusively —
   it never truncates. File truncate + header are owned upstream by `dev.sh` (§4),
   so single-generation holds regardless of how `turbo watch` restarts a dev
@@ -88,8 +88,8 @@ running service**, addressed by container name:
 <engine> logs -f --since "$START" trellis-<svc> >> logs/infra-<svc>.log 2>&1 &
 ```
 
-- **Direct `<engine> logs`, not `compose logs`.** One container → one file, so we
-  address the pinned `trellis-*` `container_name` directly. This drops the
+- **Direct `<engine> logs`, not `compose logs`.** One container → one file, so
+  we address the pinned `trellis-*` `container_name` directly. This drops the
   `--no-log-prefix` provider-version flag-floor risk — no per-line prefix is
   needed when each container has its own file
   ([podman-compose issue 1355](https://github.com/containers/podman-compose/issues/1355)).
@@ -194,24 +194,24 @@ below-turbo tee).
 ## Considered and rejected
 
 - **Turbo-native per-app dev log file.** No such mechanism on 2.7.5:
-  `.turbo/*.log` is a cache artifact for _cacheable_ tasks only, and the dev task
-  is `cache: false` (writes nothing). A native `fileOutput` / `turbo logs` was
-  proposed upstream but is unshipped.
-- **Path B — drop the TUI, `--ui=stream` + line-prefix splitter.**
-  Mechanically proven (the prefix `@acme/<app>:dev: <line>` parses cleanly), but
-  it replaces the full-screen TUI with a plain scroll → violates "TUI is sacred."
+  `.turbo/*.log` is a cache artifact for _cacheable_ tasks only, and the dev
+  task is `cache: false` (writes nothing). A native `fileOutput` / `turbo logs`
+  was proposed upstream but is unshipped.
+- **Path B — drop the TUI, `--ui=stream` + line-prefix splitter.** Mechanically
+  proven (the prefix `@acme/<app>:dev: <line>` parses cleanly), but it replaces
+  the full-screen TUI with a plain scroll → violates "TUI is sacred."
 - **Path C — per-app `turbo run dev -F <app>` tee'd.** Also loses the unified TUI
   _and_ reimplements watch orchestration.
 - **Path A — double-run (human TUI + agent's own capture run).** Port clashes;
   impractical.
-- **Plain `tee` below turbo.** Turbo hands tasks a pty; a pipe makes the
-  app drop colour in the human's TUI pane — a regression. Superseded by pty-wrap +
+- **Plain `tee` below turbo.** Turbo hands tasks a pty; a pipe makes the app
+  drop colour in the human's TUI pane — a regression. Superseded by pty-wrap +
   ANSI-strip.
-- **Direct container-driver log-file reads.** podman defaults to
-  `journald` (no file); docker's json-file driver is root-only. Rejected for a
+- **Direct container-driver log-file reads.** podman defaults to `journald` (no
+  file); docker's json-file driver is root-only. Rejected for a
   `<engine> logs -f` follower.
-- **`compose logs` with `--no-log-prefix` / `compose ps --status`.**
-  Both are non-portable across podman-compose versions; direct
+- **`compose logs` with `--no-log-prefix` / `compose ps --status`.** Both are
+  non-portable across podman-compose versions; direct
   `<engine> logs`/`<engine> ps` sidesteps both.
 
 ## Implementation handoff

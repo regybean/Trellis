@@ -17,14 +17,14 @@ type EmbedProvider = EmbedConfig['provider'];
 
 // --- Pure core: variant-parameterised resolvers reading NO module-scope env ---
 //
-// Each resolver takes the narrowed variant (`env.MODELS_CHAT` / `env.MODELS_EMBED`)
-// and dispatches on its `provider` discriminant to that provider's factory. The
-// active providers' secrets are validated once up front by `validateModelSecrets()` below
-// (value axis), so the factories only build model instances — they
-// read no env. The variant carries exactly the chosen provider's fields — no
-// region on Ollama, no base URL on Bedrock — so the factories need no
-// cross-provider guards. Chat and embed are resolved independently — e.g.
-// OpenRouter chat + Ollama embed is valid.
+// Each resolver takes the narrowed variant (`env.MODELS_CHAT` /
+// `env.MODELS_EMBED`) and dispatches on its `provider` discriminant to that
+// provider's factory. The active providers' secrets are validated once up front
+// by `validateModelSecrets()` below (value axis), so the factories only build
+// model instances — they read no env. The variant carries exactly the chosen
+// provider's fields — no region on Ollama, no base URL on Bedrock — so the
+// factories need no cross-provider guards. Chat and embed are resolved
+// independently — e.g. OpenRouter chat + Ollama embed is valid.
 //
 // The title model follows the chat provider (same family, optionally a cheaper
 // model id); each factory falls back to the chat model when no title id is set.
@@ -90,8 +90,8 @@ export function embedProviderOptionsFor(
 // --- Eager singletons: thin caps binding the env-selected provider ---
 //
 // The active providers are constructed once at import and a missing/invalid
-// selection for an active provider blocks here rather than failing deep inside a
-// request. This eager-at-import behaviour is deliberately retained: the build
+// selection for an active provider blocks here rather than failing deep inside
+// a request. This eager-at-import behaviour is deliberately retained: the build
 // and test infra rely on it.
 //
 // Fail fast at import on missing credentials for whichever providers the resolved

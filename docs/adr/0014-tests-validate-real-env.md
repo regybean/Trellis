@@ -43,7 +43,6 @@ behavioral/IO boundaries (`@acme/subscriptions`, `server-only`, `next/navigation
   ahead of its `CI` check, precisely so this ADR still holds under CI. `CI`
   alone cannot discriminate, since it is set for the lint/build steps _and_ for
   the test run. The only relaxation in a test run is the per-key secret
-  placeholder inside `withProfiles` — never `createEnv`'s own
-  `skipValidation`, which would return `runtimeEnv` raw and discard every
-  coercion.
+  placeholder inside `withProfiles` — never `createEnv`'s own `skipValidation`,
+  which would return `runtimeEnv` raw and discard every coercion.
 - New static vars go in one place (`staticTestEnv`), not scattered across mocks.

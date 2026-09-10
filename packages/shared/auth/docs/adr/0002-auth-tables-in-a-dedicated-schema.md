@@ -17,10 +17,10 @@ export const authSchema = pgSchema('auth');
 
 ## Why identity is different
 
-A person who signs in to two of the apps is one person. Under
-the per-app rule they would be four rows, four password hashes, four sets of
-sessions, and four separate password resets — and "log in once" across the 2×2 of
-apps would be impossible by construction. The partitioning rule exists to stop
+A person who signs in to two of the apps is one person. Under the per-app rule
+they would be a separate row, password hash, session set and password reset in
+each one — and "log in once" across the 2×2 of apps would be impossible by
+construction. The partitioning rule exists to stop
 apps reading _each other's domain data_; identity is not domain data, it is the
 thing the domain data is keyed by.
 

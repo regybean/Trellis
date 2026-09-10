@@ -23,9 +23,9 @@ source lived in two apps with no per-app divergence.
 ## The deletion test
 
 That decision itself blesses the escape hatch: "If two apps share a UI assembly,
-the right move is to extract the stateless presentational piece into `@acme/ui`."
-The test for whether a component qualifies is: **does it import anything
-framework- or router-specific?**
+the right move is to extract the stateless presentational piece into
+`@acme/ui`." The test for whether a component qualifies is: **does it import
+anything framework- or router-specific?**
 
 - `user-management.tsx` — imports `react` (`useState`), `lucide-react`, `@acme/ui`
   primitives, and `SerializableUser` (a type) from `@acme/auth`. No `next/*`, no
@@ -39,12 +39,12 @@ presentational piece" that rule names.
 
 ## Why this does not reopen wholesale composition
 
-This promotes exactly two leaf presentational components into a **shared package**
-(`@acme/ui`), not a new `packages/compositions/` entry. It changes nothing about
-that ruling's core: shell/chrome (`AdminDashboard`, `SearchUsers`, server actions)
-stays app-owned. `AdminDashboard` still lives in each app and still supplies the
-framework-specific mutations. Creating a new composition package would still
-require its own ADR.
+This promotes exactly two leaf presentational components into a **shared
+package** (`@acme/ui`), not a new `packages/compositions/` entry. It changes
+nothing about that ruling's core: shell/chrome (`AdminDashboard`, `SearchUsers`,
+server actions) stays app-owned. `AdminDashboard` still lives in each app and
+still supplies the framework-specific mutations. Creating a new composition
+package would still require its own ADR.
 
 ## Keeping `@acme/ui` in the `shared` layer honest
 
@@ -64,8 +64,9 @@ the slim graph must carry no `@acme/auth`/`@acme/billing`):
   owns. Apps keep passing `SerializableUser` (assignable by structure); no new
   package edge is created.
 
-The net effect: `@acme/ui` gains two widgets and **zero new package dependencies**;
-the billing/auth coupling stays at the app seam where that ruling wants it.
+The net effect: `@acme/ui` gains two widgets and **zero new package
+dependencies**; the billing/auth coupling stays at the app seam where that
+ruling wants it.
 
 ## What was done
 
@@ -105,19 +106,19 @@ Two consequences for the reasoning above:
   to manufacture a `FormData` to satisfy it. Nothing in the admin surface needs a
   server function — `auth.api.*` takes plain `Headers` and `adminProcedure`
   already exists — so a follow-up replaces both props with hooks off an admin
-  tRPC router. This amendment records that decision without executing it, so
-  that the change lands one shape rather than two.
+  tRPC router. This amendment records that decision without executing it, so that
+  the change lands one shape rather than two.
 
 ## Amendment — the costume comes off
 
 The amendment above left the widget wearing Clerk's shape and put the costume on
 in one adapter. This one takes it off. `UserManagementUser` now names the Better
-Auth columns the widgets render — `id`, `name`, `email`, `emailVerified`, `image`,
-`createdAt`, `role` — and the two fields with no source behind them are **gone
-rather than faked**: the `emailAddresses` array with its `primaryEmailAddressId`
-(Better Auth keeps one email per user; it is the row's unique key) and
-`lastSignInAt` (the core schema records no such thing). If last-sign-in turns
-out to matter it is its own ticket, and its own tracking.
+Auth columns the widgets render — `id`, `name`, `email`, `emailVerified`,
+`image`, `createdAt`, `role` — and the two fields with no source behind them are
+**gone rather than faked**: the `emailAddresses` array with its
+`primaryEmailAddressId` (Better Auth keeps one email per user; it is the row's
+unique key) and `lastSignInAt` (the core schema records no such thing). If
+last-sign-in turns out to matter it is its own ticket, and its own tracking.
 
 `toManagementUser` becomes `toAdminUser`, and it survives the rename because one
 honest job is left: `role` is a nullable free-text column Better Auth omits from
@@ -147,11 +148,12 @@ that turns out to contradict the constraint this ADR is mostly about. For the
 widget to call such hooks itself, the hooks must be reachable from `@acme/ui` —
 which means either an `@acme/auth` edge into a package the slim apps depend on
 (the slim graph must stay auth-free, which this change's own acceptance criteria
-also required) or moving the widgets back out of `@acme/ui` (reversing this ADR).
-The typed callback gets what was actually objected to — a framework-specific
-signature in a neutral package — at no such cost. An app is free to bind the
-callback to a tRPC mutation; nothing here stops it. Whether the admin surface
-should have a router of its own is a live question, and a separate one.
+also required) or moving the widgets back out of `@acme/ui` (reversing this
+ADR). The typed callback gets what was actually objected to — a
+framework-specific signature in a neutral package — at no such cost. An app is
+free to bind the callback to a tRPC mutation; nothing here stops it. Whether the
+admin surface should have a router of its own is a live question, and a separate
+one.
 
 `@acme/ui` still declares the shape itself and still has no `@acme/auth`
 dependency, so the slim graph stays auth-free.
@@ -165,9 +167,9 @@ dependency, so the slim graph stays auth-free.
 - **Move them to a new `packages/compositions/` entry.** Rejected — a new entry
   requires a dedicated ADR justifying why an assembly can't live in an app or
   `@acme/ui`. It can live in `@acme/ui`, so it does.
-- **Import `SerializableUser` from `@acme/auth` in `@acme/ui`.** Rejected — adds an
-  `@acme/auth` edge to a package the slim apps depend on, re-coupling the slim graph
-  to auth. A UI-owned structural type avoids the edge.
+- **Import `SerializableUser` from `@acme/auth` in `@acme/ui`.** Rejected — adds
+  an `@acme/auth` edge to a package the slim apps depend on, re-coupling the
+  slim graph to auth. A UI-owned structural type avoids the edge.
 - **Import `@acme/billing` panels directly in `@acme/ui`.** Rejected — `shared`
   cannot depend on `feature`, and it would drag billing into the slim graph. Inject
   via prop instead.

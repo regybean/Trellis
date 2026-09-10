@@ -7,10 +7,10 @@ import { resolveAppEnv, webappSchema, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Feedback's environment. Selectors only — the slice has no tunables
- * and no secrets of its own. Both keys stay written longhand in `runtimeEnv`:
- * they are the ones a bundler inlines textually, and an index access is invisible
- * to that.
+ * Feedback's environment. Selectors only — the slice has no tunables and no
+ * secrets of its own. Both keys stay written longhand in `runtimeEnv`: they are
+ * the ones a bundler inlines textually, and an index access is invisible to
+ * that.
  */
 export function feedbackEnv() {
   return createEnv({

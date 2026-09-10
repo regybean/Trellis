@@ -8,8 +8,8 @@ import { SignInForm } from '../../../../index';
 
 // `SignInForm` is presentational: validation, the in-flight state and the
 // rejection message are its whole contract, and all three are observable in the
-// DOM. The caller's handler is exercised through a harness that
-// renders what it received, so nothing here asserts a mock call count.
+// DOM. The caller's handler is exercised through a harness that renders what it
+// received, so nothing here asserts a mock call count.
 
 /** A caller whose provider call always succeeds. */
 function Harness({

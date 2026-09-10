@@ -10,11 +10,10 @@
  *
  * Fidelity: `createTestContext` returns exactly the shape an app adapter's
  * resolver produces — `BaseContext`, plus whatever the feature's own context
- * adds, handed in as `TExtension`. A feature
- * with a billing extension hands it `entitlements: createMockEntitlements(...)`
- * from `@acme/entitlements/testing` — the tier and credit knobs live with the
- * mock provider that resolves *to* them, not here, so a feature with no tiers
- * (`feedback`, `ingest`) names none.
+ * adds, handed in as `TExtension`. A feature with a billing extension hands it
+ * `entitlements: createMockEntitlements(...)` from `@acme/entitlements/testing`
+ * — the tier and credit knobs live with the mock provider that resolves *to*
+ * them, not here, so a feature with no tiers (`feedback`, `ingest`) names none.
  */
 import type {
   BaseContext,
@@ -59,12 +58,12 @@ export function createMockSession(user: InjectedUser) {
 }
 
 /**
- * Build a tRPC caller context for backend tests. Pass it straight to a feature's
- * `appRouter.createCaller(...)`. Stubs the session and merges in the feature's
- * context's extra fields; real DB/Redis come from the feature's own `db`/`redis`
- * clients (validated against the running containers — never mocked). Telemetry
- * is ambient — there is no span in a caller test, so the ambient helpers noop,
- * and nothing needs stubbing here.
+ * Build a tRPC caller context for backend tests. Pass it straight to a
+ * feature's `appRouter.createCaller(...)`. Stubs the session and merges in the
+ * feature's context's extra fields; real DB/Redis come from the feature's own
+ * `db`/`redis` clients (validated against the running containers — never
+ * mocked). Telemetry is ambient — there is no span in a caller test, so the
+ * ambient helpers noop, and nothing needs stubbing here.
  *
  * `TExtension` is whatever the feature's context adds on top of `BaseContext`:
  * its fields arrive alongside `session` and pass through untouched, so a test

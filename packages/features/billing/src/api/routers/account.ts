@@ -179,8 +179,8 @@ export const accountRouter = createTRPCRouter({
 
       try {
         // Resolve the target user's subscription + tier through the injected
-        // entitlements provider (which closes over billing's authored plan
-        // ids) rather than reading them here.
+        // entitlements provider (which closes over billing's authored plan ids)
+        // rather than reading them here.
         const { subscription, tier } = await ctx.entitlements.resolve(userId);
         const { limit, resetAt } = await credits.reset(
           userId,

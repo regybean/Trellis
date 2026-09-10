@@ -2,13 +2,13 @@
 
 **Status:** accepted
 
-Each feature minted its own `QueryClient` and nested its own `QueryClientProvider`
-(`createFeatureClient`, `@acme/hooks`). A full app stacked four of them, so a bare
-`useQuery` bound to whichever provider happened to be innermost. The mitigation
-was `useFeatureQueryClient`: every hook had to remember to pass its own client as
-`useQuery`'s second argument. Forget it and nothing breaks loudly —
-the query still runs, it just never persists. That failure mode stays open for as
-long as more than one client is in context.
+Each feature minted its own `QueryClient` and nested its own
+`QueryClientProvider` (`createFeatureClient`, `@acme/hooks`). A full app stacked
+four of them, so a bare `useQuery` bound to whichever provider happened to be
+innermost. The mitigation was `useFeatureQueryClient`: every hook had to
+remember to pass its own client as `useQuery`'s second argument. Forget it and
+nothing breaks loudly — the query still runs, it just never persists. That
+failure mode stays open for as long as more than one client is in context.
 
 ## Decision
 
@@ -41,10 +41,10 @@ useQuery(
 Binding `staleTime: 0` into that fragment is the point, not a detail. Any
 `staleTime > 0` silently converts stale-while-revalidate into serve-stale,
 because the persister _is_ the queryFn on a cold open and only schedules its
-background refetch `if (query.isStale())`. As a client default that
-coupling was two files apart and a feature could get it wrong (feedback did — see
-below). Attached to the persisted-query fragment, the persister and the `staleTime`
-that makes it correct arrive together or not at all.
+background refetch `if (query.isStale())`. As a client default that coupling was
+two files apart and a feature could get it wrong (feedback did — see below).
+Attached to the persisted-query fragment, the persister and the `staleTime` that
+makes it correct arrive together or not at all.
 
 ### Isolating a slice was never this client's job
 

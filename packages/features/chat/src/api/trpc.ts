@@ -27,9 +27,10 @@ instrumentDrizzleClient(db, { dbSystem: 'postgresql' });
 /**
  * Chat's request context — the neutral base the app adapter injects, plus the
  * `EntitlementsProvider`. Chat meters credits inline in `send` and refunds
- * through the same seam in `reconcileTurn` ([ADR 0006](../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)), so it
- * names the provider it resolves against. The substrate names it for nobody,
- * and no longer carries it as a type parameter either.
+ * through the same seam in `reconcileTurn`
+ * ([ADR 0006](../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)),
+ * so it names the provider it resolves against. The substrate names it for
+ * nobody, and no longer carries it as a type parameter either.
  */
 export interface ChatContext extends BaseContext {
   entitlements: EntitlementsProvider;

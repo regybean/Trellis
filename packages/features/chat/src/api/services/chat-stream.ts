@@ -7,10 +7,10 @@ import { chatStreamKey } from '../chat-keys';
 import { streamReaderEventSchema } from '../schemas/chat-schema';
 
 // The chat token Stream, on the shared `@acme/redis` durable-stream primitive.
-// The primitive owns the transport — the XRANGE poll loop, the
-// abort-aware poll `delay`, the cursor policy, atomic append-with-TTL — that this
-// feature used to hand-copy alongside ingest and notifications. What stays here
-// is only chat's own: the wire codec (encode/decode off the one
+// The primitive owns the transport — the XRANGE poll loop, the abort-aware poll
+// `delay`, the cursor policy, atomic append-with-TTL — that this feature used
+// to hand-copy alongside ingest and notifications. What stays here is only
+// chat's own: the wire codec (encode/decode off the one
 // `streamReaderEventSchema`), the delta-coalesce it passes as the tail
 // `transform`, and the terminal predicate the router closes on. Config-as-code.
 

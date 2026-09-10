@@ -1,6 +1,6 @@
 # Per-query IndexedDB persister for offline read of chat & feedback
 
-**Status:** accepted
+**Status:** accepted — amended in place below
 
 Operators reload or reopen an app and stare at empty Conversation History, blank
 Messages, and flickering thumbs-up/down Feedback buttons until the network

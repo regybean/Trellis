@@ -2,8 +2,9 @@
 
 **Status:** accepted
 
-**Amended** — Decision 2's reader is now the shared `@acme/redis`
-durable-stream primitive, not a hand-copied `xRange` poll loop. Two specifics
+**Amended — the shared stream primitive.** Decision 2's reader is now the
+shared `@acme/redis` durable-stream primitive, not a hand-copied `xRange` poll
+loop. Two specifics
 are **superseded**: the fresh-connect seed is no longer `${Date.now()}-0` but the
 stream's **actual last id** (read via `xRevRange` — the "no `xRevRange`, no new
 `@acme/redis` surface" line no longer holds; the surface was added precisely to

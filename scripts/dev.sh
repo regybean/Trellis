@@ -6,8 +6,8 @@
 #   pnpm dev <app> <other-app>
 #   pnpm dev --no-push <app>
 #
-# App args may be short (web) or full (@acme/web); resolve-infra.ts
-# normalises them (turbo's -F needs the full @acme/* name).
+# App args may be short (web) or full (@acme/web); resolve-infra.ts normalises
+# them (turbo's -F needs the full @acme/* name).
 #
 # Infra is DERIVED from the dependency graph (scripts/resolve-infra.ts reads each
 # package's `acme.infra`), unioned across the target apps, then env-pruned. Only
@@ -20,7 +20,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# File-lifecycle + follower primitives + resolve_engine ([ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §5).
+# File-lifecycle + follower primitives + resolve_engine
+# (../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §5).
 # shellcheck source=scripts/lib/dev-logs.sh
 . scripts/lib/dev-logs.sh
 
@@ -34,11 +35,13 @@ for arg in "$@"; do
   esac
 done
 
-# Resolve canonical app names + the infra profile set. Both default to "all apps"
-# when none are named — `--names` with no tokens already returns every app, so
-# call it in both branches (the no-app branch used to leave app_names="", the
-# blind spot that hid every app's dev log from prepare_log — [ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §4). Guard
-# the array expansion so an empty list is safe under `set -u` (macOS bash 3.2).
+# Resolve canonical app names + the infra profile set. Both default to "all
+# apps" when none are named — `--names` with no tokens already returns every
+# app, so call it in both branches (the no-app branch used to leave
+# app_names="", the blind spot that hid every app's dev log from prepare_log —
+# ../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §4).
+# Guard the array expansion so an empty list is safe under `set -u` (macOS bash
+# 3.2).
 if [ ${#apps[@]} -gt 0 ]; then
   app_names="$(pnpm exec tsx scripts/resolve-infra.ts --names "${apps[@]}")"
   profiles="$(pnpm exec tsx scripts/resolve-infra.ts "${apps[@]}")"
@@ -89,7 +92,7 @@ if [ -n "$profiles" ]; then
   fi
 fi
 
-# --- Log capture ([ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md)) --------------------------------------------------
+# --- Log capture (../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) ---
 # While the human runs `pnpm dev`, mirror both dev-server output (below turbo,
 # per app) and each running compose service's output to clean-text, single-
 # generation, dated logs/{dev,infra}-*.log so the agent reads them instead of
@@ -103,9 +106,11 @@ mkdir -p logs
 export DEV_LOG_DIR="$PWD/logs"
 
 # Truncate + dated header for every launching app's dev log, once per session,
-# BEFORE turbo starts ([ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §4). dev-capture (below turbo) only appends, so
-# single-generation holds no matter how turbo-watch restarts a dev server. A
-# subset run only refreshes its apps; other dev-*.log survive as stale-but-dated.
+# BEFORE turbo starts
+# (../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §4).
+# dev-capture (below turbo) only appends, so single-generation holds no matter
+# how turbo-watch restarts a dev server. A subset run only refreshes its apps;
+# other dev-*.log survive as stale-but-dated.
 while IFS= read -r app; do
   [ -n "$app" ] || continue
   slug="${app#@acme/}"

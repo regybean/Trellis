@@ -5,9 +5,10 @@
  * It lives here, next to the contract it implements, for the same reason
  * `unlimitedEntitlements` does: the tier vocabulary is this package's, so this
  * is the only package that can name `SubscriptionTier` and `CreditBalance`
- * without acquiring a billing dependency. It used to live in `@acme/trpc/testing`,
- * which meant every feature's test context imported tiers and credits to build a
- * caller — `feedback` and `ingest` included, neither of which has a tier to set.
+ * without acquiring a billing dependency. It used to live in
+ * `@acme/trpc/testing`, which meant every feature's test context imported tiers
+ * and credits to build a caller — `feedback` and `ingest` included, neither of
+ * which has a tier to set.
  *
  * Shipped on the `./testing` subpath so production code never pulls it in.
  */

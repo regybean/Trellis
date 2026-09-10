@@ -63,12 +63,12 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
   role vocabulary names `.` the _main_ entry, not the _client-safe_ one, so a
   package whose whole runtime is server-only guards `.` too rather than leaving
   it as an unguarded path to the same modules. `@acme/rag` was exactly that gap:
-  `./server` was guarded while `.` re-exported `pgVector` /
-  `postgresStore` / `memory` to anyone. `.` and `./ownership-trpc` are now
-  guarded as well, `sideEffects` lists all three so the guards survive
-  tree-shaking, and `ensureVectorIndex` — which both entries exported — is left
-  only on `./server`. Where a package keeps both `.` and `./server`, the split
-  is by import cost (which clients get constructed), not by safety.
+  `./server` was guarded while `.` re-exported `pgVector` / `postgresStore` /
+  `memory` to anyone. `.` and `./ownership-trpc` are now guarded as well,
+  `sideEffects` lists all three so the guards survive tree-shaking, and
+  `ensureVectorIndex` — which both entries exported — is left only on
+  `./server`. Where a package keeps both `.` and `./server`, the split is by
+  import cost (which clients get constructed), not by safety.
 - The check is not a substitute for `knip`/`syncpack`; it polices _shape and
   vocabulary_, not whether an export is reachable.
 - Scope is the runtime layers (`packages/platform`, `packages/shared`,

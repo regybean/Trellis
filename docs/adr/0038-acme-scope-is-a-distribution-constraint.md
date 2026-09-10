@@ -71,7 +71,7 @@ save.
 - **`@acme` cannot double as a signal of anything else.** It names no org, client
   or product. That is a cost, and we accept it.
 - **Publishing to npm would need a real scope.** Out of scope here, and if it
-  ever happens, the published name and the workspace name are separable through a
-  publish-time alias rather than a repo-wide rename.
+  ever happens, the published name and the workspace name are separable through
+  a publish-time alias rather than a repo-wide rename.
 - **A new consumer inherits the constraint on day one**, before it has anything
   to merge, which is the moment renaming still looks free and is most tempting.

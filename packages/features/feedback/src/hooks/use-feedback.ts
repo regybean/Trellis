@@ -21,9 +21,9 @@ export function useFeedback(messageId: string, threadId: string) {
   const handleError = useGenericErrorHandler();
 
   // `persisted` opts this query into feedback's persister so the Rating renders
-  // instantly / offline on reload. It's the only feedback query that
-  // takes it; the submit/remove mutations are never persisted. Harmless when no
-  // persister is attached (no scopeKey → network-only).
+  // instantly / offline on reload. It's the only feedback query that takes it;
+  // the submit/remove mutations are never persisted. Harmless when no persister
+  // is attached (no scopeKey → network-only).
   const persisted = usePersistedQueryOptions();
   const feedbackQuery = useQuery(
     trpc.feedback.forMessage.queryOptions({ messageId }, persisted),

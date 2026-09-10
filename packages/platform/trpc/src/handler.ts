@@ -12,8 +12,8 @@ import { logTRPCError } from './error';
  * app-owned
  * ([ADR 0003](../docs/adr/0003-handler-plumbing-here-resolver-in-the-app.md));
  * this module owns everything that isn't auth, so the handler shape and error
- * logging can't drift per-app (they did: one app hand-rolled `console.error` and
- * missed structured logging; another omitted the OPTIONS handler entirely).
+ * logging can't drift per-app (they did: one app hand-rolled `console.error`
+ * and missed structured logging; another omitted the OPTIONS handler entirely).
  *
  * Each app feeds its resolver to `createTRPCFetchHandler` and composes the
  * result into its framework's handler shape (Next.js exports `GET`/`POST`
@@ -69,8 +69,8 @@ export interface TRPCFetchHandlerOptions<TContext extends BaseContext> {
    * That check used to be spelled out by threading the feature's
    * `createTRPCContext` alongside; the router already carried the type, and the
    * identity function that carried it is gone. `NoInfer` keeps the router the
-   * sole inference site, so a resolver missing a field is a mismatch rather than
-   * a wider `TContext`.
+   * sole inference site, so a resolver missing a field is a mismatch rather
+   * than a wider `TContext`.
    */
   resolver: (req: Request) => NoInfer<TContext> | Promise<NoInfer<TContext>>;
 }

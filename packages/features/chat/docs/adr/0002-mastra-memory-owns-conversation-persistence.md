@@ -29,10 +29,10 @@ sources of truth.
 - **Keep the Drizzle `chats`/`messages` tables, sync from Mastra.** Two writes per
   turn and a reconciliation burden, for no gain — Mastra's tables already hold the
   same data. Rejected.
-- **Wrap Mastra Memory writes in our own tRPC transaction.** Mastra owns the write
-  lifecycle inside `agent.stream`; re-wrapping it re-introduces the cross-call race
-  that moving persistence behind the procedure removed. Rejected — let the
-  framework own the unit of work.
+- **Wrap Mastra Memory writes in our own tRPC transaction.** Mastra owns the
+  write lifecycle inside `agent.stream`; re-wrapping it re-introduces the
+  cross-call race that moving persistence behind the procedure removed. Rejected
+  — let the framework own the unit of work.
 
 ## Consequences
 
@@ -41,8 +41,8 @@ sources of truth.
   on mismatch / `NOT_FOUND` when absent (Mastra threads carry no row-level auth).
 - The wire contract (`StreamChatEvent`) is unchanged — clients see the same events.
 - Conversations are queryable with Drizzle via the mirrored `mastra_threads` /
-  `mastra_messages` tables in `@acme/rag/schema`, but those mirrors are read models;
-  Mastra owns the DDL and the writes.
+  `mastra_messages` tables in `@acme/rag/schema`, but those mirrors are read
+  models; Mastra owns the DDL and the writes.
 - A mid-stream LLM error still leaves the turn retryable — Mastra persists the user
   turn before generation.
 
@@ -50,8 +50,8 @@ sources of truth.
 
 The mechanism above — Mastra Memory persisting the assistant turn as a **side
 effect of `agent.stream` inside the `chat.stream` procedure** — no longer holds.
-The durable-chat-stream work decoupled generation from the client
-connection, and with it moved persistence off the reader:
+The durable-chat-stream work decoupled generation from the client connection,
+and with it moved persistence off the reader:
 
 - `chat.stream` is now a **pure, stateless reader** (`tailChatStream`): it tails
   the Conversation's Redis Stream and re-emits each entry via tRPC `tracked()`.

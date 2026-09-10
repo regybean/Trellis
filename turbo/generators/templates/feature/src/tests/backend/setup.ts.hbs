@@ -7,8 +7,8 @@
  * broken env schema fails the suite instead of hiding behind a stub.
  *
  * Only behavioural / external-service mocks belong here. The container
- * lifecycle lives in `global-setup.ts`; app-owned tables are provisioned once by
- * the global `drizzle-kit push --force` into this suite's isolated schema.
+ * lifecycle lives in `global-setup.ts`; app-owned tables are provisioned once
+ * by the global `drizzle-kit push --force` into this suite's isolated schema.
  */
 import { afterEach, vi } from 'vitest';
 

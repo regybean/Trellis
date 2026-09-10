@@ -2,15 +2,15 @@
 
 **Status:** amended by 0039-the-selection-is-the-contract.md
 
-> **Amended by [ADR 0039](0039-the-selection-is-the-contract.md).** The
-> mechanism below — vendored subset, pristine vendor branch, each sync parented on
-> the last, merge left to the human — **stands in full.** Two things it describes
-> no longer exist. A manifest no longer holds an `include`: it names packages and
-> bundles, and `bank:sync` resolves that selection to the transitive workspace
-> closure of paths at the pinned ref. And `bank.paths.json` no longer lists the
-> bank's packages: that set is derived from `pnpm-workspace.yaml`. Read the
-> `include` and `packages` array in the text below as the shape they had when this
-> was written; the reasoning around them is unchanged.
+> **Amended by [ADR 0039](0039-the-selection-is-the-contract.md).** The mechanism
+> below — vendored subset, pristine vendor branch, each sync parented on the last,
+> merge left to the human — **stands in full.** Two things it describes no longer
+> exist. A manifest no longer holds an `include`: it names packages and bundles,
+> and `bank:sync` resolves that selection to the transitive workspace closure of
+> paths at the pinned ref. And `bank.paths.json` no longer lists the bank's
+> packages: that set is derived from `pnpm-workspace.yaml`. Read the `include` and
+> `packages` array in the text below as the shape they had when this was written;
+> the reasoning around them is unchanged.
 
 This repo is a bank of packages that other repos start from. Until now they
 started from it by copying the repo once. The measured result of that: one
@@ -37,10 +37,11 @@ A consumer repo holds `bank.manifest.json`:
 }
 ```
 
-`pnpm bank:sync` (`tooling/bank/src/bank-sync.mjs`) reads it, fetches the bank at `ref`,
-and rewrites the consumer's local vendor branch so its tree is bank@ref
-filtered down to `include` and nothing else, committed on top of the previous
-vendor commit. Then it stops and prints the merge command for the human to run.
+`pnpm bank:sync` (`tooling/bank/src/bank-sync.mjs`) reads it, fetches the bank
+at `ref`, and rewrites the consumer's local vendor branch so its tree is
+bank@ref filtered down to `include` and nothing else, committed on top of the
+previous vendor commit. Then it stops and prints the merge command for the human
+to run.
 
 ```
 bank                          consumer
@@ -109,10 +110,11 @@ two trees and a diff tool.
 - **`git merge-file` against a temp checkout.** No merge base for free, no rename
   detection, and no record that a sync ever happened. It is the manual process
   with extra steps.
-- **A bank-side filtered export per consumer** (`git filter-repo`, subtree split).
-  Produces the same trees while putting per-consumer state and tooling on the
-  bank. The bank stores nothing about who consumes it, and the filtered-tree
-  commit gets the same ancestry from plumbing every git install already has.
+- **A bank-side filtered export per consumer** (`git filter-repo`, subtree
+  split). Produces the same trees while putting per-consumer state and tooling
+  on the bank. The bank stores nothing about who consumes it, and the
+  filtered-tree commit gets the same ancestry from plumbing every git install
+  already has.
 
 ## Consequences
 

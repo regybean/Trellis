@@ -12,9 +12,9 @@ import { syncStripeDataToKV } from '../../utils/stripe';
  * seam, because of the `next/navigation` redirect.
  *
  * The viewer's id arrives as a prop rather than being resolved here: auth
- * resolution is app-owned, and the two full apps are on different
- * providers mid-migration. A signed-out caller is the app's redirect to
- * make, so `userId` is required.
+ * resolution is app-owned, and the two full apps are on different providers
+ * mid-migration. A signed-out caller is the app's redirect to make, so `userId`
+ * is required.
  */
 export async function StripeSuccessHandler({ userId }: { userId: string }) {
   // Get the stripe customer ID from Redis

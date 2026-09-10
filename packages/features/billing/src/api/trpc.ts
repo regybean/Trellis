@@ -57,9 +57,9 @@ export const adminProcedure = publicProcedure.use(admin);
  * `minTier` in the ordering (`Basic < Standard < Pro`), so higher tiers inherit
  * lower-tier access.
  *
- * It lives here, not in `@acme/trpc`, because tiers do. The substrate is
- * shared by `feedback` and `ingest`, neither of which has a tier to gate on; the
- * only procedures that ever gated were billing's own. Built on billing's
+ * It lives here, not in `@acme/trpc`, because tiers do. The substrate is shared
+ * by `feedback` and `ingest`, neither of which has a tier to gate on; the only
+ * procedures that ever gated were billing's own. Built on billing's
  * `protectedProcedure` — a gate with no principal to resolve has nothing to
  * compare.
  *

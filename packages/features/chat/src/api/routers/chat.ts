@@ -50,18 +50,20 @@ import {
 } from '../trpc';
 import { assertFolderOwned, foldersRouter } from './folders';
 
-// CREDITS_PER_TURN has one origin in env — the credit gate + consume
-// read it here; the Turn lifecycle's refund reads the same config value.
+// CREDITS_PER_TURN has one origin in env — the credit gate + consume read it
+// here; the Turn lifecycle's refund reads the same config value.
 
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no
   // Message persistence, no lock operations (the Generation worker owns all of
-  // those; see chat-local [ADR 0002](../../../docs/adr/0002-mastra-memory-owns-conversation-persistence.md)). It tails `chatStreamKey(conversationId)`
-  // from `lastEventId` (or the head) and re-emits each Redis entry via tRPC v11
-  // `tracked(entryId, event)`, so the entry id becomes the SSE `Last-Event-ID`
-  // and a reconnecting client resumes exactly where it left off. Ownership is
-  // asserted by the builder; an absent thread (no Turn ever started) drains to
-  // an empty stream and closes. Closes on a terminal (done/cancelled/error).
+  // those; see chat-local
+  // [ADR 0002](../../../docs/adr/0002-mastra-memory-owns-conversation-persistence.md)).
+  // It tails `chatStreamKey(conversationId)` from `lastEventId` (or the head)
+  // and re-emits each Redis entry via tRPC v11 `tracked(entryId, event)`, so
+  // the entry id becomes the SSE `Last-Event-ID` and a reconnecting client
+  // resumes exactly where it left off. Ownership is asserted by the builder; an
+  // absent thread (no Turn ever started) drains to an empty stream and closes.
+  // Closes on a terminal (done/cancelled/error).
   stream: ownedConversationByIdProcedure
     .input(StreamReaderRequest)
     .subscription(async function* ({ ctx, input, signal }) {
@@ -107,9 +109,10 @@ export const chatRouter = createTRPCRouter({
   // Turn lifecycle's `beginTurn` (the lock is taken FIRST, so a duplicate tab
   // returns `alreadyInflight` without persisting a Message, enqueuing a job, or
   // spending a credit). The credit gate + consume stays inline here (@acme/chat
-  // [ADR 0006](../../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)): a rejected send consumes nothing, and `beginTurn` runs this
-  // closure after the lock is won and the user Message is persisted, before
-  // enqueue — so the race can never double-charge.
+  // [ADR 0006](../../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)):
+  // a rejected send consumes nothing, and `beginTurn` runs this closure after
+  // the lock is won and the user Message is persisted, before enqueue — so the
+  // race can never double-charge.
   send: ownedConversationByIdProcedure
     .input(SendChatRequest)
     .mutation(async ({ ctx, input }) => {

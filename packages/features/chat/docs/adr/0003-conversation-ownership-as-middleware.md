@@ -20,9 +20,9 @@ owning it: nothing stopped a fifth procedure from forgetting the check, and owne
 coverage was implicit in per-procedure tests. Seating the rule on a procedure builder
 makes the invariant load-bearing at the type/pipeline level — the builder is the only
 way to obtain an owned `ctx.conversation` — and lets one ownership suite replace the
-scattered per-procedure cases. Folding the transforms into the same adapter
-removes the router's direct `memory` access, which is what makes "no unguarded
-path to a thread" actually true rather than just conventional.
+scattered per-procedure cases. Folding the transforms into the same adapter removes
+the router's direct `memory` access, which is what makes "no unguarded path to a
+thread" actually true rather than just conventional.
 
 ## Considered and rejected
 
@@ -96,16 +96,16 @@ their names are the audit trail.
 
 ## The request-less executor carve-out
 
-The generation worker ([ADR 0004](0004-generation-worker-and-queue.md)) is the **one** actor that touches a Conversation
-_without_ going through a conversation-ownership builder — it carries no HTTP request,
-so there is no session to assert against. This does not weaken the invariant above; it
-relocates the check in time. Ownership is asserted by `chat.send` (on
-`ownedConversationByIdProcedure`) _before_ the job is enqueued, and `enqueueGenerationTurn`
-is the sole authorised enqueuer, so a job can only exist for a Conversation whose
-ownership was already verified. The worker trusts `userId` from the job payload and
-re-stamps it as Mastra's `resourceId`; because Redis/BullMQ sit inside the app's
-security perimeter and the enqueue seam is singular, the trust boundary is structural,
-not conventional — the same property that makes the middleware guarantee load-bearing,
-applied to the queue seam instead of the request pipeline. The carve-out is deliberately
-named here (rather than left implicit) so a future reader does not mistake the worker's
-missing ownership call for an oversight.
+The generation worker ([ADR 0004](0004-generation-worker-and-queue.md)) is the **one**
+actor that touches a Conversation _without_ going through a conversation-ownership
+builder — it carries no HTTP request, so there is no session to assert against. This
+does not weaken the invariant above; it relocates the check in time. Ownership is
+asserted by `chat.send` (on `ownedConversationByIdProcedure`) _before_ the job is
+enqueued, and `enqueueGenerationTurn` is the sole authorised enqueuer, so a job can only
+exist for a Conversation whose ownership was already verified. The worker trusts
+`userId` from the job payload and re-stamps it as Mastra's `resourceId`; because
+Redis/BullMQ sit inside the app's security perimeter and the enqueue seam is singular,
+the trust boundary is structural, not conventional — the same property that makes the
+middleware guarantee load-bearing, applied to the queue seam instead of the request
+pipeline. The carve-out is deliberately named here (rather than left implicit) so a
+future reader does not mistake the worker's missing ownership call for an oversight.

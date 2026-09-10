@@ -11,8 +11,8 @@ keeps this repo's inventory of itself honest.
   ever, and a test asserts it.
 - `src/check-bank-paths.mjs` — fails `pnpm lint` when a tracked root-level entry
   is in neither a bundle nor `exclude`.
-- `src/check-bank-tokens.mjs` — reports distributable content that names this
-  repo, its owner or one of its apps. It lives here rather than in the shared
+- `src/check-bank-tokens.mjs` — fails the gate on distributable content that
+  names this repo, its owner or one of its apps. It lives here rather than in the shared
   lint because only the bank knows those three words: the inventory says what is
   distributable, and git says what this repo is called. `docs/bank.md` is
   allowlisted — it is addressed to a consumer about consuming this repo, so

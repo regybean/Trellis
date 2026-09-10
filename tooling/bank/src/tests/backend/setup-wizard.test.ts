@@ -174,7 +174,8 @@ describe('setup:wizard authors a manifest', () => {
     });
 
     // @acme/db's closure is three packages, but expanding it here would
-    // snapshot it at authoring time — the manifest names a selection, not paths.
+    // snapshot it at authoring time — the manifest names a selection, not
+    // paths.
     expect(manifest.packages).toEqual(['@acme/db']);
   });
 

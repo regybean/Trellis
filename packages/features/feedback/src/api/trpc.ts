@@ -33,10 +33,10 @@ const t = initTRPC.context<FeedbackContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against feedback's own concrete
 // context. The bodies live once in `@acme/trpc` as plain async helpers; only
-// this wiring is per-feature. No admin gate — every feedback procedure
-// acts on the caller's own rating, so there is nothing here an admin reads that
-// a user doesn't. Add one the way chat and ingest do (`requireAdmin`, three
-// lines) if a moderation procedure ever earns it.
+// this wiring is per-feature. No admin gate — every feedback procedure acts on
+// the caller's own rating, so there is nothing here an admin reads that a user
+// doesn't. Add one the way chat and ingest do (`requireAdmin`, three lines) if
+// a moderation procedure ever earns it.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );

@@ -22,7 +22,8 @@ all.
 > Per-slice env ownership moved the Stripe variables into `@acme/billing`'s env
 > and made plan ids an injected argument, so a direct import would no longer
 > demand Stripe keys of anyone. The seam still holds, for two different reasons.
-> See the [substrate-stops-reading-billing amendment](#amendment--the-substrate-stops-reading-billing)
+> See the
+> [substrate-stops-reading-billing amendment](#amendment--the-substrate-stops-reading-billing)
 > before concluding the decision has expired — and the
 > [context-extension amendment](#amendment--the-context-extension-is-the-features-to-declare)
 > for where the provider is declared now, which is no longer `@acme/trpc`.
@@ -113,11 +114,11 @@ observable product behaviour change**.
   importing `@acme/subscriptions`).
 - **The chat Generation worker's processor becomes a factory**,
   `createChatGenerationProcessor(entitlements)`, closing over an injected
-  `EntitlementsProvider`. The request-less worker now refunds through the **same**
-  seam the request path does. Each app's `worker.ts` injects the exact provider
-  its route handler injects: full apps `subscriptionsEntitlements`, slim apps
-  `unlimitedEntitlements` — the same 2×2 injection the request path proves,
-  extended to the worker.
+  `EntitlementsProvider`. The request-less worker now refunds through the
+  **same** seam the request path does. Each app's `worker.ts` injects the exact
+  provider its route handler injects: full apps `subscriptionsEntitlements`,
+  slim apps `unlimitedEntitlements` — the same 2×2 injection the request path
+  proves, extended to the worker.
 - **`refundTurnCredits` takes the provider's `refund` as a parameter**; its
   `chat:refunded:{turnId}` `SET NX` idempotency guard stays **local to the chat
   control plane** (`chat-turn-lifecycle.ts`) — it is a chat concern, not a
@@ -161,10 +162,10 @@ takes a required `entitlements` provider, and a deployment still chooses between
   `{ ...rest, session, entitlements }` and nothing more, and the four procedures
   that spend, refund or report credits resolve where they read.
 - **`rateLimit` is deleted.** It was applied to zero procedures. Three features
-  re-exported it from their `api/trpc.ts` barrels and none called it. Chat meters
-  credits inline in `send`, which the Credit-ledger amendment above already
-  records. The middleware this ADR's original prose named as _the_ consume path
-  had no consumers left.
+  re-exported it from their `api/trpc.ts` barrels and none called it. Chat
+  meters credits inline in `send`, which the Credit-ledger amendment above
+  already records. The middleware this ADR's original prose named as _the_
+  consume path had no consumers left.
 - **`requireTier` moves to `@acme/billing`.** Its only call sites were billing's
   two example procedures. `feedback` and `ingest` have no tiers, so the shared
   substrate was shipping a tier gate to packages with nothing to gate. It is now
@@ -387,11 +388,11 @@ Each app had two entry points that needed a provider: the tRPC route seam and
 the generation worker. Both built their own, from identical code, under a
 hand-written comment at each site asking the next person to keep them the same.
 The amendment above makes TypeScript check that a mount naming `entitlements`
-_gets_ one. Nothing checked, or could check, that the two constructed
-values were the same value — two calls to `createSubscriptionsEntitlements`
-typecheck perfectly while disagreeing about which provider charged and which one
-refunds. That invariant existed only in prose, in chat's `ADAPTER.md`, and
-breaking it leaks Credits silently.
+_gets_ one. Nothing checked, or could check, that the two constructed values
+were the same value — two calls to `createSubscriptionsEntitlements` typecheck
+perfectly while disagreeing about which provider charged and which one refunds.
+That invariant existed only in prose, in chat's `ADAPTER.md`, and breaking it
+leaks Credits silently.
 
 - **One module scope is the check.** There is one provider per app because there
   is one place it can be built. The route seam and the worker import the same
@@ -400,8 +401,8 @@ breaking it leaks Credits silently.
   `containmentOverride({ compositionRoot })` bans
   `createSubscriptionsEntitlements` and `unlimitedEntitlements` outside that one
   file, with a message stating the general principle rather than naming
-  entitlements — the next seam should read correctly against it. Names, not whole
-  packages: `@acme/subscriptions` also exports ordinary reads
+  entitlements — the next seam should read correctly against it. Names, not
+  whole packages: `@acme/subscriptions` also exports ordinary reads
   (`getStripeCustomerId`, which an app calls from its Stripe success handler)
   and confining those would push unrelated functions into a file that is meant
   to hold built values only.

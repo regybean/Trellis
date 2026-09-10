@@ -4,8 +4,8 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import type { BedrockChatConfig, BedrockEmbedConfig } from './model-schemas';
 
 // Region + model ids arrive as the narrowed Bedrock variant (`config.chat` /
-// `env.MODELS_EMBED`); credentials resolve via the standard AWS provider
-// chain. These factories read no env — a Bedrock-active app's credentials are
+// `env.MODELS_EMBED`); credentials resolve via the standard AWS provider chain.
+// These factories read no env — a Bedrock-active app's credentials are
 // validated up front by `validateModelSecrets()` in `resolve.ts` (value axis).
 
 // Mastra's model router has no native Bedrock entry, so we pass an

@@ -38,8 +38,18 @@ if [[ -z "$APP" ]]; then
     echo "apps in this workspace:"
     shopt -s nullglob
     for manifest in "$REPO_ROOT"/apps/*/package.json; do
-      sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/  \1/p;/name/q' \
-        "$manifest"
+      # The first `"name":` at the top level of a manifest is the package name.
+      # Bounded to depth 1 so a dependency called `name` cannot answer instead.
+      name="$(
+        awk '/^  "name"[[:space:]]*:/ {
+               match($0, /:[[:space:]]*"[^"]*"/)
+               v = substr($0, RSTART, RLENGTH)
+               gsub(/^:[[:space:]]*"|"$/, "", v)
+               print v
+               exit
+             }' "$manifest"
+      )"
+      [ -n "$name" ] && echo "  $name"
     done
     shopt -u nullglob
   } >&2

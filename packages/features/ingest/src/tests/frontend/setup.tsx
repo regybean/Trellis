@@ -25,17 +25,17 @@ beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });
 
-// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
-// msw-trpc can intercept. Env is real (validated by ../../env). We fake the
-// network at the HTTP boundary with MSW and assert what renders — never mock the
-// tRPC client, a feature hook, or react-toastify.
+// NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain
+// httpLink msw-trpc can intercept. Env is real (validated by ../../env). We
+// fake the network at the HTTP boundary with MSW and assert what renders —
+// never mock the tRPC client, a feature hook, or react-toastify.
 
 /**
  * Providers every ingest frontend test renders under: the app's single
  * QueryClient (a feature provider renders none of its own, so a test has to
  * mount one exactly as an app does), the feature's tRPC provider, plus a real
- * `<ToastContainer />` so success/error toasts are asserted as DOM text, not via
- * a mocked `toast`.
+ * `<ToastContainer />` so success/error toasts are asserted as DOM text, not
+ * via a mocked `toast`.
  *
  * `AppQueryClientProvider` builds its client in `useState`, so each `render` /
  * `renderHook` gets its own — a fresh mount is a genuine cold cache and nothing

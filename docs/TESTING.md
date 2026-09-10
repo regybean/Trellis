@@ -134,9 +134,10 @@ below follows from that.
   assert a handler-side flag flipped — read the outcome, not the mechanism.
 - **DON'T** `vi.mock('react-toastify')` — the toast renders in jsdom; assert it.
 - **Framework externals stay mockable:** `next/navigation` — the frontend's
-  blessed mock list (mirrors [ADR 0014](adr/0014-tests-validate-real-env.md)). `@acme/auth` is not on it: it ships no
-  React, so no frontend test imports it. Prefer observable navigation
-  (`<Link href>` in the DOM) over asserting an imperative `router.push`.
+  blessed mock list (mirrors [ADR 0014](adr/0014-tests-validate-real-env.md)).
+  `@acme/auth` is not on it: it ships no React, so no frontend test imports it.
+  Prefer observable navigation (`<Link href>` in the DOM) over asserting an
+  imperative `router.push`.
 
 ### Setup and config
 
@@ -173,8 +174,9 @@ Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
 
 The one rule that resolves every "should I mock this?": **mock true externals
 (third-party network services); never mock `env` or in-repo infra.** Mocking a
-third-party SDK for _behavior_ (e.g. `@acme/models`' embed model) is expected and
-different from mocking `env` for _shape_ — the latter is what [ADR 0014](adr/0014-tests-validate-real-env.md) forbids.
+third-party SDK for _behavior_ (e.g. `@acme/models`' embed model) is expected
+and different from mocking `env` for _shape_ — the latter is what
+[ADR 0014](adr/0014-tests-validate-real-env.md) forbids.
 
 > Reaching a branch that a validated `env` can't produce? Configure the real env
 > to reach it — don't mock the env module. Example: `redis`'s `namespace.test.ts`
@@ -185,9 +187,9 @@ different from mocking `env` for _shape_ — the latter is what [ADR 0014](adr/0
 
 There is **one** canonical context builder, shipped from `@acme/trpc/testing` (a
 dedicated export subpath — prod code never imports it). It is typed against the
-real platform contract and builds a context exactly the way an app resolver builds
-a real one: the session, plus whatever the feature's own context adds on top of
-`BaseContext`, passed through untouched, with nothing resolved up front.
+real platform contract and builds a context exactly the way an app resolver
+builds a real one: the session, plus whatever the feature's own context adds on
+top of `BaseContext`, passed through untouched, with nothing resolved up front.
 
 The builder takes the `session` whole, not a `userId` + `role` it fabricates one
 from, because which fields matter is the feature's knowledge: billing's tests set
@@ -259,8 +261,8 @@ export function createTestContext({
 ```
 
 `db` is **not** passed in the context — the feature creates and exports it in
-`api/trpc.ts`, and its routers import it. Tests import that same export when they
-need to seed or clean, and never inject one.
+`api/trpc.ts`, and its routers import it. Tests import that same export when
+they need to seed or clean, and never inject one.
 
 ### Data cleanup
 
@@ -317,8 +319,8 @@ values ([ADR 0014](adr/0014-tests-validate-real-env.md)).
 ## Provisioning app-owned tables (DDL)
 
 Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. Every
-Postgres a suite starts is empty, so the global-setup provisions tables by running
-`drizzle-kit push --force` against the canonical full app with
+Postgres a suite starts is empty, so the global-setup provisions tables by
+running `drizzle-kit push --force` against the canonical full app with
 `NEXT_PUBLIC_WEBAPP` set to the suite's isolated schema — the same declarative
 push dev uses (`pnpm db:push`), reading `schema.ts` directly (this repo has no
 migration SQL, so `migrate` provisions nothing). One push creates every
@@ -326,8 +328,8 @@ push-managed table (the app re-exports each feature's schema) into that schema;
 suites add no provisioning of their own. `mastra_*` and pgvector tables are
 excluded by the push config's `tablesFilter` and created lazily at runtime. The
 app that serves the push is discovered — whichever app carries a
-`drizzle.push.config.ts` — never named; `@acme/test-utils` owns that decision and
-records it in its own ADRs.
+`drizzle.push.config.ts` — never named; `@acme/test-utils` owns that decision
+and records it in its own ADRs.
 
 ## Mocking conventions
 

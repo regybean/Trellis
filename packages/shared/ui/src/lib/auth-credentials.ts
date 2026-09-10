@@ -5,9 +5,9 @@ import { z } from 'zod';
  *
  * These live in `@acme/ui` rather than `@acme/auth` on purpose: the forms are
  * presentational and prop-driven, so the package takes no dependency on the
- * auth seam and the slim apps' graph is unaffected. The caller's
- * `onSubmit` receives the parsed credentials and owns the call to whatever
- * provider is wired up.
+ * auth seam and the slim apps' graph is unaffected. The caller's `onSubmit`
+ * receives the parsed credentials and owns the call to whatever provider is
+ * wired up.
  *
  * The schemas are handed to TanStack Form as Standard Schema validators, so
  * zod stays the single source of the messages — no resolver package, and no

@@ -16,12 +16,12 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * Auth's hardcoded development secret. Generate with `openssl rand -base64 32`.
  *
  * **`BETTER_AUTH_URL` is deliberately not here** — it is authored by each app's
- * own `createEnv`. It is the origin the auth routes are mounted on, and each app
- * mounts them on its own port. That is the same fact `initAuth` already encodes
- * by taking `baseUrl` as a parameter instead of reading it — a slice-level
- * declaration would be a slice validating a key it never reads and cannot author
- * a default for, while the app can author one per profile like any other config
- * row.
+ * own `createEnv`. It is the origin the auth routes are mounted on, and each
+ * app mounts them on its own port. That is the same fact `initAuth` already
+ * encodes by taking `baseUrl` as a parameter instead of reading it — a
+ * slice-level declaration would be a slice validating a key it never reads and
+ * cannot author a default for, while the app can author one per profile like
+ * any other config row.
  */
 export function betterAuthEnv() {
   return createEnv({

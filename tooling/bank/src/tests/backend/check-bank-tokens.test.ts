@@ -12,9 +12,9 @@
  * correct — a checker that flagged it would train the reader to ignore the
  * report. The derivation of what is distributable, because it comes from
  * `exclude` rather than a list here: content withheld from every consumer is
- * free to name whatever it likes. And the root manifest's script entries,
- * which are the one *line*-level exemption, so the rest of that same file
- * stays in scope.
+ * free to name whatever it likes. And the root manifest's script entries, which
+ * are the one *line*-level exemption, so the rest of that same file stays in
+ * scope.
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -196,6 +196,28 @@ describe('what it leaves alone', () => {
       )}\n`,
     });
 
+    expect(stderr).toContain('package.json:');
+  });
+
+  it('does not lend the exemption to a dependency of the same name', () => {
+    // The exemption is per line and keyed on script names, so it has to be
+    // bounded to the `scripts` block — otherwise a dependency that happens to
+    // share a name with a script inherits an argument written for something
+    // else entirely.
+    const { status, stderr } = run({
+      ...baseline(),
+      'package.json': `${JSON.stringify(
+        {
+          name: 'fixture',
+          scripts: { 'build:storefront': 'turbo run build' },
+          devDependencies: { 'build:storefront': 'Widgets' },
+        },
+        null,
+        2,
+      )}\n`,
+    });
+
+    expect(status).toBe(1);
     expect(stderr).toContain('package.json:');
   });
 

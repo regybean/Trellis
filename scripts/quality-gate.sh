@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
-# Full quality gate ([ADR 0020](../docs/adr/0020-commit-tidies-gate-verifies.md)). READ-ONLY verification — it never mutates the
-# working tree. Auto-fixing is a separate step: run `pnpm tidy` (lint:fix +
-# format:fix) before the gate, or let commit-time tidy (lefthook) handle format.
+# Full quality gate (../docs/adr/0020-commit-tidies-gate-verifies.md). READ-ONLY
+# verification — it never mutates the working tree. Auto-fixing is a separate
+# step: run `pnpm tidy` (lint:fix + format:fix) before the gate, or let
+# commit-time tidy (lefthook) handle format.
 #
-# Speed comes from two things ([ADR 0020](../docs/adr/0020-commit-tidies-gate-verifies.md)):
+# Speed comes from two things (../docs/adr/0020-commit-tidies-gate-verifies.md):
 #   1. The build-dependent, cacheable turbo tasks (lint, format, typecheck) run in
 #      ONE `turbo run … --continue` invocation, so turbo parallelizes them across
 #      packages AND task types, honours `^build`, and reuses its cache. `test` is
-#      the exception: it needs `scripts/test.sh`'s concurrency cap ([ADR 0034](../docs/adr/0034-backend-tests-always-self-provision.md)),
-#      because every backend suite starts its own containers — and that cap must
-#      not throttle lint/format/typecheck. So it runs as its own stage, overlapping
-#      the batch. `build` — the `^build` prerequisite both of them share — is
-#      primed first, in the foreground: two concurrent `turbo run` invocations
-#      don't share task execution, so without the prime they each build the graph.
+#      the exception: it needs `scripts/test.sh`'s concurrency cap
+#      (../docs/adr/0034-backend-tests-always-self-provision.md), because every
+#      backend suite starts its own containers — and that cap must not throttle
+#      lint/format/typecheck. So it runs as its own stage, overlapping the
+#      batch. `build` — the `^build` prerequisite both of them share — is primed
+#      first, in the foreground: two concurrent `turbo run` invocations don't
+#      share task execution, so without the prime they each build the graph.
 #   2. The standalone read-only checks run as a parallel background group, started
 #      before the prime since none of them depend on `build`.
 # Because nothing mutates source, everything can overlap safely.
@@ -55,9 +57,10 @@ fmt_dur() {
 }
 
 # The assembled log lands in the root logs/ dir — the agent-readable location
-# ([ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §1). .cache is claudeignored, so a gate log there is unreadable by
-# the agent that has to act on it. Per-stage scratch stays in .cache: it is
-# intermediate, and logs/ is a flat *.log dir by contract.
+# (../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §1).
+# .cache is claudeignored, so a gate log there is unreadable by the agent that
+# has to act on it. Per-stage scratch stays in .cache: it is intermediate, and
+# logs/ is a flat *.log dir by contract.
 LOG="logs/quality-gate.log"
 STAGE_DIR=".cache/quality-gate.d"
 mkdir -p "$STAGE_DIR" logs
@@ -66,10 +69,12 @@ rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc "$STAGE_DIR"/*.ms 2>/dev/null || true
 # Fixed order stages appear in the summary and the concatenated log.
 order=(build turbo test check:exports check:bank-paths check:bank-tokens check:adrs check:portable boundaries lint:ws deps:lint test:policy gitleaks audit)
 
-# Dependency audit ([ADR 0027](../docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)). CI is the hard backstop; locally this stage
-# graceful-degrades on network failure (skip + warn, like gitleaks) so offline
-# PR prep isn't blocked. A registry that returns advisories still FAILs — only a
-# transport error (can't reach the registry) is treated as a skip.
+# Dependency audit
+# (../docs/adr/0027-dependency-audit-gate-and-suppression-policy.md). CI is the
+# hard backstop; locally this stage graceful-degrades on network failure (skip +
+# warn, like gitleaks) so offline PR prep isn't blocked. A registry that returns
+# advisories still FAILs — only a transport error (can't reach the registry) is
+# treated as a skip.
 # `pnpm run audit` (scripts/audit.mjs), not `pnpm audit`: the latter's exit code
 # counts allowlisted advisories, so one entry in auditConfig.ignoreGhsas would
 # pin this stage red. The wrapper passes transport errors through verbatim, so
@@ -149,8 +154,9 @@ stage_ms() {
 }
 
 # Assemble the single legible log in fixed order, behind the same dated
-# freshness header every logs/*.log file carries ([ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md) §1), so staleness
-# reads the same way here as for the dev-/infra- files.
+# freshness header every logs/*.log file carries
+# (../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md §1),
+# so staleness reads the same way here as for the dev-/infra- files.
 printf "# quality-gate started %s\n" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >"$LOG"
 failed=0
 for name in "${order[@]}"; do

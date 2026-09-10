@@ -12,12 +12,13 @@ const subscriptionsEntitlements = createSubscriptionsEntitlements({
 });
 
 /**
- * Service test for the Stripe/Redis-backed `EntitlementsProvider` against a REAL
- * Redis (the isolated logical DB from this suite's vitest config) — no
+ * Service test for the Stripe/Redis-backed `EntitlementsProvider` against a
+ * REAL Redis (the isolated logical DB from this suite's vitest config) — no
  * `@acme/redis` mock. Exercises the adapter through the neutral contract only
- * (`resolve`/`consume`/`refund`), asserting the observable Credit balance rather
- * than the private key format: `refund` must delegate to the Redis-backed
- * `credits.refund`, crediting the same ledger `consume` decrements.
+ * (`resolve`/`consume`/`refund`), asserting the observable Credit balance
+ * rather than the private key format: `refund` must delegate to the
+ * Redis-backed `credits.refund`, crediting the same ledger `consume`
+ * decrements.
  */
 
 const USER = 'user_adapter_refund';

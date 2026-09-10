@@ -1,6 +1,6 @@
 # Mastra owns RAG + Memory; Drizzle mirrors are query-only read models
 
-**Status:** accepted
+**Status:** accepted — decision 3 amended in place below
 
 > **Decision 3 amended by `@acme/models`.** "Bedrock via an AI-SDK provider
 > instance" still holds as a mechanism, but the instance is produced by

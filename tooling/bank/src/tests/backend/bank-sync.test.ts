@@ -4,9 +4,8 @@
  * copied in the way a consumer vendors it, and every assertion read back out of
  * git. The sandbox lives in `./bank-sandbox`, shared with the back-flow suite.
  *
- * Nothing is mocked — the point of the vendored-subset model is what git
- * itself does with the ancestry the script builds, so a fake git would assert
- * nothing.
+ * Nothing is mocked — the point of the vendored-subset model is what git itself
+ * does with the ancestry the script builds, so a fake git would assert nothing.
  *
  * No container either: this package's vitest config has no global setup, and
  * nothing here needs one. Git and a temp dir are the whole fixture.

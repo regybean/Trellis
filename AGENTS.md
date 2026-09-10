@@ -164,17 +164,13 @@ Prose that reaches the user — grilling questions, plan and spec text, PR/issue
 
 See `docs/agents/issue-tracker.md`.
 
-Issue-tracker reads and writes are the normal operation of the tracker-driving
-workflows (wayfinding, triage, spec-to-tickets), so they need no separate
-confirmation: assigning and unassigning issues, adding and removing labels,
-commenting, and opening, closing or editing issues and sub-issues. That is the
-whole of it. It does **not** extend to destructive Git operations, to
-permission or visibility changes, or to sending repo contents to third-party
-services.
-
-Which tracker, and therefore which repository those writes land in, is
-`docs/agents/issue-tracker.md`'s to say — this file names none, so a fork or a
-consumer that keeps it grants nothing until they point it somewhere.
+Reads and writes against the tracker `docs/agents/issue-tracker.md` configures
+are the normal operation of the tracker-driving workflows (wayfinding, triage,
+spec-to-tickets), so they need no separate confirmation: assigning and
+unassigning issues, adding and removing labels, commenting, and opening,
+closing or editing issues and sub-issues. Nothing beyond that list, and in
+particular no destructive Git operation, no permission or visibility change,
+and no sending of repo contents to a third-party service.
 
 ### Triage labels
 
@@ -194,6 +190,6 @@ The north star, to weigh when making changes:
 
 - **Protect the slice contract.** One feature = one package = router + hooks + UI, depending only downward. It's what lets apps mount different subsets — a bespoke client build is a new app importing a different subset, not a fork. Don't leak framework specifics into features; keep them in the app adapter (the honest seam).
 - **Keep seams swappable, name what's coupled.** Providers (`@acme/models`), auth (Better Auth behind a seam), billing (Stripe) are meant to be replaceable. When something becomes load-bearing or hard to reverse, write it down (ADR) rather than letting it harden silently.
-- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app (the console shell one of them ships is the worked example). There is no compositions layer; shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
+- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app; the console shell one of the apps ships is the worked example. There is no compositions layer; shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
 - **Earn the next runtime / the next subset.** The portability and subsetting claims are only as true as the apps that prove them. The 2×2 of apps does both: the two full apps prove the same slices run on two frameworks; their slim counterparts prove a no-auth/no-billing _subset_ drops the auth provider + Stripe from the graph. New shared/feature code must stay runtime-agnostic and not re-couple the substrate to auth/billing — design so the next framework or the next reduced subset stays trivial.
 - **Documentation keeps pace with design.** `CONTEXT.md` + ADRs are updated _as_ decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.

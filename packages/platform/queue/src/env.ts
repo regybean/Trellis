@@ -8,8 +8,8 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
  * Queue's environment. Selectors only — this slice authors no tunables of its
- * own; the BullMQ retention counts belong to the features that enqueue.
- * Both keys stay written longhand in `runtimeEnv`: they are the ones a bundler
+ * own; the BullMQ retention counts belong to the features that enqueue. Both
+ * keys stay written longhand in `runtimeEnv`: they are the ones a bundler
  * inlines textually, and an index access is invisible to that.
  */
 function queueEnv() {

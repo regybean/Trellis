@@ -46,8 +46,7 @@ export interface GroupedConversations {
 // `folderId` still resolves to a known Folder in `folderIds`; a dangling id (a
 // deleted Folder) falls through to the buckets — the lazy-deletion fallback
 // (see [ADR 0005](../../docs/adr/0005-folder-storage-split.md)), with no
-// per-Conversation write.
-// `conversations` is assumed to arrive sorted
+// per-Conversation write. `conversations` is assumed to arrive sorted
 // `updatedAt DESC` (the server sorts), so per-group and per-bucket order is
 // simply preserved. `now` is injected so the function stays pure and testable.
 export function groupConversations(

@@ -10,7 +10,8 @@ import { env } from '../../env';
 // `mastra_*` tables: Mastra owns that DDL at runtime, drizzle-kit owns this
 // table, and the two never cross with a database-level constraint. Integrity
 // across the seam is enforced in the router (verify the thread is owned, verify
-// the message exists via the `@acme/rag` Drizzle mirror) rather than by Postgres.
+// the message exists via the `@acme/rag` Drizzle mirror) rather than by
+// Postgres.
 
 // Same per-app Postgres schema Mastra and the knowledge base namespace under
 // (NEXT_PUBLIC_WEBAPP). Declaring it here is idempotent — drizzle-kit dedupes by

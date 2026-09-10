@@ -1,12 +1,12 @@
 /**
  * Ingest progress snapshot — service (integration) test.
  *
- * Drives the real `readProgressSnapshot` fold against a real Redis Stream, seeded
- * through the real `createIngestProgressWriter`. The fold is ingest's cold-mount
- * seed: the retained per-user stream folded to the latest stage per Upload,
- * filtered to in-flight + `failed` (drop `done`), plus the resume `lastId`. Paired
- * with the reader's resume-from-lastId, this is what makes progress survive a
- * refresh without replaying an hour of completed jobs.
+ * Drives the real `readProgressSnapshot` fold against a real Redis Stream,
+ * seeded through the real `createIngestProgressWriter`. The fold is ingest's
+ * cold-mount seed: the retained per-user stream folded to the latest stage per
+ * Upload, filtered to in-flight + `failed` (drop `done`), plus the resume
+ * `lastId`. Paired with the reader's resume-from-lastId, this is what makes
+ * progress survive a refresh without replaying an hour of completed jobs.
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

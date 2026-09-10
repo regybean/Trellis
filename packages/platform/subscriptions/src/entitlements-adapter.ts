@@ -18,8 +18,8 @@ import {
  *
  * A factory (not a const) because the product→tier mapping now needs the
  * billing's authored plan ids, resolved once at the app edge and injected here
- * rather than read from `process.env`. The options object is the extension point
- * for further per-deploy billing policy (e.g. credit limits).
+ * rather than read from `process.env`. The options object is the extension
+ * point for further per-deploy billing policy (e.g. credit limits).
  */
 export function createSubscriptionsEntitlements(
   planIds: PlanIds,

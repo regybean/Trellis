@@ -62,8 +62,8 @@ Clerk's `CustomJwtSessionClaims`. The admin plugin puts `role` on the user row
 - **Keep Clerk.** Cheapest today, and it keeps the prebuilt sign-in/up UI that
   Better Auth does not ship. Rejected because it leaves the AIA divergence in the
   two hottest files and keeps a vendor mandatory in a template.
-- **Keycloak, or any external identity provider.** AIA needs one; this repo
-  does not, and it would add an infra service to the local compose stack for no gain
+- **Keycloak, or any external identity provider.** AIA needs one; this repo does
+  not, and it would add an infra service to the local compose stack for no gain
   here. Rejected — out of scope, not wrong.
 - **Copy AIA's implementation.** AIA's code is a reference to read, not content
   to import; back-flow from AIA is gated separately. Rejected.
@@ -79,13 +79,12 @@ the user button and the admin user-management widget all need authoring against
 `emailAddresses` array, `imageUrl`, `publicMetadata` and `lastSignInAt`. That UI
 work, not the auth wiring, is the schedule risk in this migration.
 
-**How that landed:** cheaper than feared, because the answer was
-subtraction. The widgets were cut back to the columns Better Auth actually
-stores rather than reproducing Clerk's shape, so `emailAddresses` /
-`primaryEmailAddressId` collapsed to the single `email` that is the row's unique
-key, and `lastSignInAt` was dropped rather than tracked — the core schema
-records none, and inventing it meant writing session-history tracking to fill a
-line of UI.
+**How that landed:** cheaper than feared, because the answer was subtraction.
+The widgets were cut back to the columns Better Auth actually stores rather than
+reproducing Clerk's shape, so `emailAddresses` / `primaryEmailAddressId`
+collapsed to the single `email` that is the row's unique key, and `lastSignInAt`
+was dropped rather than tracked — the core schema records none, and inventing it
+meant writing session-history tracking to fill a line of UI.
 
 Existing Clerk users have no migration path. For a template repo that is
 probably a non-issue, but any deployment with real users needs its own plan.

@@ -106,10 +106,11 @@ describe('withProfiles — profile resolution', () => {
   });
 
   it('serves a target with no overlay of its own from the base (dev-is-base)', () => {
-    // `staging` is unauthored above. It inherits the development base rather than
-    // throwing, because every key is env-overridable ([ADR 0001](../../../../docs/adr/0001-one-env-factory-per-slice.md) §4): a deploy
-    // target's own values arrive as environment variables, and authoring an
-    // overlay is for values that belong in version control.
+    // `staging` is unauthored above. It inherits the development base rather
+    // than throwing, because every key is env-overridable
+    // ([ADR 0001](../../../../docs/adr/0001-one-env-factory-per-slice.md) §4):
+    // a deploy target's own values arrive as environment variables, and
+    // authoring an overlay is for values that belong in version control.
     const env = sampleEnv({ appEnv: 'staging', runtimeEnv: { SECRET: 'shh' } });
 
     expect(env.HOST).toBe('localhost');
@@ -201,8 +202,10 @@ describe('withProfiles — env override', () => {
   });
 
   it('cannot be reached for a key the call leaves out of runtimeEnv', () => {
-    // Every slice lists every key ([ADR 0001](../../../../docs/adr/0001-one-env-factory-per-slice.md) §4), so this is the mechanism rather
-    // than a policy: profile values ride the schema, and only `runtimeEnv` is read.
+    // Every slice lists every key
+    // ([ADR 0001](../../../../docs/adr/0001-one-env-factory-per-slice.md) §4),
+    // so this is the mechanism rather than a policy: profile values ride the
+    // schema, and only `runtimeEnv` is read.
     vi.stubEnv('EXTENSIONS', 'from-env');
 
     const env = sampleEnv({ runtimeEnv: { SECRET: 'shh' } });

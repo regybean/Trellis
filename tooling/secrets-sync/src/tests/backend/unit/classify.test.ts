@@ -1,6 +1,8 @@
 /**
- * `<file>.example` is the contract ([ADR 0001](../../../../docs/adr/0001-pluggable-secrets-sync.md)) — and both directions ask this
- * module, so pull and push cannot disagree about what a secret is.
+ * `<file>.example` is the contract
+ * ([ADR 0001](../../../../docs/adr/0001-pluggable-secrets-sync.md)) — and both
+ * directions ask this module, so pull and push cannot disagree about what a
+ * secret is.
  */
 import { describe, expect, it } from 'vitest';
 

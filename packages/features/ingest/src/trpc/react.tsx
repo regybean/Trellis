@@ -5,13 +5,13 @@ import { createFeatureClient } from '@acme/hooks';
 import type { AppRouter } from '../api/root';
 import { env } from '../env';
 
-// Offline read of the Documents pane. The documents page is a surface
-// operators revisit constantly and it cold-opens to skeletons for every query, so
-// a restored `documents.list` renders instantly. 24 hours — the indexed knowledge
-// base is admin-scoped content that churns on every upload/delete, so a snapshot
-// is worth a day, not chat's week. Also the `gcTime` of every persisted ingest
-// query, so an in-memory entry is never garbage-collected before its stored copy
-// expires.
+// Offline read of the Documents pane. The documents page is a surface operators
+// revisit constantly and it cold-opens to skeletons for every query, so a
+// restored `documents.list` renders instantly. 24 hours — the indexed knowledge
+// base is admin-scoped content that churns on every upload/delete, so a
+// snapshot is worth a day, not chat's week. Also the `gcTime` of every
+// persisted ingest query, so an in-memory entry is never garbage-collected
+// before its stored copy expires.
 const INGEST_PERSIST_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 
 // Data-shape version composed into the persister `buster`
@@ -24,8 +24,8 @@ const INGEST_PERSIST_VERSION = '1';
 // Ingest's client half, assembled from the shared factory (`@acme/hooks`). The
 // scaffold lives once in the factory; ingest's variation is its router type,
 // endpoint (`rq-ingest` / `/api/trpc/ingest`), the file-upload-aware transport,
-// its progress `stream` subscription, and the 24-hour per-query persister
-// that paints the documents page from cache on a cold open. The app owns the
+// its progress `stream` subscription, and the 24-hour per-query persister that
+// paints the documents page from cache on a cold open. The app owns the
 // `QueryClient`, so there is none to configure.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: 'ingest',
@@ -46,10 +46,10 @@ export const useTRPC = client.useTRPC;
 
 /**
  * Cache policy for `documents.list`, the one query ingest persists, to spread
- * into its options. Carries the persister, `gcTime`, the `persistMeta`
- * mark, and the `staleTime: 0` without which uploading a Document and reloading
- * would paint the pre-upload list. `documents.progressSnapshot` is deliberately
- * left off it — see `use-document-upload.ts`.
+ * into its options. Carries the persister, `gcTime`, the `persistMeta` mark,
+ * and the `staleTime: 0` without which uploading a Document and reloading would
+ * paint the pre-upload list. `documents.progressSnapshot` is deliberately left
+ * off it — see `use-document-upload.ts`.
  */
 export const usePersistedQueryOptions = client.usePersistedQueryOptions;
 

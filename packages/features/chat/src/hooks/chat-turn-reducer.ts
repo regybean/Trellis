@@ -1,14 +1,14 @@
 // hooks/chat-turn-reducer.ts
 //
-// The pure Turn state machine. `useChat` used to fuse the Turn's phase
-// logic with the React-Query cache writes and re-check a stale-closure `phaseRef`
-// in every async callback. That logic now lives here as a pure reducer: given the
-// current `TurnState` and a reader/mutation `TurnEvent`, it returns the next state
-// plus a declarative list of **Cache intents** — the vocabulary of cache effects
-// the hook then applies. The reducer touches NO React-Query API and reads no ref;
-// it is the single source of the current phase, so a delta/close/adopt arriving
-// after the Turn settled is a no-op decided HERE, not a guard scattered per
-// callback.
+// The pure Turn state machine. `useChat` used to fuse the Turn's phase logic
+// with the React-Query cache writes and re-check a stale-closure `phaseRef` in
+// every async callback. That logic now lives here as a pure reducer: given the
+// current `TurnState` and a reader/mutation `TurnEvent`, it returns the next
+// state plus a declarative list of **Cache intents** — the vocabulary of cache
+// effects the hook then applies. The reducer touches NO React-Query API and
+// reads no ref; it is the single source of the current phase, so a
+// delta/close/adopt arriving after the Turn settled is a no-op decided HERE,
+// not a guard scattered per callback.
 import type { Message } from '../api/schemas/message-schema';
 
 export const ERROR_TEXT = 'Sorry, there was an error processing your request.';
@@ -284,14 +284,14 @@ export function turnReducer(
   }
 }
 
-// Wedged-Turn view derivation. Pure: when this client holds no live
-// Turn (idle, not resuming) and the probe says nothing is in flight, but the
-// authoritative history ends on a user Message with no assistant reply, the Turn
-// wedged (a worker died and the lock TTL lapsed before any reader could reconcile
-// it). Synthesize an error bubble rather than stalling silently — a later refetch
+// Wedged-Turn view derivation. Pure: when this client holds no live Turn (idle,
+// not resuming) and the probe says nothing is in flight, but the authoritative
+// history ends on a user Message with no assistant reply, the Turn wedged (a
+// worker died and the lock TTL lapsed before any reader could reconcile it).
+// Synthesize an error bubble rather than stalling silently — a later refetch
 // that carries the answer simply drops it. `historyFetching` defers the verdict
-// until the mount revalidation settles, so a refresh landing mid-finalize does not
-// flash a spurious error before the refetch delivers the assistant Message.
+// until the mount revalidation settles, so a refresh landing mid-finalize does
+// not flash a spurious error before the refetch delivers the assistant Message.
 export interface DeriveMessagesInput {
   phase: TurnPhase;
   base: Message[];

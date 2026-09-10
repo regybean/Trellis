@@ -16,8 +16,8 @@
 # sidecar (without it chat.send never generates a response), same as dev, minus
 # `watch`.
 #
-# App args may be short (web) or full (@acme/web); resolve-infra.ts
-# normalises them (turbo's -F needs the full @acme/* name).
+# App args may be short (web) or full (@acme/web); resolve-infra.ts normalises
+# them (turbo's -F needs the full @acme/* name).
 #
 # Infra is left running on exit (tear down with `pnpm infra:down`) — re-running is
 # cheap because `up --wait` is idempotent and returns immediately when everything

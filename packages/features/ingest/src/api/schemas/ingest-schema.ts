@@ -34,10 +34,11 @@ export const startIngestJobSchema = z.object({
 export type StartIngestJobInput = z.infer<typeof startIngestJobSchema>;
 
 // Input to the pure `documents.progress` subscription reader. `lastEventId` is
-// populated by tRPC from the SSE `Last-Event-ID` header on a transient reconnect.
-// `sinceId` is the client-supplied fresh-mount cursor: the `lastId` from
-// `documents.progressSnapshot`, so the tail resumes strictly after the snapshot
-// (resume-from-lastId). Both null ⇒ head-replay of the (bounded) stream.
+// populated by tRPC from the SSE `Last-Event-ID` header on a transient
+// reconnect. `sinceId` is the client-supplied fresh-mount cursor: the `lastId`
+// from `documents.progressSnapshot`, so the tail resumes strictly after the
+// snapshot (resume-from-lastId). Both null ⇒ head-replay of the (bounded)
+// stream.
 export const progressReaderSchema = z.object({
   lastEventId: z.string().nullish(),
   sinceId: z.string().nullish(),

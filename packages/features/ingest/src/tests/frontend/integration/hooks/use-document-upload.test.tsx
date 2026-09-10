@@ -6,14 +6,15 @@
  * We drive `upload()` and assert the derived `files`/`summary` and the toast
  * output — never mock-call counts.
  *
- * `onUnhandledRequest: 'bypass'` because the hook opens the progress subscription
- * (SSE) on mount; it can't connect in jsdom and is left to fail silently (mirrors
- * chat/notifications). The server-authored `serverStage` advances + the completion
- * `invalidate` are SSE-driven and therefore NOT drivable here — they are covered by
- * the reducer unit tests; this file drives the client-authored half (uploading /
- * optimistic queued / failures) and the cold-mount snapshot seed, which IS a
- * plain query. A default empty-snapshot handler is registered so every test's mount
- * resolves; the seeding test overrides it.
+ * `onUnhandledRequest: 'bypass'` because the hook opens the progress
+ * subscription (SSE) on mount; it can't connect in jsdom and is left to fail
+ * silently (mirrors chat/notifications). The server-authored `serverStage`
+ * advances + the completion `invalidate` are SSE-driven and therefore NOT
+ * drivable here — they are covered by the reducer unit tests; this file drives
+ * the client-authored half (uploading / optimistic queued / failures) and the
+ * cold-mount snapshot seed, which IS a plain query. A default empty-snapshot
+ * handler is registered so every test's mount resolves; the seeding test
+ * overrides it.
  */
 import { act, renderHook, screen, waitFor } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';

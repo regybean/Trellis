@@ -11,10 +11,10 @@ import type { AppRouter } from '../api/root';
 import type { FeedbackContext } from '../api/trpc';
 import { appRouter } from '../api/root';
 
-// The RSC half's own client — a fresh one per request, from the same factory the
-// app mounts in the browser. Not the app's client: an RSC render has
-// no React context to read one from, and its cache is dehydrated into the
-// response rather than shared.
+// The RSC half's own client — a fresh one per request, from the same factory
+// the app mounts in the browser. Not the app's client: an RSC render has no
+// React context to read one from, and its cache is dehydrated into the response
+// rather than shared.
 const getQueryClient = cache(createAppQueryClient);
 
 /**
@@ -26,10 +26,10 @@ const getQueryClient = cache(createAppQueryClient);
  * extension: no tier to gate on, no credit to spend, so it names no entitlements
  * provider at all. `@acme/chat`'s equivalent does.
  *
- * `opts` *is* the context: it is handed to every RSC procedure as it
- * arrives, with only `x-trpc-source` added to the headers. There is no
- * second name for it — the alias this used to carry (`ServerTRPCOptions`)
- * said nothing the context type doesn't.
+ * `opts` *is* the context: it is handed to every RSC procedure as it arrives,
+ * with only `x-trpc-source` added to the headers. There is no second name for
+ * it — the alias this used to carry (`ServerTRPCOptions`) said nothing the
+ * context type doesn't.
  */
 export function createServerTRPC(opts: FeedbackContext) {
   const createContext = cache(() => {

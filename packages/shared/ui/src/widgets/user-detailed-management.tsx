@@ -77,9 +77,9 @@ interface UserDetailedManagementProps {
   }) => void | Promise<void>;
   /**
    * App-supplied billing panels (e.g. `@acme/billing`'s `RateLimitManagement` /
-   * `TierManagement`). Injected via prop so `@acme/ui` stays free of the billing
-   * feature dependency — the exact coupling that once had these folded back
-   * into the apps. Slim apps can omit it.
+   * `TierManagement`). Injected via prop so `@acme/ui` stays free of the
+   * billing feature dependency — the exact coupling that once had these folded
+   * back into the apps. Slim apps can omit it.
    */
   billingPanels?: ReactNode;
 }

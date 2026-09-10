@@ -11,10 +11,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  *
  * The real `./env` is validated, never mocked: the webapp is set via
  * `vi.stubEnv` before each fresh import. `IS_NEXT_BUILD` short-circuits the
- * `connect()` side effect on `./client` import, so no real Redis is touched. The
- * empty-namespace branch is only reachable when validation is skipped (a missing
- * webapp otherwise fails `env.ts` loudly), so that case sets `CI=true` to take
- * the real `skipValidation` path rather than mocking the env module.
+ * `connect()` side effect on `./client` import, so no real Redis is touched.
+ * The empty-namespace branch is only reachable when validation is skipped (a
+ * missing webapp otherwise fails `env.ts` loudly), so that case sets `CI=true`
+ * to take the real `skipValidation` path rather than mocking the env module.
  * See ../../../../docs/adr/0002-per-app-redis-namespace.md.
  */
 

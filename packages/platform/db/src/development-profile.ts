@@ -2,14 +2,14 @@
  * The authored **development** profile for this slice's env, in a module that
  * executes no `createEnv` call.
  *
- * `env.ts` authors its `default` profile from this object, and two paths read it
- * *without* an environment: `testing.ts` (the testcontainer descriptor) and
- * `scripts/resolve-compose-env.ts` (the compose stack, whose output `compose.sh`
- * exports back into the environment — reading an override there would be
- * circular). Both **provision** the local database rather than connect to someone
- * else's, so they want the values this file authors and never an operator's
- * override. Overriding `DB_NAME` therefore points a *connection* at a different
- * database; it does not rename the one compose provisions.
+ * `env.ts` authors its `default` profile from this object, and two paths read
+ * it *without* an environment: `testing.ts` (the testcontainer descriptor) and
+ * `scripts/resolve-compose-env.ts` (the compose stack, whose output
+ * `compose.sh` exports back into the environment — reading an override there
+ * would be circular). Both **provision** the local database rather than connect
+ * to someone else's, so they want the values this file authors and never an
+ * operator's override. Overriding `DB_NAME` therefore points a *connection* at
+ * a different database; it does not rename the one compose provisions.
  *
  * `DB_PASSWORD` is deliberately absent: it is the one DB key with no profile
  * value, so it is a secret on every target (locally `deploy/.env` supplies the

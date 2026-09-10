@@ -12,9 +12,9 @@ cursor / `rangeStart` logic, and an encode/parse pair off one zod schema. There
 was no shared home, so fixes did not propagate. Two concrete drifts proved the
 cost: the `${Date.now()}-0` clock-skew seed that ingest deleted still lived in
 the notifications reader (an app-clock cursor that, under podman-VM drift, lands
-in Redis' future and silently drops every live entry), and the non-atomic
-`xAdd` + `expire` that ingest replaced with `xAddWithTtl` still lived in
-`publish` (a crash between the two can leave the stream immortal).
+in Redis' future and silently drops every live entry), and the non-atomic `xAdd` +
+`expire` that ingest replaced with `xAddWithTtl` still lived in `publish` (a
+crash between the two can leave the stream immortal).
 
 ## Decision
 

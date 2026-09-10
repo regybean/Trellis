@@ -266,14 +266,14 @@ on its own. It is not a second config mechanism — every call still routes thro
 `withProfiles`, and `skipValidation` is still never passed.
 
 > This section originally recorded a second bent case, `@acme/auth` **split by
-> runtime**: `clerkWiringEnv()` carried the five browser-safe authored Clerk keys
-> that an app's Edge `middleware.ts` needed, and `authEnv()` extended it with
-> `CLERK_SECRET_KEY` for the full apps — a split whose whole purpose was to
+> runtime**: `clerkWiringEnv()` carried the five browser-safe authored Clerk
+> keys that an app's Edge `middleware.ts` needed, and `authEnv()` extended it
+> with `CLERK_SECRET_KEY` for the full apps — a split whose whole purpose was to
 > keep the secret out of a call the Edge runtime resolves from a build-time
 > `process.env` snapshot. Moving to self-hosted Better Auth deleted the reason
-> rather than the rule: `betterAuthEnv()` declares one key, `BETTER_AUTH_SECRET`,
-> and there are no browser-safe wiring keys left to demand apart from it. What
-> changed is the count of exceptions, not §1.
+> rather than the rule: `betterAuthEnv()` declares one key,
+> `BETTER_AUTH_SECRET`, and there are no browser-safe wiring keys left to demand
+> apart from it. What changed is the count of exceptions, not §1.
 
 **`@acme/models` — split by conditional secrets.** Three calls: `env` holds the
 two authored provider selections (`MODELS_CHAT`, `MODELS_EMBED`), and
@@ -325,8 +325,8 @@ resolved `{ appEnv, isServer }` once and threaded it in. A single
   **unauthor** them in the staging/production overlays — so a real target must
   supply them, by the same mechanical rule as every other secret. `@acme/db`'s
   `DB_PASSWORD` authors nothing on any target and keeps coming from `deploy/.env`
-  locally: it is the one credential whose container we provision _and_ whose
-  value a real deploy must never inherit by accident.
+  locally: it is the one credential whose container we provision _and_ whose value
+  a real deploy must never inherit by accident.
 - **A production deploy is configured by environment, not by a commit.** Any
   value — a TTL, a bucket, a collector endpoint, a whole Stripe connection — is
   reachable from the environment of the container that runs. That is the property

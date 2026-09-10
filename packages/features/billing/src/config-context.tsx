@@ -17,9 +17,9 @@ export interface BillingConfigValues {
 
 /**
  * What the feature reads through the provider: the threaded config values plus
- * `localstripeMode` — the single localstripe-vs-real-Stripe signal, derived once
- * on the server from `env.STRIPE_CONNECTION` and threaded here so the client
- * reads one value instead of proxying the condition through `NODE_ENV`.
+ * `localstripeMode` — the single localstripe-vs-real-Stripe signal, derived
+ * once on the server from `env.STRIPE_CONNECTION` and threaded here so the
+ * client reads one value instead of proxying the condition through `NODE_ENV`.
  */
 export interface BillingClientConfig extends BillingConfigValues {
   localstripeMode: boolean;
