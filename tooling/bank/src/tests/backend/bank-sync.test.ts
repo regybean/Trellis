@@ -4,10 +4,9 @@
  * copied in the way a consumer vendors it, and every assertion read back out of
  * git. The sandbox lives in `./bank-sandbox`, shared with the back-flow suite.
  *
- * Nothing is mocked — the point of the vendored-subset model
- * ([ADR 0037](../../../../../docs/adr/0037-vendored-git-subset-three-way-merge.md))
- * is what git itself does with the ancestry the script builds, so a fake git
- * would assert nothing.
+ * Nothing is mocked — the point of the vendored-subset model is what git
+ * itself does with the ancestry the script builds, so a fake git would assert
+ * nothing.
  *
  * No container either: this package's vitest config has no global setup, and
  * nothing here needs one. Git and a temp dir are the whole fixture.
@@ -103,7 +102,7 @@ function mergeFailure(consumer: string, extra: string[] = []) {
 }
 
 describe('bank:sync builds the vendor branch', () => {
-  it('creates vendor/trellis holding exactly the resolved paths, and merges nothing', () => {
+  it('creates vendor/bank holding exactly the resolved paths, and merges nothing', () => {
     const { consumer } = setup();
     const headBefore = git(consumer, ['rev-parse', 'HEAD']);
 
@@ -111,7 +110,7 @@ describe('bank:sync builds the vendor branch', () => {
 
     // The two selected packages plus the always-included `root` bundle, and
     // nothing else: no app, no unselected bundle, no bank.paths.json.
-    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
+    expect(treePaths(consumer, 'vendor/bank')).toEqual([
       'pnpm-workspace.yaml',
       'tooling/eslint/index.js',
       'tooling/eslint/package.json',
@@ -120,7 +119,7 @@ describe('bank:sync builds the vendor branch', () => {
       'turbo.json',
     ]);
     expect(stdout).toContain(
-      'git merge --allow-unrelated-histories vendor/trellis',
+      'git merge --allow-unrelated-histories vendor/bank',
     );
 
     // The working branch and tree are untouched: the sync only writes the ref.
@@ -133,7 +132,7 @@ describe('bank:sync builds the vendor branch', () => {
     const { bank, consumer } = setup();
 
     sync(consumer);
-    const firstVendor = git(consumer, ['rev-parse', 'vendor/trellis']);
+    const firstVendor = git(consumer, ['rev-parse', 'vendor/bank']);
     merge(consumer, ['--allow-unrelated-histories']);
 
     write(
@@ -144,12 +143,12 @@ describe('bank:sync builds the vendor branch', () => {
     commit(bank, 'bank: prettier semi');
 
     const stdout = sync(consumer);
-    expect(stdout).toContain('git merge vendor/trellis');
+    expect(stdout).toContain('git merge vendor/bank');
     expect(stdout).not.toContain('--allow-unrelated-histories');
 
     // Real ancestry: the previous vendor commit is the merge base.
-    expect(git(consumer, ['rev-parse', 'vendor/trellis^'])).toBe(firstVendor);
-    expect(git(consumer, ['merge-base', 'HEAD', 'vendor/trellis'])).toBe(
+    expect(git(consumer, ['rev-parse', 'vendor/bank^'])).toBe(firstVendor);
+    expect(git(consumer, ['merge-base', 'HEAD', 'vendor/bank'])).toBe(
       firstVendor,
     );
 
@@ -229,7 +228,7 @@ describe('bank:sync builds the vendor branch', () => {
     const { consumer } = setup();
 
     sync(consumer);
-    const vendorBefore = git(consumer, ['rev-parse', 'vendor/trellis']);
+    const vendorBefore = git(consumer, ['rev-parse', 'vendor/bank']);
 
     write(
       consumer,
@@ -241,7 +240,7 @@ describe('bank:sync builds the vendor branch', () => {
 
     expect(status).not.toBe(0);
     expect(stderr).toContain('bank/nope');
-    expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(vendorBefore);
+    expect(git(consumer, ['rev-parse', 'vendor/bank'])).toBe(vendorBefore);
   });
 
   /**
@@ -272,7 +271,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
   function packageDirs(consumer: string) {
     return [
       ...new Set(
-        treePaths(consumer, 'vendor/trellis')
+        treePaths(consumer, 'vendor/bank')
           .filter((path) => path.endsWith('/package.json'))
           .map((path) => path.slice(0, -'/package.json'.length)),
       ),
@@ -298,9 +297,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
 
     sync(consumer);
 
-    expect(treePaths(consumer, 'vendor/trellis')).toContain(
-      'deploy/compose.yaml',
-    );
+    expect(treePaths(consumer, 'vendor/bank')).toContain('deploy/compose.yaml');
   });
 
   it('leaves the infra bundle out when nothing in the closure declares it', () => {
@@ -308,7 +305,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
 
     sync(consumer);
 
-    expect(treePaths(consumer, 'vendor/trellis')).not.toContain(
+    expect(treePaths(consumer, 'vendor/bank')).not.toContain(
       'deploy/compose.yaml',
     );
   });
@@ -318,7 +315,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
 
     sync(consumer);
 
-    const paths = treePaths(consumer, 'vendor/trellis');
+    const paths = treePaths(consumer, 'vendor/bank');
     expect(paths).toContain('docs/guide.md');
     expect(paths).not.toContain('deploy/compose.yaml');
   });
@@ -330,7 +327,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
 
     // `.claude/settings.json` is authored and travels; the generated symlinks
     // beside it are not named, so the prefix filter leaves them upstream.
-    const paths = treePaths(consumer, 'vendor/trellis');
+    const paths = treePaths(consumer, 'vendor/bank');
     expect(paths).toContain('.claude/settings.json');
     expect(paths).not.toContain('.claude/skills/generated.md');
   });
@@ -340,7 +337,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
 
     sync(consumer);
 
-    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
+    expect(treePaths(consumer, 'vendor/bank')).toEqual([
       'pnpm-workspace.yaml',
       'turbo.json',
     ]);
@@ -353,20 +350,20 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
 
     expect(status).toBe(1);
     expect(stderr).toContain('@acme/web');
-    expect(git(consumer, ['branch', '--list', 'vendor/trellis'])).toBe('');
+    expect(git(consumer, ['branch', '--list', 'vendor/bank'])).toBe('');
   });
 
   it('fails naming a selected package that does not exist at the ref, writing nothing', () => {
     const { consumer } = setup({ packages: ['@acme/logger'] });
     sync(consumer);
-    const vendorBefore = git(consumer, ['rev-parse', 'vendor/trellis']);
+    const vendorBefore = git(consumer, ['rev-parse', 'vendor/bank']);
 
     editManifest(consumer, { packages: ['@acme/logger', '@acme/nope'] });
     const { status, stderr } = syncFailure(consumer);
 
     expect(status).toBe(1);
     expect(stderr).toContain('@acme/nope');
-    expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(vendorBefore);
+    expect(git(consumer, ['rev-parse', 'vendor/bank'])).toBe(vendorBefore);
   });
 
   it('subtracts an omitted closure path and warns that the tree will not install', () => {
@@ -389,16 +386,14 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
     const run = runScript(consumer, 'tooling/bank/src/bank-sync.mjs');
 
     expect(run.status).toBe(0);
-    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
-      'pnpm-workspace.yaml',
-    ]);
+    expect(treePaths(consumer, 'vendor/bank')).toEqual(['pnpm-workspace.yaml']);
     expect(run.stderr).toContain('turbo.json');
   });
 
   it('fails naming a bundle path the bank emptied, writing nothing', () => {
     const sandbox = setup({ packages: [], bundles: ['docs'] });
     sync(sandbox.consumer);
-    const vendorBefore = git(sandbox.consumer, ['rev-parse', 'vendor/trellis']);
+    const vendorBefore = git(sandbox.consumer, ['rev-parse', 'vendor/bank']);
 
     emptyDocsBundle(sandbox);
     const { status, stderr } = syncFailure(sandbox.consumer);
@@ -406,7 +401,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
     expect(status).toBe(1);
     expect(stderr).toContain('docs');
     expect(stderr).toContain('bundle "docs"');
-    expect(git(sandbox.consumer, ['rev-parse', 'vendor/trellis'])).toBe(
+    expect(git(sandbox.consumer, ['rev-parse', 'vendor/bank'])).toBe(
       vendorBefore,
     );
   });
@@ -421,7 +416,7 @@ describe('bank:sync resolves the selection at the pinned ref', () => {
     commit(sandbox.bank, 'bank: rename the guide');
     sync(sandbox.consumer);
 
-    expect(treePaths(sandbox.consumer, 'vendor/trellis')).toContain(
+    expect(treePaths(sandbox.consumer, 'vendor/bank')).toContain(
       'docs/handbook.md',
     );
   });
@@ -476,14 +471,14 @@ describe('bank:sync --check reports drift', () => {
 
     const before = {
       head: git(consumer, ['rev-parse', 'HEAD']),
-      vendor: git(consumer, ['rev-parse', 'vendor/trellis']),
+      vendor: git(consumer, ['rev-parse', 'vendor/bank']),
       commits: git(consumer, ['rev-list', '--count', '--all']),
     };
 
     expect(check(consumer).status).toBe(2);
 
     expect(git(consumer, ['rev-parse', 'HEAD'])).toBe(before.head);
-    expect(git(consumer, ['rev-parse', 'vendor/trellis'])).toBe(before.vendor);
+    expect(git(consumer, ['rev-parse', 'vendor/bank'])).toBe(before.vendor);
     expect(git(consumer, ['rev-list', '--count', '--all'])).toBe(
       before.commits,
     );
@@ -537,7 +532,7 @@ describe('bank:sync --check reports drift', () => {
     const { status, stdout } = check(consumer);
 
     expect(status).toBe(2);
-    expect(stdout).toContain('vendor/trellis does not exist');
+    expect(stdout).toContain('vendor/bank does not exist');
   });
 
   it('names the paths entering and leaving the closure at the bank tip', () => {

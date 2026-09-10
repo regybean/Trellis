@@ -1,16 +1,15 @@
 # Issue tracker: GitHub Issues
 
-Issues and specs for this repo live as **GitHub issues** on `regybean/Trellis`.
-Use the `gh` CLI for all operations — run inside a clone and it infers the repo
-from `git remote -v`.
+Issues and specs for this repo live as **GitHub issues**. Use the `gh` CLI for
+all operations — run inside a clone and it infers the repo from `git remote -v`.
 
 ## Repo constants
 
-| Placeholder  | Value      |
-| ------------ | ---------- |
-| Owner        | `regybean` |
-| Repository   | `Trellis`  |
-| Default base | `main`     |
+| Placeholder  | Value                                |
+| ------------ | ------------------------------------ |
+| Owner        | the remote's owner (`git remote -v`) |
+| Repository   | the remote's repository name         |
+| Default base | `main`                               |
 
 ## Ticket-type mapping
 
@@ -54,12 +53,12 @@ a way the shell can re-escape: write the markdown to a file and use
 gh issue comment <n> --body "$(cat <<'EOF'
 ## Heading
 
-**bold**, `code`, and #123 issue refs all render.
+**bold**, `code`, and #<n> issue refs all render.
 EOF
 )"
 ```
 
-Note `#123` in a body creates a **cross-reference** on the target issue — that is
+Note `#<n>` in a body creates a **cross-reference** on the target issue — that is
 load-bearing for the spec frontier below, not just prose.
 
 ### Ticket house style
@@ -96,12 +95,12 @@ for specs (which have no sub-issues) and for readability.
 
 ```bash
 # hierarchy: <child> becomes a sub-issue of <parent> (needs the child's numeric DB id)
-CHILD_ID=$(gh api repos/regybean/Trellis/issues/<child> --jq .id)
-gh api --method POST repos/regybean/Trellis/issues/<parent>/sub_issues -F sub_issue_id="$CHILD_ID"
+CHILD_ID=$(gh api "repos/{owner}/{repo}/issues/<child>" --jq .id)
+gh api --method POST "repos/{owner}/{repo}/issues/<parent>/sub_issues" -F sub_issue_id="$CHILD_ID"
 
 # blocking: <child> is blocked by <blocker> (again the blocker's DB id, NOT #number or node_id)
-BLOCKER_ID=$(gh api repos/regybean/Trellis/issues/<blocker> --jq .id)
-gh api --method POST repos/regybean/Trellis/issues/<child>/dependencies/blocked_by -F issue_id="$BLOCKER_ID"
+BLOCKER_ID=$(gh api "repos/{owner}/{repo}/issues/<blocker>" --jq .id)
+gh api --method POST "repos/{owner}/{repo}/issues/<child>/dependencies/blocked_by" -F issue_id="$BLOCKER_ID"
 ```
 
 GitHub then reports `issue_dependencies_summary.blocked_by` on the child —
@@ -122,8 +121,8 @@ When set to `yes`, PRs run through the same labels and states as issues via the
 and keep only `authorAssociation` of `CONTRIBUTOR`, `FIRST_TIME_CONTRIBUTOR`, or
 `NONE` (drop `OWNER`/`MEMBER`/`COLLABORATOR`).
 
-GitHub shares one number space across issues and PRs, so a bare `#42` may be
-either — resolve with `gh pr view 42`, falling back to `gh issue view 42`.
+GitHub shares one number space across issues and PRs, so a bare `#<n>` may be
+either — resolve with `gh pr view <n>`, falling back to `gh issue view <n>`.
 
 PR mechanics for the **dev loop** (open, review, address) live in
 [pull-requests.md](./pull-requests.md).
@@ -167,7 +166,7 @@ sub-issues; tickets report `blocked_by: 0`) — so the query above does not appl
 
 1. **Children**: each ticket's `## Parent` line is a GitHub cross-reference on the
    spec — read them off its timeline rather than a title-prefix search:
-   `gh api repos/regybean/Trellis/issues/<spec>/timeline --paginate --jq '.[] | select(.event=="cross-referenced") | .source.issue'`.
+   `gh api "repos/{owner}/{repo}/issues/<spec>/timeline" --paginate --jq '.[] | select(.event=="cross-referenced") | .source.issue'`.
    Keep entries that are open, not a PR, and labelled `type:ticket`.
 2. **Unclaimed**: drop any with an assignee.
 3. **Unblocked**: drop any whose `## Blocked by` list names a still-open issue

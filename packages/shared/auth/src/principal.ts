@@ -12,8 +12,8 @@ import type { UserManagementUser } from '@acme/ui';
  * actually falls. *Resolving* a session is framework-specific and app-owned
  * (Next.js middleware vs. a TanStack Start server function); turning what came
  * back into a neutral shape is **provider**-specific, and both full apps need
- * the identical answer ([ADR 0003](../docs/adr/0003-framework-agnostic-auth-seam.md)'s amendment). #237 and #238 each wrote their
- * own copy of all three; #239 collapsed them to these.
+ * the identical answer ([ADR 0003](../docs/adr/0003-framework-agnostic-auth-seam.md)'s amendment). Each app once wrote its own
+ * copy of all three; they are collapsed to these.
  *
  * The functions are typed **structurally**, on the fields they actually read,
  * rather than against `Session`. That is deliberate and not laziness: Better
@@ -104,7 +104,7 @@ interface ManageableUser extends RoleBearingUser {
 /**
  * A Better Auth user row, as `@acme/ui`'s admin widgets consume it.
  *
- * Not a translation layer. #225 cut the widget back to exactly what Better Auth
+ * Not a translation layer. The widget was cut back to exactly what Better Auth
  * stores, so nothing here has to fabricate a field to satisfy a shape the
  * provider has no source for ([ADR 0001](../docs/adr/0001-self-hosted-better-auth.md)). That leaves this doing one honest job.
  *

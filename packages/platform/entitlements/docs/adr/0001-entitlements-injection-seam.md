@@ -12,19 +12,19 @@ and its Stripe environment requirement — into _every_ feature's dependency
 graph. Dropping the `@acme/billing` _feature_ was already trivial (just don't
 mount its router); the real coupling lived one layer down, in the substrate.
 
-This blocked a no-billing deployment (e.g. a single-user `nextjs-slim` app):
-features loaded `@acme/trpc`, which loaded `@acme/subscriptions`, whose `env.ts`
-demands `NEXT_PUBLIC_STRIPE_*_PLAN_ID` at import time. The coupling was visible
-in tests, which had to `vi.mock('@acme/subscriptions')` to construct a context
-at all.
+This blocked a no-billing deployment (e.g. a single-user app): features loaded
+`@acme/trpc`, which loaded `@acme/subscriptions`, whose `env.ts` demands
+`NEXT_PUBLIC_STRIPE_*_PLAN_ID` at import time. The coupling was visible in
+tests, which had to `vi.mock('@acme/subscriptions')` to construct a context at
+all.
 
 > **That env problem is fixed, and it is no longer why the seam exists.**
-> @acme/env ADR 0001 moved the Stripe variables into `@acme/billing`'s env and made plan
-> ids an injected argument, so a direct import would no longer demand Stripe keys
-> of anyone. The seam still holds, for two different reasons. See the
-> [#250 amendment](#amendment-250--the-substrate-stops-reading-billing) before
-> concluding the decision has expired — and the
-> [#256 amendment](#amendment-256--the-context-extension-is-the-features-to-declare)
+> Per-slice env ownership moved the Stripe variables into `@acme/billing`'s env
+> and made plan ids an injected argument, so a direct import would no longer
+> demand Stripe keys of anyone. The seam still holds, for two different reasons.
+> See the [substrate-stops-reading-billing amendment](#amendment--the-substrate-stops-reading-billing)
+> before concluding the decision has expired — and the
+> [context-extension amendment](#amendment--the-context-extension-is-the-features-to-declare)
 > for where the provider is declared now, which is no longer `@acme/trpc`.
 
 Two decisions are load-bearing, mirroring the auth seam:
@@ -84,7 +84,7 @@ Two decisions are load-bearing, mirroring the auth seam:
   `unlimitedEntitlements`.
 - **chat and ingest depend on no billing or Clerk SDK.** Their `trpc/server.tsx`
   RSC callers became neutral factories (`createServerTRPC({ headers, auth, user,
-entitlements })`); `@clerk/nextjs` and `@acme/subscriptions` left their
+entitlements })`); Clerk's Next.js SDK and `@acme/subscriptions` left their
   `package.json`. `@acme/billing` remains legitimately coupled to Clerk + Stripe
   (its account router reads the principal's `primaryEmailAddress`; its success handler
   resolves `auth()`), so it keeps those deps and its `server.tsx` stays a
@@ -97,7 +97,7 @@ entitlements })`); `@clerk/nextjs` and `@acme/subscriptions` left their
   principal, mount chat + ingest"** — no feature changes, the slice contract
   preserved.
 
-## Amendment (#109) — the Credit ledger is unified behind the seam
+## Amendment — the Credit ledger is unified behind the seam
 
 The original decision routed only the **read** and **consume** of credits
 through the provider; the **refund** still reached into `@acme/subscriptions`
@@ -116,8 +116,8 @@ observable product behaviour change**.
   `EntitlementsProvider`. The request-less worker now refunds through the **same**
   seam the request path does. Each app's `worker.ts` injects the exact provider
   its route handler injects: full apps `subscriptionsEntitlements`, slim apps
-  `unlimitedEntitlements` — the same 2×2 injection ADR 0010 proves for the
-  request path, extended to the worker.
+  `unlimitedEntitlements` — the same 2×2 injection the request path proves,
+  extended to the worker.
 - **`refundTurnCredits` takes the provider's `refund` as a parameter**; its
   `chat:refunded:{turnId}` `SET NX` idempotency guard stays **local to the chat
   control plane** (`chat-turn-lifecycle.ts`) — it is a chat concern, not a
@@ -146,7 +146,7 @@ the control-plane contract it owns (the `refunded` result and the
 `chat:refunded:{turnId}` guard) and that the error→refund path crosses the
 injected provider.
 
-## Amendment (#250) — the substrate stops reading billing
+## Amendment — the substrate stops reading billing
 
 The seam holds and the injection point does not move: `createTRPCContext` still
 takes a required `entitlements` provider, and a deployment still chooses between
@@ -162,9 +162,9 @@ takes a required `entitlements` provider, and a deployment still chooses between
   that spend, refund or report credits resolve where they read.
 - **`rateLimit` is deleted.** It was applied to zero procedures. Three features
   re-exported it from their `api/trpc.ts` barrels and none called it. Chat meters
-  credits inline in `send`, which the #109 amendment above already records. The
-  middleware this ADR's original prose named as _the_ consume path had no
-  consumers left.
+  credits inline in `send`, which the Credit-ledger amendment above already
+  records. The middleware this ADR's original prose named as _the_ consume path
+  had no consumers left.
 - **`requireTier` moves to `@acme/billing`.** Its only call sites were billing's
   two example procedures. `feedback` and `ingest` have no tiers, so the shared
   substrate was shipping a tier gate to packages with nothing to gate. It is now
@@ -206,7 +206,7 @@ provider is injected once per request because that is where the request is, and
 resolution happens at the procedures that need it because that is where the read
 is. Nothing in between needs to do either.
 
-## Amendment (#256) — the context extension is the feature's to declare
+## Amendment — the context extension is the feature's to declare
 
 The seam holds and the injection point still does not move: a provider reaches
 procedures as `ctx.entitlements`, and a deployment still chooses between
@@ -221,8 +221,9 @@ neither a tier to gate on nor a credit to spend, and both slim apps. It also put
 which meant all 14 `createTestContext` call sites set a tier — including the ones
 whose feature has no concept of one.
 
-The #250 amendment above had already removed every _read_. What was left was
-type-level residue. It was still enough to force the coupling on every consumer.
+The substrate-stops-reading-billing amendment above had already removed every
+_read_. What was left was type-level residue. It was still enough to force the
+coupling on every consumer.
 
 - **The context extension is a type parameter.** `createTRPCContext<TExtension>`,
   `createFeatureTRPC<TExtension>` and `createFeatureTRPCWithDb<TDb, TExtension>`
@@ -267,20 +268,20 @@ never did stop receiving a provider they ignored.
 
 ### Two corrections to the spec this came from
 
-The spec (#219) prescribed exposing the tier gate behind an
-`@acme/entitlements/trpc` export. #250 landed it in `@acme/billing` instead, and
-billing owning tiers is the better shape, so it stays there.
+The spec prescribed exposing the tier gate behind an `@acme/entitlements/trpc`
+export. The substrate-stops-reading-billing amendment landed it in
+`@acme/billing` instead, and billing owning tiers is the better shape, so it
+stays there.
 
 The spec also made this a prerequisite of the bank sync. It isn't — the runtime
 coupling was already gone, and this stands on its own.
 
 ### What did not change, and why the slim apps still inject a provider
 
-`apps/nextjs-slim` and `apps/tanstack-slim` still construct
-`unlimitedEntitlements` and inject it. That is correct rather than residue. They
-mount `@acme/chat`, which meters credits, so they are choosing _unmetered_, which
-is exactly the per-deployment decision the original decision above exists to make
-explicit.
+The slim apps still construct `unlimitedEntitlements` and inject it. That is
+correct rather than residue. They mount `@acme/chat`, which meters credits, so
+they are choosing _unmetered_, which is exactly the per-deployment decision the
+original decision above exists to make explicit.
 
 What is narrower than it sounds: an app mounting only `feedback`, `ingest` and
 `notifications` would now import no billing package at all, but nobody has written
@@ -313,7 +314,7 @@ internal module, and declaration emit fails with TS2742 unless some import names
 it by a path. The alternative is hand-annotating both factories with several
 hundred characters of tRPC internals.
 
-## Amendment (#264) — the type parameter is gone; the feature names its whole context
+## Amendment — the type parameter is gone; the feature names its whole context
 
 The seam is unchanged for a third time: a provider still reaches procedures as
 `ctx.entitlements`, still chosen at the app edge, still required with no default.
@@ -333,8 +334,8 @@ threading cost more than the thing threaded:
   `@acme/billing` called the factory without reading `ctx.db` once.
 - The generic itself cost the inline-arrow rule and the
   `@trpc/server/unstable-core-do-not-import` import recorded just above — a
-  subpath tRPC marks private, in the file #219 measures as this bank's
-  most-diverged. `index.ts` had grown 296 → 359 lines paying for it.
+  subpath tRPC marks private, in this bank's most-diverged file. `index.ts` had
+  grown 296 → 359 lines paying for it.
 
 So `@acme/trpc` exports the pieces instead — `trpcConfig`, plus
 `withProcedureSpan` / `withTimingLog` / `requirePrincipal` / `requireAdmin` — and
@@ -371,7 +372,7 @@ smaller risk surface than a private tRPC subpath plus an inline-arrow rule nothi
 enforces. Everything that _can't_ typecheck its way out of drift — the fetch
 handler, `logTRPCError`, the CORS policy — still lives in `@acme/trpc/handler`.
 
-## Amendment (#295) — seam implementations are constructed in one file per app
+## Amendment — seam implementations are constructed in one file per app
 
 The seam is unchanged for a fourth time. A provider still reaches procedures as
 `ctx.entitlements`, still chosen at the app edge, still required with no
@@ -386,7 +387,7 @@ Each app had two entry points that needed a provider: the tRPC route seam and
 the generation worker. Both built their own, from identical code, under a
 hand-written comment at each site asking the next person to keep them the same.
 The amendment above makes TypeScript check that a mount naming `entitlements`
-_gets_ one (#264). Nothing checked, or could check, that the two constructed
+_gets_ one. Nothing checked, or could check, that the two constructed
 values were the same value — two calls to `createSubscriptionsEntitlements`
 typecheck perfectly while disagreeing about which provider charged and which one
 refunds. That invariant existed only in prose, in chat's `ADAPTER.md`, and
@@ -401,9 +402,9 @@ breaking it leaks Credits silently.
   file, with a message stating the general principle rather than naming
   entitlements — the next seam should read correctly against it. Names, not whole
   packages: `@acme/subscriptions` also exports ordinary reads
-  (`getStripeCustomerId`, which `apps/tanstack-start` calls from its Stripe
-  success handler) and confining those would push unrelated functions into a file
-  that is meant to hold built values only.
+  (`getStripeCustomerId`, which an app calls from its Stripe success handler)
+  and confining those would push unrelated functions into a file that is meant
+  to hold built values only.
 - **One independent file per app, free to differ.** No module shared across
   apps — a shared composition module is the layer this repo deliberately does
   not have, because assembly is app-owned. An app with billing builds the
@@ -413,9 +414,9 @@ breaking it leaks Credits silently.
   missing dependency.
 - **Construction and resolution are different concerns, and now different
   directories.** Selection is per deployment; resolution is per request — the
-  #250 amendment above draws that line. Construction lives in `src/server/`,
-  request-time resolution stays where the framework wants it, which in the
-  TanStack apps is `src/lib/` importing across.
+  amendment on the substrate no longer reading billing draws that line.
+  Construction lives in `src/server/`, request-time resolution stays where the
+  framework wants it, which in the TanStack apps is `src/lib/` importing across.
 
 Auth stays in the route seam. Only one entry point resolves a principal today,
 so there is no second site to disagree with; the rule applies when there is.

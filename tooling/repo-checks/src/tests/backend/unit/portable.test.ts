@@ -30,7 +30,7 @@ const adr = (number: number, slug: string) =>
 const bareRef = (number: number, prefix = 'ADR ') =>
   `${prefix}${String(number).padStart(4, '0')}`;
 
-/** `#126` — the bare issue reference the third rule rejects. */
+/** `#<n>` — the bare issue reference the third rule rejects. */
 const issueRef = (number: number) => `#${number}`;
 
 /** Existence as a predicate over a set of repo-relative paths. */
@@ -222,9 +222,9 @@ describe('an issue number resolves in whichever tracker is read', () => {
 });
 
 describe('a root ADR names no app', () => {
-  const apps = ['apps/', 'nextjs', '@acme/nextjs'];
+  const apps = ['apps/', 'web', '@acme/web'];
 
-  it.each(['apps/', 'nextjs', '@acme/nextjs'])('rejects %s', (token) => {
+  it.each(['apps/', 'web', '@acme/web'])('rejects %s', (token) => {
     const found = validateRootAdrApps(
       `${ADR_DIR}/${adr(10, 'a-decision')}`,
       `The decision applies to ${token} first.\n`,
@@ -238,7 +238,7 @@ describe('a root ADR names no app', () => {
   it('rejects the apps directory with a name after it', () => {
     const found = validateRootAdrApps(
       `${ADR_DIR}/${adr(10, 'a-decision')}`,
-      'It applies to apps/nextjs first.\n',
+      'It applies to apps/web first.\n',
       apps,
     );
 
@@ -250,7 +250,7 @@ describe('a root ADR names no app', () => {
     expect(
       validateRootAdrApps(
         `${ADR_DIR}/${adr(10, 'a-decision')}`,
-        'It applies to @acme/nextjs.\n',
+        'It applies to @acme/web.\n',
         apps,
       ),
     ).toHaveLength(1);

@@ -16,7 +16,7 @@ import {
 /**
  * Minimal, UI-owned view of the signed-in principal. Declared here rather than
  * imported so `@acme/ui` (shared) takes no dependency on the auth seam, keeping
- * the slim apps' graph free of `@acme/auth` (ADR 0010) — the same idiom as
+ * the slim apps' graph free of `@acme/auth` — the same idiom as
  * `UserManagementUser`. Callers pass their own session user.
  */
 export interface UserButtonUser {
@@ -32,7 +32,7 @@ interface UserButtonProps {
   /**
    * Extra entries for the menu, rendered above sign-out. App-owned: what belongs
    * in a signed-in menu beyond "sign out" is product chrome, and the two apps
-   * differ (`tanstack-start` puts the subscription + billing-portal actions
+   * differ (one of them puts the subscription + billing-portal actions
    * here). Pass `DropdownMenuItem`s — both are exported from this package.
    *
    * Sign-out stays the widget's own, and stays last, because it is the one entry

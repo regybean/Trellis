@@ -1,5 +1,5 @@
 /**
- * useCheckout — integration/hooks (ADR 0018).
+ * useCheckout — integration/hooks.
  *
  * The hook's contract: `checkout()` / `openBillingPortal()` fire the Stripe
  * session mutations, surface a redirect toast on success and an error toast on

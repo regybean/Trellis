@@ -27,7 +27,7 @@ load-bearing:
    SDK's defaults are untouched. Every localstripe-only branch keys off a single
    boolean — `localstripeMode`, derived once in `stripe-client.ts` as
    `stripe.mode === 'localstripe'` — so the real-Stripe path is unchanged.
-   (Originally an `STRIPE_API_BASE` env carve-out; migrated in #146 to
+   (Originally an `STRIPE_API_BASE` env carve-out; migrated to
    `STRIPE_CONNECTION`, the discriminated union in `src/env.ts` that keeps
    `apiBase` off the `real` variant entirely, so a staging or production build
    can never hold a stray localhost address.)
@@ -90,8 +90,7 @@ load-bearing:
   `src/development-profile.ts` authors `STRIPE_CONNECTION`
   (`{ mode: 'localstripe', apiBase }`) plus localstripe's fixed placeholder
   `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`, so a clean checkout runs billing
-  against the fake server with no environment at all
-  ([@acme/env ADR 0001](../../../../platform/env/docs/adr/0001-one-env-factory-per-slice.md)).
+  against the fake server with no environment at all.
   The staging and production overlays resolve the connection to `real` and
   **unauthor** the two secrets, which makes them demanded secrets on those
   targets by the same mechanical rule as every other secret; turbo's `globalEnv`

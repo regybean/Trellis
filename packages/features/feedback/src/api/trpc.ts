@@ -13,14 +13,14 @@ import {
 /**
  * Feedback's tRPC instance, built on its own concrete context: the neutral
  * `BaseContext` the app adapter injects, and nothing else. Feedback has no tier
- * to gate on and no credit to spend, so it names no billing type at all (#256,
- * ADR 0006). Telemetry is ambient (ADR 0023).
+ * to gate on and no credit to spend, so it names no billing type at all.
+ * Telemetry is ambient.
  */
 export type FeedbackContext = BaseContext;
 
 /**
  * Feedback's Drizzle client, instrumented for tracing once at module load, and
- * imported directly by the routers rather than read off `ctx.db` (#264). The
+ * imported directly by the routers rather than read off `ctx.db`. The
  * connection has no `schema` bound — the router queries table objects directly
  * (its own `messageFeedback` plus the `@acme/rag` Drizzle mirror of
  * `mastra_messages`).
@@ -33,7 +33,7 @@ const t = initTRPC.context<FeedbackContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against feedback's own concrete
 // context. The bodies live once in `@acme/trpc` as plain async helpers; only
-// this wiring is per-feature (#264). No admin gate — every feedback procedure
+// this wiring is per-feature. No admin gate — every feedback procedure
 // acts on the caller's own rating, so there is nothing here an admin reads that
 // a user doesn't. Add one the way chat and ingest do (`requireAdmin`, three
 // lines) if a moderation procedure ever earns it.

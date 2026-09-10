@@ -1,5 +1,5 @@
 /**
- * `pnpm check:exports` — the package `exports` convention gate (ADR 0015).
+ * `pnpm check:exports` — the package `exports` convention gate.
  *
  * Usage:
  *   tsx src/bin/check-exports.ts [repo-root]

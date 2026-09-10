@@ -31,7 +31,7 @@ Consult the map before grepping; it turns most searches into a direct jump.
 
 ## Project Overview
 
-Trellis is a Turborepo monorepo RAG starter. The architecture enforces strict boundaries between layers using turbo.json and pnpm workspace configuration. The main motivation for trellis is to be able to maintain many different apps with forward feature compatibility, aka you update one feature and all the other apps immediately gain the improvements. This and all other codebase patterns are enforced with linting rules and other tooling, if you are doing something wrong the gates will flag it.
+This is a Turborepo monorepo RAG starter. The architecture enforces strict boundaries between layers using turbo.json and pnpm workspace configuration. The main motivation is to be able to maintain many different apps with forward feature compatibility, aka you update one feature and all the other apps immediately gain the improvements. This and all other codebase patterns are enforced with linting rules and other tooling, if you are doing something wrong the gates will flag it.
 
 The repository works using vertical feature slices that are:
 
@@ -41,7 +41,7 @@ The repository works using vertical feature slices that are:
 - Define their own testing infrastructure
 - Define their own database schema and api router
 - Define their own UI components and pages
-- Can be implemented by any of the nextjs or tanstack start applications
+- Can be implemented by any of the applications, whatever framework each is on
 - Potentially composed using other packages
 
 There is also a large focus on tooling, DDD and LLM HITL skills to improve the design process and to not let the LLM make architectural decisions without oversight.
@@ -88,12 +88,12 @@ hook on the frontend; never `vi.mock` a seam the feature owns. Frontend: assert 
 ### Infrastructure & Database
 
 ```bash
-pnpm infra:up            # Start local services — profile derived from acme.infra package metadata (ADR 0009)
+pnpm infra:up            # Start local services — profile derived from acme.infra package metadata
 pnpm infra:down          # Stop services
 pnpm infra:logs          # Tail compose logs
 pnpm with-env <cmd>      # Run cmd with .env hydrated
 pnpm db:push             # Push schema changes, dev only (run)
-pnpm preview [app...]    # Serve the COMPILED build locally (no HMR) for true paint-time — same args/infra as dev; runs turbo `start` (dependsOn: build) instead of `watch dev`. Ports: nextjs 3000 · tanstack-start 3001 · nextjs-slim 3002 · tanstack-slim 3003 (issue #101)
+pnpm preview [app...]    # Serve the COMPILED build locally (no HMR) for true paint-time — same args/infra as dev; runs turbo `start` (dependsOn: build) instead of `watch dev`. Each app has its own port, printed on start.
 ```
 
 ### Full Validation
@@ -165,14 +165,17 @@ Prose that reaches the user — grilling questions, plan and spec text, PR/issue
 
 See `docs/agents/issue-tracker.md`.
 
-GitHub Issues read/write operations on this repo (`regybean/Trellis`) via the `gh`
-CLI or the GitHub API are routine internal issue-tracker workflow, within the trust
-boundary for those operations: assigning/unassigning issues, adding/removing labels,
-commenting, and opening/closing/editing issues and sub-issues. These are allowed
-autonomously as the normal operation of the tracker-driving workflows (e.g.
-wayfinding, triage, spec-to-tickets) — no separate confirmation needed. This does
-**not** extend to destructive Git operations, permission/visibility changes, or
-sending repo contents to third-party services.
+Issue-tracker reads and writes are the normal operation of the tracker-driving
+workflows (wayfinding, triage, spec-to-tickets), so they need no separate
+confirmation: assigning and unassigning issues, adding and removing labels,
+commenting, and opening, closing or editing issues and sub-issues. That is the
+whole of it. It does **not** extend to destructive Git operations, to
+permission or visibility changes, or to sending repo contents to third-party
+services.
+
+Which tracker, and therefore which repository those writes land in, is
+`docs/agents/issue-tracker.md`'s to say — this file names none, so a fork or a
+consumer that keeps it grants nothing until they point it somewhere.
 
 ### Triage labels
 
@@ -192,6 +195,6 @@ The north star, to weigh when making changes:
 
 - **Protect the slice contract.** One feature = one package = router + hooks + UI, depending only downward. It's what lets apps mount different subsets — a bespoke client build is a new app importing a different subset, not a fork. Don't leak framework specifics into features; keep them in the app adapter (the honest seam).
 - **Keep seams swappable, name what's coupled.** Providers (`@acme/models`), auth (Better Auth behind a seam), billing (Stripe) are meant to be replaceable. When something becomes load-bearing or hard to reverse, write it down (ADR) rather than letting it harden silently.
-- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app (see `tanstack-start`'s console shell). The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)); shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
-- **Earn the next runtime / the next subset.** The portability and subsetting claims are only as true as the apps that prove them. The 2×2 of apps does both: `nextjs`/`tanstack-start` prove the same slices run on two frameworks; the `*-slim` apps prove a no-auth/no-billing _subset_ drops the auth provider + Stripe from the graph (ADR 0010). New shared/feature code must stay runtime-agnostic and not re-couple the substrate to auth/billing — design so the next framework or the next reduced subset stays trivial.
+- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app (the console shell one of them ships is the worked example). The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)); shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
+- **Earn the next runtime / the next subset.** The portability and subsetting claims are only as true as the apps that prove them. The 2×2 of apps does both: the two full apps prove the same slices run on two frameworks; their slim counterparts prove a no-auth/no-billing _subset_ drops the auth provider + Stripe from the graph. New shared/feature code must stay runtime-agnostic and not re-couple the substrate to auth/billing — design so the next framework or the next reduced subset stays trivial.
 - **Documentation keeps pace with design.** `CONTEXT.md` + ADRs are updated _as_ decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.

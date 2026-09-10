@@ -7,13 +7,13 @@ import { notificationKey } from '../notification-keys';
 import { notificationSchema } from '../schemas/notification-schema';
 
 // The per-user notification Stream, on the shared `@acme/redis` durable-stream
-// primitive (#196). The primitive owns the transport — the XRANGE poll loop with
+// primitive. The primitive owns the transport — the XRANGE poll loop with
 // idle backoff, the abort-aware poll `delay`, the exclusive cursor, atomic
 // append-with-TTL, and the "last stream id" read — that notifications used to
 // hand-copy alongside chat and ingest (and where the two fixes ingest already
 // shipped, atomic TTL + a real-id fresh-connect seed, had never propagated). What
 // stays here is only notifications' own: the wire codec and the tail-from-now
-// cursor-seed policy. Its tunables are authored config in `env.ts` (@acme/env ADR 0001).
+// cursor-seed policy. Its tunables are authored config in `env.ts`.
 
 // `publish` writes the whole envelope as a single `payload` JSON field — the
 // nested `data` object can't be a flat field map. Decode is the inverse: the

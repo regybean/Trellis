@@ -148,8 +148,7 @@ The skip predicate itself is one policy this package owns —
   `NEXT_PHASE` alone is not enough: `next.config.js` jiti-imports `env` _before_
   Next sets it, which is why `IS_NEXT_BUILD` comes first;
 - `VITEST` → **never skip**. Vitest sets it in every worker, so a test run
-  validates and coerces even under `CI`
-  ([ADR 0014](../../../../../docs/adr/0014-tests-validate-real-env.md));
+  validates and coerces even under `CI`;
 - otherwise, `CI`.
 
 The `VITEST` carve-out is load-bearing rather than cosmetic. Without it a backend
@@ -268,14 +267,13 @@ on its own. It is not a second config mechanism — every call still routes thro
 
 > This section originally recorded a second bent case, `@acme/auth` **split by
 > runtime**: `clerkWiringEnv()` carried the five browser-safe authored Clerk keys
-> that `apps/nextjs`'s Edge `middleware.ts` needed, and `authEnv()` extended it
-> with `CLERK_SECRET_KEY` for the full apps — a split whose whole purpose was to
+> that an app's Edge `middleware.ts` needed, and `authEnv()` extended it with
+> `CLERK_SECRET_KEY` for the full apps — a split whose whole purpose was to
 > keep the secret out of a call the Edge runtime resolves from a build-time
-> `process.env` snapshot. Moving to self-hosted Better Auth
-> ([@acme/auth ADR 0001](../../../../shared/auth/docs/adr/0001-self-hosted-better-auth.md))
-> deleted the reason rather than the rule: `betterAuthEnv()` declares one key,
-> `BETTER_AUTH_SECRET`, and there are no browser-safe wiring keys left to demand
-> apart from it. What changed is the count of exceptions, not §1.
+> `process.env` snapshot. Moving to self-hosted Better Auth deleted the reason
+> rather than the rule: `betterAuthEnv()` declares one key, `BETTER_AUTH_SECRET`,
+> and there are no browser-safe wiring keys left to demand apart from it. What
+> changed is the count of exceptions, not §1.
 
 **`@acme/models` — split by conditional secrets.** Three calls: `env` holds the
 two authored provider selections (`MODELS_CHAT`, `MODELS_EMBED`), and
@@ -323,13 +321,12 @@ resolved `{ appEnv, isServer }` once and threaded it in. A single
 - **Local development needs fewer `.env` rows, and the credentials it does need
   are authored honestly.** `@acme/ingest` authors LocalStack's dummy AWS pair and
   `@acme/billing` authors localstripe's fixed placeholders (documented as not real
-  secrets, gitleaks-allowlisted, [@acme/billing ADR 0001](../../../../features/billing/docs/adr/0001-localstripe-dev-billing.md)) in
-  their **development** profiles, and both **unauthor** them in the
-  staging/production overlays — so a real target must supply them, by the same
-  mechanical rule as every other secret. `@acme/db`'s `DB_PASSWORD` authors
-  nothing on any target and keeps coming from `deploy/.env` locally: it is the one
-  credential whose container we provision _and_ whose value a real deploy must
-  never inherit by accident.
+  secrets, gitleaks-allowlisted) in their **development** profiles, and both
+  **unauthor** them in the staging/production overlays — so a real target must
+  supply them, by the same mechanical rule as every other secret. `@acme/db`'s
+  `DB_PASSWORD` authors nothing on any target and keeps coming from `deploy/.env`
+  locally: it is the one credential whose container we provision _and_ whose
+  value a real deploy must never inherit by accident.
 - **A production deploy is configured by environment, not by a commit.** Any
   value — a TTL, a bucket, a collector endpoint, a whole Stripe connection — is
   reachable from the environment of the container that runs. That is the property

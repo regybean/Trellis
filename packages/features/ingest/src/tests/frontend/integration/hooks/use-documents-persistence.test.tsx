@@ -1,7 +1,7 @@
 /**
- * Offline read of the Documents pane (#216, @acme/hooks ADR 0001).
+ * Offline read of the Documents pane.
  *
- * The behaviour under test at the rendered-DOM seam (ADR 0018): `documents.list`
+ * The behaviour under test at the rendered-DOM seam: `documents.list`
  * paints from IndexedDB on a cold cache instead of the "Loading
  * documents…" skeleton. `documents.list` revalidates on every mount
  * (`staleTime: 0` — the lever that makes the persister's post-restore refetch

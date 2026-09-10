@@ -31,8 +31,8 @@ export const SetUserTierRequest = z.object({
   email: z.email('A valid email is required'),
   tier: z.enum(['Basic', 'Standard', 'Pro']),
   // The Stripe product the paid tier maps to, resolved on the client from
-  // the billing env (@acme/env ADR 0001) so this dev-only admin tool needs no server plan
-  // IDs. Omitted for `Basic`.
+  // the billing env so this dev-only admin tool needs no server plan IDs.
+  // Omitted for `Basic`.
   productId: z.string().optional(),
 });
 

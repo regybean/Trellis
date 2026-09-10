@@ -19,7 +19,7 @@ export function useConversations() {
   const handleError = useGenericErrorHandler();
   const persisted = usePersistedQueryOptions();
 
-  // Conversation History persists for offline read (@acme/hooks ADR 0001); Folders do not
+  // Conversation History persists for offline read; Folders do not
   // (a dangling folderId simply falls back to its Date Bucket), which is why
   // only the first spreads `persisted`.
   const conversationsQuery = useQuery(
@@ -128,7 +128,7 @@ export function useConversations() {
   return {
     conversations: conversationsQuery.data ?? [],
     folders: foldersQuery.data ?? [],
-    // Gate the sidebar skeleton on the *persisted* history query only (#82).
+    // Gate the sidebar skeleton on the *persisted* history query only.
     // Folders are not persisted, so `||`-ing them in would keep the whole
     // sidebar skeletoned until the network responds — defeating the instant
     // offline restore of the Conversation History. A Conversation whose folder

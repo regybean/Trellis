@@ -60,6 +60,6 @@
   "acme": {
     "testClass": "backend-library",
     "testStatus": "todo",
-    "reason": "Vitest projects, env hydration and the testcontainers harness. It hosted the root-script suites until #314 moved each one into the tooling package that owns the code, leaving seven source files with no tests of their own. containers.ts is load-bearing for every backend suite in the repo; testing the thing that starts testcontainers is a separate decision, not taken there."
+    "reason": "Vitest projects, env hydration and the testcontainers harness. It hosted the root-script suites until each one moved into the tooling package that owns the code, leaving seven source files with no tests of their own. containers.ts is load-bearing for every backend suite in the repo; testing the thing that starts testcontainers is a separate decision, not taken there."
   }
 }

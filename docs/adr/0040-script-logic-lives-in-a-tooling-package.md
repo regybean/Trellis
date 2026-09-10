@@ -51,9 +51,8 @@ not a closed list.
    `register-skills.sh`, `extract-app.sh`, `check-remote-cache.sh`,
    `env-pull.sh`, `env-push.sh`, and `format-staged.sh` from the lefthook
    pre-commit hook. Plus the secrets preamble and `secrets-backends/` adapters
-   the two `env-*` scripts dispatch through
-   ([ADR 0001](../../tooling/secrets-sync/docs/adr/0001-pluggable-secrets-sync.md) — the adapter seam is shell
-   because a consumer extending it writes shell).
+   the two `env-*` scripts dispatch through (the adapter seam is shell because a
+   consumer extending it writes shell).
 2. **The install-time helpers** — `sync-claudeignore.mjs`,
    `link-worktree-env.mjs` and `link-agent-docs.sh`, which run on `postinstall`,
    before any package is guaranteed built.
@@ -98,11 +97,10 @@ to have.
 
 The boundary rule was never the reason a value had to be _named_. Provisioning
 is now discovered: each package declares its own contribution, and the graph
-loads what the closure holds ([ADR 0009](../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)).
-Both files shrank to a call over app names, importing nothing from `packages/`
-— so the shim half of this decision is spent, while its point stands: the logic
-lives in a package that can be tested, and nothing under `scripts/` decides
-anything.
+loads what the closure holds. Both files shrank to a call over app names,
+importing nothing from `packages/` — so the shim half of this decision is spent,
+while its point stands: the logic lives in a package that can be tested, and
+nothing under `scripts/` decides anything.
 
 ### The bank is exempt from the language, not the placement
 
@@ -110,8 +108,7 @@ anything.
 builtins only, and keeps its own copy of the workspace-graph helpers. It has to
 run hand-copied into a repo with no `node_modules`, so it cannot import the
 kernel. Deleting the package takes both the duplication and its reason, so that
-decision is [the bank's own ADR 0001](../../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)
-rather than this one.
+decision is the bank's own rather than this one.
 
 ## Considered and rejected
 

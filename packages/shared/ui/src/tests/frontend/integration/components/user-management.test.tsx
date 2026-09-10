@@ -8,7 +8,7 @@ import { UserDetailedManagement, UserManagement } from '../../../../index';
 
 // The role mutation is observed through what it renders — the harness holds the
 // role in state, so a promotion shows up as the rendered badge changing — rather
-// than through a mock call count (ADR 0018).
+// than through a mock call count.
 
 const ada: UserManagementUser = {
   id: 'usr_ada',

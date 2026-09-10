@@ -11,8 +11,7 @@ substrate at once, so mounting it touches every recipe.
 - Streamed responses over the tRPC transport your route seam already serves, so
   streaming needs no separate endpoint.
 - Generation that survives a reload: the stream is durable, so a user who
-  refreshes mid-answer rejoins it rather than losing it
-  ([@acme/redis ADR 0001](../../platform/redis/docs/adr/0001-durable-redis-stream-primitive.md)).
+  refreshes mid-answer rejoins it rather than losing it.
 - Conversation memory and retrieval through `@acme/rag`, and folders for
   organising sessions, with no wiring of your own beyond the table.
 - Metering through the entitlements seam — a turn consumes credits and a failure

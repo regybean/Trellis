@@ -7,8 +7,7 @@
  * is the only package that can name `SubscriptionTier` and `CreditBalance`
  * without acquiring a billing dependency. It used to live in `@acme/trpc/testing`,
  * which meant every feature's test context imported tiers and credits to build a
- * caller — `feedback` and `ingest` included, neither of which has a tier to set
- * (#256, ADR 0006 amendment).
+ * caller — `feedback` and `ingest` included, neither of which has a tier to set.
  *
  * Shipped on the `./testing` subpath so production code never pulls it in.
  */

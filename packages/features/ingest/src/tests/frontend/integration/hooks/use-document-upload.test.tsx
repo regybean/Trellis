@@ -1,5 +1,5 @@
 /**
- * useDocumentUpload — integration/hooks (ADR 0018).
+ * useDocumentUpload — integration/hooks.
  *
  * The async upload protocol (presign → direct S3 PUT → enqueue ingest Job) is
  * faked at the HTTP boundary: tRPC via `trpcMsw`, S3 PUT via plain MSW `http.put`.
@@ -11,7 +11,7 @@
  * chat/notifications). The server-authored `serverStage` advances + the completion
  * `invalidate` are SSE-driven and therefore NOT drivable here — they are covered by
  * the reducer unit tests; this file drives the client-authored half (uploading /
- * optimistic queued / failures) and the cold-mount snapshot seed (#194), which IS a
+ * optimistic queued / failures) and the cold-mount snapshot seed, which IS a
  * plain query. A default empty-snapshot handler is registered so every test's mount
  * resolves; the seeding test overrides it.
  */
@@ -78,7 +78,7 @@ describe('useDocumentUpload', () => {
     expect(result.current.maxFileSizeBytes).toBeGreaterThan(0);
   });
 
-  it('seeds in-flight rows from the cold-mount snapshot (survives refresh, #194)', async () => {
+  it('seeds in-flight rows from the cold-mount snapshot (survives refresh)', async () => {
     // A prior mount's Job is mid-ingestion; the server snapshot re-seeds its rows
     // so a refresh rehydrates progress instead of showing a blank panel.
     server.use(

@@ -7,11 +7,11 @@ import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Notifications' environment, declared once (@acme/env ADR 0001). The stream TTL and the
- * reader's idle backoff bounds are operational tunables that can differ per
- * deploy target, so they are authored here as profile values rather than
- * hardcoded in the service layer — and each is env-overridable (@acme/env ADR 0001 §4), so
- * a noisy deploy can be retuned without a rebuild. All server-side: `publish` and
+ * Notifications' environment, declared once. The stream TTL and the reader's
+ * idle backoff bounds are operational tunables that can differ per deploy
+ * target, so they are authored here as profile values rather than hardcoded in
+ * the service layer — and each is env-overridable, so a noisy deploy can be
+ * retuned without a rebuild. All server-side: `publish` and
  * `tailNotifications` run on the backend.
  */
 export const env = createEnv({

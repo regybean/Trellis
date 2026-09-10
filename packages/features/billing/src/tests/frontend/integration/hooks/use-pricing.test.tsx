@@ -1,5 +1,5 @@
 /**
- * usePricing — integration/hooks (ADR 0018).
+ * usePricing — integration/hooks.
  *
  * The hook's contract: derive each plan's CTA state from the viewer's
  * Subscription (via the pure plan-selection tree), and route plan selection —

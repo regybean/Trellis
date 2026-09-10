@@ -17,7 +17,7 @@
  * repo's subsetting claim, observable rather than asserted.
  *
  * Token resolution and the closure query come from `@acme/workspace-graph`, so
- * `nextjs` means the same app here as it does to `pnpm dev`.
+ * an app name means the same thing here as it does to `pnpm dev`.
  *
  * Output is markdown on stdout; progress and errors go to stderr, so the
  * markdown pipes cleanly. Nothing is written to the repo — this is an ad-hoc
@@ -33,7 +33,7 @@
  * Usage:
  *   pnpm test:inventory                          # every package with tests
  *   pnpm test:inventory @acme/chat               # one package
- *   pnpm test:inventory nextjs-slim              # an app's whole closure
+ *   pnpm test:inventory <app>                    # an app's whole closure
  *   pnpm test:inventory --layer backend --kind unit
  *   pnpm test:inventory --kind unit,integration --out inventory.md
  *

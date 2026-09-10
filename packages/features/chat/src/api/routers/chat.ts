@@ -50,7 +50,7 @@ import {
 } from '../trpc';
 import { assertFolderOwned, foldersRouter } from './folders';
 
-// CREDITS_PER_TURN has one origin in env (@acme/env ADR 0001) — the credit gate + consume
+// CREDITS_PER_TURN has one origin in env — the credit gate + consume
 // read it here; the Turn lifecycle's refund reads the same config value.
 
 export const chatRouter = createTRPCRouter({
@@ -118,7 +118,7 @@ export const chatRouter = createTRPCRouter({
 
       // `send` is the one chat procedure that spends credits, so it is the one
       // that resolves entitlements — once, here, rather than on every tRPC call
-      // in the app (#250). Every read below is off this snapshot.
+      // in the app. Every read below is off this snapshot.
       const { tier, credits } = await ctx.entitlements.resolve(userId);
 
       try {
@@ -199,7 +199,7 @@ export const chatRouter = createTRPCRouter({
       const userId = ctx.session.user.id;
       // The credit goes back at the caller's current tier — resolved here
       // because this procedure is one of the two that touch the ledger, not
-      // because every request needs it (#250).
+      // because every request needs it.
       const { tier } = await ctx.entitlements.resolve(userId);
       const { refunded } = await reconcileTurn(
         (uid: string, creditTier: SubscriptionTier, amount: number) =>

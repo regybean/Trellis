@@ -1,18 +1,16 @@
 /**
  * `check-portable` as a command, against a repo with one violation of each rule.
  *
- * The rules have unit tests over values. What only a process shows is the part
- * that makes landing this early worth anything: it *reports* the backlog and
- * exits 0, so the count can be reviewed and the rules argued with before a
- * sweep is made in their name. The day that changes, the third case here fails
- * and says so.
+ * The rules have unit tests over values. What only a process shows is what the
+ * gate does with them: every violation reported, the exit code non-zero, and
+ * the exempt paths silent.
  *
  * Offending references are built rather than written as literals — this file is
  * scanned by the real gate run too.
  */
 import { afterAll, describe, expect, it } from 'vitest';
 
-import { NOT_DISTRIBUTED } from '../../../../portable';
+import { NOT_DISTRIBUTED, PORTABLE_HELP } from '../../../../portable';
 import {
   createRepoFixture,
   manifest,
@@ -92,12 +90,12 @@ describe('a repo violating each rule once', () => {
     expect(stderr).toContain('a root ADR names');
   });
 
-  it('reports without failing, and prints the count', () => {
-    const { status, stdout } = check(offending());
+  it('fails, and says how many it found', () => {
+    const { status, stderr } = check(offending());
 
-    expect(status).toBe(0);
-    expect(stdout).toContain('4 non-portable references');
-    expect(stdout).toContain('not failing lint yet');
+    expect(status).toBe(1);
+    expect(stderr).toContain('check-portable found 4 problems');
+    expect(stderr).toContain(PORTABLE_HELP);
   });
 
   // Driven off the constant rather than a list here, so adding a file to the
@@ -124,30 +122,20 @@ describe('a repo violating each rule once', () => {
   });
 });
 
-describe('a backlog too long to read on every lint', () => {
+describe('a report too long for one screen', () => {
   const many = 30;
-  const backlog = (): Record<string, string> => ({
-    ...clean(),
-    [`${UI}/src/index.ts`]: Array.from(
-      { length: many },
-      (_, index) => `// Deferred: ${issueRef(100 + index)}.\n`,
-    ).join(''),
-  });
 
-  it('lists the first few and says how many it held back', () => {
-    const { stdout, stderr } = check(backlog());
+  it('prints every violation — a truncated gate hides the fix list', () => {
+    const { stderr } = check({
+      ...clean(),
+      [`${UI}/src/index.ts`]: Array.from(
+        { length: many },
+        (_, index) => `// Deferred: ${issueRef(100 + index)}.\n`,
+      ).join(''),
+    });
 
-    expect(stdout).toContain(`${many} non-portable references`);
-    expect(stderr).toContain('Run `pnpm check:portable --all`');
     expect(stderr).toContain(issueRef(100));
-    expect(stderr).not.toContain(issueRef(100 + many - 1));
-  });
-
-  it('prints every one of them under --all', () => {
-    const { stderr } = check(backlog(), ['--all']);
-
     expect(stderr).toContain(issueRef(100 + many - 1));
-    expect(stderr).not.toContain('Run `pnpm check:portable --all`');
   });
 });
 
@@ -156,6 +144,6 @@ describe('the repo it lives in', () => {
     const { status, stdout } = runCheck('check-portable', []);
 
     expect(status).toBe(0);
-    expect(stdout).toContain('check-portable:');
+    expect(stdout).toContain('carry no reference that only resolves here');
   });
 });

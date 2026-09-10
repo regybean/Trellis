@@ -12,7 +12,7 @@ import type { FeedbackContext } from '../api/trpc';
 import { appRouter } from '../api/root';
 
 // The RSC half's own client — a fresh one per request, from the same factory the
-// app mounts in the browser (ADR 0036). Not the app's client: an RSC render has
+// app mounts in the browser. Not the app's client: an RSC render has
 // no React context to read one from, and its cache is dehydrated into the
 // response rather than shared.
 const getQueryClient = cache(createAppQueryClient);
@@ -29,7 +29,7 @@ const getQueryClient = cache(createAppQueryClient);
  * `opts` *is* the context: it is handed to every RSC procedure as it
  * arrives, with only `x-trpc-source` added to the headers. There is no
  * second name for it — the alias this used to carry (`ServerTRPCOptions`)
- * said nothing the context type doesn't (#264).
+ * said nothing the context type doesn't.
  */
 export function createServerTRPC(opts: FeedbackContext) {
   const createContext = cache(() => {

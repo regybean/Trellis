@@ -32,7 +32,7 @@ import { enqueueGenerationTurn } from './chat-queue';
 // a single server-side compare-and-delete, so no read-then-act window exists for a
 // re-acquiring Turn to slip into.
 
-// The TTLs are authored config (@acme/env ADR 0001). The In-flight lock's TTL
+// The TTLs are authored config. The In-flight lock's TTL
 // (`env.INFLIGHT_LOCK_TTL`) doubles as the crash-recovery bound: the worker
 // does NOT renew it (there is no heartbeat), so a worker that dies mid-Turn leaves
 // the lock to self-expire, after which the next `beginTurn` can re-acquire. Until
@@ -97,7 +97,7 @@ async function releaseInflightLock({ conversationId, turnId }: TurnRef) {
 // response and colliding on its messageId. `beginTurn` runs this after it wins the
 // lock (winner path only — an `alreadyInflight` caller must NOT delete a live
 // stream) and before enqueue, so the worker writes onto a clean Stream. Safe under
-// the lock: no concurrent worker is writing this key. (See #43.)
+// the lock: no concurrent worker is writing this key.
 async function discardStaleStream(conversationId: string) {
   await redis.del(chatStreamKey(conversationId));
 }
@@ -135,7 +135,7 @@ export async function isTurnAborted({ conversationId, turnId }: TurnRef) {
 // loses at most one credit, refund-first would hand out a free one on every
 // crash, and the guard is permanent (no TTL) so a replayed `reconcileTurn` can
 // never mint credits. Closing the window entirely needs the credit-back to carry
-// chat's idempotency key across the seam — see #198.
+// chat's idempotency key across the seam.
 export async function refundTurnCredits(
   refund: EntitlementsProvider['refund'],
   userId: string,
@@ -193,7 +193,7 @@ export async function beginTurn(input: BeginTurnInput) {
 // self-expires. Drops the abort signal and releases the lock. (Deleting on
 // terminal would race a reconnecting reader and lose the terminal; hard-delete of
 // an orphan's Stream is `reconcileTurn`, and the stale-stream discard that stops
-// the *next* Turn re-reading this one is inside `beginTurn` — see #43.)
+// the *next* Turn re-reading this one is inside `beginTurn`.)
 export async function settleTurn(kind: TurnTerminalKind, ref: TurnRef) {
   const { conversationId, turnId } = ref;
   logger.debug({ conversationId, turnId, kind }, 'chat: turn settled');

@@ -1,5 +1,5 @@
 /**
- * The package `exports` convention (ADR 0015).
+ * The package `exports` convention.
  *
  * Every workspace package that ships an `exports` map follows the same shape:
  *
@@ -34,7 +34,7 @@ export const ALLOWED_KEYS: ReadonlySet<string> = new Set([
   // roles
   './server',
   './schema',
-  './env', // the slice's one env factory — config *and* secrets (@acme/env ADR 0001)
+  './env', // the slice's one env factory — config *and* secrets
   './testing', // backend/test helpers shipped for consumers' suites
   // registered one-off seams
   './handler', // @acme/trpc — framework-parametric fetch handler
@@ -46,9 +46,9 @@ export const ALLOWED_KEYS: ReadonlySet<string> = new Set([
 const TYPES_RE = /^\.\/dist\/[\w./-]+\.d\.ts$/;
 const DEFAULT_RE = /^\.\/src\/[\w./-]+\.ts$/;
 
-/** Where to read the convention when a run fails. */
+/** The contract, printed under a failure. */
 export const EXPORTS_HELP =
-  'See docs/adr/0015-package-exports-convention.md for the contract.';
+  'Subpath keys come from the bounded vocabulary, and every entry maps `types` to ./dist and `default` to ./src.';
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -112,7 +112,7 @@ export function validateExports(name: string, exportsMap: unknown): string[] {
  *
  * The runtime layers only. Apps ship no `exports`; `tooling/*` packages
  * deliberately use a different shape (freeform config subpaths, consumed as
- * config rather than JIT-transpiled runtime) and are out of scope (ADR 0015).
+ * config rather than JIT-transpiled runtime) and are out of scope.
  * Derived from the path rather than listed, so the layer directories cannot
  * drift from `pnpm-workspace.yaml` the way the old hardcoded list did.
  */

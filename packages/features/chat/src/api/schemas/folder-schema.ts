@@ -5,13 +5,14 @@ import { z } from 'zod';
 import { env } from '../../env';
 
 // `chat_folder` is an app-owned, drizzle-kit-managed table — the same ownership
-// seam as `message_feedback` (@acme/rag ADR 0001). It defines a Folder (a user-created
+// seam as `message_feedback`. It defines a Folder (a user-created
 // grouping of Conversations); the Folder *assignment* lives on the Mastra thread
 // as `metadata.folderId` (a single scalar, so a Conversation is in at most one
 // Folder). There is NO foreign key from the Mastra thread metadata to this table:
 // deleting a Folder leaves member threads with a dangling `folderId` that simply
 // stops resolving, returning those Conversations to their Date Bucket with no
-// per-Conversation write (lazy delete). See @acme/chat ADR 0005.
+// per-Conversation write (lazy delete). See
+// [ADR 0005](../../../docs/adr/0005-folder-storage-split.md).
 
 // Same per-app Postgres schema Mastra and the knowledge base namespace under
 // (NEXT_PUBLIC_WEBAPP). Declaring it here is idempotent — drizzle-kit dedupes by

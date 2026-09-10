@@ -19,10 +19,7 @@ function parsed(...argv: string[]) {
 
 describe('the argv names the targets', () => {
   it('reads the positionals as package or app tokens', () => {
-    expect(parsed('@acme/chat', 'nextjs-slim').targets).toEqual([
-      '@acme/chat',
-      'nextjs-slim',
-    ]);
+    expect(parsed('@acme/chat', 'web').targets).toEqual(['@acme/chat', 'web']);
   });
 
   it('takes no target to mean every package', () => {

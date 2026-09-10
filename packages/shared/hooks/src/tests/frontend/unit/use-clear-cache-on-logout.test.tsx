@@ -1,10 +1,10 @@
 /**
- * useClearCacheOnLogout — the logout-clear seam the full apps wire (#86, ADR
- * 0025). Asserts observable *state*, never call counts (ADR 0018): after a
- * signed-in → signed-out transition the enclosing QueryClient's cache is empty
- * and the injected store (a real `clearPersistedCache` over fake-indexeddb) is
- * wiped; neither clears on a signed-out mount or a sign-in. No mocks — real
- * QueryClient, real (fake) IndexedDB.
+ * useClearCacheOnLogout — the logout-clear seam the full apps wire. Asserts
+ * observable *state*, never call counts: after a signed-in → signed-out
+ * transition the enclosing QueryClient's cache is empty and the injected store
+ * (a real `clearPersistedCache` over fake-indexeddb) is wiped; neither clears
+ * on a signed-out mount or a sign-in. No mocks — real QueryClient, real (fake)
+ * IndexedDB.
  */
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';

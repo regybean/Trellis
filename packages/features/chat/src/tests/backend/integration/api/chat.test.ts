@@ -797,7 +797,7 @@ describe('chatRouter', () => {
     });
 
     it('discards a prior Turn residual Stream so the next reader never replays it', async () => {
-      // Regression (#43): the Stream is Conversation-keyed and lingers after a
+      // Regression: the Stream is Conversation-keyed and lingers after a
       // terminal on a brief TTL. Without the winner-path cleanup, the next
       // Turn's reader tails from the head and re-reads the PRIOR Turn's deltas
       // and `done` — printing the last response again and colliding on its

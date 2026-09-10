@@ -7,7 +7,7 @@ pushed vector database therefore has no table, and a read (`listDocuments`)
 fails with `relation … does not exist` — a read path broken by the absence of a
 write. The vector dimension is a second lazily discovered fact: it is fixed when
 the index is created, and the embed model that has to match it is chosen at
-runtime by [`@acme/models`](../../../models/docs/adr/0001-multi-provider-models.md).
+runtime by `@acme/models`.
 
 ## Decision
 

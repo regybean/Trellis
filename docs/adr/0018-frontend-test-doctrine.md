@@ -60,7 +60,7 @@ backend's blessed mock list ([ADR 0014](0014-tests-validate-real-env.md)); prefe
 
 ## SSE subscriptions: assert the mutations, not the stream
 
-`@acme/chat`'s durable-stream flow (spec #44) splits a chat turn across a tRPC
+`@acme/chat`'s durable-stream flow splits a chat turn across a tRPC
 **subscription** (`chat.stream`, a pure SSE reader of a Redis Stream) and three
 **mutations** (`chat.send` / `chat.stop` / `chat.reconcileTurn`). The subscription
 is where this doctrine's HTTP-boundary fake stops working: **MSW cannot drive a

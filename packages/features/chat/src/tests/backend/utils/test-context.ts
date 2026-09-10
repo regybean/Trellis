@@ -23,7 +23,7 @@ import { db } from '../../../api/trpc';
 /**
  * The knobs chat's backend tests vary: the principal, plus the tier and credits
  * its mock provider resolves to — chat meters credits, so `ChatContext` names an
- * entitlements provider and these knobs are what a test sets it to (#256).
+ * entitlements provider and these knobs are what a test sets it to.
  */
 export interface TestContextOptions
   extends FeatureTestContextOptions, TestEntitlementsOptions {}

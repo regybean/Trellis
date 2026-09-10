@@ -2,8 +2,7 @@
 /**
  * Resolve a consumer's selection to the paths it takes from the bank.
  *
- * A manifest names **packages and bundles**, never paths
- * ([ADR 0039](../../../../docs/adr/0039-the-selection-is-the-contract.md)). This file
+ * A manifest names **packages and bundles**, never paths. This file
  * turns that selection into the flat prefix list `bank:sync` filters the bank
  * tree down to, reading everything out of the bank commit itself:
  * `pnpm-workspace.yaml` for the globs that define the package set, every

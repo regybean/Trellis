@@ -1,8 +1,8 @@
 /**
  * The provider→neutral mappings, against sessions a real Better Auth resolves.
  *
- * These three used to exist twice, once per app (#237 and #238 each wrote their
- * own); #239 collapsed them here, so this is where a promote/demote is proved to
+ * These three used to exist twice, once per app, each migration writing its own
+ * copy; they are collapsed here, so this is where a promote/demote is proved to
  * reach the admin gate — through one implementation, for both apps. Nothing is
  * mocked: the role comes back on a session resolved from a real cookie against a
  * real Postgres, which is the only way to exercise the gap this code exists to
@@ -142,7 +142,7 @@ describe('toAdminUser', () => {
 
     expect(listed?.id).toBe(created.id);
     // Every field is one Better Auth stores; the fabricated fields the old
-    // adapter produced are gone with the widget that wanted them (#225).
+    // adapter produced are gone with the widget that wanted them.
     expect(listed && toAdminUser(listed)).toEqual({
       id: created.id,
       name: `Test ${email}`,
@@ -192,10 +192,10 @@ describe('toAdminUser', () => {
  * so it cannot import a feature's real `adminProcedure` (features sit above
  * it), and hand-rolling one here would be a sixth copy of the middleware wiring
  * — one with no telemetry and no timing, i.e. not the stack any feature
- * actually runs, sitting in the one file the generator can't keep in step
- * (#264, #265 review). The procedure envelope adds nothing this test asserts
- * on: what turns a role into a decision is `requireAdmin`, and the five
- * features already prove their `adminProcedure` is built from it.
+ * actually runs, sitting in the one file the generator can't keep in step. The
+ * procedure envelope adds nothing this test asserts on: what turns a role into
+ * a decision is `requireAdmin`, and the five features already prove their
+ * `adminProcedure` is built from it.
  */
 
 /**

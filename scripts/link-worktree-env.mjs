@@ -41,9 +41,9 @@ function linkWorktreeEnv() {
   const primaryRoot = dirname(commonDir); // <primary>/.git -> <primary>
   const worktreeRoot = git("rev-parse", "--show-toplevel");
 
-  // Candidate env files, relative to a checkout root: deploy (infra secrets,
-  // #127) + each app. The root application .env was deprecated —
-  // each app owns its env entirely now (ADR 0029).
+  // Candidate env files, relative to a checkout root: deploy (infra secrets)
+  // + each app. The root application .env was deprecated — each app owns its
+  // env entirely now.
   const relPaths = ["deploy/.env"];
   const appsDir = join(primaryRoot, "apps");
   if (existsSync(appsDir)) {

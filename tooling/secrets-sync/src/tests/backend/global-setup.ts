@@ -3,8 +3,8 @@
  *
  * LocalStack is just another `InfraDescriptor` — its sole consumer is this
  * package's own round-trip test, so the descriptor lives here rather than in an
- * owner package (ADR 0017). It goes through the same `runInfraSetup` engine as
- * Postgres and Redis, and the endpoint reaches the test as
+ * owner package. It goes through the same `runInfraSetup` engine as Postgres
+ * and Redis, and the endpoint reaches the test as
  * `inject('infraEnv').AWS_ENDPOINT_URL`.
  */
 import type { InfraDescriptor } from '@acme/test-utils/infra';

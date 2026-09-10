@@ -10,8 +10,8 @@ import { withProfiles } from '../../../profiles';
  * its contract — it is a `createFinalSchema` implementation and only means
  * anything inside one. A slice's `env.ts` is this, with real keys.
  *
- * Under vitest `shouldSkipEnvValidation()` is false (ADR 0014), so these are
- * "real runs" unless a case stubs `npm_lifecycle_event=lint` to model a lint run.
+ * Under vitest `shouldSkipEnvValidation()` is false, so these are "real runs"
+ * unless a case stubs `npm_lifecycle_event=lint` to model a lint run.
  */
 const connection = z.discriminatedUnion('mode', [
   z.object({ mode: z.literal('localstripe'), apiBase: z.url() }),

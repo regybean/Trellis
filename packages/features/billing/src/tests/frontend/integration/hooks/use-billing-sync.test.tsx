@@ -1,5 +1,5 @@
 /**
- * useBillingSync — integration/hooks (ADR 0018).
+ * useBillingSync — integration/hooks.
  *
  * The hook's contract is a single cache-invalidation action: after Stripe syncs
  * a checkout server-side, `invalidateSubscription()` must invalidate the

@@ -4,7 +4,7 @@ import type { IngestProgressEvent } from '../schemas/ingest-progress-schema';
 import { ingestProgressStream } from './ingest-progress-stream';
 
 // The server-side fold of a user's retained progress Stream into the seed a fresh
-// client mount needs (#194). This is ingest's answer to chat's `chat.get` +
+// client mount needs. This is ingest's answer to chat's `chat.get` +
 // `chat.inflightTurn` collapsed into one: the durable store is the Stream itself
 // (bounded by its 1h TTL, no Postgres table), so folding it to the latest stage
 // per Upload is how progress survives a refresh instead of tailing-from-now into a

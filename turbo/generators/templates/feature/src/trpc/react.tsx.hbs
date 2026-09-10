@@ -7,15 +7,13 @@ import { env } from '../env';
 
 // This feature's client half, assembled from the shared factory (`@acme/hooks`).
 // Everything identical across features — the `NODE_ENV==='test'` `httpLink` MSW
-// seam (ADR 0018), the provider tree, the optional per-query persister — lives
-// once in the factory; only this feature's genuine variation is spelled out
-// here: its router type, endpoint (`/api/trpc/{{ kebabCase name }}`), and
-// transport.
+// seam, the provider tree, the optional per-query persister — lives once in the
+// factory; only this feature's genuine variation is spelled out here: its router
+// type, endpoint (`/api/trpc/{{ kebabCase name }}`), and transport.
 //
 // No `QueryClient`. The app mounts exactly one and this provider reads it from
-// context (ADR 0036). To opt into offline read, add a `persister` option here
-// and spread `usePersistedQueryOptions()` into the queries that should persist
-// (@acme/hooks ADR 0001).
+// context. To opt into offline read, add a `persister` option here and spread
+// `usePersistedQueryOptions()` into the queries that should persist.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: '{{ kebabCase name }}',
   nodeEnv: env.NODE_ENV,

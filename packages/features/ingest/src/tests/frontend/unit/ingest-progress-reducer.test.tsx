@@ -1,7 +1,7 @@
 /**
- * ingest-progress-reducer — frontend/unit (ADR 0018).
+ * ingest-progress-reducer — frontend/unit.
  *
- * The pure per-file progress state machine (#180, #194): no React, no tRPC.
+ * The pure per-file progress state machine: no React, no tRPC.
  * Asserts the merge contract directly — forward-only ranks (advance-if-greater /
  * ignore lower), `failed` absorbing, seed-on-unknown for live server stages, the
  * per-`jobId` completion set, and the snapshot `hydrate` / `retire` reconcilers
@@ -144,7 +144,7 @@ describe('ingestProgressReducer', () => {
     expect(deriveFiles(state)[0]?.stage).toBe('done');
   });
 
-  it('seeds a row from a live server stage for an unknown uploadId (#194)', () => {
+  it('seeds a row from a live server stage for an unknown uploadId', () => {
     // Post-refresh / another-tab Job: the mount never presigned this Upload, but a
     // live stage must still render — the entry carries jobId + filename to seed.
     const state = run([server('x', 'parsing', { filename: 'x.pdf' })]);
@@ -192,7 +192,7 @@ describe('ingestProgressReducer', () => {
     expect(deriveFiles(state).every((f) => f.stage === 'failed')).toBe(true);
   });
 
-  describe('hydrate (cold-mount snapshot seed, #194)', () => {
+  describe('hydrate (cold-mount snapshot seed)', () => {
     it('seeds in-flight + failed rows from the snapshot in order', () => {
       const state = run([
         {
@@ -230,7 +230,7 @@ describe('ingestProgressReducer', () => {
     });
   });
 
-  describe('retire (de-duplicate completed files, #194)', () => {
+  describe('retire (de-duplicate completed files)', () => {
     it('drops done rows of the named jobs, keeps failed + other jobs', () => {
       const state = run([
         presigned('job-1', [

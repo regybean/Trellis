@@ -102,7 +102,7 @@ export {
 } from './widgets/user-detailed-management';
 
 // Auth forms and the signed-in menu. Presentational and prop-driven, so the
-// package takes no `@acme/auth` dependency (ADR 0010) — the caller owns the
+// package takes no `@acme/auth` dependency — the caller owns the
 // provider call and resolves it with a message or `null`.
 export { SignInForm } from './widgets/sign-in-form';
 export { SignUpForm } from './widgets/sign-up-form';

@@ -61,7 +61,7 @@ describe('a violating map', () => {
     expect(stderr).toContain('check-exports found 1 problem');
     expect(stderr).toContain('@acme/db');
     expect(stderr).toContain('./styles');
-    expect(stderr).toContain('0015-package-exports-convention.md');
+    expect(stderr).toContain('bounded vocabulary');
   });
 
   it('counts every problem it found', () => {
@@ -86,7 +86,7 @@ describe('what it leaves alone', () => {
   it('passes a workspace whose only packages ship no exports map', () => {
     const root = createRepoFixture({
       files: {
-        'apps/nextjs/package.json': manifest({ name: '@acme/nextjs' }),
+        'apps/web/package.json': manifest({ name: '@acme/web' }),
         'tooling/eslint/package.json': manifest({
           name: '@acme/eslint-config',
           exports: { './base': './base.ts' },

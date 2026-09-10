@@ -62,15 +62,15 @@ no rework of the seam.
 ## Consequences
 
 - Per-app SDK init (`instrumentation.ts` / Nitro plugin) is unchanged; the noop
-  fallback added for tanstack-start's missing ambient span is no longer
-  needed, because context creation no longer builds a telemetry object.
+  fallback added for an app's missing ambient span is no longer needed, because
+  context creation no longer builds a telemetry object.
 - Telemetry becomes invisible in domain code at the cost of a little signal
   (per-router domain counts, validation-schema tags) — an accepted trade.
 - If a future need arises to trace work done _during_ context creation (before the
   procedure span is active, e.g. `entitlements.resolve`), it needs its own span —
   it can no longer piggyback on a context-level telemetry object.
 
-## Amendment (#264) — the telemetry middleware is now wired per feature
+## Amendment — the telemetry middleware is now wired per feature
 
 The decision is unchanged: telemetry is ambient, nothing reads `ctx.telemetry`,
 and the per-procedure span is created and activated by one middleware that

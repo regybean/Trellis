@@ -2,10 +2,6 @@
 
 **Status:** amended by 0039-the-selection-is-the-contract.md
 
-Implements the distribution decision in
-[#219](https://github.com/regybean/Trellis/issues/219), replacing "copy the repo
-once".
-
 > **Amended by [ADR 0039](0039-the-selection-is-the-contract.md).** The
 > mechanism below — vendored subset, pristine vendor branch, each sync parented on
 > the last, merge left to the human — **stands in full.** Two things it describes
@@ -16,12 +12,11 @@ once".
 > `include` and `packages` array in the text below as the shape they had when this
 > was written; the reasoning around them is unchanged.
 
-Trellis is a bank of packages that other repos start from. Until now they started
-from it by copying the repo once. The measured result of that
-([#219](https://github.com/regybean/Trellis/issues/219)): one consumer, nine
-months of independent work, ~8,500 lines of shared packages, of which about 77%
-would still merge without conflict. No mechanism existed to merge them, so every
-fix made on either side stayed there.
+This repo is a bank of packages that other repos start from. Until now they
+started from it by copying the repo once. The measured result of that: one
+consumer, nine months of independent work, ~8,500 lines of shared packages, of
+which about 77% would still merge without conflict. No mechanism existed to
+merge them, so every fix made on either side stayed there.
 
 The problem is not how to ship the code. Copying ships the code. The problem is
 shipping the **merge base** along with it, because without one an update means
@@ -35,7 +30,7 @@ A consumer repo holds `bank.manifest.json`:
 
 ```json
 {
-  "upstream": "https://github.com/regybean/Trellis.git",
+  "upstream": "https://github.com/<owner>/<bank>.git",
   "ref": "bank/2026-08-26",
   "include": ["tooling", "scripts", "turbo.json", "packages/platform/logger"],
   "contributable": []
@@ -43,16 +38,16 @@ A consumer repo holds `bank.manifest.json`:
 ```
 
 `pnpm bank:sync` (`tooling/bank/src/bank-sync.mjs`) reads it, fetches the bank at `ref`,
-and rewrites the consumer's local `vendor/trellis` branch so its tree is bank@ref
+and rewrites the consumer's local vendor branch so its tree is bank@ref
 filtered down to `include` and nothing else, committed on top of the previous
 vendor commit. Then it stops and prints the merge command for the human to run.
 
 ```
-Trellis (bank)                consumer
+bank                          consumer
 
 main ──● A ──● B ──● C        main ──●──●──●───────●──────────●──▶
         │           │                            ╱          ╱
-        └───────────┼──────── vendor/trellis ──●@A ───────●@C
+        └───────────┼──────── vendor branch ───●@A ───────●@C
                     └──────── (filtered, pristine)   base for the merge
 ```
 
@@ -76,7 +71,8 @@ consumer's to resolve.
 
 **It fails before it writes.** A `ref` that does not resolve upstream, a
 malformed manifest, or an `include` that matches nothing all abort before the
-`update-ref`, so `vendor/trellis` only ever moves on a sync that fully succeeded.
+`update-ref`, so the vendor branch only ever moves on a sync that fully
+succeeded.
 
 `include` is path-uniform. Any repo-relative path may appear in it, and the bank
 makes no per-path promise about how well a given path merges. Subscribing to a
@@ -87,8 +83,7 @@ selectable workspace packages, the six named bundles for content that cannot be
 a package (`root`, `scaffolding`, `agents`, `ci`, `docs`, `infra`), and the
 paths excluded by default with a reason each. `bank:sync` does not read it; it
 is the input a consumer's `include` is assembled from, and the record that stops
-the definition drifting from the repo the way an inventory in prose already did
-(#254).
+the definition drifting from the repo the way an inventory in prose already did.
 
 ## Why git
 
@@ -116,14 +111,14 @@ two trees and a diff tool.
   with extra steps.
 - **A bank-side filtered export per consumer** (`git filter-repo`, subtree split).
   Produces the same trees while putting per-consumer state and tooling on the
-  bank. Trellis stores nothing about who consumes it, and the filtered-tree commit
-  gets the same ancestry from plumbing every git install already has.
+  bank. The bank stores nothing about who consumes it, and the filtered-tree
+  commit gets the same ancestry from plumbing every git install already has.
 
 ## Consequences
 
-- **`vendor/trellis` is state the consumer cannot afford to lose.** Delete it and
-  the merge base goes with it. Recovery is re-syncing at the last ref that was
-  merged, then syncing forward again.
+- **The vendor branch is state the consumer cannot afford to lose.** Delete it
+  and the merge base goes with it. Recovery is re-syncing at the last ref that
+  was merged, then syncing forward again.
 - **Rename detection works**, because the vendor branch is a real tree with real
   history rather than a pile of files.
 - **The bank cannot see its consumers.** Drift detection, "how far behind are we",

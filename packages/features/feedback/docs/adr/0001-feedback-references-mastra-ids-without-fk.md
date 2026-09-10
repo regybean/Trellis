@@ -1,6 +1,6 @@
 # Feedback references Mastra ids without a foreign key
 
-**Status:** accepted — the first concrete instance of the app-owned lane in [@acme/rag ADR 0001](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md)
+**Status:** accepted — the first concrete instance of the app-owned DDL lane
 
 `message_feedback` is an app-owned, Drizzle-managed table that points at
 Mastra-owned identifiers (`messageId`, `threadId`) but holds **no foreign key** to
@@ -15,7 +15,7 @@ Mastra creates and owns its tables at runtime, and `db:push` is blacklisted from
 `mastra_*` so drizzle-kit never manages them. A foreign key from `message_feedback`
 to `mastra_messages` would force drizzle-kit to reference — and order itself against —
 a table it does not own and cannot create, coupling the two ownership lanes and
-reintroducing exactly the DDL race @acme/rag ADR 0001 removed. Carrying the ids by value keeps
+reintroducing exactly the DDL race the separate lanes remove. Carrying the ids by value keeps
 the lanes independent: the feedback table can be pushed, dropped, and re-pushed
 without touching Mastra, and Mastra can recreate its tables without knowing feedback
 exists.
@@ -39,7 +39,7 @@ location for a rule that spans two independently-owned storage lanes.
 
 - **Add a foreign key to `mastra_messages`.** Couples drizzle-kit to a Mastra-owned
   table, breaks the `!mastra_*` push scoping, and races on DDL ordering. Rejected —
-  it undoes @acme/rag ADR 0001.
+  it undoes the separation of the two ownership lanes.
 - **Mirror feedback into a Mastra store / message metadata.** Would make Mastra own
   feedback DDL, but feedback is app domain data with its own lifecycle (per-user
   upsert, toggle-off) that doesn't fit the message-metadata shape, and it would lose

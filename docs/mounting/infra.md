@@ -1,10 +1,9 @@
 # Recipe: infrastructure
 
 A package that talks to a backing service declares it in its `package.json`
-under `acme.infra` — a list of service names, not a compose file
-([ADR 0009](../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)). Your app's required
-infrastructure is the union of that field across everything it depends on,
-directly or transitively.
+under `acme.infra` — a list of service names, not a compose file. Your app's
+required infrastructure is the union of that field across everything it depends
+on, directly or transitively.
 
 Each `ADAPTER.md` **Infra** section names what the package declares.
 

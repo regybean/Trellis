@@ -21,7 +21,7 @@ import '@acme/test-utils/jsdom';
 
 // jsdom has no IndexedDB; `fake-indexeddb/auto` installs an in-memory one on the
 // global. Swap in a fresh factory before each test so persisted caches never
-// leak across cases (@acme/hooks ADR 0001 / ADR 0018).
+// leak across cases.
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
 });
@@ -31,13 +31,13 @@ beforeEach(() => {
  * the `renderHook` wrapper for `integration/hooks` tests. A `scopeKey` opts
  * persistence on (offline-read tests); omitted, the feature runs network-only.
  *
- * The app's single QueryClient wraps it (ADR 0036): feedback's provider renders
- * none of its own, so a test has to mount one exactly as an app does.
+ * The app's single QueryClient wraps it: feedback's provider renders none of
+ * its own, so a test has to mount one exactly as an app does.
  * `AppQueryClientProvider` builds its client in `useState`, so each mount is a
  * genuine cold cache. This used to nest a second, persister-less client inside
- * feedback's provider as a regression guard for the pinning #82 needed — there
- * is nothing left to guard now `forMessage` carries its persister in its own
- * options.
+ * feedback's provider as a regression guard for the client pinning nested
+ * providers once needed — there is nothing left to guard now `forMessage`
+ * carries its persister in its own options.
  */
 export const Providers = ({
   children,

@@ -2,11 +2,10 @@
 
 **Status:** accepted
 
-Adding a second app (`apps/tanstack-start`) alongside `apps/nextjs` forced the
-question of how features get the current user. Previously `@acme/trpc`'s
-`createTRPCContext` called Clerk's `auth()` / `currentUser()` itself — bound to
-`@clerk/nextjs/server`, which only runs under Next. Two decisions are
-load-bearing:
+Adding a second app alongside the first forced the question of how features get
+the current user. Previously `@acme/trpc`'s `createTRPCContext` called Clerk's
+`auth()` / `currentUser()` itself — bound to Clerk's Next-only server SDK. Two
+decisions are load-bearing:
 
 1. **`createTRPCContext` accepts injected `auth` + `user`; it no longer resolves
    them.** The context takes an `InjectedAuth` (the resolved `userId` +
@@ -20,27 +19,27 @@ load-bearing:
    the framework-agnostic client surface from `@clerk/clerk-react` and a backend
    `transformUserForClient`. Each app picks the matching server SDK and resolves
    auth at its HTTP boundary, then injects it:
-   - `apps/nextjs` resolves via `@clerk/nextjs/server` in its route handlers.
-   - `apps/tanstack-start` resolves via `@clerk/tanstack-react-start/server`
+   - The Next app resolves via Clerk's Next server SDK in its route handlers.
+   - The Start app resolves via `@clerk/tanstack-react-start/server`
      (`auth()` + `clerkClient().users.getUser`) in `src/lib/clerk-context.ts`,
      after registering `clerkMiddleware()` in `createStart()` (`src/start.ts`).
 
 ## Considered and rejected
 
 - **Per-framework conditional imports inside `@acme/trpc`.** Branching on a
-  runtime flag (or `package.json` `imports` conditions) to pick
-  `@clerk/nextjs/server` vs. `@clerk/tanstack-react-start/server` would pull both
-  SDKs into every feature's dependency graph and couple the platform layer to the
-  set of frameworks we happen to support. Rejected — the platform layer should not
-  know frameworks exist.
-- **A Vite alias shim mapping `@clerk/nextjs/server` → the Start SDK.** A build-time
+  runtime flag (or `package.json` `imports` conditions) to pick Clerk's Next
+  server SDK vs. its Start one would pull both SDKs into every feature's
+  dependency graph and couple the platform layer to the set of frameworks we
+  happen to support. Rejected — the platform layer should not know frameworks
+  exist.
+- **A Vite alias shim mapping the Next server SDK → the Start SDK.** A build-time
   alias would let the Next-shaped imports survive unchanged, but it hides the
   coupling in build config, breaks type-checking (the shapes differ), and only
   works for the bundler — not for `tsc` or tests. Rejected.
 
 ## Consequences
 
-- `@acme/auth` drops its `next` / `@clerk/nextjs` dependencies; client feature
+- `@acme/auth` drops its `next` and Clerk-Next dependencies; client feature
   imports (e.g. billing `useAuth`, the sidebar `UserButton`) repoint to `@acme/auth`.
 - `createTRPCContext`'s signature gains `auth` + `user`. Every caller (both apps'
   route handlers) must resolve and pass them — there is no implicit fallback, so a
@@ -61,12 +60,11 @@ load-bearing:
   `'use client'` barrel because it has to _run_ on the server, not become a
   client reference.
 - The seam is guarded by ESLint (`no-restricted-imports` in
-  `tooling/eslint/base.ts`): `@clerk/nextjs/server` and
-  `@clerk/tanstack-react-start/server` are banned in every package by default;
-  apps opt back in via `containmentOverride({ allowClerk: true })`. `@acme/auth`
-  needs no exception — it uses `@clerk/clerk-react` / `@clerk/backend`, not the
-  framework server SDKs. Type-only imports are allowed (they don't couple
-  runtime).
+  `tooling/eslint/base.ts`): Clerk's two framework server SDKs are banned in
+  every package by default; apps opt back in via
+  `containmentOverride({ allowClerk: true })`. `@acme/auth` needs no exception —
+  it uses `@clerk/clerk-react` / `@clerk/backend`, not the framework server SDKs.
+  Type-only imports are allowed (they don't couple runtime).
 - **One blessed feature-level exception:** `@acme/billing` ships a Next-coupled
   RSC (`stripe-success-handler.tsx`, exported only via `@acme/billing/server-next`,
   never the neutral `@acme/billing/server`). It resolves Clerk directly and
@@ -88,7 +86,7 @@ feature generator template. So every feature carried the provider's session
 vocabulary despite importing no Clerk SDK, a newly scaffolded feature inherited
 it, and swapping providers would have touched all seven.
 
-Issue #220 replaces it:
+What replaces it:
 
 - `InjectedSession { user: InjectedUser | null }` is the whole of what the
   platform consumes, and `ctx.auth` + `ctx.user` collapse into `ctx.session`.
@@ -110,7 +108,7 @@ Issue #220 replaces it:
 - `CustomJwtSessionClaims` is deleted everywhere, including the generator
   template. A scaffolded feature now names no auth provider at all: its
   `api/trpc.ts` delegates to `createFeatureTRPCWithDb` and its package.json
-  drops `@clerk/nextjs`.
+  drops the Clerk dependency.
 - `adminProcedure` stays in `@acme/trpc` rather than moving up into each app —
   all four features, both slim apps, the generator template and three test suites
   use it. Carrying `role` on the base principal is the price of keeping it.
@@ -149,17 +147,17 @@ plus the two full apps. The slim apps show the floor — a constant
 `{ user: { id: 'local', role: 'admin' } }` with no provider behind it. Whether a
 deployment has a provider at all is the app's call, not this package's.
 
-## Amendment 2 — the same split, under Better Auth (#239)
+## Amendment 2 — the same split, under Better Auth
 
 The amendment above claimed the mapping is _provider_-specific, not
 _framework_-specific, so both full apps share it. Migrating the two apps
-falsified that claim before restoring it: #237 and #238 ran in parallel off the
-same base, and each wrote its own copy of the same three functions — a role
+falsified that claim before restoring it: the two migrations ran in parallel off
+the same base, and each wrote its own copy of the same three functions — a role
 parse, a principal mapping and a Better Auth user → admin-widget adapter — one
-of them app-local in `apps/nextjs/src/server/session.ts`. Two implementations of
-one provider mapping is exactly the fan-out this ADR exists to prevent.
+of them app-local in the Next app's `src/server/session.ts`. Two implementations
+of one provider mapping is exactly the fan-out this ADR exists to prevent.
 
-#239 collapses them. The line held is unchanged; only the provider moved:
+They are now collapsed. The line held is unchanged; only the provider moved:
 
 - **`@acme/auth/server`** holds `readSessionRole`, `toPrincipal` and
   `toAdminUser`. All three are typed **structurally**, on the fields they
@@ -189,7 +187,7 @@ change takes effect on the next request rather than on token refresh — session
 are database rows and the cookie cache is off
 ([ADR 0001](0001-self-hosted-better-auth.md)).
 
-## Amendment 3 — the principal is a concrete type (#250)
+## Amendment 3 — the principal is a concrete type
 
 Amendment 1 got the seam right and the mechanism wrong. `InjectedSession` is
 still the whole of what the platform consumes, `ctx.session` is still where the
@@ -233,7 +231,7 @@ nothing checked that the two agreed. A concrete exported interface gets checked
 by the compiler at every import, which is what the original goal of "replacing
 the provider's session type cannot fan out" actually needed.
 
-## Amendment 4 — the injection point outlives its function (#264)
+## Amendment 4 — the injection point outlives its function
 
 `createTRPCContext` is deleted, so the wording above that names it is stale: the
 signature in decision 1 and its consequence at line 47, the reading of decision

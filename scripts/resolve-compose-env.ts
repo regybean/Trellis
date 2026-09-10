@@ -12,9 +12,9 @@
 //
 // What each package supplies stays the AUTHORED development value and never an
 // operator's override — reading one here would be circular, since `compose.sh`
-// exports this output back into the environment ([@acme/env ADR 0001](../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6).
-// Keeping that rule is the declaring package's job; it is the one reading its
-// own profile, from a module that runs no `createEnv` call.
+// exports this output back into the environment. Keeping that rule is the
+// declaring package's job; it is the one reading its own profile, from a module
+// that runs no `createEnv` call.
 //
 // Run via `pnpm exec tsx`: plain node can't load the workspace TS config graph
 // (its relative imports are extensionless), and the provisioning modules

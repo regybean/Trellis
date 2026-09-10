@@ -15,7 +15,7 @@ every gate in this repo and breaks every new consumer.
 
 The bank runs before `pnpm install`.
 
-A consumer's first contact with Trellis is hand-copying four files into a repo
+A consumer's first contact with the bank is hand-copying four files into a repo
 that has no `node_modules` — the wizard, the sync, and the two libs they share —
 then running `setup:wizard` and the first `bank:sync` with bare `node`
 ([docs/bank.md](../../../../docs/bank.md)). There is no module resolution at that

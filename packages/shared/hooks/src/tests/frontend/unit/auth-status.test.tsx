@@ -1,9 +1,9 @@
 /**
  * AuthStatusProvider / useAuthStatus — the client half of the app-owned auth
- * seam (#223, ADR 0003). Asserts observable state through a real render (ADR
- * 0018): what a feature reads back, that it tracks the app's re-render, and that
- * a missing provider fails loudly rather than looking like "signed out". No
- * mocks — the seam has no dependencies to mock.
+ * seam. Asserts observable state through a real render: what a feature reads
+ * back, that it tracks the app's re-render, and that a missing provider fails
+ * loudly rather than looking like "signed out". No mocks — the seam has no
+ * dependencies to mock.
  */
 import type { ReactNode } from 'react';
 import { render, renderHook, screen } from '@testing-library/react';

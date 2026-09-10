@@ -9,8 +9,8 @@ import { env } from '../env';
 // Vector dimension of the active embed model — single source of truth lives in
 // `@acme/models` (read from `/env`, which imports only zod + `@acme/env`, never
 // the package root, so this schema never triggers provider resolution). The
-// dimension rides with the selected embed variant (`MODELS_EMBED.dimensions`,
-// @acme/env ADR 0001). Switching embed model means changing it and re-pushing the schema.
+// dimension rides with the selected embed variant (`MODELS_EMBED.dimensions`).
+// Switching embed model means changing it and re-pushing the schema.
 export const EMBED_DIMENSIONS = modelsEnv.MODELS_EMBED.dimensions;
 
 // Knowledge-base table name. Mastra-owned (PgVector creates it), but the name is

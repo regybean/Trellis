@@ -2,7 +2,7 @@
  * Feedback Router Tests
  *
  * Testing philosophy:
- * - Exercise the @acme/rag ADR 0001 ownership seam end-to-end against a real DB
+ * - Exercise the ownership seam end-to-end against a real DB
  * - "zero, one, many" coverage for reads
  * - Mock only env/external services (see setup.ts); DB/Redis are real
  *

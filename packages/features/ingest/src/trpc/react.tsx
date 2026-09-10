@@ -5,7 +5,7 @@ import { createFeatureClient } from '@acme/hooks';
 import type { AppRouter } from '../api/root';
 import { env } from '../env';
 
-// Offline read of the Documents pane (@acme/hooks ADR 0001). The documents page is a surface
+// Offline read of the Documents pane. The documents page is a surface
 // operators revisit constantly and it cold-opens to skeletons for every query, so
 // a restored `documents.list` renders instantly. 24 hours — the indexed knowledge
 // base is admin-scoped content that churns on every upload/delete, so a snapshot
@@ -25,8 +25,8 @@ const INGEST_PERSIST_VERSION = '1';
 // scaffold lives once in the factory; ingest's variation is its router type,
 // endpoint (`rq-ingest` / `/api/trpc/ingest`), the file-upload-aware transport,
 // its progress `stream` subscription, and the 24-hour per-query persister
-// (@acme/hooks ADR 0001) that paints the documents page from cache on a cold open. The app
-// owns the `QueryClient` (ADR 0036), so there is none to configure.
+// that paints the documents page from cache on a cold open. The app owns the
+// `QueryClient`, so there is none to configure.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: 'ingest',
   nodeEnv: env.NODE_ENV,
@@ -46,7 +46,7 @@ export const useTRPC = client.useTRPC;
 
 /**
  * Cache policy for `documents.list`, the one query ingest persists, to spread
- * into its options (ADR 0036). Carries the persister, `gcTime`, the `persistMeta`
+ * into its options. Carries the persister, `gcTime`, the `persistMeta`
  * mark, and the `staleTime: 0` without which uploading a Document and reloading
  * would paint the pre-upload list. `documents.progressSnapshot` is deliberately
  * left off it — see `use-document-upload.ts`.

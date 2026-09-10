@@ -33,7 +33,7 @@ export function SignUpForm({
   className,
 }: SignUpFormProps) {
   // See `SignInForm`: the rejection and the in-flight flag are the form's, not
-  // the caller's (#239).
+  // the caller's.
   const [error, setError] = useState<string | null>(null);
 
   // The form validates against `signUpFormSchema` (the rendered fields), then

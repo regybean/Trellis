@@ -1,6 +1,6 @@
 # Two authors, one pure reducer, forward-only stage ranks
 
-**Status:** accepted — ticket #180, wired up in #189
+**Status:** accepted
 
 ## Context
 

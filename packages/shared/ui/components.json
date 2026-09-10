@@ -5,7 +5,7 @@
   "tsx": true,
   "tailwind": {
     "config": "",
-    "css": "../../../apps/nextjs/src/app/styles.css",
+    "css": "../../../tooling/tailwind/theme.css",
     "baseColor": "zinc",
     "cssVariables": true
   },

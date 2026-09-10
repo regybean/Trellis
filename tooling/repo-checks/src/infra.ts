@@ -3,9 +3,9 @@
  *
  * `acme.infra` is how a package names the local services it touches; an app's
  * required infra is the union of that field over its transitive closure, and
- * nothing is assumed on (ADR 0009). The field had no validator anywhere, so a
- * typo was accepted in silence and produced a compose profile matching no
- * service — the failure mode being "the container you needed never started".
+ * nothing is assumed on. The field had no validator anywhere, so a typo was
+ * accepted in silence and produced a compose profile matching no service — the
+ * failure mode being "the container you needed never started".
  * `acme.provisioning` and `acme.seeds`, which the same resolver discovers
  * beside it, fail in the same silence and are validated here too.
  *

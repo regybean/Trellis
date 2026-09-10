@@ -11,31 +11,31 @@ was written to solve — a package resolving the session itself, and so binding 
 one framework's server SDK — meant the reduced apps and the second framework
 could not consume them:
 
-- `@acme/sidebar` — `NavUser` hardcodes `@clerk/nextjs` and `@acme/billing`;
+- `@acme/sidebar` — `NavUser` hardcodes Clerk's Next.js SDK and `@acme/billing`;
   `NavHeader`/`NavMain` use `next/image` and `next/link`. All four apps built
   their own shells without importing it. Zero production consumers at deletion.
-- `@acme/admin` — `AdminDashboard` calls `auth()` from `@clerk/nextjs/server`;
-  `SearchUsers` calls `useRouter`/`usePathname`/`useSearchParams` from
-  `next/navigation`. `apps/nextjs` consumed it fully; `apps/tanstack-start`
+- `@acme/admin` — `AdminDashboard` calls `auth()` from Clerk's Next.js server
+  SDK; `SearchUsers` calls `useRouter`/`usePathname`/`useSearchParams` from
+  `next/navigation`. The Next.js app consumed it fully; the TanStack Start app
   overrode `SearchUsers` and the server actions with app-owned equivalents and
-  only kept `UserManagement`. Slim apps dropped it entirely.
+  only kept `UserManagement`. The reduced apps dropped it entirely.
 
 The reuse claim was illusory: components that couple to a specific auth provider
 and a specific framework cannot cross the Next.js / TanStack Start boundary that
-the slim-app ADR (ADR 0010) makes explicit. The "cross-app DRY" lived only in the
-`apps/nextjs` → `@acme/admin` edge; TanStack Start had already duplicated the
-logic that mattered.
+the reduced apps make explicit. The "cross-app DRY" lived only in the one
+Next.js → `@acme/admin` edge; TanStack Start had already duplicated the logic
+that mattered.
 
 ## What was done
 
 `@acme/sidebar` was deleted outright. `@acme/admin` was deleted after its
 components were folded into the two consuming apps:
 
-- `apps/nextjs` — `AdminDashboard`, `SearchUsers`, `UserManagement`,
+- The Next.js app — `AdminDashboard`, `SearchUsers`, `UserManagement`,
   `UserDetailedManagement`, and server actions (`setRole`/`removeRole`) moved
-  to `src/components/admin/` + `src/lib/admin.ts`, mirroring the layout
-  `apps/tanstack-start` had already established.
-- `apps/tanstack-start` — `UserManagement` + `UserDetailedManagement` moved
+  to `src/components/admin/` + `src/lib/admin.ts`, mirroring the layout the
+  TanStack Start app had already established.
+- The TanStack Start app — `UserManagement` + `UserDetailedManagement` moved
   to `src/components/admin/`; `SearchUsers` and server functions were already
   app-owned.
 
@@ -55,10 +55,10 @@ package) — not to create a new composition that will accumulate framework coup
 A new `packages/compositions/` entry requires an explicit ADR justifying why the
 assembly genuinely cannot live in an app or in `@acme/ui`.
 
-[@acme/ui ADR 0001](../../packages/shared/ui/docs/adr/0001-admin-user-widgets-to-ui.md) later applied this escape hatch: the
-two admin user widgets folded in here turned out to be byte-identical and
-framework-free, so they were promoted into `@acme/ui`. That refines this ADR for
-those two files; it does not reopen wholesale composition.
+The escape hatch was later applied: the two admin user widgets folded in here
+turned out to be byte-identical and framework-free, so they were promoted into
+`@acme/ui`. That refines this ADR for those two files; it does not reopen
+wholesale composition.
 
 ## Considered and rejected
 
@@ -74,8 +74,8 @@ those two files; it does not reopen wholesale composition.
   targets. Renaming to `app` makes the tag match the layer diagram.
 - **Keep admin's `global.d.ts` / `checkRole` indirection when folding in.**
   Rejected — `@acme/auth` already owns the role vocabulary, and both apps
-  include its globals. The role guard inlines to a single read, as
-  `apps/tanstack-start/src/lib/admin.ts` already does. (At the time that read
+  include its globals. The role guard inlines to a single read, as the TanStack
+  Start app's `src/lib/admin.ts` already does. (At the time that read
   was `sessionClaims?.metadata.role !== 'admin'` against Clerk's
   `CustomJwtSessionClaims`; the auth seam has since collapsed that to
   `readRole(await auth()) !== 'admin'` — same claim, parsed in one place, and the

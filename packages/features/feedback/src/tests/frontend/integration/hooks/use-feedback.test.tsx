@@ -1,5 +1,5 @@
 /**
- * useFeedback — integration/hooks (ADR 0018).
+ * useFeedback — integration/hooks.
  *
  * The hook is the frontend's contract (logic lives in `src/hooks/` per the slice
  * contract). This is the reference hook test: drive the real hook through a real

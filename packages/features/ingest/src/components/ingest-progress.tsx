@@ -12,7 +12,7 @@ import type {
 import { STAGE_RANK } from '../hooks/ingest-progress-reducer';
 import { useIngestUpload } from '../hooks/ingest-upload-context';
 
-// Variant A — dense rows (#181). One line per Upload under a job summary strip:
+// Variant A — dense rows. One line per Upload under a job summary strip:
 // admin ingest is a batch operation (6+ files common), so density + a primary
 // "is the whole batch done" signal beat per-file steppers/kanban.
 
@@ -51,7 +51,7 @@ function StagePill({ stage, className }: { stage: Stage; className?: string }) {
 /**
  * Pure presentational Variant A panel — driven entirely by `files` + `summary`
  * (hook-derived state). Kept prop-driven (no context) so it is directly testable
- * with synthetic state, the un-drivable SSE tail out of the way (ADR 0018).
+ * with synthetic state, the un-drivable SSE tail out of the way.
  * Renders nothing until there is at least one Upload to show.
  */
 export function IngestProgressView({

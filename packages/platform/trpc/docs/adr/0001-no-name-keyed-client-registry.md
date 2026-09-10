@@ -47,7 +47,7 @@ the registry and split the wiring into **two factories across two entry points**
 - New features reduce to thin re-export files; the turbo generator template is updated
   to emit them.
 
-## Amendment (#264) — the server factory is gone; the decision it argues for is not
+## Amendment — the server factory is gone; the decision it argues for is not
 
 The names above are stale. `@acme/trpc/server` no longer exists, and neither does
 `createFeatureServerCaller({ name, appRouter, createTRPCContext })` — nor

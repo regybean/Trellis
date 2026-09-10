@@ -8,10 +8,10 @@ import { AppQueryClientProvider } from '@acme/hooks';
 import type { Notification, NotificationRenderers } from '../../../../index';
 import { dispatchNotification, NotificationsProvider } from '../../../../index';
 
-// The dispatch → toast contract, asserted through a real `<ToastContainer />`
-// (ADR 0018). Dispatch is factored as an independently-callable function, so we
-// drive it directly with synthetic envelopes — the un-drivable SSE tail (mounted
-// by the provider) stays out of the way.
+// The dispatch → toast contract, asserted through a real `<ToastContainer />`.
+// Dispatch is factored as an independently-callable function, so we drive it
+// directly with synthetic envelopes — the un-drivable SSE tail (mounted by the
+// provider) stays out of the way.
 
 const envelope = (over: Partial<Notification> = {}): Notification => ({
   id: 'n-1',
@@ -22,7 +22,7 @@ const envelope = (over: Partial<Notification> = {}): Notification => ({
   ...over,
 });
 
-// The app's single QueryClient wraps the provider (ADR 0036): the notifications
+// The app's single QueryClient wraps the provider: the notifications
 // provider renders none of its own, so mounting it needs one exactly as an app
 // supplies one.
 function renderHarness(renderers?: NotificationRenderers) {

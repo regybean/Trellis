@@ -1,6 +1,6 @@
 // hooks/ingest-progress-reducer.ts
 //
-// The pure per-file progress state machine (#180). `useDocumentUpload` merges two
+// The pure per-file progress state machine. `useDocumentUpload` merges two
 // knowledge sources keyed by `uploadId`: the client-owned `uploading` stage
 // (browser→S3 PUT, unobservable by the server) and the server-authored stages
 // (`queued`/`parsing`/`embedding`/`done`/`failed`) from the progress
@@ -31,7 +31,7 @@ interface PerFileBase {
 export type PerFileProgress = PerFileBase &
   ({ stage: Exclude<Stage, 'failed'> } | { stage: 'failed'; error: string });
 
-// Forward-only ranks (#180): a stage advances only to a STRICTLY greater rank, so
+// Forward-only ranks: a stage advances only to a STRICTLY greater rank, so
 // a redelivered event on transient reconnect — or the optimistic-`queued` (client)
 // vs real-`queued` (server) overlap — can never regress a row. `failed` is NOT
 // ranked; it is an absorbing terminal handled explicitly (a failed Upload never
@@ -58,7 +58,7 @@ export const initialProgressState: ProgressState = { byId: {}, order: [] };
 // flow (presign → PUT → enqueue); `serverStage` carries a progress-stream entry
 // from the subscription; `hydrate`/`retire` reconcile with the server snapshot.
 export type ProgressEvent =
-  // Cold-mount seed from `documents.progressSnapshot` (#194): fold the retained
+  // Cold-mount seed from `documents.progressSnapshot`: fold the retained
   // per-Upload stages into rows so progress survives a refresh. Each upload is a
   // wire event (in-flight or `failed`; `done` is dropped server-side). Forward-only
   // and idempotent — never clobbers a row this mount already authored further along.
@@ -78,11 +78,11 @@ export type ProgressEvent =
   | { type: 'enqueueFailed'; uploadIds: string[]; error: string }
   // A Job's Uploads have all settled and its Documents are now in `documents.list`:
   // drop that Job's `done` rows so a completed file shows only in the list, not as a
-  // lingering "Done" row (#194). `failed` rows stay (they aren't Documents).
+  // lingering "Done" row. `failed` rows stay (they aren't Documents).
   | { type: 'retire'; jobIds: string[] }
   // A server progress entry, carrying the full wire identity so an entry for an
   // Upload this mount never saw (post-refresh, another tab) can seed its own row
-  // rather than being dropped (seed-on-unknown, #194). Advance-if-greater for a
+  // rather than being dropped (seed-on-unknown). Advance-if-greater for a
   // known row. Discriminated like the wire so `error` is required on `failed`.
   | ({
       type: 'serverStage';
@@ -199,8 +199,8 @@ function mergeWire(state: ProgressState, wire: WireStage): ProgressState {
 
 // Apply a live server progress entry. A known row advances forward-only; an unknown
 // `uploadId` — an Upload this mount never saw (post-refresh, another tab) — SEEDS a
-// fresh row from the entry's identity instead of being dropped (#194), so live
-// stages after a cold mount still render.
+// fresh row from the entry's identity instead of being dropped, so live stages
+// after a cold mount still render.
 function reduceServerStage(
   state: ProgressState,
   event: Extract<ProgressEvent, { type: 'serverStage' }>,
@@ -224,10 +224,10 @@ function reduceHydrate(
   return next;
 }
 
-// Retire the `done` rows of settled Jobs once their Documents are in `documents.list`
-// (#194) — a completed file shows only in the list, never as a lingering "Done" row.
-// `failed` rows are kept (they never became Documents). Same reference when nothing
-// matched (cheap render bailout).
+// Retire the `done` rows of settled Jobs once their Documents are in
+// `documents.list` — a completed file shows only in the list, never as a
+// lingering "Done" row. `failed` rows are kept (they never became Documents).
+// Same reference when nothing matched (cheap render bailout).
 function reduceRetire(
   state: ProgressState,
   event: Extract<ProgressEvent, { type: 'retire' }>,

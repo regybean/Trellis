@@ -8,12 +8,12 @@
  * way to fake without also faking the thing under test. So this file runs the
  * real CLI over the real graph.
  *
- * The subsetting assertion is why it earns its keep. `@acme/nextjs-slim` is the
- * repo's claim that a no-auth/no-billing subset really does drop those slices
- * from the graph (ADR 0010); comparing its inventory with `@acme/nextjs`'s makes
- * that claim observable instead of asserted. It has already paid for itself —
- * writing it surfaced an unused `@acme/auth` devDependency on chat and ingest
- * that was pulling auth into every slim closure.
+ * The subsetting assertion is why it earns its keep. The slim app is the repo's
+ * claim that a no-auth/no-billing subset really does drop those slices from the
+ * graph; comparing its inventory with the full app's makes that claim observable
+ * instead of asserted. It has already paid for itself — writing it surfaced an
+ * unused `@acme/auth` devDependency on chat and ingest that was pulling auth
+ * into every slim closure.
  *
  * Cost: three collections of most of the repo. They run concurrently in
  * `beforeAll` and share one result each, so the file is roughly one and a half
@@ -29,32 +29,65 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { repoRoot, workspaceApps } from '@acme/workspace-graph';
+import {
+  closurePackages,
+  repoRoot,
+  workspaceApps,
+} from '@acme/workspace-graph';
 
 const run = promisify(execFile);
 
 const root = repoRoot();
 const CLI = join(root, 'tooling/test-inventory/src/cli.ts');
 
-/** The apps compared: same framework, one with auth and billing, one without. */
-const FULL_APP = '@acme/nextjs';
-const SLIM_APP = 'nextjs-slim';
-
 /** Slices the slim subset is meant to leave out. */
 const SUBSET_EXCLUDES = ['@acme/auth', '@acme/billing', '@acme/subscriptions'];
 
 /**
- * Both halves of the pair above have to be in the workspace, and only this
- * repo's app set has them. There is no generic substitute either: apps are consumer
- * identity, the bank never distributes them, and a subsetting claim needs two
- * *specific* apps whose difference is auth and billing — nothing here can
- * derive an equivalent from whatever apps a consumer happens to own. So the
- * file skips in a workspace without the pair, naming the apps it wanted, rather
- * than failing on apps a consumer was never sent.
+ * The pair compared, derived from the graph rather than named.
+ *
+ * The claim needs two apps whose closures differ by *exactly* the subset: one
+ * carrying all three slices, one carrying none, and otherwise as alike as the
+ * workspace allows. Every part of that is a graph question, so it is asked of
+ * the graph — apps are consumer identity, and a test that named this repo's
+ * would be asserting the claim only for the apps that happen to be here.
+ *
+ * The pair with the smallest symmetric difference wins, so the comparison is
+ * the honest one when a workspace holds several of each. Names break a tie, so
+ * the choice is stable across runs.
  */
-const appNames = new Set(workspaceApps(root).map((app) => app.name));
-const hasAppPair = appNames.has(FULL_APP) && appNames.has(`@acme/${SLIM_APP}`);
-const NEEDS_APP_PAIR = `skipped: needs the apps ${FULL_APP} and @acme/${SLIM_APP} — a full app and its no-auth/no-billing counterpart, which this workspace does not have`;
+function appPair() {
+  const apps = workspaceApps(root)
+    .map((app) => ({
+      name: app.name,
+      short: app.rel.slice('apps/'.length),
+      carries: new Set(
+        closurePackages(root, [app.name]).map((pkg) => pkg.name),
+      ),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  const candidates = apps
+    .filter((app) => SUBSET_EXCLUDES.every((pkg) => app.carries.has(pkg)))
+    .flatMap((full) =>
+      apps
+        .filter((app) => SUBSET_EXCLUDES.every((pkg) => !app.carries.has(pkg)))
+        .map((slim) => ({
+          full,
+          slim,
+          apart: [...full.carries, ...slim.carries].filter(
+            (pkg) => full.carries.has(pkg) !== slim.carries.has(pkg),
+          ).length,
+        })),
+    )
+    .sort((a, b) => a.apart - b.apart);
+
+  return candidates[0];
+}
+
+const pair = appPair();
+const hasAppPair = pair !== undefined;
+const NEEDS_APP_PAIR = `skipped: needs one app whose closure carries ${SUBSET_EXCLUDES.join(', ')} and one that carries none of them — this workspace has no such pair`;
 
 /** A describe that names the content it wanted when it skips. */
 function describeApps(name: string, suite: () => void) {
@@ -130,9 +163,9 @@ beforeAll(async () => {
   if (!hasAppPair) return;
 
   [full, slimShort, slimScoped] = await Promise.all([
-    collect(FULL_APP),
-    collect(SLIM_APP),
-    collect(`@acme/${SLIM_APP}`),
+    collect(pair.full.name),
+    collect(pair.slim.short),
+    collect(pair.slim.name),
   ]);
 }, 900_000);
 
@@ -164,7 +197,7 @@ describeApps('an app target expands to its whole workspace closure', () => {
 });
 
 describeApps('a short app name means the same app as the scoped one', () => {
-  it('gives the same inventory for nextjs-slim and @acme/nextjs-slim', () => {
+  it('gives the same inventory either way', () => {
     expect(stable(slimShort)).toBe(stable(slimScoped));
   });
 });

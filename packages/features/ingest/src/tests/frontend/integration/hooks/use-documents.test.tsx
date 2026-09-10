@@ -1,5 +1,5 @@
 /**
- * useDocuments — integration/hooks (ADR 0018).
+ * useDocuments — integration/hooks.
  *
  * Drive the real hook through a real QueryClient with MSW at the HTTP boundary.
  * Assert returned state and cache transitions — never mock-call counts.

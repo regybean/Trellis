@@ -42,7 +42,7 @@ export function useChat(
   // orphan paths must read authoritative history WITHOUT the fetch writing the
   // chat.get cache, or it would clobber the assistant bubble mid-stream.
   const trpcClient = useTRPCClient();
-  // The app's one QueryClient (ADR 0036) — chat's keys live in it under the
+  // The app's one QueryClient — chat's keys live in it under the
   // `chat` keyPrefix, so there is nothing to pin.
   const queryClient = useQueryClient();
   // Cache policy for the queries chat persists: the persister, its `gcTime`, the
@@ -50,7 +50,7 @@ export function useChat(
   const persisted = usePersistedQueryOptions();
   const scrollToBottomRef = useRef<(() => void) | null>(null);
 
-  // The Turn state machine (#132). All phase/ownership decisions live in the pure
+  // The Turn state machine. All phase/ownership decisions live in the pure
   // reducer; the hook holds the state for render and a mirror ref for the
   // synchronous reads inside async reader/mutation callbacks (where React state is
   // a stale closure). Every transition goes through `dispatch`, so the reducer —
@@ -64,7 +64,7 @@ export function useChat(
   // has no thread yet, so `get` returns `[]` (not an error) — "show an empty
   // pane". `retry: false` fails fast and any rejection stays silent. Keyed by
   // sessionId (the component remounts per Conversation). THIS query's cache is
-  // the single source of truth for the rendered Messages (#115): `send` seeds
+  // the single source of truth for the rendered Messages: `send` seeds
   // the optimistic user Message + a loading assistant bubble into it, and the
   // Stream appends deltas into the same entry — there is no separate sticky copy
   // to reconcile. The Turn's finished Messages are already in this cache, so the
@@ -406,7 +406,7 @@ export function useChat(
 
     // Ask the parent to stamp the deep-link URL so the Conversation survives a
     // mid-generation refresh. Fires on every send (the single-source-of-truth
-    // rework dropped the first-send signal, #115); the caller's stamp is
+    // rework dropped the first-send signal); the caller's stamp is
     // idempotent — a no-op once the URL already matches — so resends are free.
     onSend?.();
 

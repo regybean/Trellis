@@ -31,7 +31,7 @@ Multi-context monorepo (presence of `CONTEXT-MAP.md` at the root):
 │           ├── CONTEXT.md
 │           └── docs/adr/
 └── apps/
-    ├── nextjs/
+    ├── <app>/
     │   ├── CONTEXT.md
     │   └── docs/adr/
     └── <other-app>/
@@ -51,12 +51,11 @@ then it stays at the root.
 **Apps and tooling packages may own ADRs — the deletion test decides, not the
 directory.** A `tooling/*` package passes it whenever the decision is about the
 thing it does rather than about the gate: the bank's duplicated workspace helpers
-exist because it runs before `pnpm install`
-([its ADR 0001](../../tooling/bank/docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md)),
-and secrets sync, the test-infra engine and the graph-derived dev infra
-resolver each go with their package the same way. What stays at the root is a
-decision about the shape of the monorepo — the gate, the layer boundaries, the
-test policy — which a consumer takes whatever else they select.
+exist because it runs before `pnpm install`, and secrets sync, the test-infra
+engine and the graph-derived dev infra resolver each go with their package the
+same way. What stays at the root is a decision about the shape of the monorepo —
+the gate, the layer boundaries, the test policy — which a consumer takes whatever
+else they select.
 
 **The app layer owns a directory too, at
 [`apps/docs/adr/`](../../apps/docs/adr/).** A decision about the app _set_ — that

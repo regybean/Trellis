@@ -55,13 +55,13 @@ export function NotificationsProvider({
  * Whether the tail should hold a subscription open, given the app's auth seam.
  *
  * Split out as a named predicate because the two branches are not symmetric and
- * jsdom cannot observe the difference: the SSE transport never connects there
- * (ADR 0018), so "does it subscribe when signed in" is not assertable at the
+ * jsdom cannot observe the difference: the SSE transport never connects there,
+ * so "does it subscribe when signed in" is not assertable at the
  * HTTP boundary the way "does it stay quiet when signed out" is. This keeps the
  * rule itself directly testable without mocking a seam the feature owns.
  *
  * `null` is an app with no `AuthStatusProvider` — the slim apps, which inject a
- * synthetic session server-side (ADR 0010). For them an absent provider means
+ * synthetic session server-side. For them an absent provider means
  * "always authorized", so it must stay enabled rather than read as signed-out
  * and go dark. Everywhere else this waits for a *resolved* signed-in session:
  * `isSignedIn` is false while `isLoaded` is still false, so the subscription is

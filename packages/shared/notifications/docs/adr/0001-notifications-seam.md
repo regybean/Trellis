@@ -1,18 +1,18 @@
 # `@acme/notifications`: a `shared` package that owns a tRPC router
 
-**Status:** accepted — authored on package creation, per spec #185 / ticket #186
+**Status:** accepted
 
-**Amended #196** — Decision 2's reader is now the shared `@acme/redis`
-durable-stream primitive ([@acme/redis ADR 0001](../../../../platform/redis/docs/adr/0001-durable-redis-stream-primitive.md)),
-not a hand-copied `xRange` poll loop. Two specifics are **superseded**: the
-fresh-connect seed is no longer `${Date.now()}-0` but the stream's **actual last
-id** (read via `xRevRange` — the "no `xRevRange`, no new `@acme/redis` surface"
-line no longer holds; the surface was added precisely to kill the clock-skew
-failure the app-clock seed could hit under podman-VM drift, the same class ingest
-fixed in #194); and `publish` writes through the atomic `xAddWithTtl` rather than
-a non-atomic `xAdd` + `expire`. The **tail-from-now intent** — a leave-and-return
-shows nothing (Decision 4's no-durability contract) — is unchanged, now preserved
-via the last-id seed instead of the wall clock.
+**Amended** — Decision 2's reader is now the shared `@acme/redis`
+durable-stream primitive, not a hand-copied `xRange` poll loop. Two specifics
+are **superseded**: the fresh-connect seed is no longer `${Date.now()}-0` but the
+stream's **actual last id** (read via `xRevRange` — the "no `xRevRange`, no new
+`@acme/redis` surface" line no longer holds; the surface was added precisely to
+kill the clock-skew failure the app-clock seed could hit under podman-VM drift,
+the same class ingest had already fixed); and `publish` writes through the atomic
+`xAddWithTtl` rather than a non-atomic `xAdd` + `expire`. The **tail-from-now
+intent** — a leave-and-return shows nothing (Decision 4's no-durability
+contract) — is unchanged, now preserved via the last-id seed instead of the wall
+clock.
 
 ## Context
 
@@ -26,7 +26,7 @@ a package that is _neither_ a feature _nor_ platform:
 - it owns a `'use client'` tRPC connector + provider, so it **can't be platform** —
   the substrate layer must never ship React or own a router.
 
-Ingest (spec #185) is its first consumer; the primitive is the durable win.
+Ingest is its first consumer; the primitive is the durable win.
 
 ## Decision
 
@@ -79,7 +79,7 @@ input)` is the only `xAdd`: it mints `id` (`randomUUID` → the react-toastify
   no cross-tab coordination or consumer groups. An inbox / notification-center is
   explicitly out of scope; there is no consumer hook.
 
-## Amendment (#264) — the two `@acme/trpc` symbols decision 2 names are gone
+## Amendment — the two `@acme/trpc` symbols decision 2 names are gone
 
 Decision 2 still holds in full: `@acme/notifications` exports a concrete
 `appRouter` mounted at its own `/api/trpc/notifications` in all four apps, the

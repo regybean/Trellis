@@ -9,9 +9,9 @@ export default mergeConfig(
       name: 'backend',
       environment: 'node',
       include: ['src/tests/backend/**/*.test.ts'],
-      // LocalStack for the round-trip test (ADR 0017). The unit tests need
-      // nothing, but one container for the package is cheaper than a second
-      // vitest project to keep them apart.
+      // LocalStack for the round-trip test. The unit tests need nothing, but
+      // one container for the package is cheaper than a second vitest project
+      // to keep them apart.
       globalSetup: ['./src/tests/backend/global-setup.ts'],
       // The round-trip test drives the shell scripts, which launch tsx and the
       // aws CLI several times each. Cheap alone, but the gate runs every

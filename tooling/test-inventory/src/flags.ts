@@ -42,7 +42,7 @@ function selection(values: string[] | undefined) {
  * as the same phrased-for-a-human refusal as before.
  */
 export function parseArguments(argv: readonly string[]): ParsedArgs {
-  // `pnpm test:inventory nextjs-slim -- --kind unit` forwards the separator
+  // `pnpm test:inventory <app> -- --kind unit` forwards the separator
   // too, and parseArgs reads a bare `--` as "everything after this is
   // positional" — which would turn the flags into targets. No target and no
   // flag value is ever `--`, so drop every one of them.

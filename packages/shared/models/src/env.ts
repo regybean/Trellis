@@ -16,7 +16,7 @@ import { chatConfigSchema, embedConfigSchema } from './model-schemas';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Provider selection, declared once (@acme/env ADR 0001). Provider choice, the embedding
+ * Provider selection, declared once. Provider choice, the embedding
  * dimension, and every provider's model ids / region / base URL are non-sensitive
  * values that differ per deploy target, so they are authored here as profile
  * values; the raw credentials are the keys with no profile value and are demanded
@@ -51,8 +51,8 @@ export const env = createEnv({
 });
 
 // Provider *secrets*, validated declaratively from the resolved selection
-// (@acme/env ADR 0002, value axis). Called once, eagerly, in `resolve.ts` so a provider-active
-// app fails fast at import on missing credentials instead of on the first request —
+// (value axis). Called once, eagerly, in `resolve.ts` so a provider-active app
+// fails fast at import on missing credentials instead of on the first request —
 // exactly which secrets are required is a function of the selected providers,
 // never a permissive `.optional()`:
 //
@@ -68,7 +68,7 @@ export const env = createEnv({
 // Each group is its own `createEnv` call so it can be demanded conditionally, and
 // each routes through `withProfiles` with no authored values: that is what makes
 // every key here a secret and what relaxes them — and only them — on a run that
-// cannot supply one (@acme/env ADR 0001 §3). `skipValidation` is never passed, anywhere.
+// cannot supply one. `skipValidation` is never passed, anywhere.
 
 // AWS creds — required whenever Bedrock is the chat OR embed provider. Resolved
 // via the standard AWS provider chain at call time; declared here only so a

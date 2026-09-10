@@ -38,13 +38,13 @@ export const staticTestEnv = {
   NEXT_PUBLIC_WEBAPP: 'testing',
   // The deploy-target selector. Set explicitly (rather than leaning on the
   // unset→development default) so suites document that they validate against the
-  // base profile. See @acme/env ADR 0001.
+  // base profile.
   APP_ENV: 'development',
   // Every slice's non-secret values — provider selection, model ids, region, S3
   // endpoint + bucket, vector db name, chunk sizes, embedding dimension, the
   // Stripe plan ids/connection/checkout paths, the TTLs — are authored in each
-  // slice's `env.ts` development profile (@acme/env ADR 0001), so no test env is needed for
-  // them. The development profile also authors the *local* credentials that a
+  // slice's `env.ts` development profile, so no test env is needed for them.
+  // The development profile also authors the *local* credentials that a
   // real deploy must supply (LocalStack's dummy AWS pair, localstripe's fixed
   // placeholders), which is why they are absent here too: a suite validating
   // against the authored values is validating what dev actually runs.
@@ -174,8 +174,8 @@ interface FrontendProjectOptions {
 /**
  * The frontend counterpart: react plugin, jsdom, and the `staticTestEnv` spread
  * that makes jsdom's client mode validate every reachable `env.ts` against real
- * values rather than a mock (ADR 0014). MSW is the frontier here — there is no
- * infra to provision, so there is no globalSetup analogue (ADR 0018).
+ * values rather than a mock. MSW is the frontier here — there is no infra to
+ * provision, so there is no globalSetup analogue.
  */
 export function frontendProject({
   setupFiles = [],

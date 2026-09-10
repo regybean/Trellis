@@ -1,5 +1,5 @@
 /**
- * DocumentsList — integration/components (ADR 0018).
+ * DocumentsList — integration/components.
  *
  * The reference rewrite: the old test `vi.mock`ed `../../trpc/react` and
  * asserted `deleteSpy.toHaveBeenCalledWith(...)`. This one fakes the network at

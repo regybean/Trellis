@@ -7,7 +7,7 @@
  * untyped and *uncoerced* — so `z.coerce.number()` never runs and a numeric var
  * arrives as its string. That is correct for steps that have no real env and
  * never touch a coerced value (lint, the Next production build), but wrong for
- * tests, which must validate + coerce against real values (ADR 0014).
+ * tests, which must validate + coerce against real values.
  *
  * `CI` alone can't separate the two: it is set both for the lint/build CI steps
  * *and* for the testcontainer test run. `VITEST` (set by vitest in every worker)
@@ -15,7 +15,7 @@
  *
  * Precedence:
  *   1. lint / a production build — skip unconditionally (no real env, none needed).
- *   2. under vitest — always validate + coerce (ADR 0014), even in CI.
+ *   2. under vitest — always validate + coerce, even in CI.
  *   3. otherwise — skip when CI (a non-test CI step, or a bare worktree with no
  *      `.env`), validate locally.
  *

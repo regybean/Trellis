@@ -2,8 +2,8 @@
 
 **Status:** accepted
 
-A reference is content. When a comment in a vendored package says "see ADR 0029",
-that sentence arrives in a consumer whose `docs/adr/0029` is a different decision
+A reference is content. When a comment in a vendored package says "see ADR NNNN",
+that sentence arrives in a consumer whose `docs/adr/NNNN` is a different decision
 or no file at all. Dangling is the good case. The bad case is a number that
 resolves to something plausible and wrong, and the reader has no way to tell.
 
@@ -20,12 +20,12 @@ Measured in content the bank distributes, excluding apps and docs:
 | Files carrying a GitHub issue reference                           | ~135  |
 
 The first row is the one that costs something today. A reader of
-`@acme/notifications` seeing `ADR 0001` in a comment cannot tell whether it means
-that package's own seam decision or the root secrets-sync one, and nothing in the
-text disambiguates it.
+`@acme/notifications` seeing a bare `ADR NNNN` in a comment cannot tell whether
+it means that package's own seam decision or the root one that carries the same
+number, and nothing in the text disambiguates it.
 
 Issue numbers are worse than ADR numbers, because a consumer's tracker is
-guaranteed to have a `#126` and it is guaranteed to be about something else.
+guaranteed to have a `#<n>` and it is guaranteed to be about something else.
 
 ## Decision
 

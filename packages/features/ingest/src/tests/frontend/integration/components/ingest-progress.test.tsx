@@ -1,5 +1,5 @@
 /**
- * IngestProgress (Variant A dense rows) — integration/components (ADR 0018).
+ * IngestProgress (Variant A dense rows) — integration/components.
  *
  * The pure `IngestProgressView` is driven directly with synthetic hook state
  * (files + summary) and asserted through the rendered DOM — the SSE tail that

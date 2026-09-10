@@ -49,7 +49,7 @@ function authOptions(options: InitAuthOptions) {
     baseURL: options.baseUrl,
     trustedOrigins: options.trustedOrigins,
     emailAndPassword: {
-      // Email + password only, no social provider. #218 left the question open;
+      // Email + password only, no social provider. The question is left open:
       // a provider is purely additive (an `account` row with the OAuth columns
       // populated — the schema already carries them) and needs client-id secrets
       // per app, so it is deliberately not part of this change.

@@ -3,7 +3,7 @@ import {
   containmentOverride,
   restrictEnvAccess,
 } from '@acme/eslint-config/base';
-import { nextjsConfig } from '@acme/eslint-config/nextjs';
+import { nextjsConfig } from '@acme/eslint-config/next';
 import { reactConfig } from '@acme/eslint-config/react';
 import { securityConfig } from '@acme/eslint-config/security';
 import { testingConfig } from '@acme/eslint-config/testing';

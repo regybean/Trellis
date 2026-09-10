@@ -19,7 +19,7 @@
 //
 // Usage:  resolve-infra.ts [--names|--seeds] [app ...]
 //         no app args => every app under apps/*
-//         app may be a full name (@acme/nextjs) or short (nextjs).
+//         app may be a full name (@acme/web) or short (web).
 // Output: default   comma-separated profile list (possibly empty)
 //         --names   one canonical @acme/* app name per line
 //         --seeds   one `<package>\t<script>` line per seed of a started profile

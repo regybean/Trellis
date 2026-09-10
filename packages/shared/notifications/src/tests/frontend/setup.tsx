@@ -6,8 +6,8 @@ import '@testing-library/jest-dom';
 import '@acme/test-utils/jsdom';
 
 // Notifications' only frontend contract is the dispatch → toast mapping, driven
-// as an independently-callable function (ADR 0018 — the SSE tail isn't drivable
-// in jsdom). Tests render `<NotificationsProvider>` (proving it mounts) + a real
+// as an independently-callable function (the SSE tail isn't drivable in
+// jsdom). Tests render `<NotificationsProvider>` (proving it mounts) + a real
 // `<ToastContainer />` and invoke `dispatchNotification` with synthetic
 // envelopes, asserting the rendered DOM — never a mocked `toast`.
 //

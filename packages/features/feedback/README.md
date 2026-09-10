@@ -18,7 +18,7 @@ src/
     root.ts                 # appRouter — aggregates routers
     routers/feedback.ts        # sample CRUD router
     schemas/item-schema.ts  # drizzle table + zod schemas
-  env.ts                    # the slice env: one createEnv call, APP_ENV profiles (@acme/env ADR 0001)
+  env.ts                    # the slice env: one createEnv call, APP_ENV profiles
   components/feedback-list.tsx # sample UI (presentational)
   hooks/use-feedback.ts        # data-access hook (tRPC + React Query)
   trpc/                     # client (react.tsx), RSC (server.tsx)
@@ -58,7 +58,7 @@ renderWithProviders(<FeedbackList />);
 2. Add the API route handler:
 
    ```ts
-   // apps/nextjs/src/app/api/trpc/feedback/[trpc]/route.ts
+   // apps/<app>/src/app/api/trpc/feedback/[trpc]/route.ts
    import { appRouter } from '@acme/feedback/server';
 
    import {
@@ -74,8 +74,7 @@ renderWithProviders(<FeedbackList />);
    ```
 
    The resolver is checked against the router's own context, so if you add a
-   field to `FeedbackContext` the mount won't compile until the app supplies it
-   (#264).
+   field to `FeedbackContext` the mount won't compile until the app supplies it.
 
 3. Wrap the relevant tree with `FeedbackTRPCProvider` (from `@acme/feedback`).
 4. Register the schema for migrations (drizzle config `schema` glob), then `pnpm db:push`.

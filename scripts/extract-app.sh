@@ -11,22 +11,42 @@
 # out of the box (`pnpm install`).
 #
 # Usage:
-#   scripts/extract-app.sh [APP] [OUT_DIR]
+#   scripts/extract-app.sh <APP> [OUT_DIR]
 #
-#   APP      Workspace package to keep (default: @acme/nextjs)
+#   APP      Workspace package to keep. Required — see below.
 #   OUT_DIR  Output dir under out/ (default: repo-copy)
 #
-# Examples:
-#   scripts/extract-app.sh
-#   scripts/extract-app.sh @acme/tanstack-start tanstack-copy
+# Example:
+#   scripts/extract-app.sh @acme/<app> <app>-copy
+#
+# APP is required rather than defaulted, and the usage error lists what this
+# workspace actually holds. A default would have to name one app, and an app is
+# the one thing nothing outside this repo receives — so the default that runs
+# when a consumer passes no argument would be the one command guaranteed to
+# fail, against a package they never had.
 
 set -euo pipefail
 
-APP="${1:-@acme/nextjs}"
-OUT_NAME="${2:-repo-copy}"
-
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+APP="${1:-}"
+if [[ -z "$APP" ]]; then
+  {
+    echo "usage: scripts/extract-app.sh <app> [out-dir]"
+    echo
+    echo "apps in this workspace:"
+    shopt -s nullglob
+    for manifest in "$REPO_ROOT"/apps/*/package.json; do
+      sed -n 's/.*"name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/  \1/p;/name/q' \
+        "$manifest"
+    done
+    shopt -u nullglob
+  } >&2
+  exit 1
+fi
+
+OUT_NAME="${2:-repo-copy}"
 OUT_DIR="$REPO_ROOT/out/$OUT_NAME"
 
 # Caches / generated dirs we never want to copy. node_modules and lockfile-derived
@@ -91,5 +111,5 @@ mv "$PRUNED" "$OUT_DIR"
 log "Done."
 echo
 echo "  Single-app slice for '$APP' -> out/$OUT_NAME"
-echo "  Next:  cd out/$OUT_NAME && pnpm install && pnpm build:nextjs"
+echo "  Next:  cd out/$OUT_NAME && pnpm install && pnpm turbo run build -F '$APP...'"
 echo

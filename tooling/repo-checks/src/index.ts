@@ -1,10 +1,10 @@
 /**
  * `@acme/repo-checks` — the gates `pnpm lint` runs over the repo itself.
  *
- * Three checkers live here: the package `exports` convention (ADR 0015), the
- * per-package test policy (ADR 0007) and ADR hygiene. Each used to be a
- * top-level `for` loop in `scripts/`, so its decisions could not be reached
- * without running the program, and the filesystem walk was welded to the rule.
+ * Three checkers live here: the package `exports` convention, the per-package
+ * test policy and ADR hygiene. Each used to be a top-level `for` loop in
+ * `scripts/`, so its decisions could not be reached without running the
+ * program, and the filesystem walk was welded to the rule.
  *
  * Here each rule is a function over its input and the filesystem work happens
  * at the edge, behind `PackageIo` / `RepoIo`. That is what lets a rule be

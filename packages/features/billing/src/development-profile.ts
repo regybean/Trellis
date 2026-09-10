@@ -6,7 +6,7 @@
  * `scripts/resolve-infra.ts` reads it *without* an environment: the `billing`
  * (localstripe) compose profile is only needed when the *authored* development
  * connection is localstripe, and provisioning wants that authored value rather
- * than an operator's override (@acme/env ADR 0001 §6).
+ * than an operator's override.
  *
  * `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` are localstripe's fixed
  * placeholders — documented as not real secrets and gitleaks-allowlisted

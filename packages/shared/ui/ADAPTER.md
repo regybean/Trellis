@@ -35,7 +35,6 @@ One entry point, no server subpath: this package renders and nothing else.
   [provider.md](../../../docs/mounting/provider.md). An unmounted toast
   container makes every toast call succeed and display nothing.
 - Assemble your own shell and chrome from these pieces. Navigation and layout
-  are app-owned
-  ([ADR 0011](../../../docs/adr/0011-remove-compositions-layer.md)).
+  are app-owned.
 - The auth-shaped widgets take their signed-in state as a prop, so an app with
   no auth mounts them by passing a constant.

@@ -20,9 +20,9 @@ owning it: nothing stopped a fifth procedure from forgetting the check, and owne
 coverage was implicit in per-procedure tests. Seating the rule on a procedure builder
 makes the invariant load-bearing at the type/pipeline level — the builder is the only
 way to obtain an owned `ctx.conversation` — and lets one ownership suite replace the
-scattered per-procedure cases. Folding the transforms into the same adapter (the #3
-deepening) removes the router's direct `memory` access, which is what makes "no
-unguarded path to a thread" actually true rather than just conventional.
+scattered per-procedure cases. Folding the transforms into the same adapter
+removes the router's direct `memory` access, which is what makes "no unguarded
+path to a thread" actually true rather than just conventional.
 
 ## Considered and rejected
 

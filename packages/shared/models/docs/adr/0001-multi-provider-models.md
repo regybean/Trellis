@@ -2,10 +2,10 @@
 
 **Status:** amended by 0002-one-authored-value-per-role.md (the env keys below no longer exist)
 
-> **Amends decision 3 of [@acme/rag ADR 0001](../../../rag/docs/adr/0001-mastra-rag-and-memory.md)** ("Bedrock via
-> an AI-SDK provider instance"). The AI-SDK-instance approach stands, but the
-> instance is now produced by `@acme/models`, one of three providers, not
-> constructed in `@acme/rag`.
+> **Amends `@acme/rag`'s decision to reach Bedrock through an AI-SDK provider
+> instance.** The AI-SDK-instance approach stands, but the instance is now
+> produced by `@acme/models`, one of three providers, not constructed in
+> `@acme/rag`.
 
 > **Amended by [ADR 0002](0002-one-authored-value-per-role.md) on how a selection
 > is expressed.** The `LLM_PROVIDER` / `EMBED_PROVIDER` enums, the separate

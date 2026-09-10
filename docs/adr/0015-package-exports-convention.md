@@ -62,8 +62,8 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
 - **A guard belongs on every runtime entry that needs one, `.` included.** The
   role vocabulary names `.` the _main_ entry, not the _client-safe_ one, so a
   package whose whole runtime is server-only guards `.` too rather than leaving
-  it as an unguarded path to the same modules. `@acme/rag` was exactly that gap
-  (issue #214): `./server` was guarded while `.` re-exported `pgVector` /
+  it as an unguarded path to the same modules. `@acme/rag` was exactly that gap:
+  `./server` was guarded while `.` re-exported `pgVector` /
   `postgresStore` / `memory` to anyone. `.` and `./ownership-trpc` are now
   guarded as well, `sideEffects` lists all three so the guards survive
   tree-shaking, and `ensureVectorIndex` — which both entries exported — is left

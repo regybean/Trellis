@@ -36,11 +36,11 @@ let sdk: NodeSDK | null = null;
  * In Next.js, use the instrumentation.ts file.
  *
  * @example
- * // apps/nextjs/src/instrumentation.ts
+ * // an app's src/instrumentation.ts
  * export async function register() {
  *   if (process.env.NEXT_RUNTIME === 'nodejs') {
  *     const { initTelemetry } = await import('@acme/telemetry');
- *     initTelemetry({ serviceName: 'trellis-nextjs' });
+ *     initTelemetry({ serviceName: 'acme-web' });
  *   }
  * }
  */

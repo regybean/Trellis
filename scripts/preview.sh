@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Compiled-build preview launcher (issue #101).
+# Compiled-build preview launcher.
 #
 #   pnpm preview             # every app + exactly the infra they need
-#   pnpm preview nextjs      # one app + its infra subset
-#   pnpm preview nextjs tanstack-start
-#   pnpm preview --no-push nextjs-slim
+#   pnpm preview <app>       # one app + its infra subset
+#   pnpm preview <app> <other-app>
+#   pnpm preview --no-push <app>
 #
 # Mirrors dev.sh exactly — same short/full app args, same --no-push flag, same
 # infra resolution (resolve-infra.ts → compose up --wait → db:push unless
 # --no-push). The ONLY difference is the tail: it runs the COMPILED production
 # build via `turbo run start` (dependsOn: build, so turbo rebuilds first) instead
 # of `turbo watch dev`. Purpose: measure true time-to-paint — no HMR, no
-# dev-server latency — especially IndexedDB cache rehydration (@acme/hooks ADR 0001), which
-# the dev server inflates. Each app co-launches its queue worker as a turbo `with`
+# dev-server latency — especially IndexedDB cache rehydration, which the dev
+# server inflates. Each app co-launches its queue worker as a turbo `with`
 # sidecar (without it chat.send never generates a response), same as dev, minus
 # `watch`.
 #
-# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.ts
+# App args may be short (web) or full (@acme/web); resolve-infra.ts
 # normalises them (turbo's -F needs the full @acme/* name).
 #
 # Infra is left running on exit (tear down with `pnpm infra:down`) — re-running is

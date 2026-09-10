@@ -31,7 +31,8 @@ sources of truth.
   same data. Rejected.
 - **Wrap Mastra Memory writes in our own tRPC transaction.** Mastra owns the write
   lifecycle inside `agent.stream`; re-wrapping it re-introduces the cross-call race
-  ADR-0001 removed. Rejected — let the framework own the unit of work.
+  that moving persistence behind the procedure removed. Rejected — let the
+  framework own the unit of work.
 
 ## Consequences
 
@@ -41,8 +42,7 @@ sources of truth.
 - The wire contract (`StreamChatEvent`) is unchanged — clients see the same events.
 - Conversations are queryable with Drizzle via the mirrored `mastra_threads` /
   `mastra_messages` tables in `@acme/rag/schema`, but those mirrors are read models;
-  Mastra owns the DDL and the writes (see system ADR
-  [0002-mastra-rag-and-memory](../../../../shared/rag/docs/adr/0001-mastra-rag-and-memory.md)).
+  Mastra owns the DDL and the writes.
 - A mid-stream LLM error still leaves the turn retryable — Mastra persists the user
   turn before generation.
 
@@ -50,7 +50,7 @@ sources of truth.
 
 The mechanism above — Mastra Memory persisting the assistant turn as a **side
 effect of `agent.stream` inside the `chat.stream` procedure** — no longer holds.
-The durable-chat-stream work (spec #44) decoupled generation from the client
+The durable-chat-stream work decoupled generation from the client
 connection, and with it moved persistence off the reader:
 
 - `chat.stream` is now a **pure, stateless reader** (`tailChatStream`): it tails
@@ -60,8 +60,8 @@ connection, and with it moved persistence off the reader:
   `chatAgent.stream`, and it runs with a **read-only** memory config so Mastra
   does _not_ auto-persist. The worker persists the assistant Message with an
   **explicit `memory.saveMessages`** on terminal: `done` → full text;
-  `cancelled` → non-empty partial only; `error` → nothing. See chat-local ADR
-  0004 (generation worker & queue).
+  `cancelled` → non-empty partial only; `error` → nothing. See
+  [ADR 0004](0004-generation-worker-and-queue.md) (generation worker & queue).
 - The wire contract is no longer `StreamChatEvent`. The reader emits a
   discriminated `StreamReaderEvent` (`delta` / `done` / `cancelled` / `error`),
   each Redis entry re-emitted under its Stream entry id as the SSE

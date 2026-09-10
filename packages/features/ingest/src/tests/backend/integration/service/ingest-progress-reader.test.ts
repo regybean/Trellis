@@ -136,7 +136,7 @@ describe('tailIngestProgress (integration)', () => {
     ]);
   });
 
-  it('a fresh mount resumes strictly after the snapshot lastId (#194)', async () => {
+  it('a fresh mount resumes strictly after the snapshot lastId', async () => {
     // Mirrors the client's cold-mount: fold the retained stream, take its lastId,
     // then tail from it — prior stages are seeded from the snapshot, not replayed.
     const writer = createIngestProgressWriter(userId, 'job-s');
@@ -156,7 +156,7 @@ describe('tailIngestProgress (integration)', () => {
     ]);
   });
 
-  it('is immune to app-clock skew — a future Date.now() no longer drops events (#194)', async () => {
+  it('is immune to app-clock skew — a future Date.now() no longer drops events', async () => {
     // The old fresh-mount cursor was `${Date.now()}-0`; under podman-VM clock skew
     // that landed in Redis' future and dropped every real stage event. The cursor
     // is now a real stream id, so even a wildly skewed app clock changes nothing.

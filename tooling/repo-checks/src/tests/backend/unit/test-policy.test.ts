@@ -104,7 +104,7 @@ describe('the acme block', () => {
   });
 
   it('asks app and none for a reason, and nothing else', () => {
-    const app = validateTestManifest('@acme/nextjs', { testClass: 'app' }, []);
+    const app = validateTestManifest('@acme/web', { testClass: 'app' }, []);
     const none = validateTestManifest(
       '@acme/models',
       { testClass: 'none', reason: 'pure type re-exports' },
@@ -154,7 +154,7 @@ describe('a tracked gap', () => {
 
   it('is only valid on a library class', () => {
     const { errors } = validateTestManifest(
-      '@acme/nextjs',
+      '@acme/web',
       { testClass: 'app', testStatus: 'todo', reason: 'later' },
       [],
     );
@@ -269,7 +269,7 @@ describe('the layers a package may carry follow its testClass', () => {
 
   it('constrains no side on app and none, which declare none', () => {
     expect(
-      validateTestLayout('@acme/nextjs', 'app', [
+      validateTestLayout('@acme/web', 'app', [
         'src/tests/backend/unit/a.test.ts',
         'src/tests/frontend/unit/b.test.tsx',
       ]),
@@ -326,7 +326,7 @@ describe('the taxonomy', () => {
   it('governs the runtime layers only', () => {
     expect(isRuntimeLayer('packages/features/chat')).toBe(true);
     expect(isRuntimeLayer('tooling/repo-checks')).toBe(false);
-    expect(isRuntimeLayer('apps/nextjs')).toBe(false);
+    expect(isRuntimeLayer('apps/web')).toBe(false);
   });
 });
 
@@ -366,7 +366,6 @@ describe('the frontend seam-mock ban', () => {
     const [error] = seams("vi.mock('../../../trpc/react');");
 
     expect(error).toContain('mocks the tRPC client you own');
-    expect(error).toContain('ADR 0018');
   });
 
   it("rejects mocking the feature's own hook", () => {

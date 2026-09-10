@@ -21,7 +21,7 @@ import { notificationStream } from './notification-stream';
  *      `payload` JSON field and appends it with an atomically-restamped rolling
  *      TTL (`xAddWithTtl`) — so an unread stream simply expires, and a crash can
  *      never split the append from the TTL and leave the key immortal (the
- *      non-atomic `xAdd`+`expire` this replaced, #196).
+ *      non-atomic `xAdd`+`expire` this replaced).
  *
  * There is deliberately NO core "kind factory": a feature writes its own typed
  * one-line wrapper around `publish` (ingest's `notifyJobComplete`). Delivery is

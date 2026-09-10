@@ -119,7 +119,7 @@ describe('bank:contribute refuses before anything leaves the repo', () => {
     ]);
 
     expect(status).toBe(1);
-    expect(stderr).toContain('vendor/trellis does not exist');
+    expect(stderr).toContain('vendor/bank does not exist');
     expect(branches(bank)).toEqual(['main']);
   });
 

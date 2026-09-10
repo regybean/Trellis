@@ -4,9 +4,9 @@
 
 Each feature minted its own `QueryClient` and nested its own `QueryClientProvider`
 (`createFeatureClient`, `@acme/hooks`). A full app stacked four of them, so a bare
-`useQuery` bound to whichever provider happened to be innermost — [#82](https://github.com/regybean/Trellis/issues/82).
-The mitigation was `useFeatureQueryClient`: every hook had to remember to pass its
-own client as `useQuery`'s second argument. Forget it and nothing breaks loudly —
+`useQuery` bound to whichever provider happened to be innermost. The mitigation
+was `useFeatureQueryClient`: every hook had to remember to pass its own client as
+`useQuery`'s second argument. Forget it and nothing breaks loudly —
 the query still runs, it just never persists. That failure mode stays open for as
 long as more than one client is in context.
 
@@ -38,10 +38,10 @@ useQuery(
 );
 ```
 
-Binding `staleTime: 0` into that fragment is the point, not a detail. @acme/hooks ADR 0001
-established that any `staleTime > 0` silently converts stale-while-revalidate into
-serve-stale, because the persister _is_ the queryFn on a cold open and only
-schedules its background refetch `if (query.isStale())`. As a client default that
+Binding `staleTime: 0` into that fragment is the point, not a detail. Any
+`staleTime > 0` silently converts stale-while-revalidate into serve-stale,
+because the persister _is_ the queryFn on a cold open and only schedules its
+background refetch `if (query.isStale())`. As a client default that
 coupling was two files apart and a feature could get it wrong (feedback did — see
 below). Attached to the persisted-query fragment, the persister and the `staleTime`
 that makes it correct arrive together or not at all.
@@ -88,15 +88,15 @@ ever worth keeping.
 
 | Feature       | Was         | Now                            | Why                                                                                                                                                                                                                                                                                                         |
 | ------------- | ----------- | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| chat          | `0`         | `0`, via the persisted options | Unchanged and load-bearing (@acme/hooks ADR 0001).                                                                                                                                                                                                                                                          |
+| chat          | `0`         | `0`, via the persisted options | Unchanged and load-bearing.                                                                                                                                                                                                                                                                                 |
 | ingest        | `0`         | `0`, via the persisted options | Same.                                                                                                                                                                                                                                                                                                       |
-| feedback      | `30s`       | `0`, via the persisted options | It paired a persister with `staleTime: 30s` — the combination @acme/hooks ADR 0001 names as serving a restored snapshot without revalidating. See below.                                                                                                                                                    |
+| feedback      | `30s`       | `0`, via the persisted options | It paired a persister with `staleTime: 30s` — the combination that serves a restored snapshot without revalidating. See below.                                                                                                                                                                              |
 | billing       | `30s`       | app default (`0`)              | t3 boilerplate that was **already not in effect** — see below. `0` is also right on the merits: a 30s window only ever hides a change the user just caused (credits after a Turn, tier right after a checkout return), the reads are cheap Redis hits, and every write path already invalidates explicitly. |
 | notifications | unset (`0`) | app default (`0`)              | Subscription-only — no queries for a `staleTime` to apply to.                                                                                                                                                                                                                                               |
 
 **billing's `staleTime` had already stopped applying.** Billing was the one feature
 that never pinned a client — its hooks call `useQuery` with no second argument,
-because only chat, feedback and ingest got #82's mitigation. In both full apps the
+because only chat, feedback and ingest got that mitigation. In both full apps the
 innermost `QueryClientProvider` beneath billing's own was **notifications**', which
 sets no `defaultOptions.queries` at all. So billing's queries have been running on
 the notifications cache at `staleTime: 0`, and the 30s it declared has been dead for
@@ -130,13 +130,13 @@ what the hook is for: a shared machine, where the departing user's chat history,
 feedback, _and_ documents must all go. Previously three renders each cleared the
 whole (well, their own) cache and one store.
 
-## What this changes in @acme/hooks ADR 0001
+## What this changes in `@acme/hooks`
 
-[@acme/hooks ADR 0001](../../packages/shared/hooks/docs/adr/0001-per-query-indexeddb-persister.md) is otherwise intact — per-query
-persistence, IndexedDB via `idb-keyval`, per-feature `rq-<keyPrefix>` stores,
-app-supplied `scopeKey`, the `buster`, the pinned patch and the `query-core`
-override all stand. Three sentences in it assumed a per-feature client and are
-amended in place:
+The per-query persister decision is otherwise intact — per-query persistence,
+IndexedDB via `idb-keyval`, per-feature `rq-<keyPrefix>` stores, app-supplied
+`scopeKey`, the `buster`, the pinned patch and the `query-core` override all
+stand. Three sentences in it assumed a per-feature client and are amended in
+place:
 
 - _"A feature turns it on by attaching the persister to its `QueryClient`"_ → the
   persister is attached per query, through `usePersistedQueryOptions()`.
@@ -174,7 +174,7 @@ its transport links, its `keyPrefix`, and its persister scope.
   needs `staleTime: 0`, and a new app that forgot would silently break chat's
   revalidation. Policy belongs with the query.
 - **Move `createFeatureClient` back to whole-client persistence so the client
-  stays meaningful.** Rejected by @acme/hooks ADR 0001 on its own merits (feedback's
+  stays meaningful.** Rejected by `@acme/hooks` on its own merits (feedback's
   one-query-per-Message write pattern), and unchanged by this decision.
 - **An app-level `QueryClient` in each app with no shared factory.** Four copies
   of the same SuperJSON dehydrate block and the same browser-singleton subtlety.
@@ -194,7 +194,7 @@ its transport links, its `keyPrefix`, and its persister scope.
   above it.** That is a real new requirement on apps (and on any frontend test
   setup): a feature provider on its own now throws from `useQueryClient`. The
   trade is that the failure is loud and immediate, where the old one was silent.
-- `apps/billing` — the last hand-rolled feature provider — folds into
+- `@acme/billing` — the last hand-rolled feature provider — folds into
   `createFeatureClient` on the way through, since it had to lose its
   `QueryClientProvider` regardless. Its dead `splitLink` branches (a subscription
   split for a router with no subscription; a blob split for a feature that uploads

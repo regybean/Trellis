@@ -22,7 +22,7 @@ import { db } from '../../../api/trpc';
 /**
  * The knobs feedback's backend tests vary: the principal, and nothing else.
  * Feedback context is exactly `BaseContext` — it has no tier to gate on and no
- * credit to spend — so it sets no tier or credit balance either (#256).
+ * credit to spend — so it sets no tier or credit balance either.
  */
 export type TestContextOptions = FeatureTestContextOptions;
 

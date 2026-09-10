@@ -6,7 +6,7 @@
  *
  * Two contributions, both read off the **authored** development selection and
  * never `process.env` (this decides what to PROVISION, so an operator's
- * override would be the wrong input — [@acme/env ADR 0001](../../../platform/env/docs/adr/0001-one-env-factory-per-slice.md) §6):
+ * override would be the wrong input):
  *
  *   - whether the service is `needed` at all. The graph only records that a
  *     package does LLM/embeddings; which provider serves that is this slice's

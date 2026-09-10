@@ -7,12 +7,11 @@ import { jsonEnv, readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Subscriptions' environment, declared once (@acme/env ADR 0001). The per-tier monthly
- * Credit limits and the unknown-tier fallback were hardcoded in
- * `credit-policy.ts`; they are business tunables that can legitimately differ per
- * deploy target (a promo env with higher caps, say), so they are authored here as
- * profile values rather than as source literals. Server-only — the credit policy
- * runs on the backend.
+ * Subscriptions' environment, declared once. The per-tier monthly Credit limits
+ * and the unknown-tier fallback were hardcoded in `credit-policy.ts`; they are
+ * business tunables that can legitimately differ per deploy target (a promo env
+ * with higher caps, say), so they are authored here as profile values rather
+ * than as source literals. Server-only — the credit policy runs on the backend.
  *
  * `CREDIT_LIMITS` is a record, so it goes through `jsonEnv`: an environment
  * variable is a string and a record has no scalar coercion, so without it the key

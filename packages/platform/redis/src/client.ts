@@ -32,7 +32,7 @@ export type NamespacedKey = string & { readonly __brand: 'NamespacedKey' };
  * demands a `NamespacedKey`, and this is the only way to make one. An empty
  * namespace yields the raw key with no leading colon (the test path).
  *
- *   nsKey('credits', userId, tier) -> 'nextjs:credits:<user>:<tier>'
+ *   nsKey('credits', userId, tier) -> '<app>:credits:<user>:<tier>'
  */
 export const nsKey = (...parts: string[]): NamespacedKey => {
   const key = parts.join(':');

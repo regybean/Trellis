@@ -40,8 +40,8 @@ tree, so it is what the checkout's graph says right now.
 _Avoid_: "dependency tree", "graph" for this specific set
 
 **Token**:
-What a human types to name a package: the full name (`@acme/nextjs`), the
-unscoped tail (`nextjs`), or the directory (`nextjs-slim`). A token naming two
+What a human types to name a package: the full name (`@acme/web`), the
+unscoped tail (`web`), or the directory (`web-slim`). A token naming two
 packages is refused rather than resolved to one of them.
 _Avoid_: "alias", "short name" as a distinct concept — a short name is a token
 

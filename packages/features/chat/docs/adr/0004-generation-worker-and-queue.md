@@ -43,11 +43,11 @@ All apps share one Redis instance, so the `generation` queue name alone is not
 isolation: without a per-app prefix, every app's worker would drain the same
 `bull:generation` list and could process a foreign app's job — then persist
 under the wrong Redis namespace and Postgres schema. `@acme/queue`'s
-`createQueue` / `createWorker` therefore set `prefix: NEXT_PUBLIC_WEBAPP`, so app
-`nextjs` owns `nextjs:generation:*`. Producer (`chat.send`) and consumer (app
-`worker.ts`) both run under the app's env and resolve the same prefix without
-coordination. This mirrors the `nsKey` Redis-key partitioning and the per-app
-Postgres schema.
+`createQueue` / `createWorker` therefore set `prefix: NEXT_PUBLIC_WEBAPP`, so an
+app owns `<app>:generation:*` and nothing else. Producer (`chat.send`) and
+consumer (app `worker.ts`) both run under the app's env and resolve the same
+prefix without coordination. This mirrors the `nsKey` Redis-key partitioning and
+the per-app Postgres schema.
 
 ### Request-less trust model
 

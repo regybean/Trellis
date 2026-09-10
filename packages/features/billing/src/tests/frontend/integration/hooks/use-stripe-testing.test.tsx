@@ -1,5 +1,5 @@
 /**
- * useStripeTesting — integration/hooks (ADR 0018).
+ * useStripeTesting — integration/hooks.
  *
  * The hook's contract: create a demo Checkout session and run the tier-gated
  * feature-test queries, branching on the TYPED billing error code carried in the

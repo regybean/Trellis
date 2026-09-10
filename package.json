@@ -77,7 +77,6 @@
     "predev": "scripts/check-remote-cache.sh",
     "preview": "pnpm with-env ./scripts/preview.sh",
     "test": "scripts/test.sh test",
-    "test:nextjs": "scripts/test.sh test",
     "test:backend": "scripts/test.sh test:backend",
     "test:frontend": "scripts/test.sh test:frontend",
     "test:inventory": "pnpm -C tooling/test-inventory test:inventory",

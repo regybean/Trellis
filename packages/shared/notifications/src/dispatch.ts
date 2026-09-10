@@ -9,8 +9,8 @@ export type NotificationRenderers = Record<string, NotificationRenderer>;
 /**
  * Dispatch one notification to its renderer — factored as a plain, independently
  * callable function (not buried in the subscription callback) so it can be unit-
- * exercised without an un-drivable SSE tail (ADR 0018): the headless tail child
- * is merely one caller.
+ * exercised without an un-drivable SSE tail: the headless tail child is merely
+ * one caller.
  *
  * Resolution is `renderers[n.kind] ?? defaultToastRenderer`: a plain-text kind
  * needs zero registration; a rich kind is one app-side map entry. The core never

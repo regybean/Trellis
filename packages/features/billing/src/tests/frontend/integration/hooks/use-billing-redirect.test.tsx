@@ -1,5 +1,5 @@
 /**
- * useBillingRedirect — integration/hooks (ADR 0018).
+ * useBillingRedirect — integration/hooks.
  *
  * The Billing redirect module is the single home for the create-session →
  * redirect-URL → navigate flow, the loading toast, and the typed billing-error →

@@ -30,7 +30,7 @@ export const resolveContext = async (req: Request) => ({
 
 // …and one for the features that meter or gate. The provider is imported, not
 // built here: your composition root builds it, and your worker reads the same
-// one (ADR 0006).
+// one.
 export const resolveContextWithEntitlements = async (req: Request) => ({
   ...(await resolveContext(req)),
   entitlements,

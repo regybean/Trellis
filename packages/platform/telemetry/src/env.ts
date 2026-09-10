@@ -7,11 +7,11 @@ import { readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Telemetry's environment, declared once (@acme/env ADR 0001). Both keys are **config** —
- * they carry profile values, so a clean checkout exports to the local collector
- * with no `.env` rows — and both are env-overridable (@acme/env ADR 0001 §4), which is what
- * a real deploy needs: the collector endpoint is the value that differs per
- * target, and pointing an app at one should not require re-authoring a profile.
+ * Telemetry's environment, declared once. Both keys are **config** — they carry
+ * profile values, so a clean checkout exports to the local collector with no
+ * `.env` rows — and both are env-overridable, which is what a real deploy needs:
+ * the collector endpoint is the value that differs per target, and pointing an
+ * app at one should not require re-authoring a profile.
  *
  * `OTEL_SERVICE_NAME` is the generic preload's default (`register.ts`); apps that
  * init at their own server boundary pass their own per-app service name literal
@@ -27,7 +27,7 @@ export const env = createEnv({
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
       default: {
-        OTEL_SERVICE_NAME: 'trellis',
+        OTEL_SERVICE_NAME: 'acme',
         OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
       },
     }),

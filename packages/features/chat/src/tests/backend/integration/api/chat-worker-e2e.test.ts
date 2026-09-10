@@ -4,8 +4,7 @@
  *
  * Where `chat-generation-processor.test.ts` calls the processor directly, this
  * test drains it through `createWorker` — exactly the wiring each app's
- * `apps/<app>/worker.ts` entry point performs. It proves the whole chain the ticket
- * (#50) calls for:
+ * `apps/<app>/worker.ts` entry point performs. It proves the whole chain:
  *
  *   chat.send → job enqueued → worker drains it → deltas published to the Redis
  *   Stream → chat.stream reader re-emits them → `done` terminal with messageId →

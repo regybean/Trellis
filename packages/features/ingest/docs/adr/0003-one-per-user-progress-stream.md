@@ -1,6 +1,6 @@
 # One progress stream per user, carrying no job-level terminal
 
-**Status:** accepted — ticket #188, moved onto the shared primitive in #196
+**Status:** accepted — later moved onto the shared stream primitive
 
 ## Context
 
@@ -16,9 +16,8 @@ of streams and discovering new ones as they appear.
 
 The transport underneath — the `xRange` poll loop with idle backoff, the
 abort-aware delay, the atomic append-with-TTL — is shared with chat and
-notifications and belongs to `@acme/redis`
-([@acme/redis ADR 0001](../../../../platform/redis/docs/adr/0001-durable-redis-stream-primitive.md)).
-What is decided here is only ingest's own half.
+notifications and belongs to `@acme/redis`. What is decided here is only
+ingest's own half.
 
 ## Decision
 
@@ -54,10 +53,8 @@ evidence. Job completion is owned solely by the notification stream
 **Retention and poll bounds are authored config, not constants.**
 `INGEST_PROGRESS_TTL_SECONDS` (1h), `INGEST_PROGRESS_POLL_MIN_MS` and
 `INGEST_PROGRESS_POLL_MAX_MS` are profile-authored in `env.ts` and
-env-overridable per deploy
-([@acme/env ADR 0001](../../../../platform/env/docs/adr/0001-one-env-factory-per-slice.md)).
-The retention window is a product decision — how far back a reload may rejoin —
-so a deploy gets to move it.
+env-overridable per deploy. The retention window is a product decision — how far
+back a reload may rejoin — so a deploy gets to move it.
 
 ## Consequences
 

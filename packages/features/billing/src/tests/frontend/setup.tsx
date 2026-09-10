@@ -23,7 +23,7 @@ import '@testing-library/jest-dom';
 import '@acme/test-utils/jsdom';
 
 /**
- * The billing values the client seam reads (@acme/env ADR 0001), supplied directly here —
+ * The billing values the client seam reads, supplied directly here —
  * config is pure, so a test constructs it with no env. The plan IDs match the
  * subscription-cache products the MSW handlers/backends seed.
  */
@@ -37,9 +37,9 @@ const testBillingConfig = {
 // NODE_ENV='test' (shared vitest base env) makes trpc/react use a plain httpLink
 // msw-trpc can intercept. Env is real (validated by ../../env). We fake the
 // network at the HTTP boundary with MSW and assert what renders — never mock the
-// tRPC client, a feature hook, or react-toastify (ADR 0018).
+// tRPC client, a feature hook, or react-toastify.
 
-// Mock next/navigation — an allowed framework external (ADR 0018 / ADR 0014).
+// Mock next/navigation — an allowed framework external.
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: vi.fn() }),
 }));
@@ -48,8 +48,8 @@ vi.mock('next/navigation', () => ({
  * The viewer's auth state, as the *app* would supply it through the seam
  * (`AuthStatusProvider`). Nothing is mocked here: the seam is a plain context
  * that the feature reads, so a test drives it by rendering the real provider —
- * exactly how `apps/nextjs` and `apps/tanstack-start` drive it (ADR 0018: never
- * mock a seam the feature owns).
+ * exactly how the consuming apps drive it (never mock a seam the feature
+ * owns).
  *
  * Read at wrapper-render time, so call `setAuth` before rendering.
  */
@@ -76,11 +76,11 @@ export const resetAuth = () => {
 
 /**
  * Build the providers every billing frontend test renders under: the app's single
- * QueryClient (ADR 0036 — a feature provider renders none of its own, so a test
+ * QueryClient (a feature provider renders none of its own, so a test
  * has to mount one exactly as an app does), the feature's tRPC provider, the
  * `BillingConfigProvider` carrying the client config + server-derived localstripe
  * mode, and a real `<ToastContainer />` so
- * success/error toasts are asserted as DOM text (ADR 0018), not via a mocked
+ * success/error toasts are asserted as DOM text, not via a mocked
  * `toast`. `localstripeMode` defaults to `false` (real Stripe) — the mode is
  * threaded through the provider seam, so a test opts into localstripe by passing
  * `{ localstripeMode: true }` rather than touching `NODE_ENV`.

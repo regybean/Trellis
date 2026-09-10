@@ -1,6 +1,6 @@
 # Per-query IndexedDB persister for offline read of chat & feedback
 
-**Status:** amended by ../../../../../docs/adr/0036-one-app-owned-query-client.md
+**Status:** accepted
 
 Operators reload or reopen an app and stare at empty Conversation History, blank
 Messages, and flickering thumbs-up/down Feedback buttons until the network
@@ -9,10 +9,10 @@ revisit most and the slowest to reappear. The fix is to persist the relevant
 TanStack Query cache to the browser and restore it instantly on cold open, then
 background-refetch when online (stale-while-revalidate). This ADR records the
 load-bearing choices behind the shared mechanism (`@acme/hooks`); the features
-that opt in (chat, feedback, and — since #216 — ingest) and the app-supplied scope wiring are separate
-tickets that compose it.
+that opt in (chat, feedback and ingest) and the app-supplied scope wiring are
+separate tickets that compose it.
 
-> **Amended by [ADR 0036](../../../../../docs/adr/0036-one-app-owned-query-client.md).** This ADR was
+> **Amended: the app owns the one `QueryClient`.** This ADR was
 > written when each feature owned a `QueryClient`, and said "attach the persister
 > to its `QueryClient`". Apps now mount a single `QueryClient`, and a feature
 > attaches its persister — with the `gcTime` and `staleTime: 0` that make it
@@ -46,7 +46,7 @@ successful queries are ever written. Sensitive/volatile queries
 (credits/subscription, the `chat.stream` subscription, in-flight Turn state) are
 simply never marked.
 
-> **Note (amended by #115): `chat.get` transiently holds an in-flight Turn.**
+> **Note, amended since: `chat.get` transiently holds an in-flight Turn.**
 > As of the chat Turn-lifecycle simplification, `chat.get` is the single source
 > of truth for the rendered Messages: the optimistic user Message and the
 > assistant's streaming deltas are written into that query's cache, not a
@@ -188,9 +188,8 @@ load-bearing.
   network chatter than a non-zero `staleTime`, accepted on surfaces where
   freshness matters and the persister still gives the instant paint. It is not
   optional for an opting-in query — any `staleTime > 0` silently converts
-  stale-while-revalidate into serve-stale, which is why
-  [ADR 0036](../../../../../docs/adr/0036-one-app-owned-query-client.md) ships the two together in one
-  spread rather than leaving them two files apart.
+  stale-while-revalidate into serve-stale, which is why the persister and the
+  `staleTime` ship together in one spread rather than two files apart.
 - Opting a feature in is now a small, uniform step: declare a `persister` in
   `createFeatureClient`, spread `usePersistedQueryOptions()` into the queries
   that should persist, and expose `clearPersistedCache` for the app's logout

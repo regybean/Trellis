@@ -3,7 +3,7 @@
  *
  * Runs after `@acme/test-utils/hydrate-env` (which populates `process.env` with
  * the testcontainer Redis details), so `env.ts` validates against the real
- * running Redis — no env mocks (ADR 0014). The only behavioural mock is
+ * running Redis — no env mocks. The only behavioural mock is
  * `server-only`, which lets `publish` (guarded by `import 'server-only'`) be
  * imported under vitest. Nothing else is mocked — the whole point is the real
  * round-trip through Redis.

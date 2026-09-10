@@ -115,7 +115,7 @@ const BARE_ADR_NUMBER = /\bADRs?[ \t\n-]*#?(\d{4})\b/gi;
 /**
  * How far either side of a number the path that qualifies it may sit.
  *
- * A markdown citation writes both together — `[ADR 0039](../docs/adr/0039-…)` —
+ * A markdown citation writes both together — `[ADR NNNN](../docs/adr/NNNN-…)` —
  * but a wrapped comment can push the target onto the next line, and a long
  * relative prefix eats the rest of it. The window is per *number*: it looks for
  * a path naming the same four digits, so a paragraph citing several ADRs still
@@ -136,6 +136,17 @@ const PATH_WINDOW = 240;
 const qualifyingPath = (number: string) =>
   new RegExp(`(?<![\\w-])${number}-[\\w.-]*\\.md`);
 
+/**
+ * The package a citation names, if it names one: `@acme/env ADR NNNN`.
+ *
+ * Written this way the citation means *that* package's NNNN, so the window has
+ * to be told which directory would qualify it. Otherwise a file that owns an
+ * ADR of the same number — and so writes that path somewhere near — silently
+ * qualifies every other package's, which is a whole class of the citation this
+ * rule exists to catch reading as clean.
+ */
+const NAMES_A_PACKAGE = /@[\w-]+\/([\w.-]+)`?[ \t\n]*$/;
+
 /** Rule 1: a citation carries the path, never the number alone. */
 export function validateAdrNumbers(file: string, text: string): string[] {
   const errors: string[] = [];
@@ -146,7 +157,14 @@ export function validateAdrNumbers(file: string, text: string): string[] {
       Math.max(0, match.index - PATH_WINDOW),
       match.index + PATH_WINDOW,
     );
-    if (qualifyingPath(number).test(window)) continue;
+    const named = NAMES_A_PACKAGE.exec(
+      text.slice(Math.max(0, match.index - 60), match.index),
+    )?.[1];
+    const qualifies =
+      named === undefined
+        ? qualifyingPath(number)
+        : new RegExp(`(?<![\\w-])${named}/docs/adr/${number}-`);
+    if (qualifies.test(window)) continue;
 
     errors.push(
       `${site(file, text, match.index)}: \`${match[0].trim()}\` cites an ADR by number alone. ` +

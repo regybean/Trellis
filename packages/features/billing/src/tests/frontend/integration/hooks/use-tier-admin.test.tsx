@@ -1,5 +1,5 @@
 /**
- * useTierAdmin — integration/hooks (ADR 0018).
+ * useTierAdmin — integration/hooks.
  *
  * The hook's contract: `setTier(tier, onDone)` fires the admin setUserTier
  * mutation, runs `onDone` on success, and exposes isPending/isSuccess/error.

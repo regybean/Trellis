@@ -4,7 +4,7 @@
  * Every repo script needs the same two answers and each used to compute them
  * itself. The directory list in particular was four hardcoded copies with three
  * different contents, two of them naming `packages/compositions` — a directory
- * that is in neither `pnpm-workspace.yaml` nor on disk (ADR 0011 removed it).
+ * that was removed and is in neither `pnpm-workspace.yaml` nor on disk.
  * Deriving the list from the workspace file removes that class of drift by
  * construction: the config is the only place the answer exists.
  *

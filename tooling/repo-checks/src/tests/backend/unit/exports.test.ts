@@ -104,7 +104,7 @@ describe('the entry shape', () => {
 
 describe('what the convention governs', () => {
   it('treats an absent map as nothing to police', () => {
-    expect(validateExports('@acme/nextjs', undefined)).toEqual([]);
+    expect(validateExports('@acme/web', undefined)).toEqual([]);
   });
 
   it('rejects a map that is not an object at all', () => {
@@ -117,7 +117,7 @@ describe('what the convention governs', () => {
     expect(isGoverned('packages/features/chat')).toBe(true);
     expect(isGoverned('packages/platform/db')).toBe(true);
     expect(isGoverned('tooling/repo-checks')).toBe(false);
-    expect(isGoverned('apps/nextjs')).toBe(false);
+    expect(isGoverned('apps/web')).toBe(false);
   });
 });
 
@@ -136,7 +136,7 @@ describe('the whole check', () => {
           exports: { './base': './base.ts' },
         },
       },
-      'apps/nextjs': { manifest: { name: '@acme/nextjs' } },
+      'apps/web': { manifest: { name: '@acme/web' } },
     });
 
     const { errors, warnings } = checkExports(io);

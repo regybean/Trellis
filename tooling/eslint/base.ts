@@ -34,7 +34,7 @@ import tseslint from 'typescript-eslint';
 const banMastra = {
   group: ['@mastra/*'],
   message:
-    'Mastra imports are contained to @acme/rag and @acme/chat (@acme/rag ADR 0001). Consume them through those packages.',
+    'Mastra imports are contained to @acme/rag and @acme/chat. Consume them through those packages.',
 };
 /**
  * The auth provider is contained: an app may reach for it (it owns session
@@ -43,14 +43,14 @@ const banMastra = {
  *
  * Without this the seam is convention-only: nothing would stop `@acme/chat`
  * importing `better-auth/plugins/admin` tomorrow, and the slim, no-auth apps
- * would silently acquire a provider in their graph (ADR 0010). `allowTypeImports`
- * because a type is erased — it couples the source, not the bundle.
+ * would silently acquire a provider in their graph. `allowTypeImports` because
+ * a type is erased — it couples the source, not the bundle.
  */
 const banBetterAuth = {
   group: ['better-auth', 'better-auth/*'],
   allowTypeImports: true,
   message:
-    'better-auth imports belong in apps or @acme/auth (ADR 0003, @acme/auth ADR 0001). Read the principal off the tRPC context, or the client status off @acme/hooks.',
+    'better-auth imports belong in apps or @acme/auth. Read the principal off the tRPC context, or the client status off @acme/hooks.',
 };
 const banFeatureTrpc = {
   group: ['**/trpc/react', '**/trpc/server', '@trpc/*'],
@@ -58,13 +58,12 @@ const banFeatureTrpc = {
     'Feature components must not call tRPC directly — put data access in src/hooks/ (see AGENTS.md → Slice contract enforcement).',
 };
 
-// Frontend test doctrine (ADR 0018): fake the data layer at the HTTP boundary
-// with MSW, never `vi.mock` a seam the feature owns. Banning the mocks forces
-// MSW and makes data-layer `toHaveBeenCalledWith(...)` assertions impossible
-// (the spy can't be created). Framework externals (next/navigation) stay
-// mockable, mirroring the backend's blessed mock list (ADR 0014). @acme/auth is
-// not one of them: it ships no React, so no frontend test imports it
-// (@acme/auth ADR 0001).
+// Frontend test doctrine: fake the data layer at the HTTP boundary with MSW,
+// never `vi.mock` a seam the feature owns. Banning the mocks forces MSW and
+// makes data-layer `toHaveBeenCalledWith(...)` assertions impossible (the spy
+// can't be created). Framework externals (next/navigation) stay mockable,
+// mirroring the backend's blessed mock list. @acme/auth is not one of them: it
+// ships no React, so no frontend test imports it.
 // `no-restricted-syntax` is flat-config replace (last match wins), so the
 // override re-declares the shared console ban to keep it in force.
 const banConsole = {
@@ -77,34 +76,34 @@ const banFrontendSeamMocks = [
     selector:
       "CallExpression[callee.object.name='vi'][callee.property.name='mock'] > Literal[value=/trpc\\u002Freact$/]",
     message:
-      'Frontend tests mock the network at the HTTP boundary (MSW), not the tRPC client you own (ADR 0018). Use trpcMsw + setupServer from your feature setup.',
+      'Frontend tests mock the network at the HTTP boundary (MSW), not the tRPC client you own. Use trpcMsw + setupServer from your feature setup.',
   },
   {
     selector:
       "CallExpression[callee.object.name='vi'][callee.property.name='mock'] > Literal[value=/^\\.\\.?\\u002F.*hooks/]",
     message:
-      "Frontend tests must not mock a feature's own hook — the hook is the contract under test (ADR 0018). Drive it through MSW and assert the observable outcome.",
+      "Frontend tests must not mock a feature's own hook — the hook is the contract under test. Drive it through MSW and assert the observable outcome.",
   },
   {
     selector:
       "CallExpression[callee.object.name='vi'][callee.property.name='mock'] > Literal[value=/^react-toastify$/]",
     message:
-      'Assert toasts via a real <ToastContainer /> in the DOM, not a mocked react-toastify (ADR 0018). Toast output is user-visible, not a true external.',
+      'Assert toasts via a real <ToastContainer /> in the DOM, not a mocked react-toastify. Toast output is user-visible, not a true external.',
   },
 ];
 
 /**
  * Seam implementations are constructed in exactly one file per app — its
- * composition root (ADR 0006). This is the ban that makes that enforceable
- * everywhere else.
+ * composition root. This is the ban that makes that enforceable everywhere
+ * else.
  *
- * TypeScript already checks that a mount naming `entitlements` is handed one
- * (#264). What it cannot check is that two *independently constructed* values
- * are the same value, and an app has two entry points that both need the
- * provider: the tRPC route seam and the generation worker. Build one each and
- * both typecheck while disagreeing about which provider charged and which one
- * refunds — Credits leak silently. So construction happens once and every entry
- * point imports the result.
+ * TypeScript already checks that a mount naming `entitlements` is handed one.
+ * What it cannot check is that two *independently constructed* values are the
+ * same value, and an app has two entry points that both need the provider: the
+ * tRPC route seam and the generation worker. Build one each and both typecheck
+ * while disagreeing about which provider charged and which one refunds —
+ * Credits leak silently. So construction happens once and every entry point
+ * imports the result.
  *
  * Names, not whole packages: `@acme/subscriptions` also exports ordinary reads
  * (`getStripeCustomerId`) that an app is free to call from wherever it reads
@@ -118,7 +117,7 @@ const seamImplementationNames = [
 const banSeamConstruction = (compositionRoot: string): ImportPattern => ({
   group: ['@acme/subscriptions', '@acme/entitlements'],
   importNames: seamImplementationNames,
-  message: `Seam implementations are constructed in one file per app — this app's is ${compositionRoot} (ADR 0006). Import the built value from there instead of constructing a second one.`,
+  message: `Seam implementations are constructed in one file per app — this app's is ${compositionRoot}. Import the built value from there instead of constructing a second one.`,
 });
 
 type ImportPattern = {
@@ -329,7 +328,7 @@ export const baseConfig = defineConfig(
       },
     },
   },
-  // Frontend test doctrine: ban mocking the seams a feature owns (ADR 0018).
+  // Frontend test doctrine: ban mocking the seams a feature owns.
   {
     files: ['**/tests/frontend/**/*.{ts,tsx}'],
     rules: {

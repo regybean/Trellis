@@ -1,4 +1,4 @@
-# Mounting a Trellis package
+# Mounting a package
 
 Every runtime package under `packages/` carries an `ADAPTER.md`: what the
 package gives an app, what it exposes to the client and to the server, and what
@@ -67,11 +67,10 @@ has to satisfy, and point at real code for the rest.
 The four apps in this repo mount these packages for real, across two frameworks
 and two feature subsets:
 
-- `apps/nextjs` and `apps/tanstack-start` — the same slices on Next.js and on
-  TanStack Start.
-- `apps/nextjs-slim` and `apps/tanstack-slim` — the same slices with no auth
-  provider and no billing. How those two are built is an app-layer decision,
-  filed under `apps/docs/adr/`.
+- The two full apps — the same slices on Next.js and on TanStack Start.
+- The two reduced apps — the same slices with no auth provider and no billing.
+  How those two are built is an app-layer decision, filed under
+  `apps/docs/adr/`.
 
 Reading one alongside its `ADAPTER.md` is the fastest way to see a seam filled
 in. Diffing two of them shows which parts are framework-specific.
@@ -82,5 +81,3 @@ in. Diffing two of them shows which parts are framework-specific.
   package, for writing one rather than mounting one.
 - [ADR 0015](../adr/0015-package-exports-convention.md) — the `exports`
   convention every **Surface** table reflects.
-- [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md) — one env factory per
-  slice, and the config/secret rule every **Env** table uses.

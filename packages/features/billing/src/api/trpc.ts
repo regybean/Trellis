@@ -21,11 +21,10 @@ import {
  *
  * It is declared here, by the one feature whose whole job is billing, rather
  * than in `@acme/trpc` where it used to be a required field on every context.
- * The substrate hasn't read it since #250, so all that field bought was making
+ * The substrate no longer reads it, so all that field bought was making
  * `@acme/feedback`, `@acme/ingest` and both slim apps import the billing
- * contract to construct a context (#256, ADR 0006 amendment). An app still
- * chooses the provider at its edge; this type is just how billing says it needs
- * one.
+ * contract to construct a context. An app still chooses the provider at its
+ * edge; this type is just how billing says it needs one.
  */
 export interface BillingContext extends BaseContext {
   entitlements: EntitlementsProvider;
@@ -35,7 +34,7 @@ const t = initTRPC.context<BillingContext>().create(trpcConfig);
 
 // The shared middleware stack, composed against billing's own concrete context.
 // The bodies live once in `@acme/trpc` as plain async helpers; only this wiring
-// is per-feature (#264).
+// is per-feature.
 const telemetry = t.middleware(({ next, path, type, ctx }) =>
   withProcedureSpan({ path, type, userId: ctx.session.user?.id }, next),
 );
@@ -58,7 +57,7 @@ export const adminProcedure = publicProcedure.use(admin);
  * `minTier` in the ordering (`Basic < Standard < Pro`), so higher tiers inherit
  * lower-tier access.
  *
- * It lives here, not in `@acme/trpc`, because tiers do (#250). The substrate is
+ * It lives here, not in `@acme/trpc`, because tiers do. The substrate is
  * shared by `feedback` and `ingest`, neither of which has a tier to gate on; the
  * only procedures that ever gated were billing's own. Built on billing's
  * `protectedProcedure` — a gate with no principal to resolve has nothing to

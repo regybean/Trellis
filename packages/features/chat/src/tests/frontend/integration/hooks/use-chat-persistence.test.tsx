@@ -1,7 +1,7 @@
 /**
- * Offline read of Conversation History + Messages (#84, @acme/hooks ADR 0001).
+ * Offline read of Conversation History + Messages.
  *
- * The behaviour under test at the existing hook seam (ADR 0018): a persisted
+ * The behaviour under test at the existing hook seam: a persisted
  * query paints from IndexedDB on a cold cache. Chat’s persisted queries revalidate
  * on every mount (`staleTime: 0` — the lever that makes the persister's
  * post-restore refetch fire; `refetchOnMount` does NOT, see trpc/react.tsx), so

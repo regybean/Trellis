@@ -6,7 +6,7 @@
  * inline — and some of those slices build their env **in the browser** (any
  * slice with a `shared` key, e.g. `@acme/billing`'s Stripe plan ids). Vite
  * inlines only `process.env.NEXT_PUBLIC_*`, `process.env.APP_ENV` and
- * `process.env.NODE_ENV` (see `apps/tanstack-start/vite.config.ts`); any other
+ * `process.env.NODE_ENV` (see a Vite app's `vite.config.ts`); any other
  * `process.env.X` survives into the client bundle as a bare `process` reference,
  * and `process` does not exist there. That is a ReferenceError while the env
  * module is still evaluating — a throw on import that kills hydration.

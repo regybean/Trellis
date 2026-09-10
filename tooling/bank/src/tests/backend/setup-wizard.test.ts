@@ -1,14 +1,13 @@
 /**
- * Verifies `tooling/bank/src/setup-wizard.mjs` — the command that authors a consumer's
- * `bank.manifest.json` from a selection ([#289](https://github.com/regybean/Trellis/issues/289)).
+ * Verifies `tooling/bank/src/setup-wizard.mjs` — the command that authors a
+ * consumer's `bank.manifest.json` from a selection.
  *
  * Two seams. The command run non-interactively, asserted on the manifest it
  * produced: that file is the contract — it is what a human reads and the only
  * thing `bank:sync` consumes — so nothing here asserts on how the selection was
- * collected. And the offer and the closure preview
- * ([#291](https://github.com/regybean/Trellis/issues/291)), which are what the
- * picker and `--list` render and the only place either could be wrong about
- * what the bank holds.
+ * collected. And the offer and the closure preview, which are what the picker
+ * and `--list` render and the only place either could be wrong about what the
+ * bank holds.
  *
  * The picker itself is a shell over both and is deliberately untested: arrow
  * keys and raw mode need a pty, and what a test could reach through one is
@@ -152,7 +151,7 @@ describe('setup:wizard authors a manifest', () => {
     // sync can resolve. `@acme/db` pulls its closure and, declaring acme.infra,
     // the infra bundle with it.
     sync(consumer);
-    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
+    expect(treePaths(consumer, 'vendor/bank')).toEqual([
       'deploy/compose.yaml',
       'docs/guide.md',
       'packages/db/index.js',
@@ -175,7 +174,7 @@ describe('setup:wizard authors a manifest', () => {
     });
 
     // @acme/db's closure is three packages, but expanding it here would
-    // snapshot it at authoring time — exactly what ADR 0039 removed.
+    // snapshot it at authoring time — the manifest names a selection, not paths.
     expect(manifest.packages).toEqual(['@acme/db']);
   });
 
@@ -206,7 +205,7 @@ describe('setup:wizard authors a manifest', () => {
     sync(consumer);
     // The always-included `root` bundle alone — a repo taking the workspace
     // and no slice at all still syncs.
-    expect(treePaths(consumer, 'vendor/trellis')).toEqual([
+    expect(treePaths(consumer, 'vendor/bank')).toEqual([
       'pnpm-workspace.yaml',
       'turbo.json',
     ]);

@@ -49,7 +49,7 @@ const EMBED_DIMENSIONS = 768;
 // literal string instead, which never matches the id @acme/rag's
 // `document-uploader.ts` resolves the same specifier to
 // (`packages/shared/models/src/index.ts`). The mock silently no-op'd and `uploadDoc`
-// embedded against a real Ollama on localhost:11434 (issue #232), which the dev
+// embedded against a real Ollama on localhost:11434, which the dev
 // compose stack happened to be serving — so the suite passed for the wrong reason.
 // The fix is the `@acme/models` devDependency in package.json: with the symlink
 // present both packages resolve to the same realpath, one module id, one mock.

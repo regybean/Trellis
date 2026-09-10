@@ -1,6 +1,6 @@
 // hooks/chat-turn-reducer.ts
 //
-// The pure Turn state machine (#132). `useChat` used to fuse the Turn's phase
+// The pure Turn state machine. `useChat` used to fuse the Turn's phase
 // logic with the React-Query cache writes and re-check a stale-closure `phaseRef`
 // in every async callback. That logic now lives here as a pure reducer: given the
 // current `TurnState` and a reader/mutation `TurnEvent`, it returns the next state
@@ -13,7 +13,7 @@ import type { Message } from '../api/schemas/message-schema';
 
 export const ERROR_TEXT = 'Sorry, there was an error processing your request.';
 
-// A Turn's lifecycle from THIS client's point of view (#115):
+// A Turn's lifecycle from THIS client's point of view:
 //   idle      — no Turn from this client; render the chat.get cache as-is.
 //   sending   — chat.send mutation in flight; the reader is not yet open.
 //   streaming — reader open, tokens (or a resumed Turn's backlog) flowing.
@@ -284,7 +284,7 @@ export function turnReducer(
   }
 }
 
-// Wedged-Turn view derivation (#115, #132). Pure: when this client holds no live
+// Wedged-Turn view derivation. Pure: when this client holds no live
 // Turn (idle, not resuming) and the probe says nothing is in flight, but the
 // authoritative history ends on a user Message with no assistant reply, the Turn
 // wedged (a worker died and the lock TTL lapsed before any reader could reconcile

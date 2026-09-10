@@ -7,7 +7,7 @@ import { UserButton } from '../../../../index';
 
 // The injected sign-out handler is observed through what it renders — the
 // harness swaps the button for a signed-out marker — so the assertion stays on
-// the DOM rather than a mock call count (ADR 0018).
+// the DOM rather than a mock call count.
 
 const ada = {
   name: 'Ada Lovelace',

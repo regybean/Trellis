@@ -1,7 +1,7 @@
 # Testing Guide
 
-How tests work in the Trellis monorepo — the layer taxonomy, the fixtures, and
-the rules. This is the canonical reference; `docs/agents/testing.md` is the short
+How tests work in this monorepo — the layer taxonomy, the fixtures, and the
+rules. This is the canonical reference; `docs/agents/testing.md` is the short
 agent-facing pointer to it.
 
 ## Quick start
@@ -13,7 +13,7 @@ pnpm --filter @acme/chat test:frontend   # frontend only
 pnpm --filter @acme/chat test:backend:watch
 pnpm test                                # everything (turbo)
 pnpm test:inventory                      # list every test without running one
-pnpm test:inventory nextjs-slim          # …or just what one app's closure covers
+pnpm test:inventory <app>                # …or just what one app's closure covers
 ```
 
 Backend suites need Postgres + Redis, and they **always start their own**. The
@@ -135,9 +135,7 @@ below follows from that.
 - **DON'T** `vi.mock('react-toastify')` — the toast renders in jsdom; assert it.
 - **Framework externals stay mockable:** `next/navigation` — the frontend's
   blessed mock list (mirrors [ADR 0014](adr/0014-tests-validate-real-env.md)). `@acme/auth` is not on it: it ships no
-  React, so no frontend test imports it
-  ([@acme/auth ADR 0001](../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)).
-  Prefer observable navigation
+  React, so no frontend test imports it. Prefer observable navigation
   (`<Link href>` in the DOM) over asserting an imperative `router.push`.
 
 ### Setup and config
@@ -189,8 +187,7 @@ There is **one** canonical context builder, shipped from `@acme/trpc/testing` (a
 dedicated export subpath — prod code never imports it). It is typed against the
 real platform contract and builds a context exactly the way an app resolver builds
 a real one: the session, plus whatever the feature's own context adds on top of
-`BaseContext`, passed through untouched, with nothing resolved up front (#250,
-#256, #264).
+`BaseContext`, passed through untouched, with nothing resolved up front.
 
 The builder takes the `session` whole, not a `userId` + `role` it fabricates one
 from, because which fields matter is the feature's knowledge: billing's tests set
@@ -263,7 +260,7 @@ export function createTestContext({
 
 `db` is **not** passed in the context — the feature creates and exports it in
 `api/trpc.ts`, and its routers import it. Tests import that same export when they
-need to seed or clean, and never inject one (#264).
+need to seed or clean, and never inject one.
 
 ### Data cleanup
 
@@ -321,7 +318,7 @@ values ([ADR 0014](adr/0014-tests-validate-real-env.md)).
 
 Never hand-roll `CREATE TABLE` SQL in tests — it drifts from the schema. Every
 Postgres a suite starts is empty, so the global-setup provisions tables by running
-`drizzle-kit push --force` against the canonical full app (`apps/nextjs`) with
+`drizzle-kit push --force` against the canonical full app with
 `NEXT_PUBLIC_WEBAPP` set to the suite's isolated schema — the same declarative
 push dev uses (`pnpm db:push`), reading `schema.ts` directly (this repo has no
 migration SQL, so `migrate` provisions nothing). One push creates every
@@ -363,7 +360,7 @@ records it in its own ADRs.
 ```bash
 pnpm test:inventory                        # everything, markdown on stdout, no containers
 pnpm test:inventory @acme/chat             # one package
-pnpm test:inventory nextjs-slim            # one app's whole closure
+pnpm test:inventory <app>                  # one app's whole closure
 pnpm test:inventory -- --layer backend     # one side of the stack
 pnpm test:inventory -- --kind unit         # the solitary tests, where internals-level ones hide
 pnpm test:inventory -- --out inventory.md  # written, not printed
@@ -404,8 +401,8 @@ packages answer to, exits non-zero rather than printing an empty report.
 Comparing a full app with its slim counterpart is the useful trick:
 
 ```bash
-pnpm test:inventory nextjs      > /tmp/full.md
-pnpm test:inventory nextjs-slim > /tmp/slim.md
+pnpm test:inventory <full-app> > /tmp/full.md
+pnpm test:inventory <slim-app> > /tmp/slim.md
 diff /tmp/full.md /tmp/slim.md
 ```
 

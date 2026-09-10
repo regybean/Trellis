@@ -1,5 +1,5 @@
 /**
- * SubscriptionDetailsModal — integration/components (ADR 0018).
+ * SubscriptionDetailsModal — integration/components.
  *
  * The modal is fed subscriptionData via props (no hook/network of its own).
  * The child SubscriptionCancellation renders real — it uses useCheckout which

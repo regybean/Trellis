@@ -25,7 +25,7 @@
   },
   "exports": {
     "./base": "./base.ts",
-    "./nextjs": "./nextjs.ts",
+    "./next": "./next.ts",
     "./react": "./react.ts",
     "./security": "./security.ts",
     "./testing": "./testing.ts"

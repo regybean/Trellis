@@ -45,5 +45,5 @@ behavioral/IO boundaries (`@acme/subscriptions`, `server-only`, `next/navigation
   the test run. The only relaxation in a test run is the per-key secret
   placeholder inside `withProfiles` — never `createEnv`'s own
   `skipValidation`, which would return `runtimeEnv` raw and discard every
-  coercion (see [@acme/env ADR 0001](../../packages/platform/env/docs/adr/0001-one-env-factory-per-slice.md)).
+  coercion.
 - New static vars go in one place (`staticTestEnv`), not scattered across mocks.

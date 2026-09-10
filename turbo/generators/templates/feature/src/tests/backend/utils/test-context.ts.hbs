@@ -4,8 +4,8 @@
  * The tRPC caller context comes from the one canonical builder
  * (`@acme/trpc/testing`) — it stubs the session (`ctx.session.user`) and nothing
  * else: the db/redis clients are the REAL ones, pointed at testcontainers.
- * Telemetry is ambient (ADR 0023) — no span in a caller test, so nothing to
- * stub. This file owns only the data cleanup.
+ * Telemetry is ambient — no span in a caller test, so nothing to stub. This
+ * file owns only the data cleanup.
  */
 import type { InjectedUser } from '@acme/trpc';
 import type { FeatureTestContextOptions } from '@acme/trpc/testing';
@@ -29,8 +29,7 @@ export type TestContextOptions = FeatureTestContextOptions;
  *
  * If `api/trpc.ts` adds a field to the feature's context, pass it here
  * alongside the session — `@acme/chat`'s wrapper adds
- * `entitlements: createMockEntitlements(…)` from `@acme/entitlements/testing`
- * (#256).
+ * `entitlements: createMockEntitlements(…)` from `@acme/entitlements/testing`.
  */
 export function createTestContext({ userId, role }: TestContextOptions) {
   const user: InjectedUser = { id: userId, role };

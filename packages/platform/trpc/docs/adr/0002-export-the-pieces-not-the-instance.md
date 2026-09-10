@@ -20,7 +20,7 @@ three consequences followed from that one fact:
    named values.
 2. **Declaration emit needed a private tRPC subpath.** Dodging TS2742 required a
    type import naming `@trpc/server/unstable-core-do-not-import` — a subpath
-   tRPC marks private, in the file #219 measures as this bank's most-diverged.
+   tRPC marks private, in this bank's most-diverged file.
 3. **A feature's context was declared in one place and consumed in another**, so
    reading what a procedure actually receives meant reading two packages.
 

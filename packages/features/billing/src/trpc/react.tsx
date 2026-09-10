@@ -7,16 +7,16 @@ import { env } from '../env';
 
 // Billing's client half. It was the last hand-rolled feature provider — a
 // verbatim copy of the create-t3-app scaffold — and folds into the shared factory
-// (`@acme/hooks`) here because it had to lose its own `QueryClient` regardless
-// (ADR 0036). Two `splitLink` branches went with it, both dead: a subscription
-// split for a router (`account`) that declares no subscription, and a
-// non-JSON-serialisable split for a feature that uploads nothing. What is left is
-// billing's real variation: its router type, endpoint (`/api/trpc/billing`), and
-// the batch-stream transport.
+// (`@acme/hooks`) here because it had to lose its own `QueryClient` regardless:
+// an app owns the single one. Two `splitLink` branches went with it, both dead:
+// a subscription split for a router (`account`) that declares no subscription,
+// and a non-JSON-serialisable split for a feature that uploads nothing. What is
+// left is billing's real variation: its router type, endpoint
+// (`/api/trpc/billing`), and the batch-stream transport.
 //
-// No persister. Credits and Subscription state are the queries @acme/hooks ADR 0001 names as
-// the ones never to persist — they are the account's live balance, and a restored
-// snapshot of a number the user is watching change is worse than a spinner.
+// No persister. Credits and Subscription state are the queries never to persist
+// — they are the account's live balance, and a restored snapshot of a number the
+// user is watching change is worse than a spinner.
 const client = createFeatureClient<AppRouter>({
   keyPrefix: 'billing',
   nodeEnv: env.NODE_ENV,

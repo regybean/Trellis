@@ -7,9 +7,9 @@
  * The values come from the **authored** development profile and never
  * `process.env`: this decides what compose PROVISIONS, so an operator's
  * override would be circular — `scripts/compose.sh` exports the resolved values
- * back into the environment ([@acme/env ADR 0001](../../env/docs/adr/0001-one-env-factory-per-slice.md) §6). Overriding `DB_NAME`
- * therefore points a *connection* at a different database; it does not rename
- * the one compose provisions.
+ * back into the environment. Overriding `DB_NAME` therefore points a
+ * *connection* at a different database; it does not rename the one compose
+ * provisions.
  */
 import { DB_DEVELOPMENT_PROFILE } from './development-profile';
 

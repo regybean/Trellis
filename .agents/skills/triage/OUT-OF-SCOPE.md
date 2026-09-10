@@ -49,9 +49,9 @@ interface ThemeConfig {
 
 ## Prior requests
 
-- #42 — "Add dark mode support"
-- #87 — "Night theme for accessibility"
-- #134 — "Dark theme option"
+- issue 42 — "Add dark mode support"
+- issue 87 — "Night theme for accessibility"
+- issue 134 — "Dark theme option"
 
 ```
 

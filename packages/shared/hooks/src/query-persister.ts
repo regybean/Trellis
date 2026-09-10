@@ -30,7 +30,7 @@ export const persistMeta = { persist: true } satisfies Record<string, unknown>;
  * queries whose data and key types are narrower — and an `unknown`-returning,
  * `readonly unknown[]`-keyed signature does not fit those slots. This alias keeps
  * the function's own `<T, TQueryKey>` so each query instantiates it at its own
- * types (ADR 0036).
+ * types.
  */
 export type FeatureQueryPersister = ReturnType<
   typeof experimental_createQueryPersister<PersistedQuery>

@@ -2,11 +2,11 @@
 # Smart dev launcher.
 #
 #   pnpm dev                 # every app + exactly the infra they need
-#   pnpm dev nextjs          # one app + its infra subset
-#   pnpm dev nextjs tanstack-start
-#   pnpm dev --no-push nextjs-slim
+#   pnpm dev <app>           # one app + its infra subset
+#   pnpm dev <app> <other-app>
+#   pnpm dev --no-push <app>
 #
-# App args may be short (nextjs-slim) or full (@acme/nextjs-slim); resolve-infra.ts
+# App args may be short (web) or full (@acme/web); resolve-infra.ts
 # normalises them (turbo's -F needs the full @acme/* name).
 #
 # Infra is DERIVED from the dependency graph (scripts/resolve-infra.ts reads each

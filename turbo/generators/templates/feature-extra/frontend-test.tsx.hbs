@@ -1,8 +1,7 @@
 /**
  * {{ pascalCase name }}List component test (integration/components).
  *
- * Doctrine: ADR 0018 — fake the network at the HTTP boundary, assert what
- * renders.
+ * Doctrine: fake the network at the HTTP boundary, assert what renders.
  * - `renderWithProviders` wraps the component in the real tRPC + React Query
  *   providers; the real hook + `QueryClient` run beneath.
  * - `trpcMsw` (msw-trpc) + a real `setupServer` intercept the tRPC HTTP calls.
