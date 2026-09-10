@@ -22,7 +22,7 @@ const jsonText = z.string().transform((raw, ctx) => {
  * Make a **non-scalar** key env-overridable: accept either the authored literal
  * or a JSON string, and validate both against the same schema.
  *
- * ADR 0001 §4 makes every key overridable, and an environment variable is a
+ * [ADR 0001](../docs/adr/0001-one-env-factory-per-slice.md) §4 makes every key overridable, and an environment variable is a
  * string. `z.coerce.number()` already covers the scalar case; an array, an
  * object or a boolean has no such coercion, so `MODELS_CHAT`, `CREDIT_LIMITS`
  * and `MEMORY_SEMANTIC_RECALL` would otherwise be overridable in name only —

@@ -1,5 +1,5 @@
 /**
- * Which keys are secret. `<file>.example` is the contract (ADR 0001): it
+ * Which keys are secret. `<file>.example` is the contract ([ADR 0001](../docs/adr/0001-pluggable-secrets-sync.md)): it
  * declares every key the file may hold, and a key's emptiness there declares
  * its sensitivity.
  *

@@ -55,7 +55,7 @@ real `<ToastContainer />` in the DOM. This keeps one consistent rule ("assert
 what renders") rather than carving a mock-call exception that reopens the door
 the tRPC-client ban closes. Framework externals that genuinely can't be observed
 in jsdom — `next/navigation`, `@acme/auth` — remain mockable, mirroring the
-backend's blessed mock list (ADR 0014); prefer observable navigation
+backend's blessed mock list ([ADR 0014](0014-tests-validate-real-env.md)); prefer observable navigation
 (`<Link href>` in the DOM) over asserting an imperative `router.push`.
 
 ## SSE subscriptions: assert the mutations, not the stream

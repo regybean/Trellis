@@ -134,7 +134,7 @@ below follows from that.
   assert a handler-side flag flipped — read the outcome, not the mechanism.
 - **DON'T** `vi.mock('react-toastify')` — the toast renders in jsdom; assert it.
 - **Framework externals stay mockable:** `next/navigation` — the frontend's
-  blessed mock list (mirrors ADR 0014). `@acme/auth` is not on it: it ships no
+  blessed mock list (mirrors [ADR 0014](adr/0014-tests-validate-real-env.md)). `@acme/auth` is not on it: it ships no
   React, so no frontend test imports it
   ([@acme/auth ADR 0001](../packages/shared/auth/docs/adr/0001-self-hosted-better-auth.md)).
   Prefer observable navigation
@@ -176,7 +176,7 @@ Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
 The one rule that resolves every "should I mock this?": **mock true externals
 (third-party network services); never mock `env` or in-repo infra.** Mocking a
 third-party SDK for _behavior_ (e.g. `@acme/models`' embed model) is expected and
-different from mocking `env` for _shape_ — the latter is what ADR 0014 forbids.
+different from mocking `env` for _shape_ — the latter is what [ADR 0014](adr/0014-tests-validate-real-env.md) forbids.
 
 > Reaching a branch that a validated `env` can't produce? Configure the real env
 > to reach it — don't mock the env module. Example: `redis`'s `namespace.test.ts`
@@ -303,7 +303,7 @@ isn't hydrated, so it runs anywhere. Env is still real, satisfied by
 `staticTestEnv`.
 
 The frontend side takes only its setup files — there is no infra to provision,
-because MSW is the frontier (ADR 0018):
+because MSW is the frontier ([ADR 0018](adr/0018-frontend-test-doctrine.md)):
 
 ```typescript
 import { frontendProject } from "@acme/test-utils/vitest";
@@ -315,7 +315,7 @@ export default frontendProject({
 
 It sets: the react plugin, `environment: 'jsdom'`, and the `staticTestEnv`
 spread so jsdom's client mode validates every reachable `env.ts` against real
-values (ADR 0014).
+values ([ADR 0014](adr/0014-tests-validate-real-env.md)).
 
 ## Provisioning app-owned tables (DDL)
 

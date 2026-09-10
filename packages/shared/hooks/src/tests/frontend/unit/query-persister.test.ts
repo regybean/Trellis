@@ -1,5 +1,5 @@
 /**
- * query-persister — the one new seam this ticket adds (#83, ADR 0001).
+ * query-persister — the one new seam this ticket adds (#83, [ADR 0001](../../../../docs/adr/0001-per-query-indexeddb-persister.md)).
  *
  * Exercised at the QueryClient + persister level against `fake-indexeddb` (the
  * setup swaps a fresh IndexedDB in per test). Asserts external behaviour only —

@@ -96,7 +96,7 @@ their names are the audit trail.
 
 ## The request-less executor carve-out
 
-The generation worker (ADR 0004) is the **one** actor that touches a Conversation
+The generation worker ([ADR 0004](0004-generation-worker-and-queue.md)) is the **one** actor that touches a Conversation
 _without_ going through a conversation-ownership builder — it carries no HTTP request,
 so there is no session to assert against. This does not weaken the invariant above; it
 relocates the check in time. Ownership is asserted by `chat.send` (on

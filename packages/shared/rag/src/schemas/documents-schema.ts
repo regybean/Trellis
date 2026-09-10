@@ -35,7 +35,7 @@ export const ragSchema = pgSchema(env.NEXT_PUBLIC_WEBAPP);
 
 // Drizzle mirror of the table Mastra's PgVector creates at runtime. Kept so the
 // knowledge base stays queryable with Drizzle (listing/deletion). Mastra owns the
-// actual DDL; the vector database is not drizzle-kit-managed at all (ADR 0001).
+// actual DDL; the vector database is not drizzle-kit-managed at all ([ADR 0001](../../docs/adr/0001-mastra-rag-and-memory.md)).
 export const documents = ragSchema.table(KNOWLEDGE_BASE_TABLE, {
   id: serial('id').primaryKey(),
   vectorId: text('vector_id').notNull().unique(),

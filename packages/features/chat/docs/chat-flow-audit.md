@@ -22,7 +22,7 @@ Source of truth for the code: `hooks/use-chat.ts`, `api/routers/chat.ts`,
 
 ## 1. The two planes
 
-Generation is fully decoupled from the client connection (ADR 0004). The system
+Generation is fully decoupled from the client connection ([ADR 0004](adr/0004-generation-worker-and-queue.md)). The system
 splits into a **control plane** (request/response tRPC mutations) and a **data
 plane** (a durable Redis Stream tailed by a pure subscription). See
 [`chat-flow-overview.mermaid`](chat-flow-overview.mermaid).

@@ -10,7 +10,7 @@ import { logTRPCError } from './error';
  * every app — only the *context resolver* differs (a resolved session for the
  * full apps, a constant local principal for the slim apps). That resolver stays
  * app-owned
- * (ADR 0003 / ADR 0010); this module owns everything that isn't auth, so the
+ * ([ADR 0003](../docs/adr/0003-handler-plumbing-here-resolver-in-the-app.md) / ADR 0010); this module owns everything that isn't auth, so the
  * handler shape and error logging can't drift per-app (they did: one app
  * hand-rolled `console.error` and missed structured logging; another omitted
  * the OPTIONS handler entirely).

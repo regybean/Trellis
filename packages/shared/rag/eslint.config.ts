@@ -12,6 +12,6 @@ export default [
   ...baseConfig,
   ...securityConfig,
   ...restrictEnvAccess,
-  // Blessed Mastra home (ADR 0001).
+  // Blessed Mastra home ([ADR 0001](docs/adr/0001-mastra-rag-and-memory.md)).
   ...containmentOverride({ allowMastra: true }),
 ];

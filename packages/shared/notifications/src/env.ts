@@ -22,7 +22,7 @@ export const env = createEnv({
   },
   server: {
     // Rolling TTL (seconds) refreshed on every `publish`. No MAXLEN — a stream
-    // with no reader simply expires. Delivery is best-effort (ADR 0001): a
+    // with no reader simply expires. Delivery is best-effort ([ADR 0001](../docs/adr/0001-notifications-seam.md)): a
     // publish with no page open is never delivered.
     NOTIFICATION_TTL: z.coerce.number().int().positive(),
     // Reader idle backoff (ms): starts at MIN, doubles up to MAX while the

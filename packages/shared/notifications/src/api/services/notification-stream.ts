@@ -54,7 +54,7 @@ export type NotificationEntry = StreamEntry<Notification>;
 //   - fresh connect (no `lastEventId`) ⇒ TAIL-FROM-NOW seeded from the stream's
 //     ACTUAL last id (`lastId()`, a real Redis-assigned id). Every later entry
 //     has a strictly greater id, so the tail skips the whole backlog — a
-//     leave-and-return shows nothing (the ADR 0001 no-durability contract). This
+//     leave-and-return shows nothing (the [ADR 0001](../../../docs/adr/0001-notifications-seam.md) no-durability contract). This
 //     replaces the old `${Date.now()}-0` seed, which read the app clock while
 //     Redis assigns ids from its own: under podman-VM drift that landed in Redis'
 //     future and silently dropped live entries. A real id cannot skew.

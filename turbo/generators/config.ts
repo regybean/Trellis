@@ -345,7 +345,7 @@ export default function generator(plop: PlopTypes.NodePlopAPI): void {
             "src/tests/frontend/setup.tsx",
             t("src/tests/frontend/setup.tsx.hbs"),
           ),
-          // Taxonomy per ADR 0018: the hook is the contract
+          // Taxonomy per [ADR 0018](../../docs/adr/0018-frontend-test-doctrine.md): the hook is the contract
           // (integration/hooks), the component renders through its providers
           // (integration/components); pure logic would go under unit/.
           add(

@@ -5,7 +5,7 @@
 > **Amends [ADR 0001](0001-multi-provider-models.md) on how a selection is
 > expressed.** Three providers behind one package, one file each, chat and embed
 > selected independently, and eager failure at import all stand. What changed is
-> the shape of the selection — ADR 0001's `LLM_PROVIDER` / `EMBED_PROVIDER` enums
+> the shape of the selection — [ADR 0001](0001-multi-provider-models.md)'s `LLM_PROVIDER` / `EMBED_PROVIDER` enums
 > and the loose `EMBED_DIMENSIONS` sibling are gone — and where a provider's
 > secrets are demanded.
 
@@ -43,7 +43,7 @@ load-bearing:
    a credential-less app still fails fast. This is **validation only** — the
    provider SDKs keep reading those credentials implicitly (Bedrock via the AWS
    chain, OpenRouter inside `createOpenRouter`) and the values are never threaded
-   back into the factories. ADR 0001's decision 2 got the same "only the active
+   back into the factories. [ADR 0001](0001-multi-provider-models.md)'s decision 2 got the same "only the active
    provider is required" property by calling `createEnv` _inside_ each factory,
    which spread the rule across three files and tied it to the factory running.
 

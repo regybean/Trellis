@@ -56,7 +56,7 @@ import { assertFolderOwned, foldersRouter } from './folders';
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no
   // Message persistence, no lock operations (the Generation worker owns all of
-  // those; see chat-local ADR 0002). It tails `chatStreamKey(conversationId)`
+  // those; see chat-local [ADR 0002](../../../docs/adr/0002-mastra-memory-owns-conversation-persistence.md)). It tails `chatStreamKey(conversationId)`
   // from `lastEventId` (or the head) and re-emits each Redis entry via tRPC v11
   // `tracked(entryId, event)`, so the entry id becomes the SSE `Last-Event-ID`
   // and a reconnecting client resumes exactly where it left off. Ownership is
@@ -107,7 +107,7 @@ export const chatRouter = createTRPCRouter({
   // Turn lifecycle's `beginTurn` (the lock is taken FIRST, so a duplicate tab
   // returns `alreadyInflight` without persisting a Message, enqueuing a job, or
   // spending a credit). The credit gate + consume stays inline here (@acme/chat
-  // ADR 0006): a rejected send consumes nothing, and `beginTurn` runs this
+  // [ADR 0006](../../../docs/adr/0006-credits-metered-in-the-turn-control-plane.md)): a rejected send consumes nothing, and `beginTurn` runs this
   // closure after the lock is won and the user Message is persisted, before
   // enqueue — so the race can never double-charge.
   send: ownedConversationByIdProcedure

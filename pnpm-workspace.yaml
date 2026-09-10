@@ -137,7 +137,7 @@ overrides:
   vite: "catalog:"
   vitest: "catalog:"
   qs: 6.14.1
-  # --- Security overrides (ADR 0027): force patched transitive versions whose
+  # --- Security overrides ([ADR 0027](docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)): force patched transitive versions whose
   # parent hasn't shipped a fix. Ranges (not hard pins) so parents can still
   # move; each carries its GHSA. Leaves with multiple in-tree majors use
   # version-range selectors (`pkg@>=x <y`) with a concrete target, so a fix on
@@ -203,7 +203,7 @@ overrides:
   "js-yaml@>=3.0.0 <3.15.2": "3.15.2" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
   "js-yaml@>=4.0.0 <4.3.2": "4.3.2" # GHSA-52cp-r559-cp3m, GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
 
-# Audit allowlist (ADR 0027) — last resort: no compatible reachable patch.
+# Audit allowlist ([ADR 0027](docs/adr/0027-dependency-audit-gate-and-suppression-policy.md)) — last resort: no compatible reachable patch.
 auditConfig:
   ignoreGhsas:
     # image-size DoS (infinite loop) in the ICNS parser and the JXL/HEIF parsers.

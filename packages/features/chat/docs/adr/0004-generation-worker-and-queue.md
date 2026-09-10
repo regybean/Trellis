@@ -53,7 +53,7 @@ Postgres schema.
 
 The worker carries no HTTP request and performs no ownership assertion. Ownership was asserted by `chat.send` before the job was enqueued. `userId` in the job payload stamps `resourceId` for Mastra. Redis and BullMQ are inside the app's security perimeter; `enqueueGenerationTurn` is the sole authorised enqueuer (structural enforcement — no other code path can add to the generation queue), making the trust perimeter structural rather than checked at runtime.
 
-This is the only carve-out from the ownership-as-middleware rule in ADR 0003: the worker receives a trusted, pre-validated payload from a queue that only `chat.send` can write to.
+This is the only carve-out from the ownership-as-middleware rule in [ADR 0003](0003-conversation-ownership-as-middleware.md): the worker receives a trusted, pre-validated payload from a queue that only `chat.send` can write to.
 
 ### Key builders
 

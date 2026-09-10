@@ -27,7 +27,7 @@ import {
 // the server instance a feature builds in `api/trpc.ts`: a single factory that owns
 // everything identical across features — the `NODE_ENV==='test'` `httpLink`
 // switch the MSW seam relies on (ADR 0018), the provider scaffold, and the
-// per-query persister wiring (ADR 0001) — and parameterises only what genuinely
+// per-query persister wiring ([ADR 0001](../docs/adr/0001-per-query-indexeddb-persister.md)) — and parameterises only what genuinely
 // varies: the router type, the `keyPrefix`, the terminal transport link, whether
 // the feature has a subscription, and its optional persistence config.
 //
@@ -99,7 +99,7 @@ interface FeatureClientOptions {
    */
   subscriptions?: boolean;
   /**
-   * Opt into the ADR 0001 per-query IndexedDB persister. Present ⇒ the provider's
+   * Opt into the [ADR 0001](../docs/adr/0001-per-query-indexeddb-persister.md) per-query IndexedDB persister. Present ⇒ the provider's
    * `scopeKey` prop builds a persister that `usePersistedQueryOptions()` hands to
    * the queries the feature marks (browser only, and only when IndexedDB exists).
    * Absent ⇒ the feature is always network-only.
@@ -166,7 +166,7 @@ export function createFeatureClient<TRouter extends AnyRouter>({
   >(undefined);
 
   /**
-   * The full cache policy for one query this feature persists (ADR 0001) —
+   * The full cache policy for one query this feature persists ([ADR 0001](../docs/adr/0001-per-query-indexeddb-persister.md)) —
    * `meta: persistMeta`, the persister, `gcTime` pinned to its `maxAge`, and the
    * `staleTime: 0` that keeps the restore stale-while-revalidate rather than
    * serve-stale. Spread it into the query's options:

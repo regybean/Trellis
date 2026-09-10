@@ -32,7 +32,7 @@ export type Roles = 'admin' | 'user';
  * platform can name a string perfectly well. So the mechanism outlived its
  * reason and was costing two hand-synced declarations, two app tsconfigs
  * reaching across the workspace by relative path to load them, and no compiler
- * check that any of it agreed (#250, ADR 0003 amendment).
+ * check that any of it agreed (#250, [ADR 0003](../docs/adr/0003-handler-plumbing-here-resolver-in-the-app.md) amendment).
  *
  * The substrate itself still reads only `id` (identity) and `role` (the
  * `adminProcedure` gate). `email` is here because `@acme/billing` opens a Stripe
@@ -85,7 +85,7 @@ export interface BaseContext {
    * The resolved session, injected by the app adapter (`user: null` when signed
    * out). Mapping a provider's user onto `InjectedUser` is the app's job — the
    * full apps share `@acme/auth`'s `toPrincipal`, the slim apps inject a
-   * constant (ADR 0003 / 0010).
+   * constant ([ADR 0003](../docs/adr/0003-handler-plumbing-here-resolver-in-the-app.md) / 0010).
    */
   session: InjectedSession;
 }

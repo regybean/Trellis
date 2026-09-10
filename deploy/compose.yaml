@@ -13,7 +13,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-password}
       POSTGRES_DB: ${DB_NAME}
       DB_VECTOR_NAME: ${DB_VECTOR_NAME}
-    # Dev-only verbosity so infra-postgres.log carries per-chat activity (ADR 0028):
+    # Dev-only verbosity so infra-postgres.log carries per-chat activity ([ADR 0028](../docs/adr/0028-dev-and-compose-logs-mirrored-to-files-for-the-agent.md)):
     # log every statement with its duration. Dev-only — never set this in deploy.
     command:
       - postgres

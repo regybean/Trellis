@@ -51,7 +51,7 @@ export type StripeConnection = z.output<typeof stripeConnectionSchema>;
  *   *origin* varies per app, and that is threaded in at the app edge.
  * - `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET`: the two secrets. The
  *   development profile authors localstripe's fixed placeholders — documented as
- *   not real secrets and gitleaks-allowlisted (ADR 0001) — so a clean checkout
+ *   not real secrets and gitleaks-allowlisted ([ADR 0001](../docs/adr/0001-localstripe-dev-billing.md)) — so a clean checkout
  *   runs billing against the fake server with no `.env` rows; the
  *   staging/production overlays **unauthor** them, which makes them demanded
  *   secrets on those targets by the same mechanical rule as every other secret.

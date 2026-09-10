@@ -10,7 +10,7 @@
  *
  * `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` are localstripe's fixed
  * placeholders — documented as not real secrets and gitleaks-allowlisted
- * (ADR 0001) — so a clean checkout runs billing against the fake server with no
+ * ([ADR 0001](../docs/adr/0001-localstripe-dev-billing.md)) — so a clean checkout runs billing against the fake server with no
  * `.env` rows. Every real deploy target **unauthors** them in `env.ts`, which
  * makes them demanded secrets there.
  */

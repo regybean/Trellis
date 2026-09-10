@@ -25,7 +25,7 @@ Consult the map before grepping; it turns most searches into a direct jump.
 4. **Before calling a change done:** `pnpm turbo run lint typecheck -F @acme/<pkg>`
    (cached, seconds — catches boundaries/exports/`as`/`useEffect`). Then
    `pnpm tidy` (auto-fix) and `pnpm quality-gate` (read-only verify) once at end
-   of task (ADR 0020).
+   of task ([ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md)).
 
 > `turbo` is not installed globally — always invoke it as `pnpm turbo …`.
 
