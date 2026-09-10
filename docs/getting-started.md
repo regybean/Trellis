@@ -119,6 +119,11 @@ pnpm dev                 # all apps — starts the infra they need, then the ser
 
 Run a single app — and only the infra it needs — by passing its name: `pnpm dev nextjs`, `pnpm dev tanstack-slim`, etc.
 
+`pnpm preview` takes the same arguments and serves the **compiled** build on
+the same four ports — no HMR, no dev-server latency, so paint time is the real
+one. The port list lives here rather than in the agent brief because it names
+apps, and this page is one of the few the bank never distributes.
+
 ## 6. Verify it works
 
 - Open the chat and send a message — it streams a response (RAG over the knowledge base, via Ollama by default).

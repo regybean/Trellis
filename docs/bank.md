@@ -405,7 +405,7 @@ line you also edited, like anything else.
 ### Script entries that assume an app you may not have
 
 Most of the entries are workspace-wide (`turbo run build` with no `apps/` just
-builds packages) or a call into `scripts/`. Six name something specific, and
+builds packages) or a call into `scripts/`. Seven name something specific, and
 fail with "no projects matched" if you did not take it:
 
 | Entry                 | Assumes                       |
@@ -413,11 +413,12 @@ fail with "no projects matched" if you did not take it:
 | `build:nextjs`        | the `@acme/nextjs` app        |
 | `build:nextjs-slim`   | the `@acme/nextjs-slim` app   |
 | `build:tanstack-slim` | the `@acme/tanstack-slim` app |
+| `test:nextjs`         | nothing — an alias of `test`  |
 | `lint:mastra`         | the `@acme/chat` feature      |
 | `seed:localstripe`    | the `@acme/billing` feature   |
 | `studio`              | the `@acme/chat` feature      |
 
-Delete the ones you have no use for. They are six lines in a file the bank
+Delete the ones you have no use for. They are seven lines in a file the bank
 treats as a seed, so deleting them conflicts only if the bank edits the same
 lines. Nothing else in the manifest depends on them.
 
@@ -427,8 +428,11 @@ repo or one of its apps, and it makes exactly one line-level exception: a
 `scripts` entry in the root `package.json`. The grounds are that the entry _is_
 the whole reference — one line, in a file documented as yours to edit, listed
 here by name. A script _body_ gets no such exception, which is why
-`scripts/extract-app.sh` asks which app you mean and lists your own `apps/`
-rather than defaulting to one of Trellis's.
+`scripts/extract-app.sh` takes the app you mean as an argument and defaults to
+the first of your own `apps/` rather than to one of Trellis's. This section is
+where that exception is written down; the decision behind it is
+[ADR 0042](adr/0042-distributed-content-carries-no-local-only-reference.md), and
+the two checks that enforce it point back here rather than restating it.
 
 ## Reading and resolving a conflict
 
