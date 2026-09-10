@@ -216,7 +216,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: pnpm audit
-        run: pnpm audit --audit-level=high
+        run: pnpm run audit
 
   # Review dependency changes introduced by a PR (vulnerabilities + licenses)
   dependency-review:

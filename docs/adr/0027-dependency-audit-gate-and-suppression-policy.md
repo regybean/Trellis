@@ -16,12 +16,20 @@ an unfixable advisory lands.
   `--audit-level=high`, giving one consistent severity line. Moderate/low are
   out of scope — they don't surface at `--audit-level=high`.
 - **Same gate locally.** Add an `audit` stage to `scripts/quality-gate.sh` and
-  an `"audit": "pnpm audit --audit-level=high"` script, so the gate is caught
-  before PR, not only in CI. The stage **graceful-degrades on network failure**
-  (skips with a warning, like `gitleaks` when absent) — offline must never block
-  local PR prep. A registry that _returns_ advisories still fails; only a
-  transport error (can't reach the registry) is a skip. CI, which always has
-  network, is the hard backstop.
+  an `"audit"` script, so the gate is caught before PR, not only in CI. The
+  stage **graceful-degrades on network failure** (skips with a warning, like
+  `gitleaks` when absent) — offline must never block local PR prep. A registry
+  that _returns_ advisories still fails; only a transport error (can't reach the
+  registry) is a skip. CI, which always has network, is the hard backstop.
+- **The gate reads the allowlist-filtered report, not pnpm's exit code.** Both
+  the script and the CI job go through `scripts/audit.mjs` rather than calling
+  `pnpm audit --audit-level=high` directly. pnpm filters allowlisted advisories
+  out of the report but still counts them in the severity summary, and its exit
+  code reads that summary — so a single entry in `ignoreGhsas` pins the stage
+  red permanently, which is precisely the failure the allowlist exists to
+  prevent. The `advisories` map in `pnpm audit --json` _is_ filtered, so the
+  wrapper decides from it, prints each blocking advisory with its path, and
+  passes transport errors through untouched for the skip above.
 - **Fix-first remediation.** Drive high+critical to zero by (a) upgrading deps
   we own directly via the pnpm **catalog** (`pnpm-workspace.yaml` — `next`,
   `vitest`, `drizzle-orm`, and the OpenTelemetry release train), and (b)
@@ -40,20 +48,21 @@ test` stay green — forcing a version into a deep tree (e.g. `protobufjs` under
     (`fast-uri` kept on `3.x` for `ajv@8`'s `^3.0.1`).
   - When an advisory marks _every_ prior version vulnerable **and** the only
     fixed line changed its module shape, forcing it breaks the parent — e.g.
-    `brace-expansion`'s only fix (`5.0.8`) ships a _named_ CJS export that
-    breaks `minimatch`'s `require()` default import (surfaces as "expand is not
-    a function" across every lint task). Keep the parent-compatible line (a
-    within-major bump still clears the _other_ brace-expansion advisory) and
-    allowlist the residual.
+    `brace-expansion`'s `5.0.8` ships a _named_ CJS export that breaks
+    `minimatch`'s `require()` default import (surfaces as "expand is not a
+    function" across every lint task). Keep the parent-compatible line and
+    allowlist the residual until a within-major bump covers it — which is how
+    `brace-expansion` eventually resolved: the three within-major floors now
+    clear every advisory on it, and its allowlist entry is gone.
 - **Allowlist is last resort.** `pnpm.auditConfig.ignoreGhsas` suppresses an
   advisory **only** when (a) no patched version is reachable anywhere in the
   tree, or (b) it's provably not exploitable in our usage (e.g. the `vitest` UI
   server, which we never run in prod/CI). Every entry carries a justification
   comment with GHSA link + date. **No blanket dev-only exemption** — dev-only
   advisories are upgraded/overridden first; being dev-only is not itself grounds
-  to ignore. (The initial baseline needed exactly one entry —
-  `GHSA-mh99-v99m-4gvg` (brace-expansion), whose only fix is export-incompatible
-  with our CJS `minimatch` consumers; see the fix-first note above.)
+  to ignore. (The standing entries are `image-size`'s two DoS advisories, which
+  npm reports as `patched: <0.0.0` — no fixed version exists on any line, so
+  neither an override nor a parent bump can reach one.)
 
 ## Considered and rejected
 
