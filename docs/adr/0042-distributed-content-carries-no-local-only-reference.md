@@ -136,6 +136,14 @@ can no longer be filed at the root by accident.
   [docs/agents/domain.md](../agents/domain.md) carries the four bullets, because
   that is where an agent looks before writing a citation rather than after a
   checker rejects one.
+- **A cross-package amendment loses its machine-readable pointer.** The status
+  vocabulary offers `accepted` or `amended by <path>`, and `check-adrs` requires
+  that path to resolve — but the citation rule forbids it resolving into another
+  package, so the two rules together leave no way to *spell* "amended by another
+  package's decision". Three ADRs hit this and now read `accepted` with the
+  amendment carried, in full, by the blockquote directly beneath. Nothing is
+  lost to a reader; what is lost is the field a tool could read. Widening the
+  vocabulary is the fix and is a separate decision.
 - **Two checks, in two places.** The four structural rules live beside the
   existing ADR check in `tooling/repo-checks`, inside `pnpm lint`, because they
   are repo-neutral. A token check for the repo name, the owner and app names
