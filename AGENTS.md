@@ -25,7 +25,7 @@ Consult the map before grepping; it turns most searches into a direct jump.
 4. **Before calling a change done:** `pnpm turbo run lint typecheck -F @acme/<pkg>`
    (cached, seconds — catches boundaries/exports/`as`/`useEffect`). Then
    `pnpm tidy` (auto-fix) and `pnpm quality-gate` (read-only verify) once at end
-   of task ([ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md)).
+   of task.
 
 > `turbo` is not installed globally — always invoke it as `pnpm turbo …`.
 
@@ -78,12 +78,11 @@ pnpm test:inventory -- --layer backend --kind unit  # narrow by path segment und
 Tests split into `test:backend` (real Postgres/Redis via testcontainers) and
 `test:frontend` (jsdom + MSW at the HTTP boundary). Backend suites **always**
 start their own throwaway containers — everywhere, identically — so the only
-prerequisite is a reachable container runtime, never `pnpm infra:up`
-([ADR 0034](docs/adr/0034-backend-tests-always-self-provision.md)). Doctrine: [docs/TESTING.md](docs/TESTING.md),
-backend taxonomy in [docs/agents/testing.md](docs/agents/testing.md), frontend
-doctrine in [ADR 0018](docs/adr/0018-frontend-test-doctrine.md). Rule of thumb:
+prerequisite is a reachable container runtime, never `pnpm infra:up`.
+Doctrine, both halves: [docs/TESTING.md](docs/TESTING.md), with the backend
+taxonomy in [docs/agents/testing.md](docs/agents/testing.md). Rule of thumb:
 **test the contract, not the internals** — the tRPC procedure on the backend, the
-hook on the frontend; never `vi.mock` a seam the feature owns. Frontend: assert rendered DOM and hook state, never mock call counts; toasts go through `<ToastContainer />` in the test wrapper, asserted through the DOM. Env is never mocked — tests run against real env values ([ADR 0014](docs/adr/0014-tests-validate-real-env.md)). More information about testing can be found in testing.md
+hook on the frontend; never `vi.mock` a seam the feature owns. Frontend: assert rendered DOM and hook state, never mock call counts; toasts go through `<ToastContainer />` in the test wrapper, asserted through the DOM. Env is never mocked — tests run against real env values, never a faked shape. More information about testing can be found in testing.md
 
 ### Infrastructure & Database
 
@@ -104,9 +103,10 @@ pnpm quality-gate        # READ-ONLY verify, parallel: build + turbo(lint+format
 ```
 
 How and when to run these — incremental per-package checks and the end-of-task
-gate — is [docs/agents/quality-gate.md](docs/agents/quality-gate.md); the rationale is [ADR 0020](docs/adr/0020-commit-tidies-gate-verifies.md).
+gate — is [docs/agents/quality-gate.md](docs/agents/quality-gate.md), which also
+carries the rationale.
 
-> In a git worktree, dev/preview/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. But for **observing dev output**: the human runs `pnpm dev`; its dev-server + infra output is mirrored to `logs/*.log`. Read those instead of starting `pnpm dev` yourself to watch output — see [docs/agents/dev-logs.md](docs/agents/dev-logs.md). (This supersedes the "you may run [dev] to test" allowance for observing dev output only; it stays silent on `preview`/`build`/`test` and doesn't ban `pnpm infra:up`.) Tests are the exception: `pnpm test` works in a worktree exactly as it does on the primary checkout — every backend suite self-provisions isolated testcontainers, so there is nothing to start and nothing special about a worktree. See [ADR 0034](docs/adr/0034-backend-tests-always-self-provision.md).
+> In a git worktree, dev/preview/infra/env/database commands are manual-only — do not run them. On the primary checkout (e.g. `main`) you may run them to test. But for **observing dev output**: the human runs `pnpm dev`; its dev-server + infra output is mirrored to `logs/*.log`. Read those instead of starting `pnpm dev` yourself to watch output — see [docs/agents/dev-logs.md](docs/agents/dev-logs.md). (This supersedes the "you may run [dev] to test" allowance for observing dev output only; it stays silent on `preview`/`build`/`test` and doesn't ban `pnpm infra:up`.) Tests are the exception: `pnpm test` works in a worktree exactly as it does on the primary checkout — every backend suite self-provisions isolated testcontainers, so there is nothing to start and nothing special about a worktree.
 
 ## Architecture
 
@@ -120,7 +120,7 @@ tooling → platform → shared → features → apps
 - **platform**: Runtime substrate — the rails features run on (logger, telemetry, redis, subscriptions, trpc, db, entitlements). Depends on platform and tooling.
 - **shared**: Reusable primitives (ui, hooks, auth, rag, models). Depends on shared, platform, and tooling.
 - **features**: Domain modules. Depends on shared, platform, and tooling only.
-- **apps**: Applications. Depends on all layers; own their shell/chrome. The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)) — the boundary tag is `app`.
+- **apps**: Applications. Depends on all layers; own their shell/chrome. There is no compositions layer — the boundary tag is `app`.
 
 ### Redis
 
@@ -139,8 +139,7 @@ See [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md).
 Every runtime package (`packages/platform|shared|features`) has a
 `package.json` `exports` map following a bounded, concern-driven convention,
 enforced by `tooling/repo-checks/src/exports.ts` (hard-fails `pnpm lint`).
-`tooling/*` config packages are out of scope. See
-[ADR 0015](docs/adr/0015-package-exports-convention.md).
+`tooling/*` config packages are out of scope.
 
 ## Development Patterns
 
@@ -195,6 +194,6 @@ The north star, to weigh when making changes:
 
 - **Protect the slice contract.** One feature = one package = router + hooks + UI, depending only downward. It's what lets apps mount different subsets — a bespoke client build is a new app importing a different subset, not a fork. Don't leak framework specifics into features; keep them in the app adapter (the honest seam).
 - **Keep seams swappable, name what's coupled.** Providers (`@acme/models`), auth (Better Auth behind a seam), billing (Stripe) are meant to be replaceable. When something becomes load-bearing or hard to reverse, write it down (ADR) rather than letting it harden silently.
-- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app (the console shell one of them ships is the worked example). The compositions layer was removed ([ADR 0011](docs/adr/0011-remove-compositions-layer.md)); shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
+- **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app (the console shell one of them ships is the worked example). There is no compositions layer; shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
 - **Earn the next runtime / the next subset.** The portability and subsetting claims are only as true as the apps that prove them. The 2×2 of apps does both: the two full apps prove the same slices run on two frameworks; their slim counterparts prove a no-auth/no-billing _subset_ drops the auth provider + Stripe from the graph. New shared/feature code must stay runtime-agnostic and not re-couple the substrate to auth/billing — design so the next framework or the next reduced subset stays trivial.
 - **Documentation keeps pace with design.** `CONTEXT.md` + ADRs are updated _as_ decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.
