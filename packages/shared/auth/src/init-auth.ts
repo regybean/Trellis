@@ -1,5 +1,8 @@
 import type { UserWithRole } from 'better-auth/plugins/admin';
-import type { Auth as BetterAuthInstance } from 'better-auth/types';
+import type {
+  Auth as BetterAuthInstance,
+  BetterAuthPlugin,
+} from 'better-auth/types';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 // `better-auth/minimal` rather than `better-auth`: the default entry bundles
 // Kysely so that `database` can take a raw connection. We always pass an
@@ -12,7 +15,9 @@ import { createDb } from '@acme/db';
 import { betterAuthEnv } from './env';
 import { authTables } from './schemas/auth-schema';
 
-export interface InitAuthOptions {
+export interface InitAuthOptions<
+  TPlugins extends readonly BetterAuthPlugin[] = readonly [],
+> {
   /**
    * Origin the auth routes are mounted on — `http://localhost:3000` in dev, the
    * deployed origin in production. App-owned: each app runs on its own port, so
@@ -25,6 +30,28 @@ export interface InitAuthOptions {
    * host, a preview domain). `baseUrl` is always trusted.
    */
   trustedOrigins?: string[];
+  /**
+   * Better Auth plugins to *append* to the built-ins — an identity provider's
+   * plugin being the case this exists for. The built-ins are not replaceable:
+   * `admin()` always runs, because the shared schema already declares its
+   * columns.
+   *
+   * Omitting this is the default and forces no import from a Better Auth
+   * plugin path on the caller. What a plugin passed here contributes stays
+   * visible in the returned instance's type, so calling one of its endpoints is
+   * a compile-time fact rather than a runtime discovery.
+   */
+  plugins?: TPlugins;
+  /**
+   * Whether the credential (email + password) provider is registered. Defaults
+   * to on, which is what both full apps mount.
+   *
+   * `false` registers no password routes — for a consumer whose users sign in
+   * through a provider and which ships no password form. It sets Better Auth's
+   * `enabled` flag rather than dropping the key, so the options object keeps its
+   * shape and the inferred instance and session types do not move.
+   */
+  emailAndPassword?: boolean;
 }
 
 /**
@@ -33,8 +60,15 @@ export interface InitAuthOptions {
  * and `Auth` lives at a path outside Better Auth's `exports` map, so TypeScript
  * refuses to emit a declaration for an un-annotated `initAuth` (TS2742) — hence
  * the one explicit return type below.
+ *
+ * Generic over the caller's plugin tuple, and the tuple is spread into the array
+ * literal rather than concatenated: that is what keeps the plugins individually
+ * visible instead of widening them to `BetterAuthPlugin[]`, which would erase
+ * whatever endpoints they contribute from the returned instance's type.
  */
-function authOptions(options: InitAuthOptions) {
+function authOptions<
+  const TPlugins extends readonly BetterAuthPlugin[] = readonly [],
+>(options: InitAuthOptions<TPlugins>) {
   const env = betterAuthEnv();
 
   return {
@@ -49,11 +83,11 @@ function authOptions(options: InitAuthOptions) {
     baseURL: options.baseUrl,
     trustedOrigins: options.trustedOrigins,
     emailAndPassword: {
-      // Email + password only, no social provider. The question is left open: a
-      // provider is purely additive (an `account` row with the OAuth columns
-      // populated — the schema already carries them) and needs client-id
-      // secrets per app, so it is deliberately not part of this change.
-      enabled: true,
+      // On unless the caller says otherwise: both full apps mount the password
+      // form. A consumer whose users arrive through a provider turns it off and
+      // ships no password endpoints. The key stays present either way — see
+      // `InitAuthOptions.emailAndPassword`.
+      enabled: options.emailAndPassword ?? true,
     },
     session: {
       // Sessions are database rows, and every request resolves them by reading
@@ -68,8 +102,11 @@ function authOptions(options: InitAuthOptions) {
       // Adds `role`/`banned`/`banReason`/`banExpires` to `user` and
       // `impersonatedBy` to `session` (all declared in ./schemas/auth-schema),
       // plus the admin API the user-management widgets need. Roles live on the
-      // user row, not in a token claim.
+      // user row, not in a token claim. Unconditional: those columns are in the
+      // shared schema, so an instance without it would be running against a
+      // schema describing a plugin it does not have.
       admin(),
+      ...(options.plugins ?? []),
     ],
   };
 }
@@ -86,10 +123,18 @@ function authOptions(options: InitAuthOptions) {
  * validated by `./env`, which is exactly what the `./env` export role is for —
  * threading it through the app would give the app a value it has no decision to
  * make about (contrast `baseUrl`, which is genuinely per-app).
+ *
+ * Two of the decisions are the caller's: `plugins` appends to the built-ins and
+ * `emailAndPassword` turns the credential provider off. Both are optional, so a
+ * caller that passes neither gets exactly today's instance — which is why the
+ * plugin tuple's type parameter carries an empty-tuple default rather than being
+ * required.
  */
-export function initAuth(
-  options: InitAuthOptions,
-): BetterAuthInstance<ReturnType<typeof authOptions>> {
+export function initAuth<
+  const TPlugins extends readonly BetterAuthPlugin[] = readonly [],
+>(
+  options: InitAuthOptions<TPlugins>,
+): BetterAuthInstance<ReturnType<typeof authOptions<TPlugins>>> {
   return betterAuth(authOptions(options));
 }
 
