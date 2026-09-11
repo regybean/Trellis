@@ -24,6 +24,7 @@
   "scripts": {
     "audit": "node scripts/audit.mjs",
     "bank:contribute": "pnpm -C tooling/bank bank:contribute",
+    "bank:resync": "pnpm -C tooling/bank bank:resync",
     "bank:sync": "pnpm -C tooling/bank bank:sync",
     "boundaries": "turbo boundaries",
     "check:adrs": "pnpm --filter @acme/repo-checks check:adrs",

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "bank:contribute": "node src/bank-contribute.mjs",
+    "bank:resync": "bash src/resync-wizard.sh",
     "bank:sync": "node src/bank-sync.mjs",
     "check:bank-paths": "node src/check-bank-paths.mjs",
     "check:bank-tokens": "node src/check-bank-tokens.mjs",

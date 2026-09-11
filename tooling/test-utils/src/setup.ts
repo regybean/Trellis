@@ -17,7 +17,7 @@
  *   export default runInfraSetup([postgresContainer, redisContainer]);
  *
  * and points `backendProject({ globalSetup: './src/tests/backend/global-setup.ts' })`
- * at it. See docs/adr/0017.
+ * at it. See ../docs/adr/0001-test-infra-owned-by-infra-package.md.
  */
 
 /* eslint-disable no-restricted-syntax */

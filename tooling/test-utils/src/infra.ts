@@ -9,7 +9,7 @@
  * maps the running container's host/port to the `process.env` keys that infra's
  * `env.ts` validates. This module (`@acme/test-utils`, the engine) is the only
  * place that turns a descriptor into a running container, so the owners carry no
- * `testcontainers` dependency. See docs/adr/0017.
+ * `testcontainers` dependency. See ../docs/adr/0001-test-infra-owned-by-infra-package.md.
  */
 
 export interface InfraBindMount {

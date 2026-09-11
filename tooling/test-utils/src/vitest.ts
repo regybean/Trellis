@@ -40,17 +40,18 @@ export const staticTestEnv = {
   // unset→development default) so suites document that they validate against
   // the base profile.
   APP_ENV: 'development',
-  // Every slice's non-secret values — provider selection, model ids, region, S3
-  // endpoint + bucket, vector db name, chunk sizes, embedding dimension, the
-  // Stripe plan ids/connection/checkout paths, the TTLs — are authored in each
-  // slice's `env.ts` development profile, so no test env is needed for them.
-  // The development profile also authors the *local* credentials that a real
-  // deploy must supply (LocalStack's dummy AWS pair, localstripe's fixed
-  // placeholders), which is why they are absent here too: a suite validating
-  // against the authored values is validating what dev actually runs.
+  // A slice's own non-secret values are deliberately absent: provider
+  // selection, endpoints, buckets, sizes, TTLs and the rest are authored in
+  // that slice's `env.ts` development profile, so no test env is needed for
+  // them. That profile also authors the *local* stand-ins for credentials a
+  // real deploy must supply, which is why those are absent too — a suite
+  // validating against the authored values is validating what dev actually
+  // runs, and a second copy here could only disagree with it. What remains
+  // below is only what no profile can author.
   //
-  // Fallback for infra-less suites (e.g. ingest, whose @acme/redis/env only needs
-  // a valid url — Redis is never contacted). Backend suites with a testcontainer
+  // Fallback for a suite that runs without infra, whose `@acme/redis/env` only
+  // needs a well-formed url because Redis is never contacted. A suite with a
+  // testcontainer
   // have this overwritten per-run by hydrate-env; the authored profile default is
   // the same endpoint, so it is here only to make the intent explicit.
   REDIS_URL: 'redis://localhost:6379',
@@ -113,10 +114,11 @@ interface BackendProjectOptions {
   /**
    * Path to this suite's per-suite global-setup file, which imports its
    * `InfraDescriptor`s (as live objects) and hands them to `runInfraSetup`
-   * (see docs/adr/0017). Its presence *is* the signal that the suite uses real
+   * (see ../docs/adr/0001-test-infra-owned-by-infra-package.md). Its presence
+   * *is* the signal that the suite uses real
    * infra: hydrate-env is prepended to `setupFiles` and the container
-   * global-setup runs. Omit for a suite whose externals are all mocked (e.g.
-   * `ingest`): no containers, no hydration, so the tests run anywhere.
+   * global-setup runs. Omit for a suite whose externals are all mocked: no
+   * containers, no hydration, so the tests run anywhere.
    */
   globalSetup?: string;
 }

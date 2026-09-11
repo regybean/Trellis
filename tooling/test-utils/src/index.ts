@@ -9,7 +9,7 @@
  * global-setup file; this package turns them into running testcontainers,
  * hydrates env, and provides the shared vitest backend preset (`./vitest`). It
  * holds the *mechanism*, not the knowledge of which package needs what (that's
- * the suite) or how each infra is built (that's the owner). See docs/adr/0017.
+ * the suite) or how each infra is built (that's the owner). See ../docs/adr/0001-test-infra-owned-by-infra-package.md.
  * The tRPC caller context + mocks live in `@acme/trpc/testing`; Redis flush
  * helpers in `@acme/redis/testing`.
  */

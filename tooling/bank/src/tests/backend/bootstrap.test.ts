@@ -174,12 +174,23 @@ function describeBank(name: string, suite: () => void) {
   );
 }
 
+/**
+ * The inventory's bundles, or none where there is no inventory.
+ *
+ * Every read of the inventory goes through here, including the ones inside a
+ * `describeBank` body. `describe.skipIf` marks a suite skipped but still runs
+ * its callback to collect what it would have run, so a read at the top of one
+ * of those bodies executes in a consumer anyway — and takes the whole file down
+ * with ENOENT before a single test can be reported as skipped. The guard has to
+ * be on the read, not on the suite.
+ */
+const bundles = () =>
+  isBank ? recordList(readJson(inventory), 'bundles') : [];
+
 /** The path prefixes every selection receives, whatever it asked for. */
-const alwaysIncluded = isBank
-  ? recordList(readJson(inventory), 'bundles')
-      .filter((bundle) => bundle.alwaysIncluded === true)
-      .flatMap((bundle) => stringList(bundle, 'paths'))
-  : [];
+const alwaysIncluded = bundles()
+  .filter((bundle) => bundle.alwaysIncluded === true)
+  .flatMap((bundle) => stringList(bundle, 'paths'));
 
 /** Does an always-included bundle deliver this directory? */
 const delivered = (dir: string) =>
@@ -198,9 +209,7 @@ const delivered = (dir: string) =>
  * being a longer spelling of one name.
  */
 describeBank('the required set is several bundles, read by flag', () => {
-  const required = recordList(readJson(inventory), 'bundles').filter(
-    (bundle) => bundle.alwaysIncluded === true,
-  );
+  const required = bundles().filter((bundle) => bundle.alwaysIncluded === true);
 
   it('is split across bundles, so reading the flag is not one name spelled out', () => {
     expect(required.length).toBeGreaterThan(1);
@@ -509,7 +518,7 @@ describeBank(
       // allowed and real — the agents bundle names two scripts the `commands`
       // bundle already covers, so a consumer who takes it gets them either way
       // — so the claim is that *some* bundle path is withheld, not every one.
-      const optional = recordList(readJson(inventory), 'bundles')
+      const optional = bundles()
         .filter((bundle) => bundle.alwaysIncluded !== true)
         .flatMap((bundle) => stringList(bundle, 'paths'));
 

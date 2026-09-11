@@ -5,12 +5,13 @@
  * `@acme/db/testing`, `@acme/redis/testing`), start the matching container and
  * ask the descriptor to project its host/port into the `process.env` keys that
  * infra validates. This module holds no per-infra knowledge (no pinned image, no
- * credentials) — that lives with each owner. See docs/adr/0017.
+ * credentials) — that lives with each owner. See ../docs/adr/0001-test-infra-owned-by-infra-package.md.
  *
  * A real container is started per descriptor on *every* run — primary checkout,
  * worktree and CI alike. There is no compose path: testcontainers binds random
- * host ports, so a suite never collides with, nor reads from, the dev stack. See
- * docs/adr/0034.
+ * host ports, so a suite never collides with, nor reads from, a dev stack. That
+ * is what makes a backend suite runnable anywhere without provisioning
+ * anything first, which is the property to preserve if this is ever revisited.
  */
 
 /* eslint-disable no-restricted-syntax */
