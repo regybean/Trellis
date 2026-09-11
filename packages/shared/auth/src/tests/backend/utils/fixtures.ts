@@ -24,8 +24,11 @@ import { authUser, authVerification } from '../../../schemas/auth-schema';
  */
 export const TEST_EMAIL_DOMAIN = 'auth-suite.invalid';
 
-/** The instance under test. `baseUrl` is arbitrary — no request ever leaves. */
-export const auth = initAuth({ baseUrl: 'http://localhost:3000' });
+/** Arbitrary — no request ever leaves, but Better Auth insists on an origin. */
+export const BASE_URL = 'http://localhost:3000';
+
+/** The default instance under test: what an app that passes no options gets. */
+export const auth = initAuth({ baseUrl: BASE_URL });
 
 /** A second handle on the same database, for asserting on rows directly. */
 export const db = createDb();
@@ -38,10 +41,16 @@ export function testEmail(label: string) {
   return `${label}-${counter}@${TEST_EMAIL_DOMAIN}`;
 }
 
-// Throwaway credential for the users this suite creates — not a secret. Named
-// like the `@acme/db/testing` container credentials so it reads as an identifier
-// rather than an inline password literal. Over Better Auth's 8-char minimum.
-const TEST_SECRET = 'correct-horse-battery';
+/**
+ * Throwaway credential for the users this suite creates — not a secret. Named
+ * like the `@acme/db/testing` container credentials so it reads as an identifier
+ * rather than an inline password literal. Over Better Auth's 8-char minimum.
+ *
+ * Exported because the cases that build a variant instance (a different plugin
+ * list, the credential provider off) call its endpoints directly rather than
+ * through the helpers below, which are bound to the default instance.
+ */
+export const TEST_SECRET = 'correct-horse-battery';
 
 export async function signUp(email: string) {
   const { user } = await auth.api.signUpEmail({
@@ -51,21 +60,26 @@ export async function signUp(email: string) {
 }
 
 /**
- * Sign in and return the `Cookie` header a subsequent request would carry.
- * `getSession` reads the session token from it, exactly as a browser request
- * would — which is what makes this suite exercise the real cookie→row lookup
- * rather than an internal helper.
+ * The `Cookie` header a subsequent request would carry, from the `Set-Cookie`
+ * headers a sign-in returned. `getSession` reads the session token out of it
+ * exactly as a browser request would — which is what makes this suite exercise
+ * the real cookie→row lookup rather than an internal helper.
  */
-export async function signInAndGetHeaders(email: string) {
-  const { headers } = await auth.api.signInEmail({
-    body: { email, password: TEST_SECRET },
-    returnHeaders: true,
-  });
+export function toCookieHeader(headers: Headers) {
   const cookies = headers
     .getSetCookie()
     .map((cookie) => cookie.split(';')[0])
     .join('; ');
   return new Headers({ cookie: cookies });
+}
+
+/** Sign in to the default instance and return that `Cookie` header. */
+export async function signInAndGetHeaders(email: string) {
+  const { headers } = await auth.api.signInEmail({
+    body: { email, password: TEST_SECRET },
+    returnHeaders: true,
+  });
+  return toCookieHeader(headers);
 }
 
 /** Delete only this suite's rows. See `TEST_EMAIL_DOMAIN`. */

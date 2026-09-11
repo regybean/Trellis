@@ -9,7 +9,10 @@ imports this package.
 
 - `initAuth` — builds a configured auth instance for your app. It takes the
   origin as a parameter, because each app is served from its own and a shared
-  package cannot know it.
+  package cannot know it. It also takes your own Better Auth plugins, appended
+  to the built-ins, and a switch that turns the email-and-password provider off
+  — so running an identity provider means passing its plugin here, not editing
+  or copying this package.
 - A framework-agnostic handler you mount at a catch-all path, so sign-in,
   sign-up, sessions and callbacks are one route file.
 - `toPrincipal` — maps a session onto the neutral principal your route seam
