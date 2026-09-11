@@ -18,7 +18,14 @@ function ScrollArea({
     >
       <ScrollAreaPrimitive.Viewport
         data-slot="scroll-area-viewport"
-        className="focus-visible:ring-ring/50 size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
+        // `max-h-[inherit]` is what makes a *capped* region scroll. Radix gives
+        // the viewport `height: 100%`, and a percentage height against a root
+        // carrying only a `max-height` resolves to `auto` — so the viewport
+        // grows with its content and paints past the cap instead of scrolling
+        // inside it. Inheriting the root's `max-height` gives the percentage
+        // something to resolve against. A root with no cap inherits `none`, so
+        // this is a no-op for every caller that does not cap the region.
+        className="focus-visible:ring-ring/50 size-full max-h-[inherit] rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:outline-1"
       >
         {children}
       </ScrollAreaPrimitive.Viewport>

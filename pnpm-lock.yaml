@@ -1443,6 +1443,9 @@ importers:
       postgres:
         specifier: 'catalog:'
         version: 3.4.7
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@acme/eslint-config':
         specifier: workspace:*

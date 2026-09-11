@@ -16,6 +16,7 @@ import {
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import SuperJSON from 'superjson';
 
+import type { NodeEnv } from './node-env';
 import type { FeatureQueryPersister } from './query-persister';
 import {
   clearPersistedCache as clearFeatureStore,
@@ -52,14 +53,6 @@ import {
  */
 type Transport = 'http' | 'batch-stream' | 'blob-batch-stream';
 
-/**
- * The three `NODE_ENV` values every feature's env validates to (a zod
- * `z.enum(['development','production','test'])`). Kept as a literal union rather
- * than bare `string` so the MSW test seam (`'test'`) and dev `loggerLink`
- * (`'development'`) switch on a closed set the compiler checks.
- */
-type NodeEnv = 'development' | 'production' | 'test';
-
 interface PersisterConfig {
   /**
    * Composed into the persister `buster` (`appVersion:scopeKey`) so a deploy
@@ -89,6 +82,10 @@ interface FeatureClientOptions {
    * The feature's validated `env.NODE_ENV`. Passed in rather than read here so
    * `@acme/hooks` stays env-agnostic (the feature owns its validated env). Drives
    * the MSW test seam (`'test'`) and the dev-only `loggerLink`.
+   *
+   * A feature that owns no env module has nothing to narrow the raw variable
+   * with — it passes `resolveNodeEnv(process.env.NODE_ENV)` instead, and needs
+   * no env module to do it.
    */
   nodeEnv: NodeEnv;
   /** Terminal (non-subscription) data link — see {@link Transport}. */
