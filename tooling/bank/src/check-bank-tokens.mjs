@@ -206,23 +206,102 @@ const tokens = identity();
 
 /**
  * A token matched as a whole word, case-insensitively — a name is the same name
- * however it is capitalised, and a token inside a longer hyphenated word is a
- * different word, not the app.
+ * however it is capitalised.
  *
  * A `/` before the token counts as a boundary rather than blocking the match:
  * the two spellings that matter most, `<owner>/<repo>` and `vendor/<repo>`,
  * both write the name after a slash.
+ *
+ * **A hyphen is a boundary too**, in both directions, and that is the whole
+ * point of this spelling. An earlier version treated `-` as a word character,
+ * so a name inside a hyphenated compound matched nothing: `dev-<app>.log`,
+ * `<repo>-postgres` and `<repo>-<app>` all read as unrelated words. The rule
+ * reported zero while the repo carried its own name into the always-included
+ * bundle, a compose file and two ADRs. A compound built out of a name still
+ * names it — that is why the name is in there.
+ *
+ * The two legitimate compounds the widening catches are handled below, by
+ * position rather than by pattern: an upstream package, and a default a
+ * consumer can override from the environment.
  *
  * @param {string} token
  * @returns {RegExp}
  */
 const pattern = (token) =>
   new RegExp(
-    `(?<![\\w-])${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![\\w-])`,
-    'i',
+    `(?<!\\w)${token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?!\\w)`,
+    'gi',
   );
 
 const patterns = tokens.map((token) => ({ token, match: pattern(token) }));
+
+/**
+ * The npm scopes this workspace publishes under, e.g. `acme`.
+ *
+ * Used to tell our own `@acme/<app>` from somebody else's package that happens
+ * to end in the same word. Derived, so a repo that renames its scope needs no
+ * edit here.
+ *
+ * @returns {Set<string>}
+ */
+function workspaceScopes() {
+  /** @type {Set<string>} */
+  const scopes = new Set();
+
+  for (const path of tracked) {
+    if (!path.endsWith('package.json')) continue;
+    const name = /"name"\s*:\s*"@([\w.-]+)\//.exec(
+      readFileSync(join(ROOT, path), 'utf8'),
+    )?.[1];
+    if (name) scopes.add(name.toLowerCase());
+  }
+
+  return scopes;
+}
+
+const SCOPES = workspaceScopes();
+
+/**
+ * Character ranges on a line where a name is somebody else's to choose.
+ *
+ * Two kinds, and no more. Both are *positions*, checked against where a match
+ * landed, because that is the only way to say "this occurrence is fine" without
+ * exempting every other occurrence on the same line.
+ *
+ *   - **An upstream package specifier**, `@scope/name`, where the scope is not
+ *     one of ours. `@t3-oss/env-nextjs` is that package's name; a consumer who
+ *     installs it gets the same string, and renaming their app changes nothing
+ *     about it. A specifier under *our* scope is the opposite — `@acme/<app>`
+ *     is precisely the thing a consumer will not have — so the scope check is
+ *     what separates them.
+ *   - **An environment-overridable default**, the `value` in `${VAR:-value}`
+ *     and its `-` / `:=` spellings. The name is a fallback, one the consumer
+ *     replaces by exporting `VAR`, so the content is portable in the way that
+ *     matters: it runs correctly in their repo without an edit. A bare literal
+ *     gets no such exemption, because there is nothing for them to set.
+ *
+ * @param {string} line
+ * @returns {[number, number][]}
+ */
+function exemptSpans(line) {
+  /** @type {[number, number][]} */
+  const spans = [];
+
+  for (const match of line.matchAll(/@([\w.-]+)\/[\w.-]+/g)) {
+    if (SCOPES.has((match[1] ?? '').toLowerCase())) continue;
+    spans.push([match.index, match.index + match[0].length]);
+  }
+
+  // The default runs from after the operator to the closing brace, so it is
+  // measured back from the end rather than by searching for the operator —
+  // `${VAR:-a:-b}` would find the wrong one.
+  for (const match of line.matchAll(/\$\{[A-Za-z_]\w*:?[-=]([^}]*)\}/g)) {
+    const end = match.index + match[0].length - 1;
+    spans.push([end - (match[1] ?? '').length, end]);
+  }
+
+  return spans;
+}
 
 /** @type {string[]} */
 const findings = [];
@@ -239,8 +318,17 @@ for (const path of tracked) {
 
   for (const [index, line] of text.split('\n').entries()) {
     if (exempt.has(index + 1)) continue;
+    const spans = exemptSpans(line);
+    // Position, not presence: one occurrence can be an upstream package and
+    // another on the same line the app itself.
     const named = patterns
-      .filter(({ match }) => match.test(line))
+      .filter(({ match }) => {
+        match.lastIndex = 0;
+        return [...line.matchAll(match)].some(
+          (hit) =>
+            !spans.some(([from, to]) => hit.index >= from && hit.index < to),
+        );
+      })
       .map(({ token }) => token);
     // A scoped name names the app once, not twice for the bare name inside it.
     for (const token of named) {

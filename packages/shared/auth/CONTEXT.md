@@ -61,7 +61,7 @@ Role lives on the **user row** (`authUser.role`), not in a token.
 **`betterAuthEnv()`** (`@acme/auth/env`):
 `BETTER_AUTH_SECRET`, and nothing else — the one key this slice actually reads
 (`initAuth` pulls the secret out of it). No profile authors it, because it is a
-secret. Built on `@t3-oss/env-core`, not `env-nextjs` — a shared-layer package
+secret. Built on `@t3-oss/env-core`, not `@t3-oss/env-nextjs` — a shared-layer package
 must not carry a framework dependency.
 
 **`BETTER_AUTH_URL` is not here** — each app authors it in its own `createEnv`,

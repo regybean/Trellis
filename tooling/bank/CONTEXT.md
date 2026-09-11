@@ -16,7 +16,10 @@ keeps this repo's inventory of itself honest.
   lint because only the bank knows those three words: the inventory says what is
   distributable, and git says what this repo is called. `docs/bank.md` is
   allowlisted — it is addressed to a consumer about consuming this repo, so
-  naming it there is correct.
+  naming it there is correct. A hyphen is a word boundary, and the two compounds
+  that survive it — an upstream package's scope, and a default the consumer can
+  override from the environment — are
+  [ADR 0002](docs/adr/0002-a-hyphen-is-a-word-boundary-and-what-that-forces.md).
 
 The model is a vendored subset merged three ways, with neither side enumerating
 paths. The consumer-facing guide is [docs/bank.md](../../docs/bank.md).

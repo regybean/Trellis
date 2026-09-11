@@ -315,7 +315,7 @@ export function createFeatureClient<TRouter extends AnyRouter>({
 
 function sourceHeaders() {
   const headers = new Headers();
-  headers.set('x-trpc-source', 'nextjs-react');
+  headers.set('x-trpc-source', 'react');
   return headers;
 }
 

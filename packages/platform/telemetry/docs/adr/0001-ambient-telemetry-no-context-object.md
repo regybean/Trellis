@@ -46,9 +46,10 @@ nothing to call.
 **Each app initialises the OTel SDK at its own server boundary.** The Next.js apps
 keep an `instrumentation.ts` preload, which gives full HTTP auto-instrumentation;
 the TanStack apps call `initTelemetry()` from a Nitro startup plugin, which is
-loader-free and runs identically in dev and prod. `service.name` is a per-app
-literal (`trellis-nextjs`, `trellis-tanstack-start`, …) — app identity, not shared
-config. The platform never assumes a framework established an ambient span: the
+loader-free and runs identically in dev and prod. `service.name` is a literal the
+app itself picks — app identity, not shared config, so the platform neither
+supplies it nor derives one. The platform never assumes a framework established
+an ambient span: the
 per-procedure span is simply parentless when none exists.
 
 A TanStack trace is therefore rooted at the tRPC procedure span rather than an HTTP

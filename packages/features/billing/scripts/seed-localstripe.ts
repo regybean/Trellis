@@ -93,7 +93,7 @@ async function registerWebhook() {
     'http://host.docker.internal:3000/api/stripe';
   const secret = process.env.STRIPE_WEBHOOK_SECRET ?? 'whsec_localstripe';
 
-  const res = await fetch(`${apiBase}/_config/webhooks/trellis-dev`, {
+  const res = await fetch(`${apiBase}/_config/webhooks/localstripe-dev`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ url: webhookUrl, secret }),

@@ -167,10 +167,83 @@ describe('distributable content naming this repo', () => {
   it('matches a name whole, not as a substring of a longer word', () => {
     const { stderr } = run({
       ...baseline(),
-      'docs/guide.md': 'The storefront-canary spike is not an app.\n',
+      'docs/guide.md': 'The storefronts endpoint is not an app.\n',
     });
 
     expect(stderr).toBe('');
+  });
+
+  it('reads a hyphenated compound as naming what is inside it', () => {
+    // The false negative this rule ran with for its whole report-only period
+    // and beyond: a hyphen counted as a word character, so every compound built
+    // out of a name — `dev-<app>.log`, `<repo>-postgres`, `<repo>-<app>` — read
+    // as a word naming nobody. The gate reported zero while the repo carried
+    // its own name into an always-included bundle.
+    const { stderr } = run({
+      ...baseline(),
+      'docs/guide.md':
+        'Tail `logs/dev-storefront.log`, then `Widgets-postgres`.\n',
+    });
+
+    expect(stderr).toContain('docs/guide.md:1');
+    expect(stderr).toContain('storefront');
+    expect(stderr).toContain('Widgets');
+  });
+});
+
+describe('the two compounds a name is allowed to sit in', () => {
+  it('leaves a package published under somebody else s scope alone', () => {
+    // `@t3-oss/env-nextjs` is that package's name. A consumer installs the same
+    // string whatever they call their apps, so it names nothing about us.
+    const { status, stderr } = run({
+      ...baseline(),
+      'docs/guide.md': 'Built on `@t3-oss/env-storefront`, not the core one.\n',
+    });
+
+    expect(status).toBe(0);
+    expect(stderr).toBe('');
+  });
+
+  it('still reports our own scope, which is the thing they will not have', () => {
+    const { stderr } = run({
+      ...baseline(),
+      'docs/guide.md': 'Mounted by `@fixture/storefront`.\n',
+    });
+
+    expect(stderr).toContain('docs/guide.md:1');
+  });
+
+  it('leaves a default the consumer can override from the environment', () => {
+    // The name is a fallback, replaced by exporting the variable, so the file
+    // runs correctly in their repo without an edit.
+    const { status, stderr } = run({
+      ...baseline(),
+      'scripts/run.sh': 'PREFIX="${INFRA_CONTAINER_PREFIX:-Widgets-}"\n',
+    });
+
+    expect(status).toBe(0);
+    expect(stderr).toBe('');
+  });
+
+  it('still reports a bare literal, which there is nothing to set', () => {
+    const { stderr } = run({
+      ...baseline(),
+      'scripts/run.sh': 'PREFIX="Widgets-"\n',
+    });
+
+    expect(stderr).toContain('scripts/run.sh:1');
+  });
+
+  it('reports the other occurrence on a line that carries both', () => {
+    // The exemptions are positions, not a verdict on the line: one occurrence
+    // can be an upstream package and the next the repo itself.
+    const { stderr } = run({
+      ...baseline(),
+      'docs/guide.md': 'Built on `@t3-oss/env-storefront` for `Widgets`.\n',
+    });
+
+    expect(stderr).toContain('docs/guide.md:1');
+    expect(stderr).toContain('Widgets');
   });
 
   it('fails, and prints the count', () => {

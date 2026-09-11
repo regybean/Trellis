@@ -19,8 +19,12 @@
  *      which travels with nothing.
  *   3. **No bare issue number.** A number alone resolves in whichever tracker
  *      the reader happens to be looking at, which is the problem.
- *   4. **No root ADR naming an app.** Apps are consumer identity, so a decision
- *      that has to name one is an app-layer decision filed in the wrong place.
+ *   4. **No root document naming an app.** Apps are consumer identity, so a
+ *      decision that has to name one is an app-layer decision filed in the
+ *      wrong place — and a root guide that names one describes a workspace its
+ *      reader does not have. Root ADRs first, then the rest of the root's
+ *      documentation, once a root ADR was found spelling out all four of this
+ *      repo's apps in a form the rule could not see.
  *
  * **What the rules cover:** every tracked text file, minus `apps/`, minus
  * symlinks, minus the handful named below. Nothing else — in particular this
@@ -305,33 +309,134 @@ export function validateIssueRefs(file: string, text: string): string[] {
 /**
  * A token naming an app, matched whole rather than as a substring.
  *
- * The trailing boundary is conditional: `apps/` is a *prefix*, and the thing
- * that names an app is precisely what follows it.
+ * A hyphen is a boundary, in both directions. Treating `-` as a word character
+ * is how `dev-<app>.log` and `<repo>-<app>` read as words that name nobody, and
+ * the rule sat quiet on a root ADR that spelled out all four of this repo's
+ * apps that way. A compound built out of a name still names it.
+ *
+ * A `/` is a boundary too, and has to be: `apps/<app>` is the plainest way there
+ * is to name one. That makes `@acme/<app>` match the bare name as well as the
+ * scoped one, which is what the deduplication in rule 4 is for.
+ *
+ * The widening catches one compound it should not: a package somebody else
+ * published whose name happens to end in the same word. `exemptSpans` below
+ * takes those back out by position.
  */
 const appPattern = (token: string) => {
   const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const tail = /[\w-]$/.test(token) ? '(?![\\w-])' : '';
-  return new RegExp(`(?<![\\w/@-])${escaped}${tail}`);
+  return new RegExp(`(?<!\\w)${escaped}(?!\\w)`, 'g');
 };
 
 /**
- * Rule 4: a root ADR names no app.
+ * Character ranges where a name is somebody else's to choose, not this repo's.
+ *
+ * The same two exemptions the bank's token check makes, for the same reasons,
+ * and deliberately a second implementation rather than a shared one: this
+ * package must keep working in a consumer repo that has no bank at all, and the
+ * bank's copy has to run before `pnpm install` resolves anything. Neither can
+ * import the other.
+ *
+ *   - **An upstream package specifier**, `@scope/name`, where the scope is not
+ *     one this workspace publishes under. A consumer who installs
+ *     `@t3-oss/env-nextjs` gets that same string whatever their apps are
+ *     called. `@acme/<app>` is the opposite and stays in scope.
+ *   - **An environment-overridable default**, the value in `${VAR:-value}`.
+ *     The name is a fallback the consumer replaces by exporting `VAR`, so the
+ *     file runs correctly in their repo without an edit. A bare literal gets
+ *     nothing, because there is nothing for them to set.
+ */
+function exemptSpans(
+  text: string,
+  scopes: ReadonlySet<string>,
+): [number, number][] {
+  const spans: [number, number][] = [];
+
+  for (const match of text.matchAll(/@([\w.-]+)\/[\w.-]+/g)) {
+    if (scopes.has((match[1] ?? '').toLowerCase())) continue;
+    spans.push([match.index, match.index + match[0].length]);
+  }
+
+  // Measured back from the closing brace: searching forward for the operator
+  // picks the wrong one in `${VAR:-a:-b}`.
+  for (const match of text.matchAll(/\$\{[A-Za-z_]\w*:?[-=]([^}]*)\}/g)) {
+    const end = match.index + match[0].length - 1;
+    spans.push([end - (match[1] ?? '').length, end]);
+  }
+
+  return spans;
+}
+
+/**
+ * Addressed to a consumer about taking this repo, so it names what is on offer.
+ *
+ * The one document whose subject is the distribution itself. Telling a reader
+ * which app to start from is the job, and a rule that flagged it would train
+ * them to skim the report. The bank's token check allows the same file for the
+ * same reason, independently, because neither package can import the other.
+ */
+const ABOUT_THE_OFFER = 'docs/bank.md';
+
+/**
+ * Documentation belonging to no package: root ADRs, `docs/`, and `AGENTS.md`.
+ *
+ * Markdown only, and that is the point of the extension test rather than an
+ * oversight. Widening rule 4 to *every* root file pulls in the root manifest's
+ * script entries, the generated task graphs and `secrets.config.sh` — content
+ * whose distributability is a question only the bank's inventory can answer,
+ * and this checker is built to never ask it. Documentation needs no inventory:
+ * a root document travels to every consumer, so a claim in it about *these*
+ * apps arrives as a claim about apps they do not have.
+ */
+function isRootDoc(file: string, packages: readonly string[]): boolean {
+  if (!file.endsWith('.md') || file === ABOUT_THE_OFFER) return false;
+  return owningPackage(file, packages) === '';
+}
+
+/**
+ * Rule 4: a document outside every package names no app.
  *
  * An app-layer decision filed at the root is a decision packages then cite
  * about content a consumer will never have. Naming an app is the tell.
+ *
+ * The scope is every file that belongs to no package — the root ADRs this
+ * started as, and the rest of the root's documentation with them. Same argument
+ * throughout: a root document travels to every consumer, so a claim in it about
+ * *these* apps arrives as a claim about apps they do not have. It is structural
+ * rather than a list of directories, so it needs no inventory and holds in a
+ * consumer repo, where it keeps their own root documentation honest.
+ *
+ * `apps/` itself is **not** a token. The directory is a convention every
+ * consumer shares, so pointing at `apps/docs/adr/` for where an app-layer
+ * decision lives resolves for them exactly as it does here. Citing an ADR
+ * *file* under it is a different matter, and rule 2 already refuses that. What
+ * names an app is the name, and `apps/<app>` is caught by the name in it.
  */
 export function validateRootAdrApps(
   file: string,
   text: string,
   apps: readonly string[],
+  scopes: ReadonlySet<string> = new Set(),
 ): string[] {
   const errors: string[] = [];
+  const spans = exemptSpans(text, scopes);
+  const hits = new Map<string, number>();
 
   for (const token of apps) {
-    const match = appPattern(token).exec(text);
-    if (!match) continue;
+    const match = [...text.matchAll(appPattern(token))].find(
+      (hit) => !spans.some(([from, to]) => hit.index >= from && hit.index < to),
+    );
+    if (match) hits.set(token, match.index);
+  }
+
+  for (const [token, index] of hits) {
+    // `@acme/<app>` contains `<app>`, and both matched. The scoped name is the
+    // more specific of the two, so it is the one reported — once.
+    const subsumed = [...hits.keys()].some(
+      (other) => other !== token && other.includes(token),
+    );
+    if (subsumed) continue;
     errors.push(
-      `${site(file, text, match.index)}: a root ADR names \`${token}\`. ` +
+      `${site(file, text, index)}: a distributed document names \`${token}\`. ` +
         `A decision that has to name an app is an app-layer decision — file it under ` +
         `${APPS_DIR}, which the bank never distributes.`,
     );
@@ -347,11 +452,14 @@ export interface PortableResult {
 }
 
 /**
- * Every app the workspace holds, as the tokens a root ADR must not use: the
- * directory name, and the package name its manifest declares.
+ * Every app the workspace holds, as the tokens a distributed document must not
+ * use: the directory name, and the package name its manifest declares.
+ *
+ * `apps/` is not among them — see rule 4 for why the bare directory is a
+ * convention a consumer shares rather than this repo's identity.
  */
 function appTokens(tracked: readonly string[], io: RepoIo): string[] {
-  const tokens = new Set([APPS_DIR]);
+  const tokens = new Set<string>();
 
   for (const file of tracked) {
     const dir = /^apps\/([\w.-]+)\/package\.json$/.exec(file)?.[1];
@@ -364,6 +472,19 @@ function appTokens(tracked: readonly string[], io: RepoIo): string[] {
   return [...tokens].sort();
 }
 
+/** The npm scopes this workspace publishes under, e.g. `acme`. */
+function workspaceScopes(tracked: readonly string[], io: RepoIo): Set<string> {
+  const scopes = new Set<string>();
+
+  for (const file of tracked) {
+    if (!file.endsWith('package.json')) continue;
+    const scope = /"name"\s*:\s*"@([\w.-]+)\//.exec(io.read(file))?.[1];
+    if (scope !== undefined) scopes.add(scope.toLowerCase());
+  }
+
+  return scopes;
+}
+
 /** Every rule above, over the tracked files `io` reports. */
 export function checkPortable(io: RepoIo): PortableResult {
   const tracked = io.tracked();
@@ -371,6 +492,7 @@ export function checkPortable(io: RepoIo): PortableResult {
     .filter((file) => file.endsWith('/package.json'))
     .map((file) => posix.dirname(file));
   const apps = appTokens(tracked, io);
+  const scopes = workspaceScopes(tracked, io);
   const errors: string[] = [];
   let scanned = 0;
 
@@ -389,8 +511,8 @@ export function checkPortable(io: RepoIo): PortableResult {
       ...validateAdrScope(file, text, packages, (rel) => io.exists(rel)),
     );
     errors.push(...validateIssueRefs(file, text));
-    if (file.startsWith(ROOT_ADR_DIR)) {
-      errors.push(...validateRootAdrApps(file, text, apps));
+    if (isRootDoc(file, packages)) {
+      errors.push(...validateRootAdrApps(file, text, apps, scopes));
     }
   }
 

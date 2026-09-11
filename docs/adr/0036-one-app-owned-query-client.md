@@ -77,8 +77,8 @@ default staleTime above 0"_. Neither was doing anything:
 
 That block therefore moves once, into `createAppQueryClient()` in `@acme/hooks`
 (SuperJSON `serializeData`/`deserializeData`, and `shouldDehydrateQuery` widened
-to pending queries for streamed SSR). All four apps build their client from it;
-the TanStack apps pass it to `setupRouterSsrQueryIntegration` as before. Feature
+to pending queries for streamed SSR). Every app builds its client from it;
+the apps whose router has an SSR-query integration pass it in as before. Feature
 queries can now hydrate through that integration instead of being shadowed. No
 route loader prefetches one today, so nothing changes at runtime — but the
 serializer is in place for when one does, which is the only reason the config was
@@ -96,7 +96,7 @@ ever worth keeping.
 
 **billing's `staleTime` had already stopped applying.** Billing was the one feature
 that never pinned a client — its hooks call `useQuery` with no second argument,
-because only chat, feedback and ingest got that mitigation. In both full apps the
+because only chat, feedback and ingest got that mitigation. In every app that mounts billing, the
 innermost `QueryClientProvider` beneath billing's own was **notifications**', which
 sets no `defaultOptions.queries` at all. So billing's queries have been running on
 the notifications cache at `staleTime: 0`, and the 30s it declared has been dead for
@@ -176,8 +176,9 @@ its transport links, its `keyPrefix`, and its persister scope.
 - **Move `createFeatureClient` back to whole-client persistence so the client
   stays meaningful.** Rejected by `@acme/hooks` on its own merits (feedback's
   one-query-per-Message write pattern), and unchanged by this decision.
-- **An app-level `QueryClient` in each app with no shared factory.** Four copies
-  of the same SuperJSON dehydrate block and the same browser-singleton subtlety.
+- **An app-level `QueryClient` in each app with no shared factory.** One copy per
+  app of the same SuperJSON dehydrate block and the same browser-singleton
+  subtlety, multiplying with every app added.
   `createAppQueryClient()` / `AppQueryClientProvider` in `@acme/hooks` is one
   source of truth; apps still own _mounting_ it, which is the part that differs
   (Next root layout vs. the TanStack router's `Wrap`).

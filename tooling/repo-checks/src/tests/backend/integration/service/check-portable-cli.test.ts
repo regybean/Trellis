@@ -99,7 +99,7 @@ describe('a repo violating each rule once', () => {
     [`${UI}/src/index.ts`]: `// Rationale: ${bareRef(1)}.\n// Deferred: ${issueRef(126)}.\nexport const x = 1;\n`,
     // 2. an ADR path resolving outside the citing package.
     [`${UI}/CONTEXT.md`]: `See [it](../../../${rootAdr}).\n`,
-    // 4. a root ADR naming an app.
+    // 4. a distributed document naming an app.
     [rootAdr]: `${body('A root decision')}It applies to apps/web.\n`,
   });
 
@@ -118,7 +118,7 @@ describe('a repo violating each rule once', () => {
     expect(stderr).toContain('cites an ADR by number alone');
     expect(stderr).toContain('references issue');
     expect(stderr).toContain('a root ADR');
-    expect(stderr).toContain('a root ADR names');
+    expect(stderr).toContain('a distributed document names');
   });
 
   it('fails, and says how many it found', () => {

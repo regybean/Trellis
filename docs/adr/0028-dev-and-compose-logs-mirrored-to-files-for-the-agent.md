@@ -37,14 +37,14 @@ handoff for that follow-on effort.
 Both streams land as flat files in a root `logs/` dir (gitignored). The agent only
 ever globs **`logs/*.log`** — no subdirs, and it never runs a live command.
 
-- **Naming.** `logs/dev-<app>.log` (one per dev app: `dev-nextjs.log`,
-  `dev-tanstack-start.log`, `dev-nextjs-slim.log`, `dev-tanstack-slim.log`) and
-  `logs/infra-<svc>.log` (one per running compose service: `infra-postgres.log`,
-  `infra-localstripe.log`, …). One service → one file.
+- **Naming.** `logs/dev-<app>.log` (one per dev app, `<app>` being its directory
+  name under `apps/`) and `logs/infra-<svc>.log` (one per running compose
+  service: `infra-postgres.log`, `infra-localstripe.log`, …). One service → one
+  file.
 - **Single generation + per-service truncate-on-start.** Each file holds only the
   current run. It is truncated once per `pnpm dev` session, at launch, and each
   truncate writes a **freshness header** as the first line:
-  `# <label> started <ISO8601Z>` (e.g. `# dev-nextjs started 2026-07-28T09:12:03Z`),
+  `# <label> started <ISO8601Z>` (e.g. `# infra-postgres started 2026-07-28T09:12:03Z`),
   where `<label>` is `dev-<app>` / `infra-<svc>`. A subset run (`pnpm dev <app>`)
   only refreshes the services it launches; every other file survives untouched as
   **stale-but-dated**.
@@ -85,11 +85,11 @@ Compose output is mirrored by a **backgrounded `<engine> logs -f` follower per
 running service**, addressed by container name:
 
 ```
-<engine> logs -f --since "$START" trellis-<svc> >> logs/infra-<svc>.log 2>&1 &
+<engine> logs -f --since "$START" "${INFRA_CONTAINER_PREFIX}<svc>" >> logs/infra-<svc>.log 2>&1 &
 ```
 
 - **Direct `<engine> logs`, not `compose logs`.** One container → one file, so
-  we address the pinned `trellis-*` `container_name` directly. This drops the
+  we address the pinned `$INFRA_CONTAINER_PREFIX*` `container_name` directly. This drops the
   `--no-log-prefix` provider-version flag-floor risk — no per-line prefix is
   needed when each container has its own file
   ([podman-compose issue 1355](https://github.com/containers/podman-compose/issues/1355)).
@@ -100,11 +100,14 @@ running service**, addressed by container name:
   `<engine> ps --filter status=running --format '{{.Names}}'` ∩ the
   `$INFRA_CONTAINER_PREFIX` prefix — **not** `compose ps --status running`
   (podman-compose's `ps` lacks `--status`). Profile→container is 1:1
-  (`postgres → trellis-postgres`, … except `billing → trellis-localstripe`).
+  (`postgres` → `<prefix>postgres`, … except `billing` → `<prefix>localstripe`).
 - **The prefix is a variable, and a miss is reported.** `container_name:` is
-  pinned in the compose file, so the prefix cannot be derived — it is
-  `INFRA_CONTAINER_PREFIX` in `scripts/lib/dev-logs.sh`, defaulting to `trellis-`
-  and overridable by environment for a repo running its own compose file.
+  pinned in the compose file rather than derived, so the follower cannot work the
+  prefix out by itself. Both halves read the same variable instead:
+  `INFRA_CONTAINER_PREFIX`, defaulted in `scripts/lib/dev-logs.sh` and
+  interpolated into every `container_name:` in the compose file, so one export
+  moves the containers and the followers together. A repo running its own compose
+  file sets it once.
   Matching no container writes a line to stderr, because the failure otherwise
   presents as an empty `logs/infra-*.log`, which reads as a silent service rather
   than as looking in the wrong place.
@@ -123,7 +126,7 @@ running service**, addressed by container name:
   1. `compose up -d --wait` (containers healthy before enumeration)
   2. `START=$(date -u +%Y-%m-%dT%H:%M:%SZ)` ; `mkdir -p logs`
   3. `prepare_log` for every launching **dev app** (truncate + header)
-  4. per running `trellis-*`: `mirror_stream` (truncate + header + background
+  4. per running `$INFRA_CONTAINER_PREFIX*`: `mirror_stream` (truncate + header + background
      follower, pushing its PID into a shared `pids[]`)
   5. one `trap 'kill "${pids[@]}" 2>/dev/null' EXIT INT TERM` — reaps **followers
      only**; infra containers stay up for `pnpm infra:down`
@@ -224,8 +227,7 @@ Concrete wiring points for the build effort:
 2. **`scripts/compose.sh`** — source `dev-logs.sh` for `resolve_engine`; otherwise
    unchanged (stays a pure engine passthrough, also used by tests/preview/infra:up).
 3. **`scripts/dev.sh`** — drop both `exec turbo watch dev` lines; export
-   `DEV_LOG_DIR`; run the §4 sequence (prepare dev-app logs → enumerate running
-   `trellis-*` + `mirror_stream` each → single trap → `turbo watch dev`
+   `DEV_LOG_DIR`; run the §4 sequence (prepare dev-app logs → enumerate running `$INFRA_CONTAINER_PREFIX*` + `mirror_stream` each → single trap → `turbo watch dev`
    foreground, propagating its exit code).
 4. **`scripts/resolve-infra.ts`** — extend to always emit the **full app list**
    (fixing the current `app_names=""` all-apps blind spot in `dev.sh`), so

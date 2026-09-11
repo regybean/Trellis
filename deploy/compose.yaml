@@ -1,7 +1,7 @@
 services:
   postgres:
     image: pgvector/pgvector:pg17
-    container_name: trellis-postgres
+    container_name: ${INFRA_CONTAINER_PREFIX:-trellis-}postgres
     ports:
       # DB_PORT/USER/NAME + DB_VECTOR_NAME are single-sourced from config and
       # exported by scripts/compose.sh — bare refs, no `:-` fallback, so a
@@ -40,7 +40,7 @@ services:
 
   redis:
     image: redis:alpine
-    container_name: trellis-redis
+    container_name: ${INFRA_CONTAINER_PREFIX:-trellis-}redis
     ports:
       # REDIS_PORT is parsed from REDIS_URL in config + exported by compose.sh.
       # REDIS_PASSWORD is the container secret, from .env.
@@ -70,7 +70,7 @@ services:
 
   localstack:
     image: localstack/localstack:3.8.1
-    container_name: trellis-localstack
+    container_name: ${INFRA_CONTAINER_PREFIX:-trellis-}localstack
     ports:
       - "4566:4566"
     environment:
@@ -98,7 +98,7 @@ services:
     # Fake stateful Stripe server for local dev — no real Stripe account/network.
     # Pinned (tracks the latest PyPI release 1.15.10).
     image: adrienverge/localstripe:1.15.10
-    container_name: trellis-localstripe
+    container_name: ${INFRA_CONTAINER_PREFIX:-trellis-}localstripe
     ports:
       - "8420:8420"
     healthcheck:
@@ -124,7 +124,7 @@ services:
 
   jaeger:
     image: jaegertracing/jaeger:latest
-    container_name: trellis-jaeger
+    container_name: ${INFRA_CONTAINER_PREFIX:-trellis-}jaeger
     ports:
       - "16686:16686" # Jaeger UI
       - "4317:4317" # OTLP gRPC
@@ -159,7 +159,7 @@ services:
   # so they are never duplicated in .env.
   ollama:
     image: ollama/ollama:0.9.4
-    container_name: trellis-ollama
+    container_name: ${INFRA_CONTAINER_PREFIX:-trellis-}ollama
     ports:
       - "${OLLAMA_PORT}:11434"
     entrypoint:

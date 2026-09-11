@@ -13,16 +13,17 @@ it exist.
 
 ## The two streams
 
-- **`logs/dev-<app>.log`** — one per dev app: `dev-nextjs.log`,
-  `dev-tanstack-start.log`, `dev-nextjs-slim.log`, `dev-tanstack-slim.log`. The
-  framework/compiler stdout (compile status, HMR, framework errors) plus anything
-  the app logs.
+- **`logs/dev-<app>.log`** — one per dev app, where `<app>` is the app's
+  directory name under `apps/`. The framework/compiler stdout (compile status,
+  HMR, framework errors) plus anything the app logs.
 - **`logs/infra-<svc>.log`** — one per running compose service, e.g.
   `infra-postgres.log`, `infra-redis.log`, `infra-localstripe.log`,
   `infra-ollama.log`, `infra-jaeger.log`, `infra-localstack.log`. One container →
   one file. Services are found by container name, under the
-  `INFRA_CONTAINER_PREFIX` prefix (default `trellis-`); if it matches no running
-  container, `dev.sh` says so on stderr rather than leaving you an empty file.
+  `INFRA_CONTAINER_PREFIX` prefix — it defaults to the prefix
+  [deploy/compose.yaml](../../deploy/compose.yaml) gives its `container_name`s,
+  so the two stay in step. If it matches no running container, `dev.sh` says so
+  on stderr rather than leaving you an empty file.
 
 One service → one file; single generation (no rotation, history, or archive) —
 each file holds only the current run.
@@ -36,7 +37,7 @@ The first line of every file is a dated freshness header:
 ```
 
 where `<label>` is `dev-<app>` / `infra-<svc>` — e.g.
-`# dev-nextjs started 2026-07-28T19:58:20Z`. Every file from one `pnpm dev` launch
+`# infra-postgres started 2026-07-28T19:58:20Z`. Every file from one `pnpm dev` launch
 shares the same instant (it's single-sourced from the session start time), so the
 header is what tells you which launch a file belongs to.
 

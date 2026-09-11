@@ -272,14 +272,17 @@ describe('an issue number resolves in whichever tracker is read', () => {
   });
 });
 
-describe('a root ADR names no app', () => {
-  const apps = ['apps/', 'web', '@acme/web'];
+describe('a distributed document names no app', () => {
+  const apps = ['web', '@acme/web'];
+  const scopes = new Set(['acme']);
+  const doc = `${ADR_DIR}/${adr(10, 'a-decision')}`;
 
-  it.each(['apps/', 'web', '@acme/web'])('rejects %s', (token) => {
+  it.each(['web', '@acme/web'])('rejects %s', (token) => {
     const found = validateRootAdrApps(
-      `${ADR_DIR}/${adr(10, 'a-decision')}`,
+      doc,
       `The decision applies to ${token} first.\n`,
       apps,
+      scopes,
     );
 
     expect(found).toHaveLength(1);
@@ -287,43 +290,84 @@ describe('a root ADR names no app', () => {
   });
 
   it('rejects the apps directory with a name after it', () => {
+    // `apps/` is no longer a token of its own, so this has to be caught by the
+    // name that follows it — which means `/` is a boundary, not a blocker.
     const found = validateRootAdrApps(
-      `${ADR_DIR}/${adr(10, 'a-decision')}`,
+      doc,
       'It applies to apps/web first.\n',
       apps,
+      scopes,
     );
 
     expect(found).toHaveLength(1);
-    expect(found[0]).toContain('apps/');
+    expect(found[0]).toContain('web');
   });
 
   it('reports a scoped name once, not twice for the name inside it', () => {
     expect(
-      validateRootAdrApps(
-        `${ADR_DIR}/${adr(10, 'a-decision')}`,
-        'It applies to @acme/web.\n',
-        apps,
-      ),
+      validateRootAdrApps(doc, 'It applies to @acme/web.\n', apps, scopes),
     ).toHaveLength(1);
   });
 
   it('accepts a decision about the monorepo, which names none of them', () => {
     expect(
-      validateRootAdrApps(
-        `${ADR_DIR}/${adr(10, 'a-decision')}`,
-        'Every app owns its own shell.\n',
-        apps,
-      ),
+      validateRootAdrApps(doc, 'Every app owns its own shell.\n', apps, scopes),
+    ).toEqual([]);
+  });
+
+  it('accepts the app-ADR directory, which every consumer has its own of', () => {
+    // Decision 5 of the portability sweep: pointing at where app-layer
+    // decisions live is a convention, not this repo's identity. Citing an ADR
+    // *file* under it is rule 2's business, not this rule's.
+    expect(
+      validateRootAdrApps(doc, 'Filed under `apps/docs/adr/`.\n', apps, scopes),
     ).toEqual([]);
   });
 
   it('matches a name whole, not as a substring of a longer word', () => {
     expect(
       validateRootAdrApps(
-        `${ADR_DIR}/${adr(10, 'a-decision')}`,
-        'The nextjs-canary spike is not an app.\n',
+        doc,
+        'The webhooks endpoint is not an app.\n',
         apps,
+        scopes,
       ),
     ).toEqual([]);
+  });
+
+  it('reads a hyphenated compound as naming the app inside it', () => {
+    // The false negative the whole widening exists for: `dev-<app>.log` and
+    // `<repo>-<app>` named all four apps while the rule reported nothing.
+    expect(
+      validateRootAdrApps(
+        doc,
+        'Tail `logs/dev-web.log` for it.\n',
+        apps,
+        scopes,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('leaves a package published under somebody else s scope alone', () => {
+    expect(
+      validateRootAdrApps(doc, 'Built on `@t3-oss/env-web`.\n', apps, scopes),
+    ).toEqual([]);
+  });
+
+  it('leaves a default the consumer can override from the environment', () => {
+    expect(
+      validateRootAdrApps(
+        doc,
+        'Defaults to `${APP_NAME:-web}`.\n',
+        apps,
+        scopes,
+      ),
+    ).toEqual([]);
+  });
+
+  it('still reports a bare literal, which there is nothing to set', () => {
+    expect(
+      validateRootAdrApps(doc, 'Hardcoded as `web`.\n', apps, scopes),
+    ).toHaveLength(1);
   });
 });

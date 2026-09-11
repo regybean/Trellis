@@ -85,11 +85,12 @@ Decisions about the **app layer** — the app set, not one app — live in
 app's own `docs/adr/`; none qualifies today. The bank never distributes `apps/`,
 so nothing a consumer receives cites either.
 
-| ADR                                                                 | Decision                                                                           |
-| ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [`0001`](apps/docs/adr/0001-slim-no-auth-apps.md)                   | Slim apps are separate no-auth deployments that inject a constant admin principal. |
-| [`0002`](apps/docs/adr/0002-ci-build-stubs-for-infra-client-env.md) | CI build stubs for infrastructure-client env vars.                                 |
-| [`0003`](apps/docs/adr/0003-per-app-env-ownership.md)               | Each app owns its full env surface; the shared root `.env` is deprecated.          |
+| ADR                                                                     | Decision                                                                           |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [`0001`](apps/docs/adr/0001-slim-no-auth-apps.md)                       | Slim apps are separate no-auth deployments that inject a constant admin principal. |
+| [`0002`](apps/docs/adr/0002-ci-build-stubs-for-infra-client-env.md)     | CI build stubs for infrastructure-client env vars.                                 |
+| [`0003`](apps/docs/adr/0003-per-app-env-ownership.md)                   | Each app owns its full env surface; the shared root `.env` is deprecated.          |
+| [`0004`](apps/docs/adr/0004-where-the-composition-components-landed.md) | Where the deleted composition components landed, and what coupled them.            |
 
 | App                    | Context                                        | Also governed by                                                                                                                                                                                                                                                                                                     |
 | ---------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

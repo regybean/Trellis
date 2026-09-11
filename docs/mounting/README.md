@@ -64,12 +64,13 @@ has to satisfy, and point at real code for the rest.
 
 ## Reference implementations
 
-The four apps in this repo mount these packages for real, across two frameworks
-and two feature subsets:
+Whatever is under `apps/` mounts these packages for real. The set is arranged as
+a grid — each framework the repo supports, crossed with each feature subset — so
+that both claims have a working witness:
 
-- The two full apps — the same slices on Next.js and on TanStack Start.
-- The two reduced apps — the same slices with no auth provider and no billing.
-  How those two are built is an app-layer decision, filed under
+- The **full** apps — the same slices, one per framework.
+- The **reduced** apps — the same slices with no auth provider and no billing.
+  How a reduced app is built is an app-layer decision, filed under
   `apps/docs/adr/`.
 
 Reading one alongside its `ADAPTER.md` is the fastest way to see a seam filled
