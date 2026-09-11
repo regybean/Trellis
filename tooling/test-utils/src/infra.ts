@@ -5,9 +5,9 @@
  * tiny per-suite file that imports the descriptors and hands them to
  * `runInfraSetup(...)`. The descriptors are owned by the package that owns the
  * infra (`@acme/db/testing`, `@acme/redis/testing`) — image, ports, container
- * env, wait strategy, bind mounts, and a `provides(host, port)` function that
- * maps the running container's host/port to the `process.env` keys that infra's
- * `env.ts` validates. This module (`@acme/test-utils`, the engine) is the only
+ * env, command, wait strategy and its timeout, bind mounts, and a
+ * `provides(host, port)` function that maps the running container's host/port to
+ * the `process.env` keys that infra's `env.ts` validates. This module (`@acme/test-utils`, the engine) is the only
  * place that turns a descriptor into a running container, so the owners carry no
  * `testcontainers` dependency. See ../docs/adr/0001-test-infra-owned-by-infra-package.md.
  */
@@ -31,6 +31,18 @@ export interface InfraDescriptor {
   containerPort: number;
   /** Env vars set inside the container (e.g. Postgres credentials). */
   containerEnv?: Record<string, string>;
+  /**
+   * Command to run in the container, replacing the image's default. Absent for
+   * an image that needs none.
+   */
+  command?: string[];
+  /**
+   * Milliseconds the engine waits for the wait strategy to be satisfied. Absent
+   * leaves the testcontainers default in place — only a descriptor that knows
+   * its image boots slowly (a JVM, say) has anything to say here, and a value
+   * of ours would be the same guess with worse provenance.
+   */
+  startupTimeoutMs?: number;
   /** Log line (a `RegExp` source string) signalling readiness. */
   waitLogRegex: string;
   /** Times the log line must appear (Postgres logs "ready" twice). Default 1. */
