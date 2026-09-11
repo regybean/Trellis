@@ -19,6 +19,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import type { Readable } from 'node:stream';
 import type { StartedTestContainer } from 'testcontainers';
 import {
   GenericContainer,
@@ -72,6 +73,50 @@ async function assertContainerRuntime(): Promise<void> {
   }
 }
 
+/**
+ * Lines kept from a starting container's output, so a chatty image can't grow
+ * the buffer without bound while its wait strategy is still unsatisfied. The
+ * tail is the useful end — a failure explains itself in what the container said
+ * last.
+ */
+const STARTUP_LOG_LINES = 200;
+
+/**
+ * Capture a starting container's own output, for the error if it never becomes
+ * ready.
+ *
+ * `Wait.forLogMessage` failing reports only that the line never arrived, which
+ * is the one thing the descriptor author already knows. The container's own
+ * output usually says why — a rejected credential, a mount that isn't there, an
+ * image that needs a command. So: buffered, never printed. The engine runs on
+ * every backend suite everywhere, and a passing run has to look exactly as it
+ * did before, which is why `release()` drops the tail on success instead of
+ * logging it.
+ */
+function captureStartupLogs() {
+  const lines: string[] = [];
+  let capturing = true;
+
+  const push = (line: unknown) => {
+    if (!capturing) return;
+    lines.push(String(line).trimEnd());
+    if (lines.length > STARTUP_LOG_LINES) lines.shift();
+  };
+
+  return {
+    consume: (stream: Readable) => {
+      stream.on('data', push);
+      stream.on('err', push);
+    },
+    /** Stop accumulating and free the tail, once the container is up. */
+    release: () => {
+      capturing = false;
+      lines.length = 0;
+    },
+    tail: () => lines.join('\n'),
+  };
+}
+
 /** Start a real container described by the descriptor. */
 async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
   let builder = new GenericContainer(descriptor.image).withExposedPorts(
@@ -79,6 +124,9 @@ async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
   );
   if (descriptor.containerEnv) {
     builder = builder.withEnvironment(descriptor.containerEnv);
+  }
+  if (descriptor.command?.length) {
+    builder = builder.withCommand(descriptor.command);
   }
   if (descriptor.bindMounts?.length) {
     builder = builder.withBindMounts(
@@ -95,8 +143,31 @@ async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
       descriptor.waitLogTimes ?? 1,
     ),
   );
+  // Absent means absent: testcontainers keeps its own default rather than one of
+  // ours standing in for it, since a default here would be the same guess about
+  // image weight with worse provenance.
+  if (descriptor.startupTimeoutMs !== undefined) {
+    builder = builder.withStartupTimeout(descriptor.startupTimeoutMs);
+  }
 
-  const container = await builder.start();
+  const logs = captureStartupLogs();
+  builder = builder.withLogConsumer(logs.consume);
+
+  let container: StartedTestContainer;
+  try {
+    container = await builder.start();
+  } catch (cause) {
+    const tail = logs.tail();
+    throw new Error(
+      `${descriptor.name} testcontainer (${descriptor.image}) failed to start.\n` +
+        (tail
+          ? `Container output:\n${tail}`
+          : 'The container produced no output.'),
+      { cause },
+    );
+  }
+  logs.release();
+
   const env = descriptor.provides(
     container.getHost(),
     container.getMappedPort(descriptor.containerPort),
