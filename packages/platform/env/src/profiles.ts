@@ -32,13 +32,21 @@ type ProfileValues<TShape extends EnvShape> = {
 /**
  * The closed profile set
  * ([ADR 0001](../docs/adr/0001-one-env-factory-per-slice.md) §2): `default`
- * *is* `development`; `staging` and `production` are optional overlays merged
- * over it. A target with no overlay of its own inherits the base — which in
- * this repo is the deliberate rule, not an oversight: every key is
- * env-overridable ([ADR 0001](../docs/adr/0001-one-env-factory-per-slice.md)
- * §4), so a deploy target's own values arrive as environment variables and a
- * slice does not have to be re-authored to be deployable. Authoring an overlay
- * is for values that belong in version control.
+ * *is* `development`; `staging` and `production` are overlays merged over it.
+ *
+ * **A deploy target must author its own overlay**, and a real boot that finds
+ * one missing raises rather than resolving to the base
+ * ([ADR 0003](../docs/adr/0003-a-deploy-target-authors-its-own-profile.md),
+ * which amends the inheritance rule in
+ * [ADR 0001](../docs/adr/0001-one-env-factory-per-slice.md)). Inheritance handed a deploy the
+ * development base's localhost literals, passed every validation, and was wrong
+ * on the first request.
+ *
+ * They stay optional at the type level because the rule is about a boot, not a
+ * compile: an app selecting a subset of slices should fail on the slice it
+ * actually mounts, naming the target, rather than on every slice in the graph.
+ * An **empty** overlay is present and therefore satisfies the rule — that is the
+ * deliberate signature for a slice whose every key is target-neutral.
  */
 export interface Profiles<TShape extends EnvShape> {
   default: ProfileValues<TShape>;
@@ -56,18 +64,32 @@ type ShapeOutput<TShape extends EnvShape> = {
  * base, so it has no overlay of its own — which is why this reads as a switch on
  * the closed set rather than an index into the profiles.
  *
+ * A deploy target that authored no overlay **raises**, naming itself, rather
+ * than silently resolving to the base's localhost literals
+ * ([ADR 0003](../docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+ * `relaxSecrets` is the escape hatch, and it is the one the caller already
+ * computed: a run that cannot supply a secret cannot supply a deploy target's
+ * config either, so lint, the Next production build and non-test CI resolve to
+ * the base as before. A build is not a boot.
+ *
  * Arrays **replace** rather than concatenate (`mergeArrays: false`): an overlay
  * that sets a list means "use this list", not "append to the base's"
  * ([ADR 0001](../docs/adr/0001-one-env-factory-per-slice.md) §2).
  */
-function resolveProfile(appEnv: AppEnv, profiles: Profiles<EnvShape>) {
+function resolveProfile(
+  appEnv: AppEnv,
+  profiles: Profiles<EnvShape>,
+  relaxSecrets: boolean,
+) {
   if (appEnv === 'development') return { ...profiles.default };
   const overlay = appEnv === 'staging' ? profiles.staging : profiles.production;
-  return merge.withOptions(
-    { mergeArrays: false },
-    profiles.default,
-    overlay ?? {},
-  );
+  if (overlay === undefined) {
+    if (relaxSecrets) return { ...profiles.default };
+    throw new Error(
+      `Environment validation failed:\nNo \`${appEnv}\` profile is authored for this slice, so it would resolve to the development base. Author one — \`${appEnv}: {}\` is enough when nothing here differs on ${appEnv}, and setting a key to \`undefined\` demands it from the environment there instead.`,
+    );
+  }
+  return merge.withOptions({ mergeArrays: false }, profiles.default, overlay);
 }
 
 /**
@@ -145,7 +167,10 @@ function parseWithShape<TOutput>(schema: z.ZodType, value: unknown) {
  *   createFinalSchema: (shape) =>
  *     withProfiles(shape, appEnv, {
  *       default: { DB_HOST: 'localhost', DB_PORT: 5444 },
- *       production: { DB_HOST: 'db.internal' },
+ *       // Both deploy targets must be authored. Unauthoring the host demands it
+ *       // from the environment there; the port is target-neutral and stays.
+ *       staging: { DB_HOST: undefined },
+ *       production: { DB_HOST: undefined },
  *     }),
  *   runtimeEnv: { DB_HOST: readEnv('DB_HOST'), ... },
  * });
@@ -170,10 +195,11 @@ export function withProfiles<TShape extends EnvShape>(
   appEnv: AppEnv,
   profiles: Profiles<TShape>,
 ): StandardSchemaV1<Record<string, unknown>, ShapeOutput<TShape>> {
+  const relaxSecrets = shouldSkipEnvValidation();
   const schema = buildShape(
     shape,
-    new Map(Object.entries(resolveProfile(appEnv, profiles))),
-    shouldSkipEnvValidation(),
+    new Map(Object.entries(resolveProfile(appEnv, profiles, relaxSecrets))),
+    relaxSecrets,
   );
 
   return {
@@ -195,17 +221,24 @@ export function withProfiles<TShape extends EnvShape>(
  * createFinalSchema: secretsOnly(appEnv),
  * ```
  *
- * It is `withProfiles(shape, appEnv, { default: {} })`, which is the shape
- * every secrets-gate call reaches for (`@acme/auth`'s `BETTER_AUTH_SECRET`,
+ * It is `withProfiles` over three empty profiles, which is the shape every
+ * secrets-gate call reaches for (`@acme/auth`'s `BETTER_AUTH_SECRET`,
  * `@acme/models`' per-provider credential groups). Naming it says *why* the
- * profile is empty — these keys are credentials by construction, not config
- * someone forgot to author — and keeps the empty `default: {}` from reading
- * like an oversight at each site. It still routes through `withProfiles`, so
- * the per-key relaxation on a run that cannot supply secrets
+ * profiles are empty — these keys are credentials by construction, not config
+ * someone forgot to author — and keeps the emptiness from reading like an
+ * oversight at each site. It still routes through `withProfiles`, so the
+ * per-key relaxation on a run that cannot supply secrets
  * ([ADR 0001](../docs/adr/0001-one-env-factory-per-slice.md) §3) is identical;
  * `skipValidation` is still never passed.
+ *
+ * It supplies both deploy overlays itself rather than being exempted from the
+ * authorship rule
+ * ([ADR 0003](../docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+ * The helper's contract is already a complete statement about all three
+ * targets — no key here carries an authored value on any of them — so writing
+ * them out expresses that meaning rather than carving a hole in the rule.
  */
 export function secretsOnly(appEnv: AppEnv) {
   return <TShape extends EnvShape>(shape: TShape) =>
-    withProfiles(shape, appEnv, { default: {} });
+    withProfiles(shape, appEnv, { default: {}, staging: {}, production: {} });
 }

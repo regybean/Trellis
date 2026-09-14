@@ -14,7 +14,12 @@ export const env = createEnv({
     /* keys only your app owns */
   },
   client: {},
-  createFinalSchema: (shape) => withProfiles(shape, appEnv, { default: {} }),
+  createFinalSchema: (shape) =>
+    withProfiles(shape, appEnv, {
+      default: {},
+      staging: {},
+      production: {},
+    }),
   runtimeEnv: {
     /* your own keys, written longhand */
   },
@@ -40,28 +45,46 @@ A key that is config in development and a secret on a real target shows as
 `config → secret`: the development profile authors a local stand-in and the
 staging and production overlays remove it.
 
-## 3. Don't pass `skipValidation`
+## 3. Every deploy target authors its own profile
+
+`development` **is** the base. `staging` and `production` are overlays over it,
+and each must be written out — a real boot that finds one missing raises, naming
+the target, instead of resolving your deploy to the base's localhost literals.
+
+An empty overlay is present and therefore satisfies this. That is the honest
+answer whenever nothing in the call differs on that target, and it is deliberate
+rather than dead config: deleting it is what makes the next deploy crash.
+
+A key whose base value is a local address sets itself to `undefined` in both
+deploy overlays. That unauthors it, which makes it a secret there by the same
+rule as every other secret — so a deploy that forgets to inject it fails at boot
+naming the key, and no hostname you would have to keep true is committed.
+
+The rule respects the skip predicate below, so lint runs and production builds
+carrying `APP_ENV` are unaffected. A build is not a boot.
+
+## 4. Don't pass `skipValidation`
 
 `createEnv` returns `runtimeEnv` before merging `extends`, so a skipped
 composition edge evaluates to an empty object rather than to unvalidated values.
 Profiles relax per key instead, which keeps config defaults working during lint
 and build runs.
 
-## 4. Keys your app owns, not a package
+## 5. Keys your app owns, not a package
 
 Anything a shared package cannot know belongs in your composition call: the
 origin your app is served from, the port it listens on, the service name it
 reports. A package that needs one takes it as a parameter instead of reading it,
 which is why some `ADAPTER.md` **Wiring** sections ask you to pass a value in.
 
-## 5. Client reads
+## 6. Client reads
 
 The access guard is name-based: it consults the `shared` and `client` dicts of
 the call doing the reading. Your composition call declares none of a package's
 keys itself, so **client-side reads import the owning package's `./env`
 directly** and server-side reads come through your composed object.
 
-## 6. Selector keys
+## 7. Selector keys
 
 A key your bundler has to inline textually — the deploy-target selector, the app
 identity, anything read in client code — must be written longhand as

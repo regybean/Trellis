@@ -9,9 +9,11 @@ env composition uses. You mount it by writing that composition
 - `withProfiles` — layers per-deploy-target defaults onto an env schema through
   a documented extension point, so no key needs a hand-written default and
   nothing is forked or patched.
-- `secretsOnly` — `withProfiles` with an empty profile, for a call whose shape is
+- `secretsOnly` — `withProfiles` over empty profiles, for a call whose shape is
   all secrets. Use it to say the emptiness is deliberate: these keys are
-  credentials by construction, not config someone forgot to author.
+  credentials by construction, not config someone forgot to author. It authors
+  every deploy target on your behalf, so a shape with nothing to say is not made
+  to say nothing three times.
 - `resolveAppEnv` — resolves the deploy-target selector. Each package resolves
   the same selector at its own edge, so profiles agree without a context object
   being threaded anywhere.

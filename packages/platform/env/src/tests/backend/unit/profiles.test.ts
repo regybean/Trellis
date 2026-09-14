@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod/v4';
 
 import type { AppEnv } from '../../../app-env';
-import { withProfiles } from '../../../profiles';
+import { secretsOnly, withProfiles } from '../../../profiles';
 
 /**
  * `withProfiles` is exercised through a real `createEnv` call, because that is
@@ -105,13 +105,107 @@ describe('withProfiles — profile resolution', () => {
     expect(env.CONNECTION).toStrictEqual({ mode: 'real' });
   });
 
-  it('serves a target with no overlay of its own from the base (dev-is-base)', () => {
-    // `staging` is unauthored above. It inherits the development base rather
-    // than throwing, because every key is env-overridable
-    // ([ADR 0001](../../../../docs/adr/0001-one-env-factory-per-slice.md) §4):
-    // a deploy target's own values arrive as environment variables, and
-    // authoring an overlay is for values that belong in version control.
-    const env = sampleEnv({ appEnv: 'staging', runtimeEnv: { SECRET: 'shh' } });
+  it('raises rather than serving a target that authored no overlay of its own', () => {
+    // `staging` is unauthored above. Inheriting the base would hand a deploy
+    // `localhost`, pass every validation, and be wrong on the first request
+    // ([ADR 0003](../../../../docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+    expect(() =>
+      sampleEnv({ appEnv: 'staging', runtimeEnv: { SECRET: 'shh' } }),
+    ).toThrow(/staging/);
+  });
+});
+
+/**
+ * The target-neutral slice's signature: an **empty** overlay on both deploy
+ * targets. Present, so the authorship rule is satisfied; empty, so it merges to
+ * nothing. This is the cheap way out for a slice whose every key is a runtime
+ * mode, a TTL or a limit — nothing in it could be wrong on a deploy target
+ * ([ADR 0003](../../../../docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+ */
+function targetNeutralEnv({ appEnv = 'development' as AppEnv } = {}) {
+  return createEnv({
+    isServer: true,
+    clientPrefix: 'NEXT_PUBLIC_',
+    client: {},
+    server: {
+      HOST: z.string().nonempty(),
+      PORT: z.coerce.number().int().positive(),
+    },
+    createFinalSchema: (shape) =>
+      withProfiles(shape, appEnv, {
+        default: { HOST: 'localhost', PORT: 5444 },
+        staging: {},
+        production: {},
+      }),
+    runtimeEnv: {},
+    emptyStringAsUndefined: true,
+  });
+}
+
+/** A shape whose every key is a credential, built by the all-secrets helper. */
+function secretsGateEnv(appEnv: AppEnv) {
+  return createEnv({
+    isServer: true,
+    clientPrefix: 'NEXT_PUBLIC_',
+    client: {},
+    server: { TOKEN: z.string().nonempty() },
+    createFinalSchema: secretsOnly(appEnv),
+    runtimeEnv: { TOKEN: 'shh' },
+    emptyStringAsUndefined: true,
+  });
+}
+
+describe('withProfiles — a deploy target authors its own profile', () => {
+  it('names the target it is missing a profile for', () => {
+    expect(() =>
+      sampleEnv({ appEnv: 'staging', runtimeEnv: { SECRET: 'shh' } }),
+    ).toThrow(/staging/);
+  });
+
+  it('holds production to the same rule as staging', () => {
+    // `production` is authored on `sampleEnv`, so this shape drops it to make
+    // the unauthored case the one under test.
+    expect(() =>
+      createEnv({
+        isServer: true,
+        clientPrefix: 'NEXT_PUBLIC_',
+        client: {},
+        server: { HOST: z.string().nonempty() },
+        createFinalSchema: (shape) =>
+          withProfiles(shape, 'production', { default: { HOST: 'localhost' } }),
+        runtimeEnv: {},
+        emptyStringAsUndefined: true,
+      }),
+    ).toThrow(/production/);
+  });
+
+  it('leaves development alone — it *is* the base, so it authors no overlay', () => {
+    expect(sampleEnv({ runtimeEnv: { SECRET: 'shh' } }).HOST).toBe('localhost');
+  });
+
+  it('accepts an empty overlay and resolves every key identically to the base', () => {
+    for (const appEnv of ['staging', 'production'] as const) {
+      const env = targetNeutralEnv({ appEnv });
+
+      expect(env.HOST).toBe('localhost');
+      expect(env.PORT).toBe(5444);
+    }
+  });
+
+  it('resolves an all-secrets shape on every target without raising', () => {
+    for (const appEnv of ['development', 'staging', 'production'] as const) {
+      expect(secretsGateEnv(appEnv).TOKEN).toBe('shh');
+    }
+  });
+
+  it('does not raise when the run cannot supply secrets, because a build is not a boot', () => {
+    // The deliberate divergence from the consumer repo that reported the
+    // incident, which raises ahead of any skip logic: this predicate is true for
+    // lint, the Next production build and non-test CI, and a run that cannot
+    // supply a secret cannot supply a deploy target's config either.
+    vi.stubEnv('npm_lifecycle_event', 'lint');
+
+    const env = sampleEnv({ appEnv: 'staging' });
 
     expect(env.HOST).toBe('localhost');
   });
