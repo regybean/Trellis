@@ -8,11 +8,11 @@ distributable lines named the repo, because the pattern treated `-` as a word
 character:
 
 ```
-(?<![\w-])trellis(?![\w-])
+(?<![\w-])<repo>(?![\w-])
 ```
 
-Every compound built out of a name therefore matched nothing. `trellis-postgres`,
-`dev-nextjs.log`, `trellis-tanstack-start` — a hyphen on either side and the name
+Every compound built out of a name therefore matched nothing. `<repo>-postgres`,
+`dev-<app>.log`, `<repo>-<app>` — a hyphen on either side and the name
 was invisible. The same blind spot sat in `check-portable`'s rule 4, which exists
 specifically to stop a root ADR naming an app, and which was at that moment
 passing a root ADR that spelled out all four of this repo's apps in exactly that
@@ -54,7 +54,7 @@ distinction is the whole rule: **naming this repo is acceptable exactly when the
 name is overridable.**
 
 This is what took `deploy/compose.yaml` from six pinned `container_name:
-trellis-*` entries to six interpolations of the same variable the log follower
+<repo>-*` entries to six interpolations of the same variable the log follower
 already read. The two halves had drifted — the follower's prefix was a variable
 and the compose file's was not — and the ADR describing that mechanism said the
 prefix "cannot be derived". Making the gate able to see the literal is what
@@ -85,6 +85,16 @@ passes every gate here and breaks both callers.
 - **Exempt whole files that are known to contain a prefix.** Rejected — the
   always-included bundle is exactly where a leak matters most, and file-level
   exemption is how a file stops being read at all.
+- **Allowlist this ADR, since the names it quotes are its subject.** Rejected,
+  and it is worth saying why, because the examples above are written `<repo>`
+  and `<app>` for exactly this reason and read like a redaction someone should
+  undo. They are not: the compounds demonstrate a _shape_, and the shape is
+  what the widened boundary sees. The real names add nothing a reader needs,
+  and `check-bank-tokens`' own docblock had already settled on the same
+  spelling for the same three examples. Allowlisting a second file would also
+  reopen the bullet above on the one class of file — a bank ADR — that a
+  consumer receives and that describes the mechanism they are receiving. The
+  rule is cheaper to obey here than to carve out.
 - **Allow any hyphenated compound whose full form is a declared dependency.**
   Rejected as the general rule: the case that motivated it, `@t3-oss/env-nextjs`,
   is discussed in an ADR without being installed anywhere, so the dependency
