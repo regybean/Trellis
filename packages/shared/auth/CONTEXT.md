@@ -7,7 +7,8 @@ no `.` entrypoint, and it ships no React.
 
 ## Language
 
-**`initAuth({ baseUrl, trustedOrigins })`** (`@acme/auth/server`):
+**`initAuth({ baseUrl, trustedOrigins, plugins, emailAndPassword })`**
+(`@acme/auth/server`):
 Builds _the app's_ Better Auth instance — email/password provider, sessions in
 Postgres, admin plugin. A factory, not a module singleton: `baseUrl` differs per
 app (each runs on its own port) and a shared-layer package must not read app env.
@@ -15,6 +16,26 @@ The **secret is not a parameter** — `BETTER_AUTH_SECRET` is slice-owned, decla
 and validated in `./env`.
 _Avoid_: "the auth client" (that is `createAuthClient`, app-owned — each app
 wires its own under `src/lib/auth-client.ts`), "the auth singleton"
+
+**The plugin seam** is `initAuth`'s `plugins` — the one way to add a Better Auth
+plugin, an identity provider's being the case it exists for. It **appends** to
+the built-ins and replaces none of them: `admin()` always runs. There is no
+provider config object and no second factory; if a provider needs configuring,
+that configuration lives in the plugin the caller passes, not here. `initAuth` is
+generic over the tuple, so whatever a passed plugin contributes stays visible in
+the returned instance's type. Widening it to `BetterAuthPlugin[]` silently erases
+those endpoints, which is why `src/tests/backend/plugin-types.probe.ts` asserts
+their presence and absence at declaration-emit time.
+_Avoid_: "register a provider", "the provider config" — there is neither; a
+provider arrives as a plugin in the list.
+
+**`emailAndPassword`** (`initAuth`): whether the credential provider is
+registered. On by default — both full apps mount the password form. `false`
+registers no password routes, for a deployment whose users arrive through a
+provider. It sets Better Auth's `enabled` flag rather than dropping the key, so
+the inferred instance and session types do not move.
+_Avoid_: "disable auth" — the instance is unchanged apart from the password
+routes.
 
 **`Auth` / `Session`** (`@acme/auth/server`):
 The instance type and `{ session, user }` as Better Auth resolves it. `Session`'s
