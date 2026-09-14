@@ -8,7 +8,7 @@
  * Offending references are built rather than written as literals — this file is
  * scanned by the real gate run too.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 
@@ -191,17 +191,30 @@ describe('the repo it lives in', () => {
     expect(stdout).toContain('carry no reference that only resolves here');
   });
 
-  it('exempts only files the bank actually withholds', () => {
-    // `NOT_DISTRIBUTED` is a constant here on purpose — the rules must hold in
-    // a consumer repo, which has no inventory to read. The cost is that it
-    // states an answer owned by `bank.paths.json`, so this is the assertion
-    // that catches the two drifting apart: move an exempt file into a bundle
-    // and the exemption becomes a hole in the rule instead of a statement
-    // about content nobody receives.
-    const withheld = withheldPaths(join(repoRoot(), 'bank.paths.json'));
+  // `NOT_DISTRIBUTED` is a constant here on purpose — the rules must hold in a
+  // consumer repo, which has no inventory to read. The cost is that it states
+  // an answer owned by `bank.paths.json`, so the assertion below catches the
+  // two drifting apart: move an exempt file into a bundle and the exemption
+  // becomes a hole in the rule instead of a statement about content nobody
+  // receives.
+  //
+  // That claim is only meaningful where there is an offer to compare against.
+  // This suite ships to every consumer and no consumer has an inventory, so
+  // there it declines to run — named as skipped, rather than failing on a file
+  // only a bank holds, and rather than passing vacuously off an empty set.
+  const inventory = join(repoRoot(), 'bank.paths.json');
+  const isBank = existsSync(inventory);
 
-    expect([...NOT_DISTRIBUTED].filter((path) => !withheld.has(path))).toEqual(
-      [],
-    );
-  });
+  it.skipIf(!isBank)(
+    isBank
+      ? 'exempts only files the bank actually withholds'
+      : "exempts only files the bank actually withholds — skipped: needs bank.paths.json, the bank's own inventory, to compare the exemption against — this repo is not a bank",
+    () => {
+      const withheld = withheldPaths(inventory);
+
+      expect(
+        [...NOT_DISTRIBUTED].filter((path) => !withheld.has(path)),
+      ).toEqual([]);
+    },
+  );
 });
