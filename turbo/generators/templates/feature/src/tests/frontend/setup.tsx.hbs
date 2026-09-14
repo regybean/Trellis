@@ -1,10 +1,11 @@
 import type { RenderOptions } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { createTRPCMsw, httpLink as mswHttpLink } from 'msw-trpc';
 import superjson from 'superjson';
 
-import { AppQueryClientProvider } from '@acme/hooks';
+import { createAppQueryClient } from '@acme/hooks';
 
 import type { AppRouter } from '../../api/root';
 import { TRPCProvider } from '../../trpc/react';
@@ -19,25 +20,52 @@ import '@acme/test-utils/jsdom';
 // network at the HTTP boundary via `trpcMsw` + `setupServer` instead.
 
 /**
- * The feature's provider tree. Used as the `renderWithProviders` wrapper and as
- * the `renderHook` wrapper for `integration/hooks` tests. If the feature toasts,
- * render a real `<ToastContainer />` here so tests assert the message in the DOM.
+ * Build the feature's provider tree, plus the `QueryClient` mounted under it.
+ * Used for the `renderWithProviders` wrapper and as the `renderHook` wrapper
+ * for `integration/hooks` tests. If the feature toasts, render a real
+ * `<ToastContainer />` inside the tree here so tests assert the message in the
+ * DOM.
  *
- * `AppQueryClientProvider` is the app's single `QueryClient`: the feature's own
- * provider renders none, so a test has to mount one exactly as an app does. It
- * builds its client in `useState`, so each render is a cold cache.
+ * The feature's own provider renders no `QueryClient`, so a test has to mount
+ * one exactly as an app does. It mounts `createAppQueryClient()` — the same
+ * factory the app-level `AppQueryClientProvider` builds from, so the tree
+ * matches an app's — but keeps the client in reach, which the app-level
+ * provider cannot offer:
+ *
+ * - **Retries off**, so a failing query reports its error state at once instead
+ *   of backing off for seconds. `setDefaultOptions` replaces rather than merges,
+ *   so spread the existing defaults:
+ *   `queryClient.setDefaultOptions({ ...queryClient.getDefaultOptions(), queries: { retry: false } })`
+ * - **Cache assertions** — `queryClient.getQueryCache().findAll()` — which is
+ *   how a suite proves which queries are present, negative cases included.
+ *
+ * Call it once per render: a fresh client is a genuine cold cache, so nothing
+ * leaks between cases.
  */
-export const Providers = ({ children }: { children: ReactNode }) => (
-  <AppQueryClientProvider>
-    <TRPCProvider>{children}</TRPCProvider>
-  </AppQueryClientProvider>
-);
+export const makeProviders = () => {
+  const queryClient = createAppQueryClient();
 
-/** Render a component wrapped in the feature's tRPC + React Query providers. */
+  const Providers = ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={queryClient}>
+      <TRPCProvider>{children}</TRPCProvider>
+    </QueryClientProvider>
+  );
+
+  return { queryClient, Providers };
+};
+
+/**
+ * Render a component wrapped in the feature's tRPC + React Query providers.
+ * Returns Testing Library's result plus the `QueryClient` it mounted.
+ */
 export const renderWithProviders = (
   ui: ReactElement,
   options?: Omit<RenderOptions, 'wrapper'>,
-) => render(ui, { wrapper: Providers, ...options });
+) => {
+  const { queryClient, Providers } = makeProviders();
+
+  return { ...render(ui, { wrapper: Providers, ...options }), queryClient };
+};
 
 /**
  * Type-safe MSW request handlers for this feature's router. Use in tests like:
@@ -47,4 +75,3 @@ export const trpcMsw = createTRPCMsw<AppRouter>({
   links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/{{ kebabCase name }}' })],
   transformer: { input: superjson, output: superjson },
 });
-
