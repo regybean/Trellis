@@ -120,7 +120,9 @@ function featurePackageJson(name: string, o: FeatureAnswers): string {
     devDependencies["@acme/vitest-config"] = "workspace:*";
     devDependencies.vitest = "catalog:";
   }
-  if (o.backendTests) devDependencies["@acme/test-utils"] = "workspace:*";
+  // Both halves import it: backend suites for `backendProject` + the container
+  // setup, frontend for `frontendProject` and the jsdom polyfills.
+  if (anyTests) devDependencies["@acme/test-utils"] = "workspace:*";
   if (o.frontendTests) {
     Object.assign(devDependencies, {
       "@testing-library/jest-dom": "catalog:",
