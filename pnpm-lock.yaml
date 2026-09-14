@@ -311,6 +311,8 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/docs: {}
+
   apps/nextjs:
     dependencies:
       '@acme/auth':
@@ -1735,9 +1737,15 @@ importers:
       '@acme/prettier-config':
         specifier: workspace:*
         version: link:../../../tooling/prettier
+      '@acme/test-utils':
+        specifier: workspace:*
+        version: link:../../../tooling/test-utils
       '@acme/tsconfig':
         specifier: workspace:*
         version: link:../../../tooling/typescript
+      '@acme/vitest-config':
+        specifier: workspace:*
+        version: link:../../../tooling/vitest
       '@types/node':
         specifier: 'catalog:'
         version: 22.19.3
@@ -1750,6 +1758,9 @@ importers:
       typescript:
         specifier: 'catalog:'
         version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@opentelemetry/api@1.9.0)(@types/node@22.19.3)(jsdom@27.1.0)(msw@2.12.7(@types/node@22.19.3)(typescript@5.9.3))(vite@7.3.5(@types/node@22.19.3)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.21.0)(yaml@2.9.0))
 
   packages/platform/trpc:
     dependencies:
