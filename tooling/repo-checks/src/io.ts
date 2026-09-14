@@ -50,14 +50,39 @@ export interface RepoIo {
   isSymlink(rel: string): boolean;
 }
 
-/** Build output and caches — never source, so never a package's own file. */
+/**
+ * Build output and caches — never source, so never a package's own file.
+ *
+ * One entry per generated directory the repo's own `.gitignore` files name, and
+ * the list has to keep pace with them: `.next` was here for the Next apps while
+ * `.output`, `.nitro` and `.tanstack` — the Nitro/TanStack equivalents — were
+ * not. Nothing noticed until a rule started reading file *contents* rather than
+ * paths, at which point `check-imports` reported bundled vendor code in
+ * `.output/server/_libs/` as undeclared imports of the app. Every finding was
+ * real about the file and meaningless about the package, which is the shape a
+ * gap here takes: a check that fails only after somebody builds.
+ *
+ * Only dot-prefixed names are listed, plus the three that predate the
+ * convention. `out` and `build` are gitignored too and are deliberately absent:
+ * both are plausible authored directory names, and skipping source is a worse
+ * failure than scanning output.
+ *
+ * Not derived from `.gitignore`, which would be the drift-free version, because
+ * `files()` must list empty directories (the layout rule reads an empty
+ * `src/tests/frontend/` as a mis-filing) and git cannot report a directory that
+ * holds no tracked file.
+ */
 const SKIP_DIRS = new Set([
   'node_modules',
   'dist',
+  'coverage',
   '.turbo',
   '.cache',
   '.next',
-  'coverage',
+  '.output',
+  '.nitro',
+  '.tanstack',
+  '.mastra',
 ]);
 
 const toPosix = (value: string) => value.split(path.sep).join('/');

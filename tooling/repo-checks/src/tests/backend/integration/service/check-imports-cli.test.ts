@@ -85,3 +85,45 @@ describe('a suppression', () => {
     expect(output).not.toContain('`zod`');
   });
 });
+
+describe('generated output', () => {
+  // The regression this exists for: a built TanStack app put bundled vendor
+  // code in `.output/server/_libs/`, and the check read it as the app importing
+  // `msgpackr-extract`. True of the file, meaningless about the package — and it
+  // only appeared once somebody had run a build, so a clean checkout passed and
+  // the same commit failed afterwards.
+  it.each(['.output', '.nitro', '.tanstack', '.next', 'dist', '.mastra'])(
+    'is not scanned under %s/',
+    (dir) => {
+      const root = createRepoFixture({
+        files: {
+          'apps/web/package.json': manifest({ name: '@acme/web' }),
+          [`apps/web/${dir}/server/_libs/bundled.mjs`]: `import x from 'msgpackr-extract';\n`,
+        },
+      });
+
+      const { status, stdout } = check(root);
+
+      expect(status).toBe(0);
+      expect(stdout).not.toContain('msgpackr-extract');
+    },
+  );
+
+  it('still reads the source beside it', () => {
+    // The skip is the directory, not the package: a built app is still checked.
+    const root = createRepoFixture({
+      files: {
+        'apps/web/package.json': manifest({ name: '@acme/web' }),
+        'apps/web/.output/server/_libs/bundled.mjs': `import x from 'msgpackr-extract';\n`,
+        'apps/web/src/entry.ts': `import { z } from 'zod';\n`,
+      },
+    });
+
+    const { status, output } = check(root);
+
+    expect(status).toBe(1);
+    expect(output).toContain('`zod`');
+    expect(output).toContain('src/entry.ts');
+    expect(output).not.toContain('msgpackr-extract');
+  });
+});
