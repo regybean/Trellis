@@ -2,7 +2,11 @@
  * OpenTelemetry SDK initialization
  *
  * This module sets up the OpenTelemetry SDK with auto-instrumentation
- * and exports traces to a local Jaeger instance via OTLP.
+ * and exports traces to an OTLP collector.
+ *
+ * Whether it sets up anything at all is `plan.ts`'s decision: telemetry can be
+ * switched off, and it refuses to run switched on with no collector to export
+ * to. `initTelemetry` acts on that plan and never second-guesses it.
  *
  * IMPORTANT: This file must be imported BEFORE any other imports in your
  * application entry point (e.g., instrumentation.ts in Next.js).
@@ -18,14 +22,8 @@ import {
   ATTR_SERVICE_VERSION,
 } from '@opentelemetry/semantic-conventions';
 
-export interface TelemetryConfig {
-  serviceName: string;
-  serviceVersion?: string;
-  /** OTLP endpoint URL. Defaults to http://localhost:4318/v1/traces */
-  otlpEndpoint?: string;
-  /** Enable console logging of spans for debugging */
-  debug?: boolean;
-}
+import type { TelemetryConfig } from './plan';
+import { planTelemetry } from './plan';
 
 let sdk: NodeSDK | null = null;
 
@@ -50,22 +48,31 @@ export function initTelemetry(config: TelemetryConfig): void {
     return;
   }
 
-  const otlpEndpoint = config.otlpEndpoint ?? 'http://localhost:4318/v1/traces';
+  // Switched off, or switched on with nowhere to send traces — both are
+  // settled here, before an exporter or a span processor exists.
+  const plan = planTelemetry(config);
 
-  if (config.debug) {
+  if (!plan) {
+    if (config.debug) {
+      console.log('[Telemetry] disabled — no exporter, no span processor');
+    }
+    return;
+  }
+
+  if (plan.debug) {
     console.log(
-      `[Telemetry] Initializing SDK for service: ${config.serviceName}`,
+      `[Telemetry] Initializing SDK for service: ${plan.serviceName}`,
     );
-    console.log(`[Telemetry] OTLP endpoint: ${otlpEndpoint}`);
+    console.log(`[Telemetry] OTLP endpoint: ${plan.otlpEndpoint}`);
   }
 
   const exporter = new OTLPTraceExporter({
-    url: otlpEndpoint,
+    url: plan.otlpEndpoint,
   });
 
   const resource = resourceFromAttributes({
-    [ATTR_SERVICE_NAME]: config.serviceName,
-    [ATTR_SERVICE_VERSION]: config.serviceVersion ?? '0.0.0',
+    [ATTR_SERVICE_NAME]: plan.serviceName,
+    [ATTR_SERVICE_VERSION]: plan.serviceVersion,
   });
 
   sdk = new NodeSDK({
@@ -91,7 +98,7 @@ export function initTelemetry(config: TelemetryConfig): void {
 
   sdk.start();
 
-  if (config.debug) {
+  if (plan.debug) {
     console.log('[Telemetry] SDK started successfully');
   }
 
@@ -100,7 +107,7 @@ export function initTelemetry(config: TelemetryConfig): void {
     sdk
       ?.shutdown()
       .then(() => {
-        if (config.debug) {
+        if (plan.debug) {
           console.log('[Telemetry] SDK shut down successfully');
         }
       })
@@ -133,3 +140,8 @@ export { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
 
 // Re-export types for tRPC telemetry integration
 export type { ChildSpanOptions } from './trpc';
+
+// The config a caller hands `initTelemetry`. The guard that reads it
+// (`planTelemetry`) stays internal — a caller cannot be given the option of
+// running it instead of `initTelemetry`, which is the point of it.
+export type { TelemetryConfig } from './plan';

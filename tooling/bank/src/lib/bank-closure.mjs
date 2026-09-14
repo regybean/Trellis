@@ -102,7 +102,7 @@ function workspaceGlobs(sha) {
   return parseWorkspaceGlobs(
     raw,
     `${WORKSPACE_FILE} at bank ${sha.slice(0, 8)}`,
-  );
+  ).filter((glob) => !isExclusion(glob));
 }
 
 /**
@@ -139,6 +139,19 @@ const globToRegExp = (glob) =>
  * @returns {string}
  */
 const globDir = (glob) => glob.replace(/\/[^/]*\*.*$/, '');
+
+/**
+ * Whether a glob excludes rather than includes — pnpm's leading `!`. The bank's
+ * package set is the globs minus `exclude`, and an exclusion glob is neither: it
+ * names a directory that was never a package, so it is dropped before the globs
+ * become matchers. Kept separate from `exclude` in `bank.paths.json`, which
+ * records paths deliberately withheld from consumers rather than paths the
+ * workspace never claimed.
+ *
+ * @param {string} glob
+ * @returns {boolean}
+ */
+const isExclusion = (glob) => glob.startsWith('!');
 
 /**
  * Every file path at a bank commit.

@@ -34,6 +34,10 @@ then produces spans without being handed anything
 - Pass the service name from your app. A shared package cannot know what your
   service is called, so this is a parameter rather than something read from env
   by the package.
+- Pass the switch through (`enabled: env.OTEL_TELEMETRY_ENABLED`) rather than
+  branching on it yourself. `initTelemetry` refuses to run enabled with no
+  endpoint, and that refusal belongs in one place — a check copied to each call
+  site is a check the next call site forgets.
 - Nothing to thread afterwards. Spans are ambient, so no context object is
   passed to features
   ([ADR 0001](docs/adr/0001-ambient-telemetry-no-context-object.md)).
@@ -41,9 +45,22 @@ then produces spans without being handed anything
 
 ## Env
 
-Both keys are profile-authored config: the service name and the collector
-endpoint, each overridable by an environment variable of the same name. See
-`src/env.ts`.
+All three keys are profile-authored config, each overridable by an environment
+variable of the same name: the service name, the collector endpoint, and
+`OTEL_TELEMETRY_ENABLED`. See `src/env.ts`.
+
+## Running without a collector
+
+Set `OTEL_TELEMETRY_ENABLED=false`. No exporter and no span processor are
+constructed, so nothing retries an export in the background — which is what a
+batch processor aimed at an address nothing is listening on does, for the life of
+the process.
+
+The switch is parsed, not a truthiness check, so `false` means off. Authored on,
+so a clean checkout needs no configuration to reach the local collector.
+
+Enabled with no endpoint is a crash at boot, not a silent degrade: a
+half-configured target is easier to fix when it says so.
 
 ## Infra
 

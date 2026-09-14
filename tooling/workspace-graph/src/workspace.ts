@@ -80,6 +80,19 @@ export function parseWorkspaceGlobs(
 const globDir = (glob: string) => glob.replace(/\/[^/]*\*.*$/, '');
 
 /**
+ * Whether a glob excludes rather than includes. pnpm reads a leading `!` as
+ * "not a package, whatever an earlier glob matched" — `apps/docs` holds the
+ * app-layer ADRs and no manifest, so `apps/*` has to be told to skip it.
+ *
+ * The exclusions are dropped rather than subtracted, because the walk below
+ * already skips a directory with no manifest: an excluded directory is one
+ * nothing should have called a package, not one to remove after the fact. What
+ * the filter prevents is `!apps/docs` being read as a *directory that holds*
+ * packages, which is what it would become on its way through `globDir`.
+ */
+const isExclusion = (glob: string) => glob.startsWith('!');
+
+/**
  * Every directory that directly holds workspace packages, in the order
  * `pnpm-workspace.yaml` lists them.
  *
@@ -90,7 +103,13 @@ const globDir = (glob: string) => glob.replace(/\/[^/]*\*.*$/, '');
  */
 export function workspaceDirs(root: string): string[] {
   const raw = readFileSync(path.join(root, WORKSPACE_FILE), 'utf8');
-  return [...new Set(parseWorkspaceGlobs(raw).map(globDir))];
+  return [
+    ...new Set(
+      parseWorkspaceGlobs(raw)
+        .filter((glob) => !isExclusion(glob))
+        .map(globDir),
+    ),
+  ];
 }
 
 /**

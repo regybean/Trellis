@@ -1,5 +1,11 @@
 packages:
   - apps/*
+  # `apps/docs` holds the app-layer ADRs, not an app. Without this exclusion
+  # `apps/*` claims it as a package, and `sherif --fix` (which postinstall runs)
+  # writes it a stub manifest on every install — which then fails `test:policy`
+  # for declaring no `acme.testClass`, and puts a package called `docs` in
+  # turbo's scope.
+  - "!apps/docs"
   - packages/platform/*
   - packages/shared/*
   - packages/features/*
