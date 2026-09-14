@@ -31,6 +31,7 @@
     "check:bank-paths": "pnpm -C tooling/bank check:bank-paths",
     "check:bank-tokens": "pnpm -C tooling/bank check:bank-tokens",
     "check:exports": "pnpm --filter @acme/repo-checks check:exports",
+    "check:imports": "pnpm --filter @acme/repo-checks check:imports",
     "check:portable": "pnpm --filter @acme/repo-checks check:portable",
     "build": "turbo run build",
     "build:nextjs": "turbo run build -F @acme/nextjs...",
