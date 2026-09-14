@@ -25,7 +25,11 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * clean checkout connects to the local stack with no `.env` rows. Every key is
  * in `runtimeEnv`, so every key is env-overridable; `DB_HOST` / `DB_PORT` are
  * the two that *must* be — a testcontainer hands back a mapped port and a prod
- * endpoint is infra-injected, so no profile can know them. That used to be
+ * endpoint is infra-injected, so no profile can know them. `DB_HOST` goes
+ * further and is **unauthored** on both deploy targets, which demands it there
+ * rather than leaving a deploy free to inherit `localhost` — a deploy target
+ * must author its own profile, and unauthoring a key there demands it from the
+ * environment. That used to be
  * hand-rolled here as `process.env.DB_HOST ?? config.DB_HOST` and
  * `Number(process.env.DB_PORT)`; coercion now lives in the schema, so
  * `DB_PORT=abc` fails loudly instead of reaching a caller as `NaN`.
@@ -48,6 +52,14 @@ export const env = createEnv({
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
       default: DB_DEVELOPMENT_PROFILE,
+      // `DB_HOST` is the only key here that is an *address*, and inheriting
+      // `localhost` is how a deploy comes up pointed at nothing. Unauthoring it
+      // makes it a secret on these targets by the same mechanical rule as
+      // `DB_PASSWORD`, so a deploy that forgets to inject it crashes at boot
+      // naming the key rather than on its first query. Port, user and database
+      // name stay authored — none of them is an address.
+      staging: { DB_HOST: undefined },
+      production: { DB_HOST: undefined },
     }),
   runtimeEnv: {
     DB_HOST: readEnv('DB_HOST'),

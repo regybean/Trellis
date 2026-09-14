@@ -53,6 +53,24 @@ RUN case "$APP_ENV" in \
 # the namespace. Was in .env.<stage> (#94).
 ENV NEXT_PUBLIC_WEBAPP=nextjs_slim
 
+# Build-time stubs for the keys this app's slices UNAUTHOR on a deploy target
+# (@acme/env ADR 0003). Unauthoring makes each a secret on staging/production, and
+# `shouldSkipEnvValidation()` relaxes secrets during a Next build — so they arrive
+# as `undefined`, and two module-level reads that run while Next collects page
+# data blow up on them: `@acme/rag`'s documents-schema reads
+# `MODELS_EMBED.dimensions`, and PgVector/PostgresStore validate a non-empty
+# `DB_HOST` in their constructors.
+#
+# These are the same values the build inherited from the development base before
+# the profiles were authored, so the built artifact is unchanged — they exist to
+# satisfy constructor guards, not to describe a deploy. A build is not a boot
+# (apps/docs ADR 0002): nothing here connects anywhere, the real values are
+# injected at runtime, and `ENV` in this stage never reaches the production stage.
+ENV DB_HOST=localhost
+ENV REDIS_URL=redis://localhost:6379
+ENV MODELS_CHAT='{"provider":"ollama","baseUrl":"http://localhost:11434/v1","model":"qwen2.5:1.5b"}'
+ENV MODELS_EMBED='{"provider":"ollama","baseUrl":"http://localhost:11434/v1","model":"nomic-embed-text","dimensions":768}'
+
 # Install dependencies
 COPY --from=prepare /app/out/json/ .
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store \

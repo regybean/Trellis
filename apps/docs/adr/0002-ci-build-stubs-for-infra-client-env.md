@@ -14,6 +14,15 @@
 > at module import regardless of what env validation does. Keys that now carry an
 > authored profile value need no stub at all.
 
+> **Extended by [@acme/env ADR 0003](../../../packages/platform/env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md).**
+> "Carries an authored profile value" is now per target. A key the development
+> base authors but a deploy target **unauthors** is a secret on that target, so
+> an `IS_NEXT_BUILD` run relaxes it and it arrives `undefined` — the exact
+> condition this ADR was written about, reached by a new route. That is why the
+> image builds set a second stub group in their builder stage
+> ([table below](#image-build-stubs)); the CI table is unaffected, because the CI
+> jobs set no `APP_ENV` and so resolve the development base.
+
 `shouldSkipEnvValidation()=true` during `IS_NEXT_BUILD` skips T3 schema coercion but
 **not** the infrastructure client constructors (`PgVector`, `PostgresStore` from
 `@mastra/pg`) which do their own non-empty host validation at instantiation time. Those
@@ -55,12 +64,39 @@ Stubs declared in CI:
 | `DB_VECTOR_NAME`     | `stub`      | PgVector `database` param (rag env)                       |
 | `NEXT_PUBLIC_WEBAPP` | `stub`      | PgVector `schemaName` = `RAG_SCHEMA`                      |
 
-**The model-provider keys are no longer in this set.** `LLM_PROVIDER`,
+### Image build stubs
+
+A separate group, set in each Next Dockerfile's `builder` stage rather than in
+CI, because it is `APP_ENV` that creates the need: the image build is the only
+build that selects a deploy target, and on a deploy target these four keys are
+unauthored ([@acme/env ADR 0003](../../../packages/platform/env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+
+| Var            | Stub value                | Why needed                                                                  |
+| -------------- | ------------------------- | --------------------------------------------------------------------------- |
+| `DB_HOST`      | `localhost`               | PgVector / PostgresStore validate a non-empty host in their constructors      |
+| `REDIS_URL`    | `redis://localhost:6379`  | Parsed as a URL at client construction — `undefined` throws `Invalid URL`     |
+| `MODELS_CHAT`  | the Ollama dev selection  | `@acme/models`' `resolve.ts` dispatches on `.provider` at module load         |
+| `MODELS_EMBED` | the Ollama dev selection  | `@acme/rag`'s `documents-schema` reads `.dimensions` at module load           |
+
+Each value is the one the build inherited from the development base before the
+deploy profiles were authored, so the built artifact is unchanged — they exist
+to get module evaluation past a constructor guard, not to describe a deploy.
+Nothing connects during a build, the real values are injected at runtime, and
+`ENV` in the `builder` stage never reaches the `production` stage.
+
+`MODELS_CHAT` / `MODELS_EMBED` had to be added to `turbo.json` `globalEnv` for
+the stubs to arrive at all — turbo 2's default env mode is strict, so an
+undeclared variable is filtered out of the task's environment. They belong there
+on their own merit too: both are read by the build and both change its output.
+
+**The model-provider keys are no longer in the CI set.** `LLM_PROVIDER`,
 `EMBED_PROVIDER`, `EMBED_DIMENSIONS` and the three `OLLAMA_*` vars were listed
 here while `@acme/models` declared a provider enum plus per-provider keys. It
 now declares two keys — `MODELS_CHAT` and `MODELS_EMBED`, each a `jsonEnv`
-discriminated union — and both carry an authored profile value, so by the rule
-in the blockquote above they need no stub. (`OLLAMA_CHAT_MODEL` /
+discriminated union — and both carry an authored profile value on the target CI
+resolves, so by the rule in the blockquote above they need no stub there. (They
+do need one in the image build, which resolves a target that unauthors them —
+see the table above.) (`OLLAMA_CHAT_MODEL` /
 `OLLAMA_EMBED_MODEL` still exist, but as values `@acme/models` _supplies_ for
 the Ollama pull list in compose, from its own `src/provisioning.ts`
 ([@acme/workspace-graph ADR 0001](../../../tooling/workspace-graph/docs/adr/0001-graph-derived-dev-infra.md)); no slice's `createEnv` reads

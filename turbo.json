@@ -131,6 +131,8 @@
     "DB_PASSWORD",
     "DB_PORT",
     "DB_HOST",
+    "MODELS_CHAT",
+    "MODELS_EMBED",
     "NEXT_PUBLIC_WEBAPP",
     "APP_ENV",
     "IS_NEXT_BUILD",

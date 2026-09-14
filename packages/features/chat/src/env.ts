@@ -73,6 +73,12 @@ export function chatEnv() {
           QUEUE_REMOVE_ON_COMPLETE: 1000,
           QUEUE_REMOVE_ON_FAIL: 1000,
         },
+        // Deliberate, not dead config: TTLs, a poll interval, a credit charge
+        // and retention counts are tunables, not addresses. `NEXT_PUBLIC_APP_VERSION`
+        // is the one key a deploy will want to move, and it moves by environment
+        // variable at build. Deleting these makes a deploy crash.
+        staging: {},
+        production: {},
       }),
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
