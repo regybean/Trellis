@@ -311,6 +311,8 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/docs: {}
+
   apps/nextjs:
     dependencies:
       '@acme/auth':
@@ -1011,6 +1013,12 @@ importers:
       eslint:
         specifier: 'catalog:'
         version: 9.39.2(jiti@2.7.0)
+      msw:
+        specifier: 'catalog:'
+        version: 2.12.7(@types/node@24.10.4)(typescript@5.9.3)
+      next:
+        specifier: 'catalog:'
+        version: 15.5.25(@opentelemetry/api@1.9.0)(@types/node@24.10.4)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       prettier:
         specifier: 'catalog:'
         version: 3.7.4
@@ -1615,6 +1623,9 @@ importers:
       ioredis:
         specifier: 'catalog:'
         version: 5.11.1
+      zod:
+        specifier: 'catalog:'
+        version: 4.4.3
     devDependencies:
       '@acme/eslint-config':
         specifier: workspace:*
@@ -19866,7 +19877,6 @@ snapshots:
       - '@babel/core'
       - '@types/node'
       - babel-plugin-macros
-    optional: true
 
   nf3@0.3.17: {}
 

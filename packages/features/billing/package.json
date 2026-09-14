@@ -38,10 +38,20 @@
     "@testing-library/react": "catalog:",
     "@testing-library/user-event": "catalog:",
     "eslint": "catalog:",
+    "msw": "catalog:",
+    "next": "catalog:",
     "prettier": "catalog:",
     "tsx": "catalog:",
     "typescript": "catalog:",
     "vitest": "catalog:"
+  },
+  "peerDependencies": {
+    "next": "catalog:"
+  },
+  "peerDependenciesMeta": {
+    "next": {
+      "optional": true
+    }
   },
   "exports": {
     ".": {
