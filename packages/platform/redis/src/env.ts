@@ -16,7 +16,10 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * other key: a testcontainer hands back a mapped port and a prod endpoint is
  * infra-injected, neither of which a profile can know. The hand-rolled
  * `process.env.REDIS_URL ?? config.REDIS_URL` this replaced skipped validation;
- * the override is now re-checked as a URL like the authored value.
+ * the override is now re-checked as a URL like the authored value. On a deploy
+ * target it is **unauthored** and therefore demanded: the DSN is an address and
+ * carries its own credentials, so there is nothing a profile could honestly say
+ * ([@acme/env ADR 0003](../../env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
  *
  * **Selectors** — `NEXT_PUBLIC_WEBAPP` (app identity, which partitions every
  * shared datastore) and `NODE_ENV` stay written longhand: they are the keys a
@@ -39,6 +42,12 @@ export const env = createEnv({
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
       default: { ...REDIS_DEVELOPMENT_PROFILE, NODE_ENV: 'development' },
+      // The DSN is an address, and it carries the credentials with it, so there
+      // is nothing here a profile could honestly author for a deploy target.
+      // Unauthoring makes it a secret on both, and a deploy that forgets to
+      // inject it crashes at boot naming `REDIS_URL`.
+      staging: { REDIS_URL: undefined },
+      production: { REDIS_URL: undefined },
     }),
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,

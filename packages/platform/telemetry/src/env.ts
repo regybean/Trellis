@@ -7,11 +7,17 @@ import { jsonEnv, readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Telemetry's environment, declared once. All three keys are **config** — they
- * carry profile values, so a clean checkout exports to the local collector with
- * no `.env` rows — and all three are env-overridable, which is what a real
- * deploy needs: the collector endpoint is the value that differs per target, and
- * pointing an app at one should not require re-authoring a profile.
+ * Telemetry's environment, declared once. All three keys are **config** in
+ * development — they carry profile values, so a clean checkout exports to the
+ * local collector with no `.env` rows — and all three are env-overridable,
+ * which is what a real deploy needs: the collector endpoint is the value that
+ * differs per target, and pointing an app at one should not require
+ * re-authoring a profile.
+ *
+ * On a deploy target the endpoint is **unauthored** and therefore a secret
+ * there, because `localhost:4318` is an address and inheriting it is how a
+ * deploy ends up exporting into a void
+ * ([@acme/env ADR 0003](../../env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
  *
  * `OTEL_SERVICE_NAME` is the generic preload's default (`register.ts`); apps that
  * init at their own server boundary pass their own per-app service name literal
@@ -20,9 +26,11 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * `OTEL_TELEMETRY_ENABLED` is the off switch, and it goes through `jsonEnv`
  * rather than `z.coerce.boolean()` for the reason every boolean here does:
  * coercion is JavaScript truthiness, so `'false'` would become `true` and an
- * operator turning telemetry off would have turned it on. Authored on, so the
- * local collector keeps working with no configuration; an operator with no
- * collector sets it to `false` and no exporter is ever constructed.
+ * operator turning telemetry off would have turned it on. Authored **on** in
+ * development, so the local collector keeps working with no configuration, and
+ * **off** on both deploy targets, where nothing guarantees a collector exists:
+ * an operator who has one turns it back on alongside the endpoint they set, and
+ * one who hasn't gets no exporter constructed at all.
  *
  * It is not OTel's own `OTEL_SDK_DISABLED`. That flag is read by the SDK inside
  * `start()`, which is *after* the OTLP exporter and the `BatchSpanProcessor`
@@ -45,6 +53,23 @@ export const env = createEnv({
         OTEL_SERVICE_NAME: 'acme',
         OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
         OTEL_TELEMETRY_ENABLED: true,
+      },
+      // The collector endpoint is an address: inheriting `localhost:4318` gives
+      // a deploy a `BatchSpanProcessor` pointed at nothing, retrying for the
+      // life of the process. It is unauthored here, so a target states its own.
+      //
+      // The off switch flips with it. Authored-on is right in development,
+      // where compose brings a collector up alongside the app; on a deploy
+      // target nothing guarantees one exists, so telemetry starts off and an
+      // operator who has a collector turns it on with the endpoint they set.
+      // `OTEL_SERVICE_NAME` stays authored — a name is not an address.
+      staging: {
+        OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
+        OTEL_TELEMETRY_ENABLED: false,
+      },
+      production: {
+        OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
+        OTEL_TELEMETRY_ENABLED: false,
       },
     }),
   runtimeEnv: {
