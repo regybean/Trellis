@@ -67,7 +67,7 @@ mkdir -p "$STAGE_DIR" logs
 rm -f "$STAGE_DIR"/*.log "$STAGE_DIR"/*.rc "$STAGE_DIR"/*.ms 2>/dev/null || true
 
 # Fixed order stages appear in the summary and the concatenated log.
-order=(build turbo test check:exports check:bank-paths check:bank-tokens check:adrs check:portable boundaries lint:ws deps:lint test:policy gitleaks audit)
+order=(build turbo test check:exports check:imports check:bank-paths check:bank-tokens check:adrs check:portable boundaries lint:ws deps:lint test:policy gitleaks audit)
 
 # Dependency audit
 # (../docs/adr/0027-dependency-audit-gate-and-suppression-policy.md). CI is the
@@ -114,6 +114,12 @@ run_stage() {
 # so they move out of the `lint` script (which prefixes all three) and run as
 # their own parallel stages.
 launch check:exports    pnpm check:exports
+# The undeclared-import gate (../tooling/repo-checks/src/imports.ts): a
+# package's source may only import what that package's own manifest declares.
+# Its own stage rather than a knip flag — `deps:check` (knip) counts an optional
+# peer of a declared dependency as satisfied, which is exactly how the `zod`
+# instance that motivated this check stayed invisible.
+launch check:imports    pnpm check:imports
 launch check:bank-paths pnpm check:bank-paths
 # Report-only for now: both print what they found and exit 0, so the stage reads
 # PASS while the backlog is being cleared. The sweep makes them fail.

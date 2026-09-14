@@ -4,7 +4,8 @@
     "@acme/env": "workspace:*",
     "@acme/logger": "workspace:*",
     "@t3-oss/env-core": "catalog:",
-    "ioredis": "catalog:"
+    "ioredis": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",

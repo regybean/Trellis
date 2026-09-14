@@ -1,6 +1,14 @@
 # Better Auth replaces Clerk, self-hosted, with sessions in Postgres
 
-**Status:** accepted
+**Status:** amended by 0004-initauth-takes-a-plugin-list.md
+
+> **Amended by [ADR 0004](0004-initauth-takes-a-plugin-list.md) on how a provider
+> gets added.** "A social provider alongside email/password" is listed below as
+> purely additive later, and left open. It is now answered: `initAuth` takes a
+> **plugin list** the caller appends to the built-ins, plus a switch that turns
+> the credential provider off — not a provider config object, and not a second
+> factory. Self-hosting, sessions as rows, the slice-owned secret and the
+> app-owned origin are all unchanged, and no provider ships here.
 
 Auth was Clerk: an external identity service, `@acme/auth` a wrapper around it
 (the client barrel re-exports `@clerk/clerk-react`'s prebuilt components behind
