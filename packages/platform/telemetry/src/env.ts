@@ -17,7 +17,7 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * On a deploy target the endpoint is **unauthored** and therefore a secret
  * there, because `localhost:4318` is an address and inheriting it is how a
  * deploy ends up exporting into a void
- * ([@acme/env ADR 0003](../../env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+ * (@acme/env ADR 0003).
  *
  * `OTEL_SERVICE_NAME` is the generic preload's default (`register.ts`); apps that
  * init at their own server boundary pass their own per-app service name literal

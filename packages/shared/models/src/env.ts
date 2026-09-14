@@ -25,9 +25,8 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * The authored selection is development's, and both roles are **unauthored** on
  * a deploy target: development picks Ollama, whose `baseUrl` is a localhost
  * address, and a role is one whole JSON document, so the address cannot be
- * dropped while the rest is kept
- * ([@acme/env ADR 0003](../../../platform/env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
- * A deploy target states its own pair, dimensions included.
+ * dropped while the rest is kept (@acme/env ADR 0003). A deploy target states
+ * its own pair, dimensions included.
  *
  * Both keys go through `jsonEnv`, so each is overridable as one JSON document —
  * `MODELS_CHAT='{"provider":"openrouter","model":"…"}'`. Whole-value override is
@@ -60,9 +59,8 @@ export const env = createEnv({
       // A deploy target therefore states its own selection, and that includes
       // `MODELS_EMBED.dimensions` — the value `@acme/rag` reads to size the
       // pgvector column. Repointing embeddings at a model of a different width
-      // is already a re-index rather than a restart
-      // ([@acme/rag ADR 0002](../../rag/docs/adr/0002-knowledge-base-index-provisioned-at-boot.md)),
-      // so it is right that a target says the width out loud.
+      // is already a re-index rather than a restart, so it is right that a
+      // target says the width out loud.
       staging: { MODELS_CHAT: undefined, MODELS_EMBED: undefined },
       production: { MODELS_CHAT: undefined, MODELS_EMBED: undefined },
     }),

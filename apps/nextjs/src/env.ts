@@ -67,7 +67,7 @@ export const env = createEnv({
       // address, and an auth server that thinks it lives on localhost issues
       // callbacks nobody can follow — so a deploy target states its own origin
       // rather than inheriting this one
-      // ([@acme/env ADR 0003](../../../packages/platform/env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+      // (@acme/env ADR 0003).
       staging: { BETTER_AUTH_URL: undefined },
       production: { BETTER_AUTH_URL: undefined },
     }),

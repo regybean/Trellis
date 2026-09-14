@@ -19,7 +19,7 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * the override is now re-checked as a URL like the authored value. On a deploy
  * target it is **unauthored** and therefore demanded: the DSN is an address and
  * carries its own credentials, so there is nothing a profile could honestly say
- * ([@acme/env ADR 0003](../../env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+ * (@acme/env ADR 0003).
  *
  * **Selectors** — `NEXT_PUBLIC_WEBAPP` (app identity, which partitions every
  * shared datastore) and `NODE_ENV` stay written longhand: they are the keys a
