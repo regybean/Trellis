@@ -142,7 +142,7 @@ below follows from that.
 ### Setup and config
 
 Each feature owns `src/tests/frontend/setup.tsx` exporting `renderWithProviders`
-(wraps in `AppQueryClientProvider` + the feature's `TRPCProvider`, and
+(wraps in a `QueryClientProvider` + the feature's `TRPCProvider`, and
 `<ToastContainer />` when the feature toasts)
 and `trpcMsw` (a `createTRPCMsw<AppRouter>` bound to the feature's tRPC endpoint)
 — plus `import '@acme/test-utils/jsdom'`, the shared side-effect module holding
@@ -151,6 +151,13 @@ the jsdom polyfills Radix needs (`ResizeObserver`, pointer-capture,
 — one call to `frontendProject` (see below). `feedback`'s
 setup + `feedback-buttons` / `use-feedback` tests are the reference; `ingest`'s
 `documents-list` is the worked example of the MSW-over-shallow-mock rewrite.
+
+A generated harness builds that client itself — `createAppQueryClient()`, the
+same factory `AppQueryClientProvider` uses — and returns it from `makeProviders()`
+/ `renderWithProviders`, so a test can turn retries off for a failure path and
+assert on the cache. The harness is the app for that tree, so it owns the client
+the way an app does. Harnesses that mount `AppQueryClientProvider` instead keep
+working; they just can't reach the client.
 
 A **library** package with no provider tree (`@acme/ui`, `@acme/hooks`) owns a
 plain `setup.ts` instead: nothing to wrap, so no `renderWithProviders` and no

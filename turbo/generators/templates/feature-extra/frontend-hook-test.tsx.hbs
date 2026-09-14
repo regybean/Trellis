@@ -5,6 +5,8 @@
  * slice contract), so this is the analog of a backend `integration/api` test.
  * - Drive the REAL hook via `renderHook(..., { wrapper: Providers })` through a
  *   real `QueryClient`; fake the network only at the HTTP boundary with `trpcMsw`.
+ * - `makeProviders()` hands back that client, so the cache is assertable and
+ *   retries can be turned off for failure-path cases (see ../../setup).
  * - Assert RETURNED STATE (the observable contract) and cache transitions,
  *   never `expect(mock).toHaveBeenCalledWith(...)`.
  */
@@ -13,7 +15,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { use{{ pascalCase name }} } from '../../../../hooks/use-{{ kebabCase name }}';
-import { Providers, trpcMsw } from '../../setup';
+import { makeProviders, trpcMsw } from '../../setup';
 
 const server = setupServer();
 
@@ -34,6 +36,7 @@ describe('use{{ pascalCase name }}', () => {
       trpcMsw.{{ camelCase name }}.list.query(() => [fakeItem('first')]),
     );
 
+    const { queryClient, Providers } = makeProviders();
     const { result } = renderHook(() => use{{ pascalCase name }}(), {
       wrapper: Providers,
     });
@@ -41,6 +44,8 @@ describe('use{{ pascalCase name }}', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.items).toHaveLength(1);
     expect(result.current.items[0]?.text).toBe('first');
+    // The harness owns the client, so the cache itself is assertable.
+    expect(queryClient.getQueryCache().findAll()).toHaveLength(1);
   });
 
   it('refetches the list after a create settles', async () => {
@@ -55,6 +60,7 @@ describe('use{{ pascalCase name }}', () => {
       trpcMsw.{{ camelCase name }}.create.mutation(() => created),
     );
 
+    const { Providers } = makeProviders();
     const { result } = renderHook(() => use{{ pascalCase name }}(), {
       wrapper: Providers,
     });

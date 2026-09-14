@@ -60,8 +60,13 @@ server.use(trpcMsw.{{ camelCase name }}.list.query(() => [/* rows */]));
 renderWithProviders(<{{ pascalCase name }}List />);
 
 // integration/hooks/use-{{ kebabCase name }}.test.tsx — the hook is the contract
+const { queryClient, Providers } = makeProviders();
 const { result } = renderHook(() => use{{ pascalCase name }}(), { wrapper: Providers });
 ```
+
+The harness mounts the `QueryClient` itself (`createAppQueryClient`, the factory
+an app's provider uses) and hands it back, so a test can turn retries off for a
+failure path and assert on the cache. `renderWithProviders` returns it too.
 {{/if}}{{/if}}
 {{#if api}}
 ## Wire it into an app (manual steps the generator can't do)

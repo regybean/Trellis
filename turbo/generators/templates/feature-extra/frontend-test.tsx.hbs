@@ -3,7 +3,8 @@
  *
  * Doctrine: fake the network at the HTTP boundary, assert what renders.
  * - `renderWithProviders` wraps the component in the real tRPC + React Query
- *   providers; the real hook + `QueryClient` run beneath.
+ *   providers; the real hook + `QueryClient` run beneath, and it returns that
+ *   client so the cache is assertable (see ../../setup).
  * - `trpcMsw` (msw-trpc) + a real `setupServer` intercept the tRPC HTTP calls.
  * - Assert the observable outcome (DOM), never `expect(mock).toHaveBeenCalled`.
  *

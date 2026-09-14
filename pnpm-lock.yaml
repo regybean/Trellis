@@ -311,6 +311,8 @@ importers:
         specifier: 'catalog:'
         version: 5.9.3
 
+  apps/docs: {}
+
   apps/nextjs:
     dependencies:
       '@acme/auth':
