@@ -12,10 +12,14 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import type { RepoIo } from '../../../io';
 import {
+  checkPortable,
+  isNeverOffered,
   owningPackage,
   validateAdrNumbers,
   validateAdrScope,
+  validateDeclarations,
   validateIssueRefs,
   validateRootAdrApps,
 } from '../../../portable';
@@ -369,5 +373,145 @@ describe('a distributed document names no app', () => {
     expect(
       validateRootAdrApps(doc, 'Hardcoded as `web`.\n', apps, scopes),
     ).toHaveLength(1);
+  });
+});
+
+/**
+ * A repo as a bag of files, which is all `RepoIo` ever was.
+ *
+ * The wiring under test is which rule runs over which file, so these cases go
+ * through the whole checker rather than a rule — and still with nothing on disk
+ * and no subprocess.
+ */
+function repoOf(files: Record<string, string>) {
+  const io: RepoIo = {
+    tracked: () => Object.keys(files),
+    read: (rel) => files[rel] ?? '',
+    exists: (rel) => rel in files,
+    isSymlink: () => false,
+  };
+  return io;
+}
+
+describe('a repo declaring content it never offered anybody', () => {
+  const MINE = 'packages/features/mine';
+  const rootAdr = `${ADR_DIR}/${adr(1, 'a-root-decision')}`;
+
+  const declaring = (...prefixes: string[]) => {
+    const declared = new Map<string, string>();
+    for (const prefix of prefixes) {
+      declared.set(prefix, 'our own slice, never on offer');
+    }
+    return declared;
+  };
+
+  /** The declarer's own package, breaking rules 1, 2 and 3 once each. */
+  const repo = () =>
+    repoOf({
+      'package.json': '{ "name": "fixture" }\n',
+      [rootAdr]: '# A root decision\n',
+      [`${MINE}/package.json`]: '{ "name": "@fixture/mine" }\n',
+      [`${MINE}/src/index.ts`]: `// Rationale: ${bareRef(1)}.\n// Deferred: ${issueRef(126)}.\n`,
+      [`${MINE}/CONTEXT.md`]: `See [it](../../../${rootAdr}).\n`,
+    });
+
+  it('reports all three rules when it declares nothing', () => {
+    const { violations } = checkPortable(repo(), new Map());
+
+    expect(violations.errors).toHaveLength(3);
+  });
+
+  it('silences rule 3 — a tracker only resolves a number for a second reader', () => {
+    const { violations } = checkPortable(repo(), declaring(MINE));
+
+    expect(
+      violations.errors.filter((error) => error.includes('references issue')),
+    ).toEqual([]);
+  });
+
+  it('keeps rule 1 — a bare number is ambiguous in this checkout already', () => {
+    const { violations } = checkPortable(repo(), declaring(MINE));
+
+    expect(
+      violations.errors.filter((error) =>
+        error.includes('cites an ADR by number alone'),
+      ),
+    ).toHaveLength(1);
+  });
+
+  it('keeps rule 2 — the fix it offers is a placement one too', () => {
+    const { violations } = checkPortable(repo(), declaring(MINE));
+
+    expect(
+      violations.errors.filter((error) => error.includes('a root ADR')),
+    ).toHaveLength(1);
+  });
+
+  it('keeps rule 4 over a declared documentation directory', () => {
+    const notes = 'docs/internal/notes.md';
+    const io = repoOf({
+      'package.json': '{ "name": "fixture" }\n',
+      'apps/web/package.json': '{ "name": "@fixture/web" }\n',
+      [notes]: 'It applies to apps/web first.\n',
+    });
+
+    const { violations } = checkPortable(io, declaring('docs/internal'));
+
+    expect(violations.errors).toHaveLength(1);
+    expect(violations.errors[0]).toContain('a distributed document names');
+  });
+
+  it('covers the directory it names and not the sibling beside it', () => {
+    const io = repoOf({
+      'package.json': '{ "name": "fixture" }\n',
+      [`${MINE}/package.json`]: '{ "name": "@fixture/mine" }\n',
+      [`${MINE}/src/index.ts`]: `// Deferred: ${issueRef(126)}.\n`,
+      [`${MINE}bar/package.json`]: '{ "name": "@fixture/minebar" }\n',
+      [`${MINE}bar/src/index.ts`]: `// Deferred: ${issueRef(127)}.\n`,
+    });
+
+    const { violations } = checkPortable(io, declaring(MINE));
+
+    expect(violations.errors).toHaveLength(1);
+    expect(violations.errors[0]).toContain(`${MINE}bar/src/index.ts`);
+  });
+
+  it.each([
+    [`${MINE}/src/index.ts`, true],
+    [`${MINE}bar/src/index.ts`, false],
+    ['packages/features/other/src/index.ts', false],
+  ])('reads %s as declared: %s', (file, expected) => {
+    expect(isNeverOffered(file, declaring(MINE))).toBe(expected);
+  });
+
+  describe('the declaration itself', () => {
+    const tracked = [`${MINE}/package.json`, `${MINE}/src/index.ts`];
+
+    it('accepts a prefix that carries a reason and matches a directory', () => {
+      expect(validateDeclarations(declaring(MINE), tracked)).toEqual([]);
+    });
+
+    it('rejects an entry written with no reason', () => {
+      const found = validateDeclarations(new Map([[MINE, '  ']]), tracked);
+
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('no reason');
+    });
+
+    it('rejects one matching no directory, so a rename cannot leave it to rot', () => {
+      const found = validateDeclarations(
+        declaring('packages/features/gone'),
+        tracked,
+      );
+
+      expect(found).toHaveLength(1);
+      expect(found[0]).toContain('matches no tracked directory');
+    });
+
+    it('does not read a file of the same name as the directory', () => {
+      expect(
+        validateDeclarations(declaring(`${MINE}/src/index.ts`), tracked),
+      ).toHaveLength(1);
+    });
   });
 });

@@ -121,6 +121,15 @@ is distributed, and the doc index in particular exists to point across every
 package boundary there is. They are named one by one in the checker; if you
 find yourself wanting to add a sixth, that is a decision, not a convenience.
 
+A repo can also declare whole directories as content it has never offered
+anybody — `NEVER_OFFERED` in the checker, a prefix mapped to the reason, matched
+at the separator. It is empty here and exists for a consumer whose own slices
+are most of their tree. It is **per rule**: only the issue-number rule consults
+it, because only that harm needs a second repo to land. A bare ADR number is
+still ambiguous in a package nobody else receives, and a citation that leaves
+the package is still a decision filed in the wrong place
+([ADR 0043](../adr/0043-a-repo-declares-its-never-offered-content.md)).
+
 **When the rule forbids the citation you wanted, write the reason instead.** A
 comment that has to lean on a repo-wide decision states the constraint in prose.
 That is usually one extra sentence, and it is the sentence a reader in another

@@ -42,6 +42,12 @@
  *   - The repo's own front matter and indexes, named one by one in
  *     `NOT_DISTRIBUTED` below. Same argument as `apps/`: a file whose subject
  *     is this repo's shape is never sent, and a consumer writes their own.
+ *   - Whole directories a repo declares as its own never-offered content, in
+ *     `NEVER_OFFERED` below. Empty here, because everything this repo holds
+ *     outside `apps/` is on offer. Unlike the two above, this exemption is
+ *     **per rule** rather than per file: the four rules do not share a harm
+ *     model, and only rule 3's needs a second repo to land. The constant says
+ *     which rules consult it and why.
  *
  * Everything else is in scope even if some path is currently on `exclude`. A
  * checker that read `exclude` and stopped enforcing whatever it found there
@@ -98,6 +104,105 @@ export const NOT_DISTRIBUTED = new Set([
   'docs/getting-started.md',
   'docs/whats-included.md',
 ]);
+
+/**
+ * Directory prefixes a repo declares as content it has never offered anybody.
+ *
+ * `NOT_DISTRIBUTED` above is about this repo's shape, one file at a time, and
+ * `apps/` is about every repo's. Neither can say "this whole package is mine".
+ * Downstream that is the missing one and the expensive one: a consumer's own
+ * slices are most of their tree, so a first run reports their own work back at
+ * them in four figures and the findings that cost something are lost in it.
+ *
+ * Each entry is a repo-relative directory, no trailing slash, mapped to the
+ * reason it was never on offer — so the list changing is something a reviewer
+ * reads rather than a prefix appearing. `checkPortable` rejects an entry whose
+ * reason is blank, and rejects one matching no directory, so an exemption left
+ * behind by a rename fails the gate instead of quietly covering nothing.
+ *
+ * Matched at the separator: `packages/features/foo` covers
+ * `packages/features/foo/...` and never `packages/features/foobar`.
+ *
+ * **Per rule, not per directory.** Rule 3 consults it and the other three do
+ * not, because a whole-directory exemption would take with it the rules whose
+ * harm lands on the declaring repo's own readers:
+ *
+ *   - **Rule 3's harm needs a second repo.** A bare issue number is resolved by
+ *     whichever tracker the reader is looking at. In a package nobody else ever
+ *     receives there is no other reader, so it means here what it says.
+ *   - **Rule 1's harm is in the citing checkout.** ADR sequences are per
+ *     directory, so a bare `ADR NNNN` is ambiguous the moment the host package
+ *     owns a counter of its own, with no redistribution involved anywhere. A
+ *     package being nobody else's does not make its own citations legible.
+ *   - **Rule 2 abstains**, and it is the close one. Its harm reads as
+ *     travel-only, which would put it with rule 3 — but the fix it prints
+ *     offers moving the decision into the citing package as well as rewriting
+ *     the citation, and that half is placement: a root ADR governing one
+ *     package is mis-filed in the declaring repo's own tree. A rule left on can
+ *     be switched off later against evidence; one switched off silently stops
+ *     producing the evidence.
+ *   - **Rule 4 abstains**, where the question is nearly moot: it runs only on
+ *     documentation belonging to no package, and this constant names packages.
+ *     Where the two could meet — a consumer declaring a documentation directory
+ *     — rule 4's harm is mis-filing, which is local again.
+ */
+export const NEVER_OFFERED: ReadonlyMap<string, string> = new Map<
+  string,
+  string
+>();
+
+/**
+ * Whether `file` sits under something the repo declared as never offered.
+ *
+ * The separator is part of the prefix, so a declaration covers a directory and
+ * never a sibling that merely starts with the same letters.
+ */
+export function isNeverOffered(
+  file: string,
+  declared: ReadonlyMap<string, string>,
+): boolean {
+  for (const prefix of declared.keys()) {
+    if (file.startsWith(`${prefix}/`)) return true;
+  }
+  return false;
+}
+
+/**
+ * The declaration itself, checked before it is trusted to silence anything.
+ *
+ * Two ways an exemption stops meaning what it says, both of them quiet: written
+ * with no reason, it is a prefix a reviewer has to take on faith; left behind
+ * by a rename or a deletion, it covers nothing and nobody finds out. Either
+ * fails the gate, which is the one moment somebody is looking.
+ *
+ * @param tracked Every tracked file, the same list the rules run over — a
+ * prefix matches when some tracked path sits under it.
+ */
+export function validateDeclarations(
+  declared: ReadonlyMap<string, string>,
+  tracked: readonly string[],
+): string[] {
+  const errors: string[] = [];
+
+  for (const [prefix, reason] of declared) {
+    if (reason.trim() === '') {
+      errors.push(
+        `NEVER_OFFERED: \`${prefix}\` is declared with no reason. Write why the ` +
+          'directory was never on offer, so the exemption is reviewable as content ' +
+          'rather than taken on faith as a prefix.',
+      );
+    }
+    if (!tracked.some((file) => file.startsWith(`${prefix}/`))) {
+      errors.push(
+        `NEVER_OFFERED: \`${prefix}\` matches no tracked directory. Delete the ` +
+          'entry or fix the path — an exemption over nothing silences nothing and ' +
+          'reads as though it still does.',
+      );
+    }
+  }
+
+  return errors;
+}
 
 /** The 1-based line an offset falls on, for a report a reader can jump to. */
 function lineAt(text: string, index: number): number {
@@ -485,15 +590,25 @@ function workspaceScopes(tracked: readonly string[], io: RepoIo): Set<string> {
   return scopes;
 }
 
-/** Every rule above, over the tracked files `io` reports. */
-export function checkPortable(io: RepoIo): PortableResult {
+/**
+ * Every rule above, over the tracked files `io` reports.
+ *
+ * @param declared What this repo says it never offered anybody, defaulted to
+ * the constant so the CLI never passes one. A parameter because the wiring it
+ * governs — which rule goes quiet over a declared directory and which does not
+ * — is the whole point of the change and is only assertable from outside.
+ */
+export function checkPortable(
+  io: RepoIo,
+  declared: ReadonlyMap<string, string> = NEVER_OFFERED,
+): PortableResult {
   const tracked = io.tracked();
   const packages = tracked
     .filter((file) => file.endsWith('/package.json'))
     .map((file) => posix.dirname(file));
   const apps = appTokens(tracked, io);
   const scopes = workspaceScopes(tracked, io);
-  const errors: string[] = [];
+  const errors: string[] = [...validateDeclarations(declared, tracked)];
   let scanned = 0;
 
   for (const file of tracked) {
@@ -510,7 +625,11 @@ export function checkPortable(io: RepoIo): PortableResult {
     errors.push(
       ...validateAdrScope(file, text, packages, (rel) => io.exists(rel)),
     );
-    errors.push(...validateIssueRefs(file, text));
+    // Rule 3 alone takes the declaration — see `NEVER_OFFERED` for why the
+    // other three keep running over a directory nobody else receives.
+    if (!isNeverOffered(file, declared)) {
+      errors.push(...validateIssueRefs(file, text));
+    }
     if (isRootDoc(file, packages)) {
       errors.push(...validateRootAdrApps(file, text, apps, scopes));
     }
