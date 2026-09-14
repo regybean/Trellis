@@ -55,6 +55,12 @@ export const env = createEnv({
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
       default: { ...RAG_DEVELOPMENT_PROFILE, NODE_ENV: 'development' },
+      // Deliberate, not dead config: chunker knobs, memory tunables and the
+      // vector *name* are target-neutral — the connection they name belongs to
+      // `@acme/db`, which is where the address lives and where it is unauthored
+      // on these targets. Deleting these makes a deploy crash.
+      staging: {},
+      production: {},
     }),
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,

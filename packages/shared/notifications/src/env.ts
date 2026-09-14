@@ -39,6 +39,12 @@ export const env = createEnv({
         POLL_MIN_MS: 100,
         POLL_MAX_MS: 1000,
       },
+      // Deliberate, not dead config: a TTL and a poll backoff are tunables, not
+      // addresses, so there is nothing a deploy target could get wrong here.
+      // Retuning one on a live deploy is an environment variable, not an
+      // overlay. Deleting these makes a deploy crash.
+      staging: {},
+      production: {},
     }),
   runtimeEnv: {
     NODE_ENV: process.env.NODE_ENV,

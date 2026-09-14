@@ -22,7 +22,13 @@ export function feedbackEnv() {
       NEXT_PUBLIC_WEBAPP: webappSchema,
     },
     createFinalSchema: (shape) =>
-      withProfiles(shape, appEnv, { default: { NODE_ENV: 'development' } }),
+      withProfiles(shape, appEnv, {
+        default: { NODE_ENV: 'development' },
+        // Deliberate, not dead config: every key above is target-neutral, so
+        // there is nothing to overlay. Deleting these makes a deploy crash.
+        staging: {},
+        production: {},
+      }),
     runtimeEnv: {
       NODE_ENV: process.env.NODE_ENV,
       NEXT_PUBLIC_WEBAPP: process.env.NEXT_PUBLIC_WEBAPP,

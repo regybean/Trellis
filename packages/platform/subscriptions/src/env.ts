@@ -40,6 +40,12 @@ export const env = createEnv({
         CREDIT_LIMITS: { Basic: 250, Standard: 350, Pro: 1600 },
         DEFAULT_LIMIT: 250,
       },
+      // Deliberate, not dead config: the tier caps are business tunables, not
+      // addresses. A target that wants different caps overrides `CREDIT_LIMITS`
+      // whole from the environment; nothing here can be wrong on a deploy.
+      // Deleting these makes a deploy crash.
+      staging: {},
+      production: {},
     }),
   runtimeEnv: {
     CREDIT_LIMITS: readEnv('CREDIT_LIMITS'),
