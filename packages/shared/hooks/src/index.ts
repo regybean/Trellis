@@ -20,4 +20,5 @@ export {
   clearPersistedCache,
   createQueryPersister,
   persistMeta,
+  type FeatureQueryPersister,
 } from './query-persister';

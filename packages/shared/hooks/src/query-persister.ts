@@ -1,4 +1,10 @@
 import type { PersistedQuery } from '@tanstack/query-persist-client-core';
+import type {
+  Query,
+  QueryFunction,
+  QueryFunctionContext,
+  QueryKey,
+} from '@tanstack/react-query';
 import { experimental_createQueryPersister } from '@tanstack/query-persist-client-core';
 import { clear, createStore, del, get, set } from 'idb-keyval';
 
@@ -23,19 +29,74 @@ export const persistMeta = { persist: true } satisfies Record<string, unknown>;
 /**
  * The persister function `experimental_createQueryPersister` hands back — read
  * off the package rather than re-declared, so a version bump surfaces as a type
- * error here.
+ * error in {@link pagedPersister}, the one place that adapts it.
+ */
+type UpstreamPersisterFn = ReturnType<
+  typeof experimental_createQueryPersister<PersistedQuery>
+>['persisterFn'];
+
+/**
+ * The persister a feature hands to one of its queries, paginated or not.
  *
  * Deliberately NOT react-query's exported `QueryPersister`, which fixes
  * `T = unknown` and `TQueryKey = QueryKey`. That was fine while the persister
  * only ever sat on `defaultOptions.queries`, but it is now attached to
  * individual queries whose data and key types are narrower — and an
  * `unknown`-returning, `readonly unknown[]`-keyed signature does not fit those
- * slots. This alias keeps the function's own `<T, TQueryKey>` so each query
+ * slots. This alias keeps a `<T, TQueryKey>` of its own so each query
  * instantiates it at its own types.
+ *
+ * `TPageParam` is the third one, and it is why this is declared rather than
+ * read straight off {@link UpstreamPersisterFn}. An infinite query's `persister`
+ * slot demands a `queryFn` whose context carries a *concrete* page param plus a
+ * direction; upstream's `persisterFn` types its `queryFn` against the
+ * non-infinite context, where the page param is a possibly-absent `unknown`.
+ * Those are contravariantly incompatible, so the upstream signature fits the
+ * plain slot and no infinite one — a feature with a paginated list would have
+ * to choose between persistence and pagination. Carrying `TPageParam` here
+ * fits both: it resolves to `never` for a plain query and to the query's own
+ * page param for an infinite one.
  */
-export type FeatureQueryPersister = ReturnType<
-  typeof experimental_createQueryPersister<PersistedQuery>
->['persisterFn'];
+export type FeatureQueryPersister = <T, TQueryKey extends QueryKey, TPageParam>(
+  queryFn: QueryFunction<T, TQueryKey, TPageParam>,
+  context: QueryFunctionContext<TQueryKey>,
+  query: Query,
+) => Promise<T>;
+
+/**
+ * Re-declare upstream's `persisterFn` at {@link FeatureQueryPersister}, so the
+ * one persister a feature builds serves its plain and its paginated queries
+ * alike.
+ *
+ * The adaptation is a single type assertion on the context the persister hands
+ * back to the query function, and it is the narrowest statement of a real gap
+ * in upstream's own types: `QueryPersister<T, TQueryKey, TPageParam>` types the
+ * persister's `context` parameter *without* a page param while typing the
+ * `queryFn` it must call *with* one, so the infinite slot cannot be implemented
+ * as declared — not here, and not upstream either. At runtime there is no gap:
+ * the persister forwards the context it was given, and for an infinite query
+ * react-query built that context with the concrete `pageParam` and `direction`
+ * the query function expects.
+ *
+ * Absorbed once, here, rather than as an assertion on every paginated query —
+ * where it would read as a shape mismatch in the feature rather than in the
+ * dependency.
+ */
+function pagedPersister(
+  persisterFn: UpstreamPersisterFn,
+): FeatureQueryPersister {
+  return <T, TQueryKey extends QueryKey, TPageParam>(
+    queryFn: QueryFunction<T, TQueryKey, TPageParam>,
+    context: QueryFunctionContext<TQueryKey>,
+    query: Query,
+  ) =>
+    persisterFn<T, TQueryKey>(
+      (forwarded) =>
+        queryFn(forwarded as QueryFunctionContext<TQueryKey, TPageParam>),
+      context,
+      query,
+    );
+}
 
 interface QueryPersisterOptions {
   /**
@@ -103,7 +164,7 @@ export function createQueryPersister({
     filters: { predicate: (query) => query.meta?.persist === true },
   });
 
-  return persisterFn;
+  return pagedPersister(persisterFn);
 }
 
 /**

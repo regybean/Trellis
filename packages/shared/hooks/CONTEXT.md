@@ -79,8 +79,10 @@ point — `staleTime: 0` is what keeps a restore stale-while-revalidate instead 
 serve-stale, and as a client-level default it could drift away from the persister
 it belongs to. With no persister (no `scopeKey`, no IndexedDB, or a
 feature that never opted in) it degrades to two no-ops and the query is
-network-only. _Avoid_: setting `persister` / `gcTime` / `staleTime` on a persisted
-query by hand.
+network-only. The same fragment spreads into `infiniteQueryOptions`, so a
+paginated list persists on the same terms as a plain query. _Avoid_: setting
+`persister` / `gcTime` / `staleTime` on a persisted query by hand; asserting the
+`persister`'s type at the query.
 
 **Query persister**:
 A per-query cache-to-browser mechanism built on TanStack Query's
@@ -89,7 +91,9 @@ a query's last successful data on cold open (instant / offline read), then
 background-refetches when online. `createQueryPersister({ keyPrefix, scopeKey,
 appVersion, maxAge })` returns the persister; `createFeatureClient` builds it from
 the feature's `persister` config and hands it out per query through
-`usePersistedQueryOptions`. _Avoid_: "cache" alone
+`usePersistedQueryOptions`. Its type (`FeatureQueryPersister`) carries a page
+param, so one persister serves a feature's plain and paginated queries alike.
+_Avoid_: "cache" alone
 (ambiguous with the in-memory QueryClient cache — this is the persisted copy).
 
 **`persistMeta`**:
