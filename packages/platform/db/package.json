@@ -4,7 +4,8 @@
     "@acme/env": "workspace:*",
     "@t3-oss/env-core": "catalog:",
     "drizzle-orm": "catalog:",
-    "postgres": "catalog:"
+    "postgres": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@acme/eslint-config": "workspace:*",

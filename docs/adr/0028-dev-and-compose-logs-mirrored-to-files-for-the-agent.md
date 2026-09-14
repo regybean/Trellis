@@ -1,9 +1,6 @@
 # Dev-server + compose output mirrored to `logs/*.log` for agent consumption
 
-**Status:** accepted — planning output, not yet built
-
-The [Implementation handoff](#implementation-handoff) is the follow-on effort's
-spec.
+**Status:** accepted
 
 The agent cannot watch a live `pnpm dev`. Dev launch is `scripts/dev.sh` →
 `turbo watch dev --continue` — a **foreground, full-screen TUI** (`ui: "tui"`,
@@ -16,9 +13,8 @@ process the agent then has to babysit.
 This ADR decides a **log-capture convention**: while the human runs `pnpm dev`,
 both dev-server output and compose-service output are mirrored to per-service
 files under a root `logs/` dir, so the agent reads `logs/*.log` instead of ever
-running the dev server itself. It is **planning output** — the wiring is not built
-here; the [Implementation handoff](#implementation-handoff) is the executable
-handoff for that follow-on effort.
+running the dev server itself. The [Implementation handoff](#implementation-handoff)
+records the wiring points it was built against.
 
 ## Fixed constraints (set while charting)
 
