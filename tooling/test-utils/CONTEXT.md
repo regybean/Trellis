@@ -87,9 +87,14 @@ _Avoid_: "the test folder" (name the layer)
 
 **Infra descriptor** (`InfraDescriptor`, `@acme/test-utils/infra`):
 A plain object describing one test container — image, `containerPort`, container
-env, wait strategy, repo-relative bind mounts, and `provides(host, port)` (a
-function mapping the running container to the `process.env` keys this infra
-populates).
+env, an optional `command`, wait strategy plus an optional `startupTimeoutMs`,
+repo-relative bind mounts, and `provides(host, port)` (a function mapping the
+running container to the `process.env` keys this infra populates).
+`command` and `startupTimeoutMs` are generic capability, not current need:
+nothing in this repo sets either, and an absent `startupTimeoutMs` leaves the
+testcontainers default alone rather than substituting one of the engine's. They
+exist so a descriptor for a slow image with start arguments isn't structurally
+inexpressible.
 Owned by the infra package (`postgresContainer`, `redisContainer`) and consumed
 by the engine. A suite imports the descriptors it needs in its per-suite
 `global-setup.ts` and hands them to `runInfraSetup([...])` — as live objects, so
