@@ -20,9 +20,12 @@ that make that one call work.
 - **`APP_ENV`** — the deploy-target selector: `development | staging | production`.
   Unset → `development` (the base); unknown → throws. Orthogonal to `NODE_ENV`.
 - **Profile** — a named layer of values. `default` **is** `development`; `staging`
-  and `production` are optional overlays deep-merged over it (arrays replace, not
-  concat). A target with no overlay inherits the base, because the environment is
-  the authoring surface for a deploy target.
+  and `production` are overlays deep-merged over it (arrays replace, not concat).
+- **Authorship** — a deploy target must have an overlay of its own. A real boot
+  that finds none raises naming the target, rather than resolving to the
+  development base's localhost literals. An **empty** overlay is present and
+  therefore satisfies it — the deliberate signature of a slice whose every key is
+  target-neutral, not dead config.
 - **Unauthoring** — an overlay setting a key to `undefined` removes the base's
   value on that target, so the key becomes a **secret** there. The one way to say
   "config in development, credential in production" (`@acme/ingest`'s LocalStack

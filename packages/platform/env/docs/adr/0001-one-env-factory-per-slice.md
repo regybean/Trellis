@@ -1,6 +1,16 @@
 # One env factory per slice — profiles ride `createFinalSchema`, every key is overridable
 
-**Status:** accepted
+**Status:** amended by 0003-a-deploy-target-authors-its-own-profile.md
+
+> **What the amendment changes.** §2 below ends "a target that authors no
+> overlay inherits the base", and the rejected-alternatives list rejects
+> requiring every non-development target to author one. Both are reversed: a
+> deploy target that authors no overlay now raises at boot. The reasoning here
+> is left standing because it is what
+> [ADR 0003](0003-a-deploy-target-authors-its-own-profile.md) argues against —
+> read the two together. Everything else in this record, including §4's
+> every-key-overridable rule, is untouched and is what makes the reversal
+> affordable.
 
 > `@acme/config` and its ADR are gone; this ADR is the whole record. The
 > mechanism that ADR described — a second `createConfig` call, the purity seam,
