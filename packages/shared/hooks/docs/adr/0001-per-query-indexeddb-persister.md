@@ -112,6 +112,40 @@ Slim apps have no logout and never call it.
 throws, queries fall back to network-only — identical to today. Persistence is a
 pure read-time optimisation, never a hard dependency.
 
+**One persister type, paginated or not.** `FeatureQueryPersister` carries a
+`TPageParam` alongside its `T` and `TQueryKey`, rather than being read straight
+off upstream's `persisterFn`. Upstream types that function's `queryFn` against
+the non-infinite query context, where the page param is a possibly-absent
+`unknown`; an infinite query's `persister` slot demands a `queryFn` whose context
+carries a concrete page param and a direction. Those are contravariantly
+incompatible, so the upstream signature fits a plain query's slot and no
+infinite one — a feature with a paginated list would have to choose between
+persistence and pagination, which is not a choice this mechanism is entitled to
+impose. Declaring the page param fits both: it resolves to `never` for a plain
+query and to the query's own page param for an infinite one.
+
+The gap this closes is upstream's, and it is not closeable without one
+assertion. `QueryPersister<T, TQueryKey, TPageParam>` types the persister's own
+`context` parameter _without_ a page param while typing the `queryFn` it must
+call _with_ one, so the infinite slot cannot be implemented as declared — not
+here, and not upstream either. At runtime there is no gap: the persister forwards
+the context it was handed, and for an infinite query react-query built that
+context with the concrete `pageParam` and `direction` the query function expects.
+`@acme/hooks` absorbs that once, where the persister is adapted, rather than
+leaving every paginated query to assert at its own call site — where the same
+assertion would read as a shape mismatch in the feature rather than in the
+dependency.
+
+Nothing in this repository is paginated, so the fix is held by a **type-level
+assertion** rather than a feature that exercises it: the shared options are
+annotated with the type `usePersistedQueryOptions` returns and spread into
+`infiniteQueryOptions`, so `pnpm typecheck` fails the moment the persister stops
+fitting. A runtime round-trip through `fake-indexeddb` sits beside it, proving
+the pages and their page params actually reach storage and come back. Converting
+an existing query to infinite to host the proof was rejected: that is a feature
+change wearing a bug fix's clothes, in a slice whose cache policy is deliberately
+tuned.
+
 ### Pinned dependency (the experimental-API risk)
 
 `experimental_createQueryPersister` lives in `@tanstack/query-persist-client-core`
@@ -193,7 +227,12 @@ load-bearing.
 - Opting a feature in is now a small, uniform step: declare a `persister` in
   `createFeatureClient`, spread `usePersistedQueryOptions()` into the queries
   that should persist, and expose `clearPersistedCache` for the app's logout
-  path.
+  path. That holds for a paginated query too — the same spread, into
+  `infiniteQueryOptions`.
+- `FeatureQueryPersister` is a declared signature rather than a `ReturnType` of
+  upstream's factory, so a persister bump no longer surfaces as a type error on
+  the alias itself. It surfaces where the upstream function is adapted to that
+  signature, which is the one place that has to change anyway.
 - Server-driven cache invalidation, offline writes, and cross-tab sync are
   explicitly out of scope; the `chat.stream` subscription is the existing seam a
   future invalidation effort would extend.

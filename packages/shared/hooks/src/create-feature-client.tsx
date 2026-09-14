@@ -176,6 +176,10 @@ export function createFeatureClient<TRouter extends AnyRouter>({
    * useQuery(trpc.chat.get.queryOptions({ sessionId }, { retry: false, ...persisted }));
    * ```
    *
+   * The same spread fits a paginated query's `infiniteQueryOptions` — the
+   * persister's type carries a page param, so a feature never has to choose
+   * between persistence and pagination, and never asserts a type here.
+   *
    * Without a persister — no `scopeKey`, no IndexedDB, or a feature that never
    * opted in — it degrades to the `meta` mark and `staleTime: 0`, both no-ops:
    * the query is simply network-only, exactly as before.
