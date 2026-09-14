@@ -27,8 +27,9 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * the two that *must* be — a testcontainer hands back a mapped port and a prod
  * endpoint is infra-injected, so no profile can know them. `DB_HOST` goes
  * further and is **unauthored** on both deploy targets, which demands it there
- * rather than leaving a deploy free to inherit `localhost`
- * (@acme/env ADR 0003). That used to be
+ * rather than leaving a deploy free to inherit `localhost` — a deploy target
+ * must author its own profile, and unauthoring a key there demands it from the
+ * environment. That used to be
  * hand-rolled here as `process.env.DB_HOST ?? config.DB_HOST` and
  * `Number(process.env.DB_PORT)`; coercion now lives in the schema, so
  * `DB_PORT=abc` fails loudly instead of reaching a caller as `NaN`.

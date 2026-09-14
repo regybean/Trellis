@@ -25,8 +25,9 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * The authored selection is development's, and both roles are **unauthored** on
  * a deploy target: development picks Ollama, whose `baseUrl` is a localhost
  * address, and a role is one whole JSON document, so the address cannot be
- * dropped while the rest is kept (@acme/env ADR 0003). A deploy target states
- * its own pair, dimensions included.
+ * dropped while the rest is kept. Unauthoring a key on a target demands it
+ * from the environment there, so a deploy target states its own pair,
+ * dimensions included.
  *
  * Both keys go through `jsonEnv`, so each is overridable as one JSON document —
  * `MODELS_CHAT='{"provider":"openrouter","model":"…"}'`. Whole-value override is

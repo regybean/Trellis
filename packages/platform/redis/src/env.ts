@@ -18,8 +18,8 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
  * `process.env.REDIS_URL ?? config.REDIS_URL` this replaced skipped validation;
  * the override is now re-checked as a URL like the authored value. On a deploy
  * target it is **unauthored** and therefore demanded: the DSN is an address and
- * carries its own credentials, so there is nothing a profile could honestly say
- * (@acme/env ADR 0003).
+ * carries its own credentials, so there is nothing a profile could honestly
+ * say, and unauthoring a key on a target demands it from the environment there.
  *
  * **Selectors** — `NEXT_PUBLIC_WEBAPP` (app identity, which partitions every
  * shared datastore) and `NODE_ENV` stay written longhand: they are the keys a
