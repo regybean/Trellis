@@ -50,13 +50,23 @@ export interface RepoIo {
   isSymlink(rel: string): boolean;
 }
 
-/** Build output and caches — never source, so never a package's own file. */
+/**
+ * Build output and caches — never source, so never a package's own file.
+ *
+ * `.output` and `.nitro` are the Nitro pair the TanStack apps emit, and they
+ * matter as much as `.next`: the server bundle inlines transitive dependencies,
+ * so walking it reports every one of them as an undeclared import of the app.
+ * The directory only exists once someone has built, which is why the omission
+ * surfaced as a check that passed on a clean tree and failed on a warm one.
+ */
 const SKIP_DIRS = new Set([
   'node_modules',
   'dist',
   '.turbo',
   '.cache',
   '.next',
+  '.output',
+  '.nitro',
   'coverage',
 ]);
 
