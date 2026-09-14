@@ -66,13 +66,16 @@ export { acmeBlock, scriptNames } from './manifest';
 
 export type { PortableResult } from './portable';
 export {
+  NEVER_OFFERED,
   NOT_DISTRIBUTED,
   PORTABLE_HELP,
   ROOT_ADR_DIR,
   checkPortable,
+  isNeverOffered,
   owningPackage,
   validateAdrNumbers,
   validateAdrScope,
+  validateDeclarations,
   validateIssueRefs,
   validateRootAdrApps,
 } from './portable';
