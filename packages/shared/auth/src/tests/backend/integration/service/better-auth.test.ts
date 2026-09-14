@@ -10,16 +10,21 @@
  * [ADR 0002](../../../../../docs/adr/0002-auth-tables-in-a-dedicated-schema.md)
  * (the `auth` schema).
  */
+import { oneTimeToken } from 'better-auth/plugins/one-time-token';
 import { eq, sql } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
+import { initAuth } from '../../../../init-auth';
 import { authSession, authUser } from '../../../../schemas/auth-schema';
 import {
   auth,
+  BASE_URL,
   db,
   signInAndGetHeaders,
   signUp,
+  TEST_SECRET,
   testEmail,
+  toCookieHeader,
 } from '../../utils/fixtures';
 
 /**
@@ -117,5 +122,92 @@ describe('better auth instance', () => {
       .from(authUser)
       .where(eq(authUser.id, member.id));
     expect(row?.role).toBe('admin');
+  });
+});
+
+/**
+ * The two decisions `initAuth` hands to its caller. Both variants are built
+ * through the same factory against the same real Postgres as the default
+ * instance above — nothing here mocks Better Auth or reaches into the options
+ * object to assert on its shape.
+ */
+describe('a caller-configured instance', () => {
+  it('refuses a password sign-up when the credential provider is off', async () => {
+    const passwordless = initAuth({
+      baseUrl: BASE_URL,
+      emailAndPassword: false,
+    });
+    const email = testEmail('no-credentials');
+
+    await expect(
+      passwordless.api.signUpEmail({
+        body: { name: `Test ${email}`, email, password: TEST_SECRET },
+      }),
+    ).rejects.toThrow(/not enabled/i);
+  });
+
+  it('still serves the built-in admin behaviour with a plugin appended', async () => {
+    const withExtra = initAuth({
+      baseUrl: BASE_URL,
+      plugins: [oneTimeToken()],
+    });
+
+    const adminEmail = testEmail('appended-admin');
+    const { user: adminUser } = await withExtra.api.signUpEmail({
+      body: {
+        name: `Test ${adminEmail}`,
+        email: adminEmail,
+        password: TEST_SECRET,
+      },
+    });
+    // Seeding the first admin is a database write by definition, as above.
+    await db
+      .update(authUser)
+      .set({ role: 'admin' })
+      .where(eq(authUser.id, adminUser.id));
+
+    const { headers } = await withExtra.api.signInEmail({
+      body: { email: adminEmail, password: TEST_SECRET },
+      returnHeaders: true,
+    });
+    const adminHeaders = toCookieHeader(headers);
+
+    const member = await signUp(testEmail('appended-member'));
+    await withExtra.api.setRole({
+      body: { userId: member.id, role: 'admin' },
+      headers: adminHeaders,
+    });
+
+    const [row] = await db
+      .select({ role: authUser.role })
+      .from(authUser)
+      .where(eq(authUser.id, member.id));
+    expect(row?.role).toBe('admin');
+  });
+
+  it('serves the appended plugin its own endpoint', async () => {
+    const withExtra = initAuth({
+      baseUrl: BASE_URL,
+      plugins: [oneTimeToken()],
+    });
+
+    const email = testEmail('appended-endpoint');
+    await withExtra.api.signUpEmail({
+      body: { name: `Test ${email}`, email, password: TEST_SECRET },
+    });
+    const { headers } = await withExtra.api.signInEmail({
+      body: { email, password: TEST_SECRET },
+      returnHeaders: true,
+    });
+
+    // `generateOneTimeToken` is the plugin's, not a built-in: this line only
+    // compiles because the tuple the caller passed stayed visible in the
+    // instance's type instead of widening away to `BetterAuthPlugin[]`. So the
+    // case covers the runtime reach and the typing of it at once.
+    const { token } = await withExtra.api.generateOneTimeToken({
+      headers: toCookieHeader(headers),
+    });
+
+    expect(token).toBeTruthy();
   });
 });
