@@ -37,9 +37,11 @@ export const appEnv = resolveAppEnv(process.env.APP_ENV);
  * routes are mounted on, and each app in this repo runs on its own port
  * (`tanstack-start` on 3001). A shared-layer package cannot know it, which is
  * exactly why `initAuth` takes `baseUrl` as a parameter while keeping
- * `BETTER_AUTH_SECRET` slice-owned in `@acme/auth/env` (@acme/auth ADR 0001). It is config,
- * not a secret — the profile authors the dev origin and a deploy target overrides
- * it by environment variable like any other key (@acme/env ADR 0001 §4). Server-only: the
+ * `BETTER_AUTH_SECRET` slice-owned in `@acme/auth/env` (@acme/auth ADR 0001). The profile
+ * authors the dev origin and **unauthors** it on both deploy targets, which
+ * demands it there by the same mechanical rule as any other unauthored key
+ * (@acme/env ADR 0003) — a deploy that inherited `localhost:3001` would issue auth
+ * callbacks nobody can follow. Server-only: the
  * browser never needs it, because `createAuthClient` is same-origin and appends
  * Better Auth's base path to whatever origin it is loaded from.
  */
@@ -53,6 +55,14 @@ export const env = createEnv({
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
       default: { BETTER_AUTH_URL: 'http://localhost:3001' },
+      // An app is held to the authorship rule exactly as a slice is, because it
+      // layers profiles through the same call. The dev origin is a loopback
+      // address, and an auth server that thinks it lives on localhost issues
+      // callbacks nobody can follow — so a deploy target states its own origin
+      // rather than inheriting this one
+      // ([@acme/env ADR 0003](../../../packages/platform/env/docs/adr/0003-a-deploy-target-authors-its-own-profile.md)).
+      staging: { BETTER_AUTH_URL: undefined },
+      production: { BETTER_AUTH_URL: undefined },
     }),
   runtimeEnv: {
     BETTER_AUTH_URL: readEnv('BETTER_AUTH_URL'),
