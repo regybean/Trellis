@@ -62,10 +62,13 @@ const claimed = [
   })),
 ];
 
+// An exclusion glob (`!apps/docs`) names a directory the workspace does *not*
+// claim, so it contributes no root. Its first segment would be `!apps`, which
+// classifies nothing and would sit in here looking like it did.
 const workspaceRoots = new Set(
-  parseWorkspaceGlobs(
-    readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8'),
-  ).map((glob) => glob.split('/')[0]),
+  parseWorkspaceGlobs(readFileSync(join(ROOT, 'pnpm-workspace.yaml'), 'utf8'))
+    .filter((glob) => !glob.startsWith('!'))
+    .map((glob) => glob.split('/')[0]),
 );
 
 const rootEntries = new Set(

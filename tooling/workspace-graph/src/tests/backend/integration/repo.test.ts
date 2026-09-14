@@ -56,9 +56,14 @@ const scriptNames = (pkg: WorkspacePackage) =>
 
 describe('the workspace directories', () => {
   it('are exactly what pnpm-workspace.yaml declares', () => {
+    // Exclusions (`!apps/docs`) are dropped, not turned into directories: they
+    // name something that is not a package, so they contribute no place to look
+    // for one.
     const declared = parseWorkspaceGlobs(
       readFileSync(join(root, 'pnpm-workspace.yaml'), 'utf8'),
-    ).map((glob) => glob.replace(/\/\*$/, ''));
+    )
+      .filter((glob) => !glob.startsWith('!'))
+      .map((glob) => glob.replace(/\/\*$/, ''));
 
     expect(workspaceDirs(root)).toEqual([...new Set(declared)]);
   });

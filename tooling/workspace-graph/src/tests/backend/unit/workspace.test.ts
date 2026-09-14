@@ -62,6 +62,18 @@ describe('workspaceDirs', () => {
     expect(workspaceDirs(root)).toEqual(['apps', 'packages/shared', 'tooling']);
   });
 
+  it('ignores an exclusion glob rather than reading it as a directory', () => {
+    // `!apps/docs` says "apps/docs is not a package". Through `globDir` it would
+    // otherwise become a directory named `!apps/docs`, which the walk then looks
+    // for on disk and never finds.
+    const root = createWorkspaceFixture({
+      globs: ['apps/*', '!apps/docs', 'tooling/*'],
+      packages: {},
+    });
+
+    expect(workspaceDirs(root)).toEqual(['apps', 'tooling']);
+  });
+
   it('reports a directory named by no glob nowhere', () => {
     const root = createWorkspaceFixture({
       globs: ['apps/*'],
