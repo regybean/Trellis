@@ -24,13 +24,16 @@ import { env as telemetryEnv } from '@acme/telemetry/env';
  * `@acme/telemetry/register` via NODE_OPTIONS instead. See
  * packages/platform/telemetry/docs/adr/0001-ambient-telemetry-no-context-object.md.
  */
-// The OTLP endpoint is authored config, overridable per deploy (@acme/env ADR 0001); the
-// per-app service name stays an app-owned literal (app identity, not shared
-// config).
+// The OTLP endpoint and the on/off switch are authored config, overridable per
+// deploy (@acme/env ADR 0001); the per-app service name stays an app-owned
+// literal (app identity, not shared config). The switch is passed through
+// rather than acted on here — `initTelemetry` owns what a half-configured
+// target does, so no call site repeats the check.
 initTelemetry({
   serviceName: 'trellis-tanstack-slim',
   serviceVersion: process.env.npm_package_version ?? '0.0.0',
   otlpEndpoint: telemetryEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
+  enabled: telemetryEnv.OTEL_TELEMETRY_ENABLED,
   debug: process.env.NODE_ENV === 'development',
 });
 

@@ -13,13 +13,16 @@ export async function register() {
     const { initTelemetry } = await import('@acme/telemetry');
     const { env: telemetryEnv } = await import('@acme/telemetry/env');
 
-    // The OTLP endpoint is authored config, overridable per deploy (@acme/env ADR 0001);
-    // the per-app service name stays an app-owned literal (app identity, not
-    // shared config).
+    // The OTLP endpoint and the on/off switch are authored config, overridable
+    // per deploy (@acme/env ADR 0001); the per-app service name stays an
+    // app-owned literal (app identity, not shared config). The switch is passed
+    // through rather than acted on here — `initTelemetry` owns what a
+    // half-configured target does, so no call site repeats the check.
     initTelemetry({
       serviceName: 'trellis-nextjs',
       serviceVersion: process.env.npm_package_version ?? '0.0.0',
       otlpEndpoint: telemetryEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
+      enabled: telemetryEnv.OTEL_TELEMETRY_ENABLED,
       debug: process.env.NODE_ENV === 'development',
     });
 
