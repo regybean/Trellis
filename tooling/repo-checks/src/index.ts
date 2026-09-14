@@ -1,10 +1,11 @@
 /**
  * `@acme/repo-checks` — the gates `pnpm lint` runs over the repo itself.
  *
- * Three checkers live here: the package `exports` convention, the per-package
- * test policy and ADR hygiene. Each used to be a top-level `for` loop in
- * `scripts/`, so its decisions could not be reached without running the
- * program, and the filesystem walk was welded to the rule.
+ * The checkers living here are the package `exports` convention, the
+ * per-package test policy, ADR hygiene, portability and the undeclared-import
+ * gate. Most used to be a top-level `for` loop in `scripts/`, so their
+ * decisions could not be reached without running the program, and the
+ * filesystem walk was welded to the rule.
  *
  * Here each rule is a function over its input and the filesystem work happens
  * at the edge, behind `PackageIo` / `RepoIo`. That is what lets a rule be
@@ -40,6 +41,18 @@ export {
   isGoverned,
   validateExports,
 } from './exports';
+
+export {
+  DEPENDENCY_FIELDS,
+  IMPORTS_HELP,
+  SUPPRESSION_KEY,
+  checkImports,
+  declaredPackages,
+  importedPackages,
+  isSource,
+  specifierPackage,
+  suppressions,
+} from './imports';
 
 export {
   COMPOSE_FILE,
