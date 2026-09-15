@@ -69,8 +69,10 @@ Four of the five clients repeated an identical SuperJSON `dehydrate`/`hydrate`
 block and the create-t3-app comment _"With SSR, we usually want to set some
 default staleTime above 0"_. Neither was doing anything:
 
-- No app imports `HydrateClient`, `createServerTRPC`, or `prefetch`;
-  `packages/features/ingest/src/trpc/server.tsx` says as much itself.
+- No app imports `HydrateClient`, `createServerTRPC`, or `prefetch`. Chat,
+  ingest and feedback each carried a copy of that caller saying as much itself;
+  all three are deleted, and `packages/features/billing/src/trpc/server.tsx` is
+  the one kept as the worked example.
 - The TanStack apps already had an app-level `QueryClient` in `src/router.tsx`
   wired to `setupRouterSsrQueryIntegration`, and every feature provider
   **shadowed** it — so feature queries never participated in SSR hydration at all.

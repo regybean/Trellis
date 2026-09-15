@@ -52,8 +52,10 @@ the registry and split the wiring into **two factories across two entry points**
 The names above are stale. `@acme/trpc/server` no longer exists, and neither does
 `createFeatureServerCaller({ name, appRouter, createTRPCContext })` — nor
 `createTRPCContext` itself. Each feature now builds its own tRPC instance on its
-own concrete context in `api/trpc.ts`, and writes its own `trpc/server.tsx` RSC
-caller against it; `@acme/trpc` exports `trpcConfig` plus four middleware bodies
+own concrete context in `api/trpc.ts`, and a feature that wants an RSC caller
+writes its own `trpc/server.tsx` against it — `@acme/billing` is the one that
+does, the other slices' unused copies having been deleted;
+`@acme/trpc` exports `trpcConfig` plus four middleware bodies
 and owns no `initTRPC` call (see
 [ADR 0002](0002-export-the-pieces-not-the-instance.md); the generic context went
 when the entitlements seam moved the context extension out to the feature that

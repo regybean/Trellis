@@ -69,16 +69,16 @@
       // creates. Removing it breaks the suite in CI only. See the note in that
       // file.
       "ignoreDependencies": ["@acme/models"],
-      "entry": ["src/trpc/server.tsx"],
     },
     "packages/features/chat": {
       // The Mastra CLI entry (`mastra dev|lint --dir src/mastra`).
-      "entry": ["src/mastra/index.ts", "src/trpc/server.tsx"],
+      "entry": ["src/mastra/index.ts"],
     },
-    "packages/features/*": {
-      // Documented reference scaffold for an RSC caller; no app mounts one yet,
-      // but it is part of the slice's intended surface, so it is a graph root
-      // rather than dead code.
+    "packages/features/billing": {
+      // The repo's one RSC caller, kept as the worked example of how a slice
+      // wires one. No app mounts it, so it is a graph root rather than dead
+      // code. Chat, ingest and feedback carried copies nothing called; those
+      // are deleted, and a slice that grows a real one declares its own entry.
       "entry": ["src/trpc/server.tsx"],
     },
   },

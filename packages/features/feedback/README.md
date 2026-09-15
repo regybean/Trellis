@@ -21,7 +21,7 @@ src/
   env.ts                    # the slice env: one createEnv call, APP_ENV profiles
   components/feedback-list.tsx # sample UI (presentational)
   hooks/use-feedback.ts        # data-access hook (tRPC + React Query)
-  trpc/                     # client (react.tsx), RSC (server.tsx)
+  trpc/react.tsx            # the tRPC client + provider
   index.ts | index-server.ts | index-schema.ts   # public entrypoints
   tests/backend/            # setup, global-setup (testcontainers), utils, router tests
   tests/frontend/           # renderWithProviders + trpcMsw + component tests

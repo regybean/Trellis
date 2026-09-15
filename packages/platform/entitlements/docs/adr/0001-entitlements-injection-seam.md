@@ -80,13 +80,15 @@ Two decisions are load-bearing, mirroring the auth seam:
   auth package's own ADRs are where that amendment is recorded.)
 - **`createTRPCContext`'s signature gains a required `entitlements`.** Every
   caller supplies one: both apps' route handlers and the TanStack `clerk-context`
-  resolver inject `subscriptionsEntitlements`; the reference RSC callers in chat
-  and ingest take it as a parameter; a no-billing app injects
-  `unlimitedEntitlements`.
+  resolver inject `subscriptionsEntitlements`; billing's reference RSC caller
+  takes it as a parameter; a no-billing app injects `unlimitedEntitlements`.
 - **chat and ingest depend on no billing or Clerk SDK.** Their `trpc/server.tsx`
   RSC callers became neutral factories (`createServerTRPC({ headers, auth, user,
 entitlements })`); Clerk's Next.js SDK and `@acme/subscriptions` left their
-  `package.json`. `@acme/billing` remains legitimately coupled to Clerk + Stripe
+  `package.json`. Those three callers — chat's, ingest's and feedback's — were
+  copies no app ever imported and have since been deleted; the dependency
+  outcome stands, nothing reintroduced the SDKs.
+  `@acme/billing` remains legitimately coupled to Clerk + Stripe
   (its account router reads the principal's `primaryEmailAddress`; its success handler
   resolves `auth()`), so it keeps those deps and its `server.tsx` stays a
   concrete worked example.

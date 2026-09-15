@@ -63,8 +63,7 @@
     }
   },
   "sideEffects": [
-    "**/index-server.ts",
-    "**/trpc/server.tsx"
+    "**/index-server.ts"
   ],
   "license": "MIT",
   "prettier": "@acme/prettier-config",
