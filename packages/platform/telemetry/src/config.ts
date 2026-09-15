@@ -3,9 +3,9 @@
  *
  * `initTelemetry` took five fields and only one of them ever varied: the
  * service name, which is app identity. The other four were the same read at
- * every call site — each app's server boundary plus the preload — so every new
- * app had four chances to get them wrong, and the bag they built had to be
- * valid before the guard in `plan.ts` would accept it.
+ * every app's server boundary, so every new app had four chances to get them
+ * wrong, and the bag it built had to be valid before the guard in `plan.ts`
+ * would accept it.
  *
  * They are read here instead. The endpoint and the off switch come from this
  * slice's own env, which is where they are authored and where a deploy

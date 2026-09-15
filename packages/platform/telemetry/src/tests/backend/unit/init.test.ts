@@ -23,7 +23,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * on the full-config form, in `plan.test.ts`.
  */
 
-const APP = 'trellis-nextjs';
+/** Any app's literal. This one is a stand-in, not one of this repo's. */
+const APP = 'acme-web';
 
 /** The authored development endpoint — `src/env.ts`'s `default` profile. */
 const AUTHORED_ENDPOINT = 'http://localhost:4318/v1/traces';
