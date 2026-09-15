@@ -4,13 +4,12 @@
  * Runs before each test file (after `@acme/test-utils/hydrate-env`, which has
  * populated `process.env` with the testcontainer DB/Redis details). Every
  * `env.ts` validates against the real running services — no env mocks. Only the
- * behavioral boundaries are mocked here: the Stripe-calling utilities (keeping
- * the real typed-error seam), `@acme/subscriptions`, and `server-only`.
+ * behavioral boundaries are mocked here: the Stripe-calling services the
+ * account router reaches for, `@acme/subscriptions`, and `server-only`.
  */
 
 import { afterEach, beforeEach, vi } from 'vitest';
 
-import type * as StripeErrors from '../../utils/stripe-errors';
 import { cleanupTestData } from './utils/test-context';
 
 // In-memory userId -> Stripe customer id store backing the @acme/subscriptions
@@ -20,39 +19,37 @@ const stripeCustomerStore = vi.hoisted(() => new Map<string, string>());
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 
-// Mock the Stripe-calling utilities, but keep the real typed-error seam
-// (billingError / BillingErrorCode / toBillingErrorCode) so the router's error
-// construction is exercised for real rather than stubbed. stripe-errors is a
-// pure, side-effect-free module, so importActual on it is safe (no live
-// Stripe/Redis at import).
-vi.mock('../../utils/stripe', async () => {
-  const errors = await vi.importActual<typeof StripeErrors>(
-    '../../utils/stripe-errors',
-  );
-  return {
-    billingError: errors.billingError,
-    BillingErrorCode: errors.BillingErrorCode,
-    toBillingErrorCode: errors.toBillingErrorCode,
-    getProductWithPrice: vi.fn().mockResolvedValue({
-      defaultPriceId: 'price_12345',
-      productId: 'prod_12345',
-    }),
-    findOrCreateCustomer: vi.fn().mockResolvedValue({
-      customer: { id: 'cus_12345', email: 'test@example.com' },
-      isExisting: false,
-    }),
-    createCheckoutSession: vi.fn().mockResolvedValue({
-      id: 'cs_12345',
-      url: 'https://checkout.stripe.com/test',
-      created: 1_234_567_890,
-    }),
-    createDashboardSession: vi.fn().mockResolvedValue({
-      billingPortalUrl: 'https://billing.stripe.com/test',
-    }),
-    syncStripeDataToKV: vi.fn().mockResolvedValue(null),
-    setUserTier: vi.fn().mockResolvedValue({ status: 'active' }),
-  };
-});
+// Mock the two Stripe-calling services the account router imports. The typed
+// error seam (`utils/stripe-errors`) is deliberately left real, so the router's
+// error construction is exercised rather than stubbed; it is a pure,
+// side-effect-free module with no live Stripe/Redis at import.
+//
+// Mocked per module rather than in one go: `api/services/stripe-sync` is left
+// real here because the service suite drives it for real over a fake SDK
+// client, and `api/services/stripe-webhook` because its unit suite drives the
+// real routing logic.
+vi.mock('../../api/services/stripe-checkout', () => ({
+  getProductWithPrice: vi.fn().mockResolvedValue({
+    defaultPriceId: 'price_12345',
+    productId: 'prod_12345',
+  }),
+  findOrCreateCustomer: vi.fn().mockResolvedValue({
+    customer: { id: 'cus_12345', email: 'test@example.com' },
+    isExisting: false,
+  }),
+  createCheckoutSession: vi.fn().mockResolvedValue({
+    id: 'cs_12345',
+    url: 'https://checkout.stripe.com/test',
+    created: 1_234_567_890,
+  }),
+  createDashboardSession: vi.fn().mockResolvedValue({
+    billingPortalUrl: 'https://billing.stripe.com/test',
+  }),
+}));
+
+vi.mock('../../api/services/stripe-dev', () => ({
+  setUserTier: vi.fn().mockResolvedValue({ status: 'active' }),
+}));
 
 // Mock rate limiting utilities — isTierAtLeast delegates to the real
 // implementation from @acme/entitlements so requireTier gates behave correctly.
