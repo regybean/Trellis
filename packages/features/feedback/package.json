@@ -23,8 +23,7 @@
   },
   "sideEffects": [
     "**/index-schema.ts",
-    "**/index-server.ts",
-    "**/trpc/server.tsx"
+    "**/index-server.ts"
   ],
   "scripts": {
     "build": "tsc",
