@@ -9,11 +9,13 @@
  * process, quietly and permanently, so "construct it and find out" is not an
  * option.
  *
- * Keeping it here rather than at the call sites is the load-bearing part. There
- * are several callers — each app's server boundary plus the `register.ts`
- * preload — and a check repeated at each of them is a check the next one
- * forgets. `initTelemetry` calls this first and can act only on what it
- * returns, so the guard is unforgettable by construction.
+ * Keeping it here rather than at the call sites is the load-bearing part. A
+ * check repeated at each caller is a check the next caller forgets, and both
+ * initialisers call this first and can act only on what it returns, so the
+ * guard is unforgettable by construction. The narrow entry cannot reach the
+ * raising branch at all — the endpoint it passes came from an env factory that
+ * had already resolved it to a URL — which leaves the full-config form as the
+ * one place an invalid configuration can arrive from.
  */
 
 export interface TelemetryConfig {
