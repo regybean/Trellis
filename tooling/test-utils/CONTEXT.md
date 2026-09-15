@@ -59,8 +59,7 @@ What the engine would build from a descriptor, before any container exists — t
 exposed port, container env, the `mode` and `waitLogTimes` defaults, the compiled
 wait pattern, and bind mounts resolved against `repoRoot`. `command` and
 `startupTimeoutMs` stay absent when the descriptor gives none, so testcontainers
-keeps its own defaults. Naming the plan separately from the start is what lets a
-descriptor be handed to the engine without a container runtime.
+keeps its own defaults. A plan is a value, so producing one starts nothing.
 _Avoid_: "the container config" (that is the descriptor), "the builder"
 
 **Compose stack**:
