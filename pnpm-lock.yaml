@@ -1213,9 +1213,6 @@ importers:
       '@trpc/server':
         specifier: 'catalog:'
         version: 11.8.1(typescript@5.9.3)
-      '@trpc/tanstack-react-query':
-        specifier: 'catalog:'
-        version: 11.8.1(@tanstack/react-query@5.90.16(react@19.2.3))(@trpc/client@11.8.1(@trpc/server@11.8.1(typescript@5.9.3))(typescript@5.9.3))(@trpc/server@11.8.1(typescript@5.9.3))(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
       drizzle-orm:
         specifier: 'catalog:'
         version: 0.45.2(@opentelemetry/api@1.9.0)(@types/pg@8.15.6)(kysely@0.29.5)(pg@8.21.0)(postgres@3.4.7)
