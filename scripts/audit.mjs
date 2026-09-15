@@ -10,8 +10,8 @@
 // exactly the "gate can't be green" failure the allowlist exists to avoid.
 // `advisories` in the JSON output *is* allowlist-filtered, so we decide from it.
 //
-// Transport failures are passed straight through (output + non-zero exit) so
-// `scripts/quality-gate.sh` can still recognise them and skip the stage offline.
+// Transport failures are passed straight through (output + non-zero exit) so the
+// gate's `audit` stage can still recognise them and skip itself offline.
 
 import { spawnSync } from "node:child_process";
 

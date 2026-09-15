@@ -47,13 +47,17 @@ Two reasons the gate is read-only rather than fixing-in-place:
 Two supporting changes make the single gate run legible so a failure doesn't
 force a re-run to find the log:
 
-- `scripts/quality-gate.sh` runs every stage (never fail-fast), each into its own
+- The gate runs every stage (never fail-fast), each into its own
   per-stage log, then concatenates them in a fixed order into
   `logs/quality-gate.log` and prints a per-stage PASS/FAIL summary with each
   stage's wall-clock duration and the slowest stage named, so a slow gate is
   diagnosable from the summary alone. Per-stage
   logs (not a shared tee) keep parallel output from interleaving. On failure the
-  agent reads one file and sees exactly what failed.
+  agent reads one file and sees exactly what failed. The stage table and the
+  scheduling over it are `@acme/quality-gate` at `tooling/quality-gate`, where
+  they are typechecked, linted and tested like anything else the gate verifies;
+  `scripts/quality-gate.sh` is the entry point a human types and decides
+  nothing.
 - Turbo `lint` / `typecheck` / `build` / `test` tasks set
   `"outputLogs": "errors-only"` — successful tasks stay silent, so any terminal
   run surfaces only the failing task.
