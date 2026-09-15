@@ -426,10 +426,16 @@ export function validateIssueRefs(file: string, text: string): string[] {
  * The widening catches one compound it should not: a package somebody else
  * published whose name happens to end in the same word. `exemptSpans` below
  * takes those back out by position.
+ *
+ * Case-insensitive, because a name is the same name however it is capitalised,
+ * and what gets reported is the token rather than the spelling found. This half
+ * read case-sensitively for a while and the bank's did not — a divergence
+ * nobody could see by reading either copy, and the reason both are now held to
+ * one corpus of cases.
  */
 const appPattern = (token: string) => {
   const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`(?<!\\w)${escaped}(?!\\w)`, 'g');
+  return new RegExp(`(?<!\\w)${escaped}(?!\\w)`, 'gi');
 };
 
 /**
@@ -562,8 +568,12 @@ export interface PortableResult {
  *
  * `apps/` is not among them — see rule 4 for why the bare directory is a
  * convention a consumer shares rather than this repo's identity.
+ *
+ * Exported for the shared corpus: the bank derives the same tokens from the
+ * same manifests, and a derivation that drifts is a rule that reports different
+ * things in two gates.
  */
-function appTokens(tracked: readonly string[], io: RepoIo): string[] {
+export function appTokens(tracked: readonly string[], io: RepoIo): string[] {
   const tokens = new Set<string>();
 
   for (const file of tracked) {
@@ -577,8 +587,17 @@ function appTokens(tracked: readonly string[], io: RepoIo): string[] {
   return [...tokens].sort();
 }
 
-/** The npm scopes this workspace publishes under, e.g. `acme`. */
-function workspaceScopes(tracked: readonly string[], io: RepoIo): Set<string> {
+/**
+ * The npm scopes this workspace publishes under, e.g. `acme`.
+ *
+ * Exported for the same reason as `appTokens`: it is what decides whether a
+ * scoped specifier is somebody else's package or one of ours, so both halves of
+ * the rule have to read a manifest set the same way.
+ */
+export function workspaceScopes(
+  tracked: readonly string[],
+  io: RepoIo,
+): Set<string> {
   const scopes = new Set<string>();
 
   for (const file of tracked) {
