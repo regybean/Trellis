@@ -134,8 +134,14 @@ const scopes = present ? workspaceScopes(io.tracked(), io) : new Set<string>();
 const namedIn = (errors: readonly string[]) =>
   errors.flatMap((error) => /names `([^`]+)`/.exec(error)?.[1] ?? []).sort();
 
-/** A root document: rule 4's scope, and where a case is read. */
-const DOC = 'docs/adr/0001-a-decision.md';
+/**
+ * A root document: rule 4's scope, and where a case is read.
+ *
+ * Assembled rather than written out, like every other reference in this
+ * package's suites. A literal ADR path here is a citation as far as
+ * `check-adrs` is concerned, and it would resolve to no file.
+ */
+const DOC = `docs/adr/${String(1).padStart(4, '0')}-a-decision.md`;
 
 describeShared('the identity the corpus derives', () => {
   it('reads the apps off the manifests, anchored to the app directory', () => {
