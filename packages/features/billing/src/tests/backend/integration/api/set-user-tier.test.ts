@@ -130,22 +130,18 @@ describe('account.setUserTier against localstripe', () => {
 
   // Re-granting over a live subscription is the admin UI's normal case (the
   // dropdown does not disable the current tier), and the service cancels first
-  // precisely so the customer does not end up on two plans. That part holds.
+  // precisely so the customer does not end up on two plans. So mid-re-grant the
+  // customer legitimately holds two subscriptions, one canceled and one active,
+  // and the sync has to choose between them.
   //
-  // What does *not* hold is the cache the re-grant leaves behind, and this is
-  // the test that found it: `syncStripeDataToKV` asks for `limit: 1` and takes
-  // whatever comes back, which assumes the newest-first ordering real Stripe
-  // documents. localstripe lists oldest-first, so after a re-grant the one
-  // subscription it returns is the *canceled* predecessor — the grant reports
-  // `canceled` and the tier reads back `Basic` while an active Pro subscription
-  // sits right there in Stripe.
-  //
-  // Pinned as observed rather than as intended: the fix belongs to
-  // `syncStripeDataToKV`, which is also the real-Stripe webhook path, and
-  // changing what that picks for a customer with several subscriptions is a
-  // decision this ticket has no business taking quietly. Tracked separately;
-  // when it lands, the two expectations below become `active` / `'Pro'`.
-  it('cancels the predecessor, but caches it instead of the new subscription', async () => {
+  // This is the test that found it choosing wrongly: it used to list with
+  // `limit: 1` and cache whatever came back, which assumes the newest-first
+  // ordering real Stripe documents. localstripe lists oldest-first, so the
+  // canceled predecessor won and the tier read back `Basic` with an active Pro
+  // subscription sitting right there in Stripe. `selectCurrentSubscription` now
+  // picks on status and recency instead of list order, which is why this asserts
+  // the active subscription against a server that lists it last.
+  it('caches the new subscription, not the predecessor it cancelled', async () => {
     const userId = createTestUserId('target');
     const caller = createAdminCaller();
 
@@ -172,11 +168,11 @@ describe('account.setUserTier against localstripe', () => {
     expect(active.data).toHaveLength(1);
     expect(active.data[0]?.items.data[0]?.plan.product).toBe(planIds.proPlanId);
 
-    // The cache disagrees, for the ordering reason above.
-    expect(regrant.status).toBe('canceled');
+    // ...and the cache agrees with it.
+    expect(regrant.status).toBe('active');
     expect(
       getSubscriptionType(await getUserSubscriptionFromRedis(userId), planIds),
-    ).toBe('Basic');
+    ).toBe('Pro');
   });
 
   // The guard that keeps this procedure off real Stripe is the one branch that

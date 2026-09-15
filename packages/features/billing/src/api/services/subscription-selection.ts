@@ -69,12 +69,22 @@ interface RankableSubscription {
 export function selectCurrentSubscription<T extends RankableSubscription>(
   subscriptions: readonly T[],
 ): T | undefined {
-  return subscriptions.reduce<T | undefined>((best, candidate) => {
-    if (!best) return candidate;
+  let current: T | undefined;
 
-    const byStatus = rank(candidate.status) - rank(best.status);
-    if (byStatus !== 0) return byStatus < 0 ? candidate : best;
+  for (const candidate of subscriptions) {
+    if (!current || describesBetter(candidate, current)) current = candidate;
+  }
 
-    return candidate.created > best.created ? candidate : best;
-  }, undefined);
+  return current;
+}
+
+/** Strictly better, so an exact tie leaves the incumbent in place. */
+function describesBetter(
+  candidate: RankableSubscription,
+  incumbent: RankableSubscription,
+) {
+  const byStatus = rank(candidate.status) - rank(incumbent.status);
+  if (byStatus !== 0) return byStatus < 0;
+
+  return candidate.created > incumbent.created;
 }
