@@ -18,8 +18,8 @@
 export type { InfraDescriptor, InfraBindMount } from './infra';
 
 // Engine
-export type { StartedInfra } from './containers';
-export { startInfra, stopInfra, pushDatabaseSchemas } from './containers';
+export type { InfraHandle, StartedInfra } from './containers';
+export { startInfra, pushDatabaseSchemas } from './containers';
 
 // Global setup factory
 export { runInfraSetup } from './setup';
