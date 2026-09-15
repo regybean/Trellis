@@ -34,3 +34,8 @@ each stage's own duration, and the slowest stage. Stage durations overlap (only
 not to sum it against `elapsed`.
 On failure, read that file for the failing stage, fix (or re-`tidy`), and re-run
 (cache-warm, seconds). Don't move on until the gate is green.
+
+Which stages there are, what follows what, and every line of that summary live
+in `@acme/quality-gate` (`tooling/quality-gate`) — add or reorder a stage there,
+in the table, not in `scripts/quality-gate.sh`, which is one `exec` line into
+the package.

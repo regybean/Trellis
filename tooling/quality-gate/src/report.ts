@@ -12,14 +12,16 @@
  */
 import type { StageResult } from './stages';
 
-/** PASS or FAIL. A stage that produced no result at all counts as FAIL. */
+/** PASS or FAIL, as the summary prints it. */
 export function verdict(result: StageResult) {
   return result.code === 0 ? 'PASS' : 'FAIL';
 }
 
 /** Every stage that failed, in table order. */
 export function failedStages(results: readonly StageResult[]) {
-  return results.filter((result) => result.code !== 0).map((r) => r.stage.name);
+  return results
+    .filter((result) => result.code !== 0)
+    .map((result) => result.stage.name);
 }
 
 /**
