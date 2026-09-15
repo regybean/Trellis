@@ -48,17 +48,30 @@ keep an `instrumentation.ts` preload, which gives full HTTP auto-instrumentation
 the TanStack apps call `initTelemetry()` from a Nitro startup plugin, which is
 loader-free and runs identically in dev and prod. `service.name` is a literal the
 app itself picks — app identity, not shared config, so the platform neither
-supplies it nor derives one. The platform never assumes a framework established
-an ambient span: the
+supplies it nor derives one. It is also the only value an app passes: the
+collector endpoint and the off switch are read from this slice's env, the version
+and the debug flag from the process, because those had one answer and four copies
+of it. The platform never assumes a framework established an ambient span: the
 per-procedure span is simply parentless when none exists.
 
 A TanStack trace is therefore rooted at the tRPC procedure span rather than an HTTP
 one, and lacks auto redis/aws/outgoing-HTTP spans; DB spans are unaffected either
 way, since they come from manual `instrumentDrizzleClient`. The escalation path to
-HTTP-parent parity is the pre-built side-effecting `@acme/telemetry/register`
-entry — preload it with `NODE_OPTIONS="--import @acme/telemetry/register"` and
-auto-instrumentation patches the runtime before the server graph loads. Additive,
-no rework of the seam.
+HTTP-parent parity is a preload: anything that initialises before the server
+graph loads lets auto-instrumentation patch the runtime first.
+
+**This package no longer ships one.** It exported a side-effecting `./register`
+entry for that purpose, to be preloaded with
+`NODE_OPTIONS="--import @acme/telemetry/register"`. Nothing ever ran it: no app,
+no start script, no deploy configuration, and no test — so the parity it promised
+was never observed, and the entry was a second place assembling the same
+configuration, reading `OTEL_SERVICE_NAME` where an app passes a literal. It also
+raced the app's own init if both ran, and the preload wins, which would have
+published the environment's service name in place of the one the app picked.
+Deleting it removes a claim rather than a capability; the env key it read goes
+with it. Reinstating it is a one-line module — `initTelemetry(serviceName)` — for
+whoever brings the start command that runs it, and the narrowed entry makes that
+line the whole file.
 
 ## Consequences
 

@@ -17,19 +17,20 @@ then produces spans without being handed anything
 
 ## Surface
 
-| Import                     | What's in it                             | Runs   |
-| -------------------------- | ---------------------------------------- | ------ |
-| `@acme/telemetry`          | `initTelemetry`, the tracing API, config | either |
-| `@acme/telemetry/server`   | Server-side span helpers                 | server |
-| `@acme/telemetry/register` | A side-effect module that initialises    | either |
-| `@acme/telemetry/env`      | This package's env factory               | either |
+| Import                   | What's in it                             | Runs   |
+| ------------------------ | ---------------------------------------- | ------ |
+| `@acme/telemetry`        | `initTelemetry`, the tracing API, config | either |
+| `@acme/telemetry/server` | Server-side span helpers                 | server |
+| `@acme/telemetry/env`    | This package's env factory               | either |
 
 ## Wiring
 
 - Call `initTelemetry` from whatever your framework runs before anything else —
-  an instrumentation hook, a server plugin, or the top of your entry module.
-  Importing `./register` for its side effect does the same thing where you have
-  no hook to put a call in.
+  an instrumentation hook, a server plugin, or the top of your entry module. If
+  your framework gives you nowhere to put the call, a module whose only job is
+  to make it, imported first, is the same thing; this package used to ship one
+  and nothing ran it
+  ([ADR 0001](docs/adr/0001-ambient-telemetry-no-context-object.md)).
 - Do it in your worker entrypoint too, or background work produces no traces.
 - Pass the service name from your app, and pass nothing else. A shared package
   cannot know what your service is called, so that stays a parameter; the
@@ -47,9 +48,10 @@ then produces spans without being handed anything
 
 ## Env
 
-All three keys are profile-authored config, each overridable by an environment
-variable of the same name: the service name, the collector endpoint, and
-`OTEL_TELEMETRY_ENABLED`. See `src/env.ts`.
+Both keys are profile-authored config, each overridable by an environment
+variable of the same name: the collector endpoint and `OTEL_TELEMETRY_ENABLED`.
+The service name is not among them — that one is yours to pass. See
+`src/env.ts`.
 
 ## Running without a collector
 

@@ -7,21 +7,21 @@ import { jsonEnv, readEnv, resolveAppEnv, withProfiles } from '@acme/env';
 const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
- * Telemetry's environment, declared once. All three keys are **config** in
+ * Telemetry's environment, declared once. Both keys are **config** in
  * development — they carry profile values, so a clean checkout exports to the
- * local collector with no `.env` rows — and all three are env-overridable,
- * which is what a real deploy needs: the collector endpoint is the value that
- * differs per target, and pointing an app at one should not require
- * re-authoring a profile.
+ * local collector with no `.env` rows — and both are env-overridable, which is
+ * what a real deploy needs: the collector endpoint is the value that differs
+ * per target, and pointing an app at one should not require re-authoring a
+ * profile.
  *
  * On a deploy target the endpoint is **unauthored** and therefore a secret
  * there, because `localhost:4318` is an address and inheriting it is how a
  * deploy ends up exporting into a void. Unauthoring a key on a target demands
  * it from the environment there.
  *
- * `OTEL_SERVICE_NAME` is the generic preload's default (`register.ts`); apps that
- * init at their own server boundary pass their own per-app service name literal
- * to `initTelemetry` instead. Server-side — telemetry runs pre-app.
+ * The service name is not here. It is app identity rather than config, so each
+ * app passes its own literal to `initTelemetry` and nothing reads a variable
+ * for it. Server-side — telemetry runs pre-app.
  *
  * `OTEL_TELEMETRY_ENABLED` is the off switch, and it goes through `jsonEnv`
  * rather than `z.coerce.boolean()` for the reason every boolean here does:
@@ -43,14 +43,12 @@ export const env = createEnv({
   clientPrefix: 'NEXT_PUBLIC_',
   client: {},
   server: {
-    OTEL_SERVICE_NAME: z.string().nonempty(),
     OTEL_EXPORTER_OTLP_ENDPOINT: z.url(),
     OTEL_TELEMETRY_ENABLED: jsonEnv(z.boolean()),
   },
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
       default: {
-        OTEL_SERVICE_NAME: 'acme',
         OTEL_EXPORTER_OTLP_ENDPOINT: 'http://localhost:4318/v1/traces',
         OTEL_TELEMETRY_ENABLED: true,
       },
@@ -62,7 +60,6 @@ export const env = createEnv({
       // where compose brings a collector up alongside the app; on a deploy
       // target nothing guarantees one exists, so telemetry starts off and an
       // operator who has a collector turns it on with the endpoint they set.
-      // `OTEL_SERVICE_NAME` stays authored — a name is not an address.
       staging: {
         OTEL_EXPORTER_OTLP_ENDPOINT: undefined,
         OTEL_TELEMETRY_ENABLED: false,
@@ -73,7 +70,6 @@ export const env = createEnv({
       },
     }),
   runtimeEnv: {
-    OTEL_SERVICE_NAME: readEnv('OTEL_SERVICE_NAME'),
     OTEL_EXPORTER_OTLP_ENDPOINT: readEnv('OTEL_EXPORTER_OTLP_ENDPOINT'),
     OTEL_TELEMETRY_ENABLED: readEnv('OTEL_TELEMETRY_ENABLED'),
   },

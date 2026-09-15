@@ -38,7 +38,6 @@ export const ALLOWED_KEYS: ReadonlySet<string> = new Set([
   './testing', // backend/test helpers shipped for consumers' suites
   // registered one-off seams
   './handler', // @acme/trpc — framework-parametric fetch handler
-  './register', // @acme/telemetry — side-effecting preload entry
   './server-next', // @acme/billing — Next-specific server adapter
   './ownership-trpc', // @acme/rag — cross-feature ownership middleware
 ]);

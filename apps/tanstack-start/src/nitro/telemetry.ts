@@ -19,8 +19,9 @@ import { initTelemetry } from '@acme/telemetry';
  * Because this loads after the server graph, HTTP auto-instrumentation does not
  * retroactively patch it: traces are rooted at the tRPC procedure span
  * (`trpc.<path>`), not an HTTP parent. DB spans are unaffected (manual
- * `instrumentDrizzleClient`). For full HTTP-parent parity, preload
- * `@acme/telemetry/register` via NODE_OPTIONS instead. See
+ * `instrumentDrizzleClient`). Full HTTP-parent parity needs a preload that runs
+ * before the server graph — a module imported through NODE_OPTIONS rather than a
+ * plugin — which this app does not have and nothing here ships. See
  * packages/platform/telemetry/docs/adr/0001-ambient-telemetry-no-context-object.md.
  */
 // The service name is app identity, so it is the one telemetry value this app

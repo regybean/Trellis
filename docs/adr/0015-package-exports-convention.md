@@ -13,9 +13,10 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
   never points at `src`.
 - **Bounded vocabulary.** Subpath keys are drawn from a fixed set: the roles
   `.`, `./server`, `./schema`, `./env`, `./testing`, plus explicitly-registered
-  one-off seams (`./handler`, `./register`, `./server-next`,
-  `./ownership-trpc`). No freeform subpaths — widening the set is a deliberate
-  edit to the checker.
+  one-off seams (`./handler`, `./server-next`, `./ownership-trpc`). No freeform
+  subpaths — widening the set is a deliberate edit to the checker, and so is
+  narrowing it: `./register` was dropped when the preload entry it named turned
+  out to be a capability nobody had ever exercised.
 - **Concern-driven presence.** A role is exported when the package genuinely has
   that concern, not when a consumer currently imports it (`@acme/feedback/env`
   stays though nothing imports it yet) and not by fabricating empty modules. An
@@ -23,7 +24,7 @@ plus `compositions` if reintroduced) obeys one shared shape, enforced by
   now an internal `./error` import inside `handler.ts`).
 - **File naming.** A barrel (≥2 re-exports) for a role is named
   `index-<role>.ts` (`index-server.ts`, `index-schema.ts`); a single-concern
-  module keeps its own name (`env.ts`, `handler.ts`, `register.ts`).
+  module keeps its own name (`env.ts`, `handler.ts`).
 - **`sideEffects` declared everywhere.** Pure/leaf packages set
   `"sideEffects": false` to unlock tree-shaking of large barrels (notably
   `@acme/ui`). Packages holding a bare `import 'server-only'` guard or a

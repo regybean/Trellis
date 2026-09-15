@@ -107,9 +107,9 @@ describe('planTelemetry — an absent switch', () => {
 
 describe('initTelemetryWithConfig — the guard is inside the initialiser', () => {
   it('raises on an enabled configuration with no endpoint', () => {
-    // The whole point of the ticket: there are several callers (each app's
-    // server boundary, plus the `register.ts` preload) and the next one would
-    // forget the check, so the initialiser refuses rather than trusting them.
+    // The whole point: a caller stating all five fields can state an invalid
+    // five, and the next one to do so would forget to check. The initialiser
+    // refuses rather than trusting it.
     expect(() => initTelemetryWithConfig({ serviceName: 'acme' })).toThrow(
       /no OTLP endpoint/,
     );
