@@ -13,7 +13,7 @@
  * which is also what lets `scripts/seed-localstripe.ts` and the backend suite
  * seed identically rather than each holding its own copy of the plan table.
  *
- * See docs/adr/0001-localstripe-dev-billing.md.
+ * See ../docs/adr/0001-localstripe-dev-billing.md.
  */
 import type Stripe from 'stripe';
 

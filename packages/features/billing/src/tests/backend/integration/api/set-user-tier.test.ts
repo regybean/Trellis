@@ -16,10 +16,10 @@
  * Both unmocks are per-file — the blanket mock still stands for every other file
  * in this suite.
  *
- * This is the test billing ADR 0001 asked for: it records whether attaching
- * `pm_card_visa` moves a fresh subscription to `active` in localstripe 1.15.10,
- * and whether the seeded plan/product wiring round-trips through
- * `getSubscriptionType` to the expected tier.
+ * This is the test ../../../../../docs/adr/0001-localstripe-dev-billing.md asked
+ * for: it records whether attaching `pm_card_visa` moves a fresh subscription to
+ * `active` in localstripe 1.15.10, and whether the seeded plan/product wiring
+ * round-trips through `getSubscriptionType` to the expected tier.
  */
 
 import { beforeAll, describe, expect, it, vi } from 'vitest';
@@ -72,7 +72,7 @@ describe('account.setUserTier against localstripe', () => {
       productId: planIds.standardPlanId,
     });
 
-    // ADR 0001's first known unknown: `pm_card_visa` + the customer-level
+    // The ADR's first known unknown: `pm_card_visa` + the customer-level
     // default payment method does pay the first invoice, so the subscription is
     // `active` rather than stuck `incomplete`.
     expect(result.status).toBe('active');
