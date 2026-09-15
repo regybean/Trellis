@@ -84,6 +84,28 @@ paginated list persists on the same terms as a plain query. _Avoid_: setting
 `persister` / `gcTime` / `staleTime` on a persisted query by hand; asserting the
 `persister`'s type at the query.
 
+**`useOptimisticMutationOptions`**:
+The cache protocol for one optimistic mutation, as a fragment to spread into
+that mutation's options: cancel the queries in flight, snapshot the cached
+value, write the patch, roll the snapshot back and report the failure on error,
+invalidate on settle. A caller gives it a tagged query key and a **patch** and
+states nothing else. Owning all three callbacks is the point — `cancelQueries`
+has to resolve before the snapshot is read, or a refetch in flight lands over
+the patch, or becomes the value the rollback restores; neither failure raises
+anything, and a call site that holds the fragment cannot express an order at
+all. Invalidating on **settle** rather than success is what reconciles a
+client-minted id to one row, and the backstop for a rollback with no prior value
+to restore. The error toast is not optional: an undone action the user asked for
+is never silent. _Avoid_: hand-rolling `onMutate`/`onError`/`onSettled` for a
+list write; passing a bare array as the key (the tag is what types `previous`).
+
+**`patch`**:
+The only thing an optimistic mutation declares — `(previous, variables) => next`
+over the cached value. A map, a filter, an append. Pure, synchronous, and says
+nothing about cancelling, snapshots or invalidation. _Avoid_: "optimistic
+update" for the patch alone (that names the whole protocol, of which the patch
+is one step).
+
 **Query persister**:
 A per-query cache-to-browser mechanism built on TanStack Query's
 `experimental_createQueryPersister`, backed by IndexedDB (`idb-keyval`). Restores
@@ -133,6 +155,11 @@ Empties a feature's persisted store. App-driven: full apps call it on logout
   persister, each with its own store prefix and scope key. This package owns the
   mechanism; which queries persist is the feature's call and the scope is the
   app's.
+- **`@acme/chat` is the only caller writing optimistically**, through its
+  conversation sidebar's four list mutations. Feedback and ingest invalidate on
+  settle and never write ahead of the server, so the optimistic fragment has one
+  consumer by design rather than by accident — worth knowing before extending
+  its contract on the strength of a second hypothetical caller.
 - **It ships no auth provider and no framework import**, so it stays mountable by
   every app; `@acme/auth` cannot host this half at all, because it ships no React.
 

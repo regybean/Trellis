@@ -1,22 +1,20 @@
 'use client';
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
-import { useGenericErrorHandler } from '@acme/hooks';
+import { useOptimisticMutationOptions } from '@acme/hooks';
 
-import type { SelectConversationSummary } from '../api/schemas/chat-schema';
 import type { SelectFolder } from '../api/schemas/folder-schema';
 import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
 
 // Data access for the Conversation History sidebar. Components stay UI-focused
 // and delegate here (see CLAUDE.md). All list-mutating actions are optimistic —
-// cancel in-flight refetches, snapshot, patch the cache, roll back on error,
-// then reconcile with the server on settle — so the UI feels instant while the
-// server stays lazy (e.g. folder delete leaves dangling thread metadata).
+// the cache protocol (cancel, snapshot, patch, roll back, invalidate) is
+// `useOptimisticMutationOptions`; each mutation below states only its patch, so
+// the UI feels instant while the server stays lazy (e.g. folder delete leaves
+// dangling thread metadata).
 export function useConversations() {
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
-  const handleError = useGenericErrorHandler();
   const persisted = usePersistedQueryOptions();
 
   // Conversation History persists for offline read; Folders do not (a dangling
@@ -30,99 +28,55 @@ export function useConversations() {
   const listKey = trpc.chat.list.queryKey();
   const foldersKey = trpc.chat.folders.list.queryKey();
 
-  type Conversation = SelectConversationSummary;
-  type Folder = SelectFolder;
-
   const setFolderMutation = useMutation(
-    trpc.chat.setFolder.mutationOptions({
-      onMutate: async ({ sessionId, folderId }) => {
-        await queryClient.cancelQueries({ queryKey: listKey });
-        const previous = queryClient.getQueryData<Conversation[]>(listKey);
-        queryClient.setQueryData<Conversation[]>(listKey, (old) =>
-          old?.map((c) => (c.sessionId === sessionId ? { ...c, folderId } : c)),
-        );
-        return { previous };
-      },
-      onError: (error, _vars, context) => {
-        if (context?.previous)
-          queryClient.setQueryData(listKey, context.previous);
-        handleError(error);
-      },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
-    }),
+    trpc.chat.setFolder.mutationOptions(
+      useOptimisticMutationOptions(
+        listKey,
+        (conversations, { sessionId, folderId }) =>
+          conversations?.map((c) =>
+            c.sessionId === sessionId ? { ...c, folderId } : c,
+          ),
+      ),
+    ),
   );
 
   const deleteConversationMutation = useMutation(
-    trpc.chat.delete.mutationOptions({
-      onMutate: async ({ sessionId }) => {
-        await queryClient.cancelQueries({ queryKey: listKey });
-        const previous = queryClient.getQueryData<Conversation[]>(listKey);
-        queryClient.setQueryData<Conversation[]>(listKey, (old) =>
-          old?.filter((c) => c.sessionId !== sessionId),
-        );
-        return { previous };
-      },
-      onError: (error, _vars, context) => {
-        if (context?.previous)
-          queryClient.setQueryData(listKey, context.previous);
-        handleError(error);
-      },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: listKey }),
-    }),
+    trpc.chat.delete.mutationOptions(
+      useOptimisticMutationOptions(listKey, (conversations, { sessionId }) =>
+        conversations?.filter((c) => c.sessionId !== sessionId),
+      ),
+    ),
   );
 
   const createFolderMutation = useMutation(
-    trpc.chat.folders.create.mutationOptions({
-      // Optimistic: append the Folder with its client-minted id immediately, so
-      // it appears in the sidebar without waiting for the round-trip. The server
-      // inserts the same id, so the row reconciles 1:1 on settle. Appending
-      // matches the server's `createdAt ASC` ordering.
-      onMutate: async ({ id, name }) => {
-        await queryClient.cancelQueries({ queryKey: foldersKey });
-        const previous = queryClient.getQueryData<Folder[]>(foldersKey);
-        const optimistic: Folder = {
+    trpc.chat.folders.create.mutationOptions(
+      // Append the Folder with its client-minted id, so it appears in the
+      // sidebar without waiting for the round-trip. The server inserts that
+      // same id, so the row reconciles 1:1 when the invalidation lands.
+      // Appending matches the server's `createdAt ASC` ordering.
+      useOptimisticMutationOptions(foldersKey, (folders, { id, name }) => {
+        const optimistic: SelectFolder = {
           id,
           name,
           userId: '',
           createdAt: new Date(),
         };
-        queryClient.setQueryData<Folder[]>(foldersKey, (old) => [
-          ...(old ?? []),
-          optimistic,
-        ]);
-        return { previous };
-      },
-      onError: (error, _vars, context) => {
-        if (context?.previous)
-          queryClient.setQueryData(foldersKey, context.previous);
-        handleError(error);
-      },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: foldersKey }),
-    }),
+        return [...(folders ?? []), optimistic];
+      }),
+    ),
   );
 
   const deleteFolderMutation = useMutation(
-    trpc.chat.folders.delete.mutationOptions({
-      // Optimistic: drop the Folder from the cache. Its Conversations keep a
-      // dangling folderId in the list cache; the sidebar resolves folderId
-      // against the (now shorter) folders list, so they fall back to their Date
-      // Bucket immediately with no per-Conversation write — matching the lazy
-      // server delete.
-      onMutate: async ({ id }) => {
-        await queryClient.cancelQueries({ queryKey: foldersKey });
-        const previous = queryClient.getQueryData<Folder[]>(foldersKey);
-        queryClient.setQueryData<Folder[]>(foldersKey, (old) =>
-          old?.filter((f) => f.id !== id),
-        );
-        return { previous };
-      },
-      onError: (error, _vars, context) => {
-        if (context?.previous)
-          queryClient.setQueryData(foldersKey, context.previous);
-        handleError(error);
-      },
-      onSettled: () => queryClient.invalidateQueries({ queryKey: foldersKey }),
-    }),
+    trpc.chat.folders.delete.mutationOptions(
+      // Drop the Folder from the cache. Its Conversations keep a dangling
+      // folderId in the list cache; the sidebar resolves folderId against the
+      // (now shorter) folders list, so they fall back to their Date Bucket
+      // immediately with no per-Conversation write — matching the lazy server
+      // delete.
+      useOptimisticMutationOptions(foldersKey, (folders, { id }) =>
+        folders?.filter((f) => f.id !== id),
+      ),
+    ),
   );
 
   return {

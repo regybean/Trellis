@@ -17,6 +17,10 @@ auth status they read.
   session ends.
 - A generic error handler, so an unhandled procedure error surfaces as a toast
   rather than a blank screen.
+- The optimistic cache protocol as a spreadable options fragment, so a feature
+  writing ahead of the server declares only its patch and cannot get the
+  cancel-before-snapshot ordering wrong
+  ([ADR 0002](docs/adr/0002-optimistic-mutation-protocol-as-a-fragment.md)).
 
 ## Surface
 

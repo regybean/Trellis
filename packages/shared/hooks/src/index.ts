@@ -16,6 +16,7 @@ export { createFeatureClient } from './create-feature-client';
 export { resolveNodeEnv, type NodeEnv } from './node-env';
 export { useClearCacheOnLogout } from './use-clear-cache-on-logout';
 export { useGenericErrorHandler } from './use-generic-error-handler';
+export { useOptimisticMutationOptions } from './use-optimistic-mutation-options';
 export {
   clearPersistedCache,
   createQueryPersister,
