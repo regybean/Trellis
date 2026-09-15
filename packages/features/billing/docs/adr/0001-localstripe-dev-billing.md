@@ -51,7 +51,12 @@ load-bearing:
    re-seeds on every start). The seed creates the two products + plans (with GBP
    amounts mirroring `pricing-data.ts`: Standard £30, Pro £80) and registers the
    webhook. Nothing user-specific is seeded; tiers are assigned per-user from the
-   admin UI.
+   admin UI. The products and plans come from `seedLocalstripePlans`
+   (`src/testing.ts`), which the backend suite calls against its own throwaway
+   container — so dev and tests seed from one definition, and the plan ids come
+   from this slice's env through `toPlanIds` rather than being re-listed. Webhook
+   registration stays in the dev script: it points at a running app, which a
+   suite has none of.
 5. **Webhooks run in dev.** The seed registers a localstripe webhook
    (`POST /_config/webhooks/...`) pointing at the app's `/api/stripe` handler via
    `host.docker.internal`, signed with `STRIPE_WEBHOOK_SECRET`. One URL is
@@ -117,8 +122,23 @@ load-bearing:
 - `.gitleaks.toml` allowlists the fixed localstripe placeholder tokens
   (`sk_test_localstripe`, `whsec_localstripe`, `pk_test_localstripe`) — they are
   not real secrets.
-- **Known unknown (verify on first real `infra:up`, which is manual-only):** that
-  attaching `pm_card_visa` + setting the customer default payment method does in
-  fact transition a freshly created subscription to `active` in localstripe
-  1.15.10, and that the seeded plan/product wiring round-trips through
-  `getSubscriptionType` to the expected tier.
+- **Both halves of the former known unknown now hold, and are held down by a
+  test.** The backend suite declares localstripe as a test container of its own
+  (`localstripeContainer`, `@acme/billing/testing`) and drives
+  `account.setUserTier` against it for real, so this is no longer waiting on a
+  manual `infra:up`. Observed on localstripe 1.15.10: attaching `pm_card_visa` +
+  setting the customer-level default payment method **does** pay the first
+  invoice and transition a freshly created subscription to `active`; and the
+  seeded plan/product wiring **does** round-trip through `getSubscriptionType`
+  to the expected tier (Standard → `Standard`, Pro → `Pro`).
+- **New, found by that test: `syncStripeDataToKV` caches the wrong subscription
+  after a re-grant.** It lists with `limit: 1` and takes what it gets, which
+  assumes the newest-first ordering real Stripe documents. localstripe lists
+  **oldest-first**, so re-granting over a live subscription caches the
+  just-canceled predecessor: Stripe holds exactly one active subscription on the
+  new plan (the cancel-first logic is correct), while the grant returns
+  `canceled` and the tier reads back `Basic`. Only the ordering assumption is
+  localstripe-specific — "whichever one subscription came back" is thin against
+  either server for a customer with more than one. Left as-is here and pinned as
+  observed behaviour in the test, because the fix lands in the real-Stripe
+  webhook path too and is its own decision.
