@@ -48,7 +48,14 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": [".cache/tsbuildinfo.json", "dist/**"],
+      "outputs": [
+        ".cache/tsbuildinfo.json",
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        ".output/**",
+        ".nitro/**"
+      ],
       "outputLogs": "errors-only"
     },
     "dev": {
