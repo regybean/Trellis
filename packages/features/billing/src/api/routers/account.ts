@@ -7,15 +7,7 @@ import {
   getUserSubscriptionFromRedis,
 } from '@acme/subscriptions';
 
-import {
-  billingError,
-  BillingErrorCode,
-  createCheckoutSession,
-  createDashboardSession,
-  findOrCreateCustomer,
-  getProductWithPrice,
-  setUserTier,
-} from '../../utils/stripe';
+import { billingError, BillingErrorCode } from '../../utils/stripe-errors';
 import {
   GetUserRateLimitStatusRequest,
   GetUserSubscriptionRequest,
@@ -25,6 +17,13 @@ import {
   ResetRateLimitRequest,
   SetUserTierRequest,
 } from '../schemas/account';
+import {
+  createCheckoutSession,
+  createDashboardSession,
+  findOrCreateCustomer,
+  getProductWithPrice,
+} from '../services/stripe-checkout';
+import { setUserTier } from '../services/stripe-dev';
 import {
   adminProcedure,
   createTRPCRouter,

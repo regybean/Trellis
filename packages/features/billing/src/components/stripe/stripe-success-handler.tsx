@@ -3,7 +3,7 @@ import { Database, RefreshCw } from 'lucide-react';
 
 import { getStripeCustomerId } from '@acme/subscriptions';
 
-import { syncStripeDataToKV } from '../../utils/stripe';
+import { syncStripeDataToKV } from '../../api/services/stripe-sync';
 
 /**
  * Post-checkout RSC: syncs the buyer's Stripe data into Redis before the app

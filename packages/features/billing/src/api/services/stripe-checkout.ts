@@ -5,13 +5,13 @@ import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 
 import type { StripeCustomer } from './stripe-client';
-import { env } from '../env';
-import { getStripe } from './stripe-client';
+import { env } from '../../env';
 import {
   billingError,
   BillingErrorCode,
   toBillingErrorCode,
-} from './stripe-errors';
+} from '../../utils/stripe-errors';
+import { getStripe } from './stripe-client';
 
 // Constants
 const DEFAULT_QUANTITY = 1;

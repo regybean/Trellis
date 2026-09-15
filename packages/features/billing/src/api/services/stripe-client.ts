@@ -2,7 +2,7 @@ import Stripe from 'stripe';
 
 import type { SubscriptionCache } from '@acme/subscriptions';
 
-import { env } from '../env';
+import { env } from '../../env';
 
 // Shared Stripe types
 export interface StripeCustomer {

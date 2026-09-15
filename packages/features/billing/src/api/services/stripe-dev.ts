@@ -5,8 +5,8 @@ import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 import { setSpanAttributes } from '@acme/telemetry/server';
 
 import type { STRIPE_SUB_CACHE } from './stripe-client';
+import { billingError, BillingErrorCode } from '../../utils/stripe-errors';
 import { getStripe, localstripeMode } from './stripe-client';
-import { billingError, BillingErrorCode } from './stripe-errors';
 import { syncStripeDataToKV } from './stripe-sync';
 
 /**
