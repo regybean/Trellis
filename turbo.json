@@ -127,6 +127,9 @@
     "enabled": true,
     "signature": false
   },
+  "globalDependencies": [
+    "tooling/bank/src/tests/backend/portable-token-cases.json"
+  ],
   "globalEnv": [
     "DB_PASSWORD",
     "DB_PORT",

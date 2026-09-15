@@ -1,0 +1,144 @@
+{
+  "about": [
+    "One set of cases for the portable-token rule, which is implemented twice.",
+    "`tooling/bank/src/check-bank-tokens.mjs` runs before `pnpm install` and so can import nothing; `tooling/repo-checks/src/portable.ts` has to keep working in a repo with no bank. Neither can import the other, so both carry the same patterns, the same span arithmetic, the same dedupe, the same symlink skip and the same derivations — and a change to one that the other does not match reads as green in both.",
+    "Both suites read this file and assert their own implementation against every case, so that change fails one of them instead. The data lives beside the bank because the bank is the side that can reach nothing; the other suite reads it from the repo root. The bank's ADR on keeping its own workspace helpers says why this pair must agree where the workspace-graph pair beside it may drift.",
+    "`identity` is the whole vocabulary a case may use. No case line may name the owner or the repo: those two tokens exist only in the bank's half of the rule, so a line carrying one would have two different right answers and the corpus would stop being shared. The bank's suite asserts that.",
+    "A case is one line and one verdict — the tokens both implementations must report for it, after the dedupe that keeps a scoped name from being reported twice for the bare name inside it. `[]` means the line is clean."
+  ],
+  "identity": {
+    "owner": "octocat",
+    "repo": "Widgets",
+    "apps": ["@fixture/storefront", "storefront"],
+    "scopes": ["fixture", "other-scope"],
+    "manifests": {
+      "package.json": "{ \"name\": \"fixture\" }\n",
+      "apps/storefront/package.json": "{ \"name\": \"@fixture/storefront\" }\n",
+      "apps/storefront/tools/package.json": "{ \"name\": \"@fixture/storefront-tools\" }\n",
+      "packages/core/package.json": "{ \"name\": \"@fixture/core\" }\n",
+      "packages/other/package.json": "{ \"name\": \"@other-scope/thing\" }\n",
+      "tooling/plain/package.json": "{ \"name\": \"plain\" }\n"
+    },
+    "why": [
+      "An app token is the directory name and the name its manifest declares, and the path is anchored: `apps/storefront/tools/package.json` is a package inside an app, not a second app, so it contributes no app token.",
+      "A scope is read off every manifest in the workspace rather than the app ones, which is why `packages/core` and `packages/other` are here. Two distinct scopes, so an implementation that derived one and stopped fails. The unscoped names — the root manifest's and `tooling/plain`'s — contribute nothing, which is what makes the `@` in the pattern load-bearing."
+    ]
+  },
+  "lines": [
+    {
+      "case": "a bare app directory name",
+      "why": "The plainest way there is to name an app.",
+      "line": "Mounted by storefront first.",
+      "names": ["storefront"]
+    },
+    {
+      "case": "the scoped package name, reported once",
+      "why": "`@fixture/storefront` contains `storefront`, so both tokens match. The scoped one is the more specific and is the only one reported — the dedupe is over the token set, not over occurrences.",
+      "line": "Mounted by @fixture/storefront.",
+      "names": ["@fixture/storefront"]
+    },
+    {
+      "case": "the apps directory with a name after it",
+      "why": "`apps/` is not a token of its own, so this has to be caught by the name following the slash — which makes `/` a boundary rather than a blocker.",
+      "line": "It applies to apps/storefront first.",
+      "names": ["storefront"]
+    },
+    {
+      "case": "a longer word that merely starts with the name",
+      "why": "Whole words only. A plural is a different word and names nobody.",
+      "line": "The storefronts endpoint is not an app.",
+      "names": []
+    },
+    {
+      "case": "a hyphenated compound",
+      "why": "A hyphen is a boundary in both directions. Treating it as a word character is how a whole class of compound — a log file name, a container prefix — named an app while the rule reported zero.",
+      "line": "Tail logs/dev-storefront.log for it.",
+      "names": ["storefront"]
+    },
+    {
+      "case": "a package published under somebody else's scope",
+      "why": "That package's name is the same string in every repo, so renaming an app changes nothing about it. The scope test is what separates it from a specifier under a scope this workspace publishes under.",
+      "line": "Built on @t3-oss/env-storefront, not ours.",
+      "names": []
+    },
+    {
+      "case": "a second workspace scope, which is still ours",
+      "why": "The exemption turns on the scope being somebody else's, not on it being the main one. A derivation that stopped at the first scope it found would let this through.",
+      "line": "Mounted by @other-scope/storefront.",
+      "names": ["storefront"]
+    },
+    {
+      "case": "an upstream specifier and the app itself on one line",
+      "why": "The exemptions are character ranges, not a verdict on the line. One occurrence can be somebody else's package and the next the app.",
+      "line": "Built on @t3-oss/env-storefront for storefront.",
+      "names": ["storefront"]
+    },
+    {
+      "case": "a default the consumer can override from the environment",
+      "why": "The name is a fallback: exporting the variable replaces it, so the content runs correctly in their repo without an edit.",
+      "line": "PREFIX=\"${INFRA_CONTAINER_PREFIX:-storefront-}\"",
+      "names": []
+    },
+    {
+      "case": "the same default, written with no colon",
+      "why": "`-`, `:-` and `:=` are the same knob spelled three ways.",
+      "line": "PREFIX=\"${INFRA_CONTAINER_PREFIX-storefront}\"",
+      "names": []
+    },
+    {
+      "case": "the same default, written with the assigning spelling",
+      "why": "As above.",
+      "line": "PREFIX=\"${INFRA_CONTAINER_PREFIX:=storefront}\"",
+      "names": []
+    },
+    {
+      "case": "a default that contains the operator again",
+      "why": "The span is measured back from the closing brace, so the whole default is exempt. Searching forward for the operator instead finds the second one here and leaves the name outside the span, reporting a line that is fine.",
+      "line": "PREFIX=\"${INFRA_CONTAINER_PREFIX:-storefront:-fallback}\"",
+      "names": []
+    },
+    {
+      "case": "an interpolation with no default at all",
+      "why": "There is nothing for the consumer to set, so the name beside it is a literal. What earns the exemption is the default, not the braces.",
+      "line": "PREFIX=\"${INFRA_CONTAINER_PREFIX}storefront\"",
+      "names": ["storefront"]
+    },
+    {
+      "case": "a bare literal",
+      "why": "Same reasoning from the other side: no variable, nothing to override, so the name has to be edited out by hand in every consumer.",
+      "line": "PREFIX=\"storefront-\"",
+      "names": ["storefront"]
+    },
+    {
+      "case": "the name capitalised",
+      "why": "A name is the same name however it is capitalised, and the token reported is the token rather than the spelling found.",
+      "line": "Mounted by Storefront first.",
+      "names": ["storefront"]
+    },
+    {
+      "case": "the scoped name and the bare name on one line",
+      "why": "The dedupe is over the token set, so the bare name is dropped even where it also stands on its own. Both halves do this, and a reader of either would not guess it.",
+      "line": "Mounted by @fixture/storefront, so storefront is the one.",
+      "names": ["@fixture/storefront"]
+    },
+    {
+      "case": "a sentence about the workspace, naming nobody",
+      "why": "The clean case, so the rule is not vacuously red.",
+      "line": "Every app owns its own shell.",
+      "names": []
+    },
+    {
+      "case": "the app-layer decision directory",
+      "why": "Pointing at where an app-layer decision lives is a convention every repo shares, not this one's identity.",
+      "line": "Filed under apps/docs/adr/ instead.",
+      "names": []
+    }
+  ],
+  "symlink": {
+    "why": "A symlink's body is its target's. Reading both reports the same line twice, under a path that has no text of its own — which is how one finding became three in a repo whose agent instructions are links to one file. Each half skips the link and reads the target.",
+    "file": "docs/aliased.md",
+    "alias": "docs/alias.md",
+    "line": "Mounted by storefront first.",
+    "names": ["storefront"]
+  }
+}

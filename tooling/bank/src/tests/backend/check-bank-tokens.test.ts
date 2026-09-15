@@ -18,11 +18,26 @@
  */
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
+
+import {
+  readJson,
+  recordField,
+  recordList,
+  stringField,
+  stringList,
+  stringMap,
+} from './json';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // src/tests/backend -> repo root is five levels up.
@@ -77,14 +92,29 @@ function baseline(): Record<string, string> {
   };
 }
 
-/** A throwaway repo holding exactly `files`, staged and with a remote. */
-function sandbox(files: Record<string, string>) {
+/**
+ * A throwaway repo holding exactly `files`, staged and with a remote.
+ *
+ * `links` maps a repo-relative path to the target it points at, written
+ * verbatim — so a link beside its target is one filename. Real symlinks, and
+ * staged as such, because the skip they exercise is `lstat`'s answer and a
+ * fixture that faked it would assert nothing.
+ */
+function sandbox(
+  files: Record<string, string>,
+  links: Record<string, string> = {},
+) {
   const dir = mkdtempSync(join(tmpdir(), 'check-bank-tokens-'));
   sandboxes.push(dir);
 
   for (const [path, content] of Object.entries(files)) {
     mkdirSync(dirname(join(dir, path)), { recursive: true });
     writeFileSync(join(dir, path), content);
+  }
+
+  for (const [path, target] of Object.entries(links)) {
+    mkdirSync(dirname(join(dir, path)), { recursive: true });
+    symlinkSync(target, join(dir, path));
   }
 
   const git = (...args: string[]) =>
@@ -101,8 +131,12 @@ function sandbox(files: Record<string, string>) {
 }
 
 /** Runs the checker, returning its exit code and both streams. */
-function run(files: Record<string, string>, args: string[] = []) {
-  const result = spawnSync('node', [CHECKER, sandbox(files), ...args], {
+function run(
+  files: Record<string, string>,
+  args: string[] = [],
+  links: Record<string, string> = {},
+) {
+  const result = spawnSync('node', [CHECKER, sandbox(files, links), ...args], {
     cwd: repoRoot,
     encoding: 'utf8',
   });
@@ -362,5 +396,137 @@ describe('a consumer repo, which has no inventory', () => {
 
     expect(status).toBe(0);
     expect(output).toContain('this repo is not a bank');
+  });
+});
+
+/**
+ * The cases this rule shares with its other implementation.
+ *
+ * `tooling/repo-checks` carries the same rule — the same patterns, the same
+ * span arithmetic, the same dedupe, the same symlink skip, the same derivations
+ * — because neither package can import the other: this one runs before
+ * `pnpm install` resolves anything, and that one has to keep working in a repo
+ * with no bank. Two copies of one rule disagree silently, since each half reads
+ * as complete and correct on its own. So the corpus beside this file is the one
+ * place a case is written down, and both suites are asserted against it.
+ *
+ * Read as a sibling, which is the only reach this package's no-bare-import rule
+ * leaves it. That is also why the data lives here rather than over there: the
+ * constrained side cannot reach out, so the unconstrained side does.
+ *
+ * One sandbox and one run for the whole corpus. Every case is a line, and the
+ * rule's exemptions are character ranges within a line, so the cases go in one
+ * file and each verdict is read off a line number.
+ */
+describe('the cases both implementations of the rule are held to', () => {
+  const corpus = readJson(join(here, 'portable-token-cases.json'));
+  const identity = recordField(corpus, 'identity');
+  const manifests = stringMap(identity, 'manifests');
+  const owner = stringField(identity, 'owner') ?? '';
+  const repo = stringField(identity, 'repo') ?? '';
+  const apps = stringList(identity, 'apps');
+  const symlink = recordField(corpus, 'symlink');
+
+  interface LineCase {
+    readonly name: string;
+    readonly line: string;
+    readonly names: readonly string[];
+    /** The 1-based line the case sits on, which is where it is reported. */
+    readonly at: number;
+  }
+
+  const cases: LineCase[] = recordList(corpus, 'lines').map((entry, index) => ({
+    name: stringField(entry, 'case') ?? '',
+    line: stringField(entry, 'line') ?? '',
+    names: stringList(entry, 'names').sort(),
+    at: index + 1,
+  }));
+
+  /** The file every line case sits in, one case per line. */
+  const CASES = 'docs/cases.md';
+  const aliased = stringField(symlink, 'file') ?? '';
+  const alias = stringField(symlink, 'alias') ?? '';
+  const aliasedLine = stringField(symlink, 'line') ?? '';
+
+  const files = () => ({
+    ...manifests,
+    'bank.paths.json': inventory(['apps', 'bank.paths.json']),
+    [CASES]: `${cases.map((entry) => entry.line).join('\n')}\n`,
+    [aliased]: `${aliasedLine}\n`,
+  });
+
+  /**
+   * One run, memoised, as the tokens reported at each `path:line`.
+   *
+   * Lazily rather than in a `beforeAll`, so the parse stays beside the
+   * assertions that read it and the sandbox is built by whichever test asks
+   * first.
+   */
+  let reported: Map<string, string[]> | undefined;
+
+  const findings = () => {
+    if (reported) return reported;
+    const { output } = run(files(), [], {
+      // Written as one filename, so the link resolves beside its target.
+      [alias]: aliased.split('/').pop() ?? '',
+    });
+    const found = new Map<string, string[]>();
+    for (const match of output.matchAll(
+      /^\s*error: (\S+?):(\d+): names `([^`]+)`/gm,
+    )) {
+      const site = `${match[1] ?? ''}:${match[2] ?? ''}`;
+      found.set(site, [...(found.get(site) ?? []), match[3] ?? ''].sort());
+    }
+    reported = found;
+    return found;
+  };
+
+  /** What was reported at one site, as the sorted token names. */
+  const namedAt = (file: string, line: number) =>
+    findings().get(`${file}:${line}`) ?? [];
+
+  it('reads a corpus with cases in it, so the rule is not vacuous', () => {
+    expect(cases.length).toBeGreaterThan(10);
+    expect(cases.every((entry) => entry.name !== '' && entry.line !== '')).toBe(
+      true,
+    );
+    expect(cases.some((entry) => entry.names.length > 0)).toBe(true);
+    expect(cases.some((entry) => entry.names.length === 0)).toBe(true);
+  });
+
+  it('holds cases written in the shared vocabulary and nothing else', () => {
+    // The owner and the repo are this half's tokens alone — the other half
+    // knows only the apps. A case naming one would have two right answers, and
+    // the corpus would quietly stop being shared.
+    const leaked = [...cases.map((entry) => entry.line), aliasedLine].filter(
+      (line) => line.includes(owner) || line.includes(repo),
+    );
+
+    expect(leaked).toEqual([]);
+  });
+
+  it('derives the apps the corpus says it does, and no more', () => {
+    const { output } = run(files());
+
+    // Sorted the way the checker prints them: every app token alongside the
+    // owner and the repo, which together are this half's whole identity.
+    expect(output).toContain([owner, repo, ...apps].sort().join(', '));
+    // `apps/<app>/tools/package.json` is a package inside an app, not a second
+    // app, so the path anchoring is what keeps its name out of the tokens.
+    expect(output).not.toContain('storefront-tools');
+  });
+
+  it.each(cases)('$name', ({ line, names, at }) => {
+    expect(
+      namedAt(CASES, at),
+      `\`${line}\` was expected to name ${names.length === 0 ? 'nobody' : names.join(', ')}`,
+    ).toEqual([...names]);
+  });
+
+  it('reads a symlink target once and the link never', () => {
+    expect(namedAt(aliased, 1)).toEqual(stringList(symlink, 'names').sort());
+    expect(
+      [...findings().keys()].filter((site) => site.startsWith(alias)),
+    ).toEqual([]);
   });
 });

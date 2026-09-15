@@ -54,6 +54,16 @@ export function stringList(value: unknown, field: string): string[] {
   return entry.filter((item): item is string => typeof item === 'string');
 }
 
+/** A record-valued field — the token corpus's `identity`. `{}` when absent. */
+export function recordField(
+  value: unknown,
+  field: string,
+): Record<string, unknown> {
+  if (!isRecord(value)) return {};
+  const entry = value[field];
+  return isRecord(entry) ? entry : {};
+}
+
 /** The records of an array field — `bank.paths.json`'s `bundles`. */
 export function recordList(value: unknown, field: string) {
   if (!isRecord(value)) return [];
