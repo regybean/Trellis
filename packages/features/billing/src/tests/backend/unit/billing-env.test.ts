@@ -9,8 +9,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 // stubbing the selector and re-importing the module — the same thing a container
 // does at boot. `resetModules` is what makes the re-import re-resolve rather than
 // hand back the cached first evaluation.
-async function billingEnvFor(appEnv: string) {
+//
+// `connection` is the `STRIPE_CONNECTION` override an operator would supply, and
+// it defaults to *absent*: this suite provisions a real localstripe container,
+// so hydrate-env puts that container's connection in `process.env` for every
+// other test here. These tests are about what the profiles author, which is only
+// visible with nothing overriding them — so the override is an explicit input
+// rather than whatever the harness happened to leave lying around.
+async function billingEnvFor(appEnv: string, connection?: string) {
   vi.stubEnv('APP_ENV', appEnv);
+  vi.stubEnv('STRIPE_CONNECTION', connection);
   if (appEnv !== 'development') {
     // The staging/production overlays **unauthor** the two Stripe secrets, so a
     // real target has to supply them — which is the behaviour under test as much
@@ -63,18 +71,14 @@ describe('billing env (server)', () => {
     // The override arrives as one JSON document, so a half-configured connection
     // stays unrepresentable — `jsonEnv` validates it against the same union the
     // profile literal goes through.
-    vi.stubEnv('STRIPE_CONNECTION', '{"mode":"real"}');
-
-    const env = await billingEnvFor('development');
+    const env = await billingEnvFor('development', '{"mode":"real"}');
 
     expect(env.STRIPE_CONNECTION).toEqual({ mode: 'real' });
   });
 
   it('rejects an override the union does not accept', async () => {
-    vi.stubEnv('STRIPE_CONNECTION', '{"mode":"localstripe"}');
-
-    await expect(billingEnvFor('development')).rejects.toThrow(
-      /STRIPE_CONNECTION/,
-    );
+    await expect(
+      billingEnvFor('development', '{"mode":"localstripe"}'),
+    ).rejects.toThrow(/STRIPE_CONNECTION/);
   });
 });
