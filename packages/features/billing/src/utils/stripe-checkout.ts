@@ -4,9 +4,9 @@ import { logger } from '@acme/logger';
 import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 
-import type { StripeCustomer } from './stripe-client';
+import type { StripeCustomer } from '../api/services/stripe-client';
+import { getStripe } from '../api/services/stripe-client';
 import { env } from '../env';
-import { getStripe } from './stripe-client';
 import {
   billingError,
   BillingErrorCode,

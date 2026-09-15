@@ -12,8 +12,11 @@
  * Kept as a barrel so existing `../../utils/stripe` imports (and the test mock)
  * stay stable; import the specific module directly in new code.
  */
-export type { StripeCustomer, STRIPE_SUB_CACHE } from './stripe-client';
-export { getStripe, localstripeMode } from './stripe-client';
+export type {
+  StripeCustomer,
+  STRIPE_SUB_CACHE,
+} from '../api/services/stripe-client';
+export { getStripe, localstripeMode } from '../api/services/stripe-client';
 export {
   createCheckoutSession,
   createDashboardSession,

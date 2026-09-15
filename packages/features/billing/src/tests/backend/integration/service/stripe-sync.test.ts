@@ -6,7 +6,7 @@ import {
   setStripeCustomerId,
 } from '@acme/subscriptions';
 
-import { getStripe } from '../../../../utils/stripe-client';
+import { getStripe } from '../../../../api/services/stripe-client';
 import { syncStripeDataToKV } from '../../../../utils/stripe-sync';
 
 // Use the real @acme/subscriptions module (real Redis writes), overriding the
@@ -18,7 +18,7 @@ vi.mock('@acme/subscriptions', async () =>
 );
 
 // Behavioral fake for the Stripe SDK: each test supplies the subscription shape.
-vi.mock('../../../../utils/stripe-client');
+vi.mock('../../../../api/services/stripe-client');
 
 const CUSTOMER_ID = 'cus_sync_test';
 const USER_ID = 'user_sync_test';
