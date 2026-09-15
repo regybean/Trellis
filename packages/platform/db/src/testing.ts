@@ -38,8 +38,11 @@ export const postgresContainer: InfraDescriptor = {
     DB_VECTOR_NAME: TEST_VECTOR_DB,
   },
   // The pgvector image logs this once during init and again when finally ready.
-  waitLogRegex: 'database system is ready to accept connections',
-  waitLogTimes: 2,
+  wait: {
+    kind: 'log',
+    pattern: 'database system is ready to accept connections',
+    times: 2,
+  },
   bindMounts: [
     {
       repoPath: 'deploy/ops/db-init',

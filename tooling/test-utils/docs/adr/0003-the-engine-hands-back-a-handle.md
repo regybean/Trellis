@@ -37,8 +37,8 @@ those is one line, and together they are the whole reason.
   constant, which made two resolutions of one value that no caller could keep
   consistent.
 - **The decisions come out as functions over values.** `containerPlan` returns
-  what the engine would build from a descriptor — the `mode` and `waitLogTimes`
-  defaults, the compiled wait pattern, the repo-relative mount resolution, and
+  what the engine would build from a descriptor — the `mode` and wait-`times`
+  defaults, the settled wait, the repo-relative mount resolution, and
   `command`/`startupTimeoutMs` left absent when the descriptor gives none.
   `ryukDisabled` returns the reaper value a run should use. `findRepoRoot` and
   `findPushApp` take the directory they read from. None of them starts anything,

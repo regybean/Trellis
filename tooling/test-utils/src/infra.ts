@@ -4,7 +4,8 @@
  * A backend suite declares the infra it needs by pointing its `globalSetup` at a
  * tiny per-suite file that imports the descriptors and hands them to
  * `runInfraSetup(...)`. The descriptors are owned by the package that owns the
- * infra (`@acme/db/testing`, `@acme/redis/testing`) — image, ports, container
+ * infra (`@acme/db/testing`, `@acme/redis/testing`, `@acme/billing/testing`) —
+ * image, ports, container
  * env, command, wait strategy and its timeout, bind mounts, and a
  * `provides(host, port)` function that maps the running container's host/port to
  * the `process.env` keys that infra's `env.ts` validates. This module (`@acme/test-utils`, the engine) is the only
@@ -18,6 +19,34 @@ export interface InfraBindMount {
   target: string;
   mode?: 'ro' | 'rw';
 }
+
+/**
+ * How the engine decides a container is ready.
+ *
+ * A union rather than a bag of optional fields, so "neither wait declared" and
+ * "both declared" are unrepresentable: readiness is exactly one question, and
+ * which question it is depends on what the image tells you. Most images
+ * announce themselves on stdout (`log`); one that says nothing until it is
+ * asked needs to be asked (`http`) — localstripe writes no startup line at all,
+ * only access lines, so a log pattern could never be satisfied for it.
+ */
+export type InfraWait =
+  | {
+      kind: 'log';
+      /** Log line (a `RegExp` source string) signalling readiness. */
+      pattern: string;
+      /** Times the line must appear (Postgres logs "ready" twice). Default 1. */
+      times?: number;
+    }
+  | {
+      kind: 'http';
+      /**
+       * Container-internal path polled until it answers 2xx, on the
+       * descriptor's `containerPort`. Must be reachable *unauthenticated* — a
+       * path that 401s is never ready.
+       */
+      path: string;
+    };
 
 export interface InfraDescriptor {
   /**
@@ -43,10 +72,8 @@ export interface InfraDescriptor {
    * of ours would be the same guess with worse provenance.
    */
   startupTimeoutMs?: number;
-  /** Log line (a `RegExp` source string) signalling readiness. */
-  waitLogRegex: string;
-  /** Times the log line must appear (Postgres logs "ready" twice). Default 1. */
-  waitLogTimes?: number;
+  /** How readiness is established for this image. */
+  wait: InfraWait;
   bindMounts?: InfraBindMount[];
   /**
    * Map the running container's host/port to the `process.env` keys this infra

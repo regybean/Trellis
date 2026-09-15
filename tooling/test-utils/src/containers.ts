@@ -107,10 +107,19 @@ export interface ResolvedBindMount {
 }
 
 /**
+ * A descriptor's readiness question with the engine's defaults applied — the
+ * log pattern compiled and its repeat count settled, or the HTTP path and the
+ * mapped port to poll it on.
+ */
+export type ResolvedWait =
+  | { readonly kind: 'log'; readonly pattern: RegExp; readonly times: number }
+  | { readonly kind: 'http'; readonly path: string; readonly port: number };
+
+/**
  * Everything the engine decides about a descriptor *before* a container exists.
  *
  * Splitting it out is what makes the descriptor contract assertable: the
- * defaults (`mode`, `waitLogTimes`), the compiled wait pattern and the
+ * defaults (`mode`, the wait's `times`), the compiled wait pattern and the
  * repo-relative mount resolution are all decisions, and a test can read them
  * off a plan without a container runtime. `command` and `startupTimeoutMs` stay
  * *absent* when the descriptor gives none — testcontainers keeps its own
@@ -124,10 +133,23 @@ export interface ContainerPlan {
   readonly environment: Record<string, string>;
   readonly command?: readonly string[];
   readonly bindMounts: readonly ResolvedBindMount[];
-  readonly waitLogRegex: RegExp;
-  readonly waitLogTimes: number;
+  readonly wait: ResolvedWait;
   readonly startupTimeoutMs?: number;
 }
+
+/** Apply the engine's wait defaults, so the plan carries a settled question. */
+const resolveWait = (descriptor: InfraDescriptor): ResolvedWait =>
+  descriptor.wait.kind === 'log'
+    ? {
+        kind: 'log',
+        pattern: new RegExp(descriptor.wait.pattern),
+        times: descriptor.wait.times ?? 1,
+      }
+    : {
+        kind: 'http',
+        path: descriptor.wait.path,
+        port: descriptor.containerPort,
+      };
 
 const resolveBindMount = (
   repoRoot: string,
@@ -151,8 +173,7 @@ export function containerPlan(
     bindMounts: (descriptor.bindMounts ?? []).map((mount) =>
       resolveBindMount(repoRoot, mount),
     ),
-    waitLogRegex: new RegExp(descriptor.waitLogRegex),
-    waitLogTimes: descriptor.waitLogTimes ?? 1,
+    wait: resolveWait(descriptor),
     ...(descriptor.startupTimeoutMs !== undefined
       ? { startupTimeoutMs: descriptor.startupTimeoutMs }
       : {}),
@@ -191,8 +212,10 @@ const STARTUP_LOG_LINES = 200;
  * Capture a starting container's own output, for the error if it never becomes
  * ready.
  *
- * `Wait.forLogMessage` failing reports only that the line never arrived, which
- * is the one thing the descriptor author already knows. The container's own
+ * A failing wait strategy reports only that the line never arrived or the path
+ * never answered, which is the one thing the descriptor author already knows.
+ * That cuts both ways for an `http` wait: the probe says nothing about a
+ * container that died before it could listen. The container's own
  * output usually says why — a rejected credential, a mount that isn't there, an
  * image that needs a command. So: buffered, never printed. The engine runs on
  * every backend suite everywhere, and a passing run has to look exactly as it
@@ -243,7 +266,9 @@ async function startOne(
     builder = builder.withBindMounts([...plan.bindMounts]);
   }
   builder = builder.withWaitStrategy(
-    Wait.forLogMessage(plan.waitLogRegex, plan.waitLogTimes),
+    plan.wait.kind === 'log'
+      ? Wait.forLogMessage(plan.wait.pattern, plan.wait.times)
+      : Wait.forHttp(plan.wait.path, plan.wait.port),
   );
   if (plan.startupTimeoutMs !== undefined) {
     builder = builder.withStartupTimeout(plan.startupTimeoutMs);

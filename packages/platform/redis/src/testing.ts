@@ -18,7 +18,7 @@ export const redisContainer: InfraDescriptor = {
   // Pinned to match the docker-compose `redis` service.
   image: 'redis:alpine',
   containerPort: 6379,
-  waitLogRegex: 'Ready to accept connections',
+  wait: { kind: 'log', pattern: 'Ready to accept connections' },
   provides: (host, port) => ({
     REDIS_URL: `redis://${host}:${port}`,
   }),

@@ -2,9 +2,9 @@
  * `containerPlan` — every decision the engine takes about a descriptor before a
  * container exists.
  *
- * This is the descriptor contract read back: the two defaults, the compiled wait
- * pattern, the repo-relative mount resolution, and the two fields whose absence
- * is meaningful. A real descriptor drives it, and nothing starts.
+ * This is the descriptor contract read back: the two defaults, both arms of the
+ * wait union, the repo-relative mount resolution, and the two fields whose
+ * absence is meaningful. A real descriptor drives it, and nothing starts.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -18,7 +18,10 @@ const minimal: InfraDescriptor = {
   name: 'postgres',
   image: 'postgres:17-alpine',
   containerPort: 5432,
-  waitLogRegex: 'database system is ready to accept connections',
+  wait: {
+    kind: 'log',
+    pattern: 'database system is ready to accept connections',
+  },
   provides: (host, port) => ({ DB_HOST: host, DB_PORT: String(port) }),
 };
 
@@ -34,7 +37,7 @@ describe('containerPlan', () => {
     const plan = containerPlan(REPO_ROOT, minimal);
 
     expect(plan.environment).toEqual({});
-    expect(plan.waitLogTimes).toBe(1);
+    expect(plan.wait).toMatchObject({ kind: 'log', times: 1 });
   });
 
   it('leaves command and startup timeout absent when the descriptor gives none', () => {
@@ -55,26 +58,43 @@ describe('containerPlan', () => {
       ...minimal,
       containerEnv: { POSTGRES_PASSWORD: 'password123' },
       command: ['redis-server', '--appendonly', 'no'],
-      waitLogTimes: 2,
+      wait: { kind: 'log', pattern: 'ready', times: 2 },
       startupTimeoutMs: 120_000,
     });
 
     expect(plan.environment).toEqual({ POSTGRES_PASSWORD: 'password123' });
     expect(plan.command).toEqual(['redis-server', '--appendonly', 'no']);
-    expect(plan.waitLogTimes).toBe(2);
+    expect(plan.wait).toMatchObject({ times: 2 });
     expect(plan.startupTimeoutMs).toBe(120_000);
   });
 
   it('compiles the wait log source string into a pattern that matches', () => {
     const plan = containerPlan(REPO_ROOT, {
       ...minimal,
-      waitLogRegex: 'ready to accept connections',
+      wait: { kind: 'log', pattern: 'ready to accept connections' },
     });
 
-    expect(plan.waitLogRegex.test('LOG:  ready to accept connections')).toBe(
+    if (plan.wait.kind !== 'log') throw new Error('expected a log wait');
+    expect(plan.wait.pattern.test('LOG:  ready to accept connections')).toBe(
       true,
     );
-    expect(plan.waitLogRegex.test('LOG:  shutting down')).toBe(false);
+    expect(plan.wait.pattern.test('LOG:  shutting down')).toBe(false);
+  });
+
+  // An image that announces nothing on stdout is asked instead, on the port the
+  // descriptor already exposes — there is no second port to get wrong.
+  it('carries an http wait through with the container port to poll', () => {
+    const plan = containerPlan(REPO_ROOT, {
+      ...minimal,
+      containerPort: 8420,
+      wait: { kind: 'http', path: '/js.stripe.com/v3/' },
+    });
+
+    expect(plan.wait).toEqual({
+      kind: 'http',
+      path: '/js.stripe.com/v3/',
+      port: 8420,
+    });
   });
 
   it('resolves a repo-relative mount source against the repo root', () => {

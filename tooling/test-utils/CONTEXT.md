@@ -56,8 +56,9 @@ container registry", "stopInfra"
 
 **Container plan** (`containerPlan(repoRoot, descriptor)`):
 What the engine would build from a descriptor, before any container exists — the
-exposed port, container env, the `mode` and `waitLogTimes` defaults, the compiled
-wait pattern, and bind mounts resolved against `repoRoot`. `command` and
+exposed port, container env, the `mode` and wait-`times` defaults, the settled
+**wait** (a compiled log pattern, or an HTTP path paired with the port to poll
+it on), and bind mounts resolved against `repoRoot`. `command` and
 `startupTimeoutMs` stay absent when the descriptor gives none, so testcontainers
 keeps its own defaults. A plan is a value, so producing one starts nothing.
 _Avoid_: "the container config" (that is the descriptor), "the builder"
@@ -106,7 +107,7 @@ _Avoid_: "the test folder" (name the layer)
 
 **Infra descriptor** (`InfraDescriptor`, `@acme/test-utils/infra`):
 A plain object describing one test container — image, `containerPort`, container
-env, an optional `command`, wait strategy plus an optional `startupTimeoutMs`,
+env, an optional `command`, its `wait` plus an optional `startupTimeoutMs`,
 repo-relative bind mounts, and `provides(host, port)` (a function mapping the
 running container to the `process.env` keys this infra populates).
 `command` and `startupTimeoutMs` are generic capability, not current need:
@@ -114,10 +115,21 @@ nothing in this repo sets either, and an absent `startupTimeoutMs` leaves the
 testcontainers default alone rather than substituting one of the engine's. They
 exist so a descriptor for a slow image with start arguments isn't structurally
 inexpressible.
-Owned by the infra package (`postgresContainer`, `redisContainer`) and consumed
-by the engine. A suite imports the descriptors it needs in its per-suite
+Owned by the infra package (`postgresContainer`, `redisContainer`,
+`localstripeContainer`) and consumed by the engine. A suite imports the descriptors it needs in its per-suite
 `global-setup.ts` and hands them to `runInfraSetup([...])` — as live objects, so
 no serialisation is involved.
+**`InfraWait`** (`@acme/test-utils`):
+A descriptor's readiness question, as a union of the only two forms it takes:
+`{ kind: 'log', pattern, times? }` for an image that announces itself on stdout,
+`{ kind: 'http', path }` for one that says nothing until asked. A union rather
+than optional fields, so "no wait declared" and "both declared" are
+unrepresentable. The `http` path is polled on the descriptor's `containerPort`
+and must answer **unauthenticated** — localstripe writes no startup line at all
+(only access lines), and its `/` 401s, which is what forced the second arm.
+_Avoid_: "the healthcheck" (that is compose's), "waitLogRegex" (retired with the
+two-field shape)
+
 _Avoid_: "the container config", "the infra registry"
 
 **Per-suite isolation knobs**:

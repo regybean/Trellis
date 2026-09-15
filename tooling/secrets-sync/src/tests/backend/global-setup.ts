@@ -16,7 +16,7 @@ const localstackContainer: InfraDescriptor = {
   image: 'localstack/localstack:3.8.1',
   containerPort: 4566,
   containerEnv: { SERVICES: 's3,secretsmanager' },
-  waitLogRegex: 'Ready.',
+  wait: { kind: 'log', pattern: 'Ready.' },
   provides: (host, port) => ({ AWS_ENDPOINT_URL: `http://${host}:${port}` }),
 };
 
