@@ -29,8 +29,20 @@ A backend setupFile that copies the connection details `global-setup` published 
 one `infraEnv` record (`inject('infraEnv')`) into `process.env` _before any test
 module — and therefore any `env.ts` — is imported_. This is what makes
 `createEnv()` validate against the real running DB/Redis. Listed first in
-`setupFiles`, ahead of the package's own setup.
+`setupFiles`, ahead of the package's own setup. It is the import-time half only:
+it gathers the injected record and `TEST_REDIS_DB`, and assigns what
+**`hydrateEnv`** resolves.
 _Avoid_: "the env mock", "the env setup"
+
+**`hydrateEnv({ infraEnv, redisDb })`** (`@acme/test-utils`):
+The hydration rule as a value: the `process.env` entries a suite's infra
+resolves to — every key it contributes minus the ones it left empty, with the
+logical Redis DB appended to `REDIS_URL` when the suite was allocated one. It
+writes nothing; the setupFile above owns the assignment. Separating the two is
+what makes the allocation and the url rewrite assertable, since import order was
+otherwise the only handle on them — the same move as **`InfraHandle`**, one
+level down.
+_Avoid_: "the hydrate step" (that is the setupFile), "the env builder"
 
 **`runInfraSetup(descriptors)`** (`@acme/test-utils/setup`):
 Returns a Vitest `globalSetup` function that starts exactly the named infra as
