@@ -58,6 +58,11 @@ export interface RepoIo {
  * so walking it reports every one of them as an undeclared import of the app.
  * The directory only exists once someone has built, which is why the omission
  * surfaced as a check that passed on a clean tree and failed on a warm one.
+ *
+ * `.mastra` is the same story for `@acme/chat`. The Mastra build inlines its
+ * dependencies into `.mastra/.build/` and writes a minified studio bundle under
+ * `.mastra/output/`, which `check-imports` read as source and reported `bold`,
+ * `italic` and `line-through` as undeclared imports of the feature.
  */
 const SKIP_DIRS = new Set([
   'node_modules',
@@ -67,6 +72,7 @@ const SKIP_DIRS = new Set([
   '.next',
   '.output',
   '.nitro',
+  '.mastra',
   'coverage',
 ]);
 
