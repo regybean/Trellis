@@ -84,6 +84,19 @@ load-bearing:
   tier grant). Reading a field that is simply absent needs no mode: a fallback
   that tolerates both shapes cannot drift out of step with the connection.
   Rejected — the mode is for API-capability differences, not for shape.
+- **Listing only `status: 'active'` to sidestep the choice.** Cheaper-looking,
+  but it collapses "no subscription" and "subscription in dunning" into
+  `{ status: 'none' }`, losing the state the billing UI most needs to explain
+  itself — and it still has to choose when a customer holds two active
+  subscriptions. Rejected: the ambiguity is in the data, so the rule belongs in
+  code, not in the query.
+- **Ordering purely by `created`, newest wins.** Would fix the re-grant case and
+  break the recovery case: a customer whose replacement subscription lapses
+  `incomplete_expired` would read off the dead newer one while an older active
+  subscription still entitles them. Status has to outrank age. Rejected.
+- **Sorting the list client-side by `created` and keeping `limit: 1`'s
+  assumption.** Same thing as above, plus it keeps the choice implicit in a sort
+  rather than stated as a rule. Rejected.
 - **Floating/`latest` image tag.** Pinned to `adrienverge/localstripe:1.15.10`
   for reproducibility.
 - **`extra_hosts` for `host.docker.internal`.** Works out of the box on Docker
@@ -131,14 +144,27 @@ load-bearing:
   invoice and transition a freshly created subscription to `active`; and the
   seeded plan/product wiring **does** round-trip through `getSubscriptionType`
   to the expected tier (Standard → `Standard`, Pro → `Pro`).
-- **New, found by that test: `syncStripeDataToKV` caches the wrong subscription
-  after a re-grant.** It lists with `limit: 1` and takes what it gets, which
-  assumes the newest-first ordering real Stripe documents. localstripe lists
-  **oldest-first**, so re-granting over a live subscription caches the
-  just-canceled predecessor: Stripe holds exactly one active subscription on the
-  new plan (the cancel-first logic is correct), while the grant returns
-  `canceled` and the tier reads back `Basic`. Only the ordering assumption is
-  localstripe-specific — "whichever one subscription came back" is thin against
-  either server for a customer with more than one. Left as-is here and pinned as
-  observed behaviour in the test, because the fix lands in the real-Stripe
-  webhook path too and is its own decision.
+- **Found by that test, and since fixed: which subscription the sync caches is
+  now an explicit rule.** `syncStripeDataToKV` listed with `limit: 1` and took
+  what it got, which assumes the newest-first ordering real Stripe documents.
+  localstripe lists **oldest-first**, so re-granting over a live subscription
+  cached the just-canceled predecessor: Stripe held exactly one active
+  subscription on the new plan (the cancel-first logic was correct), while the
+  grant returned `canceled` and the tier read back `Basic`. Only the ordering
+  assumption was localstripe-specific — "whichever one subscription came back"
+  is thin against either server for a customer with more than one, and this is
+  the real-Stripe webhook path too.
+
+  The sync now lists **all** of a customer's subscriptions and picks one through
+  `selectCurrentSubscription`: **highest status precedence, then most recently
+  created**. Precedence runs `active` → `trialing` → `past_due` → `unpaid` →
+  `incomplete` → `paused` → `canceled` → `incomplete_expired`, i.e. entitling
+  first, then still-the-customer's-but-not-entitling, then terminal. Two
+  consequences are deliberate: a dunning subscription is reported as itself
+  rather than as `none`, so the UI can say why access stopped; and a
+  fully-canceled customer still reads back `canceled`, since terminal statuses
+  rank last but are not excluded. An unrecognised future status sorts last, so
+  it can never outrank an active subscription by being unknown. Ranking is pure
+  and unit-tested; that the sync routes through it is covered in
+  `stripe-sync.test.ts`, and the localstripe re-grant case that found the bug is
+  now asserted as `active` / `Pro` in `set-user-tier.test.ts`.
