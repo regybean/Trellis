@@ -62,9 +62,10 @@ them, rather than in waves.
 **Ryuk is disabled by default on every run.** A rootless podman machine (the
 macOS default) cannot bind-mount the docker socket the reaper needs, so it dies
 before signalling ready and takes global-setup with it. Cleanup does not depend on
-it: `stopInfra()` in the global teardown stops each container explicitly, and
-isolation comes from testcontainers' random ports and generated names. The
-default is set with `??=`, so an explicit outer value still wins — but nothing
+it: the global teardown stops each container explicitly, through the handle the
+global-setup was given when it started them, and isolation comes from
+testcontainers' random ports and generated names. An explicit outer value still
+wins over the default — but nothing
 sets one, CI included: a GitHub runner is torn down after the job, so the reaper
 has nothing left to reap that the runner's own teardown doesn't. CI runs
 reaper-less on purpose, not by omission.

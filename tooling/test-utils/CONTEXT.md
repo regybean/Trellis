@@ -43,6 +43,26 @@ the port probe and `inLinkedWorktree()`.
 _Avoid_: "the setup harness", "the container bootstrap", "the testcontainers path"
 (there is no other), "test infra mode"
 
+**`InfraHandle`** (`@acme/test-utils`):
+What `startInfra(descriptors)` returns, and the only place a run's state lives:
+the `repoRoot` it resolved, the merged `env` its containers contribute, and a
+`stop()` that stops them (a second call does nothing). The caller holds it — the
+global-setup publishes `env` and calls `stop()` from its teardown, and passes
+`repoRoot` on to `pushDatabaseSchemas`. Two handles in one process are two
+independent sets of containers. There is no `stopInfra()` and no "current"
+infra: that vocabulary is retired with the module-level registry it named.
+_Avoid_: "the started infra" (that is `StartedInfra`, one container), "the
+container registry", "stopInfra"
+
+**Container plan** (`containerPlan(repoRoot, descriptor)`):
+What the engine would build from a descriptor, before any container exists — the
+exposed port, container env, the `mode` and `waitLogTimes` defaults, the compiled
+wait pattern, and bind mounts resolved against `repoRoot`. `command` and
+`startupTimeoutMs` stay absent when the descriptor gives none, so testcontainers
+keeps its own defaults. Naming the plan separately from the start is what lets a
+descriptor be handed to the engine without a container runtime.
+_Avoid_: "the container config" (that is the descriptor), "the builder"
+
 **Compose stack**:
 The docker-compose services `pnpm infra:up` starts — **dev infra only**. Tests
 never reach it: testcontainers binds random host ports, so a suite can neither
@@ -116,7 +136,11 @@ _Avoid_: "the test schema" (be specific: schema vs Redis DB)
   **isolation knobs**. The three tiers are disjoint by design.
 - **Env hydration** reads the values `global-setup` publishes via
   `project.provide(...)`; they live only in the global-setup process otherwise,
-  which is why the copy into `process.env` is necessary.
+  which is why the copy into `process.env` is necessary. The record it publishes
+  is the **`InfraHandle`**'s `env`.
+- `pushDatabaseSchemas(targetSchema, repoRoot)` takes its root from the
+  **`InfraHandle`** whose Postgres it provisions, so the push app is looked for
+  under the same root the **container plan** resolved bind mounts against.
 - `backendProject` imports `@acme/vitest-config/base` (a runtime dependency,
   since it is imported from shipped `src`) and layers the backend concerns on
   top; the base config is domain-free and holds only `NODE_ENV`.
