@@ -12,6 +12,11 @@
  * host ports, so a suite never collides with, nor reads from, a dev stack. That
  * is what makes a backend suite runnable anywhere without provisioning
  * anything first, which is the property to preserve if this is ever revisited.
+ *
+ * Nothing here is remembered between calls. `startInfra` resolves the repo root,
+ * plans each descriptor and keeps the containers it started inside the handle it
+ * returns, so the engine can be driven twice in one process — which is also what
+ * makes it reachable from a test. See ../docs/adr/0003-the-engine-hands-back-a-handle.md.
  */
 
 /* eslint-disable no-restricted-syntax */
@@ -27,12 +32,23 @@ import {
   Wait,
 } from 'testcontainers';
 
-import type { InfraDescriptor } from './infra';
+import type { InfraBindMount, InfraDescriptor } from './infra';
 
-// Walk up to the monorepo root (the dir with pnpm-workspace.yaml) so a
-// descriptor's repo-relative bind mount resolves regardless of whether this
-// module runs from `src` (JIT) or `dist`.
-function findRepoRoot(start: string): string {
+/**
+ * Walk up to the monorepo root (the dir with `pnpm-workspace.yaml`) so a
+ * descriptor's repo-relative bind mount resolves regardless of whether this
+ * module runs from `src` (JIT) or `dist`.
+ *
+ * Called per `startInfra`, not once per process: a root resolved at import time
+ * is a value no caller can supply and no test can vary, which is most of why
+ * this file had no tests.
+ *
+ * Returns `start` unchanged when no ancestor carries the marker. A repo-relative
+ * mount then resolves against the starting directory, which is wrong in the same
+ * direction as before and reports itself as a missing mount source, rather than
+ * this function inventing a root.
+ */
+export function findRepoRoot(start: string): string {
   let dir = start;
   let parent = dirname(dir);
   while (parent !== dir) {
@@ -42,7 +58,6 @@ function findRepoRoot(start: string): string {
   }
   return start;
 }
-const REPO_ROOT = findRepoRoot(__dirname);
 
 export interface StartedInfra {
   descriptor: InfraDescriptor;
@@ -51,7 +66,98 @@ export interface StartedInfra {
   env: Record<string, string>;
 }
 
-let startedInfra: StartedInfra[] = [];
+/**
+ * What one `startInfra` call started, and the only place that state lives.
+ *
+ * The caller holds it: the global-setup publishes `env` to test workers and
+ * calls `stop` from its teardown. Two handles in one process are two
+ * independent sets of containers.
+ */
+export interface InfraHandle {
+  /** Monorepo root this call resolved repo-relative bind mounts against. */
+  readonly repoRoot: string;
+  /** The merged `process.env` contribution of every container started. */
+  readonly env: Record<string, string>;
+  /** Stop every container this handle started. A second call does nothing. */
+  stop: () => Promise<void>;
+}
+
+/**
+ * The `TESTCONTAINERS_RYUK_DISABLED` value a run should use.
+ *
+ * Ryuk (the testcontainers reaper) is off by default on every run. A rootless
+ * podman machine — the macOS default — can't bind-mount the docker socket Ryuk
+ * needs, so startup dies with "operation not supported" and every backend run
+ * fails in global-setup. Cleanup doesn't depend on it: the handle's `stop()`
+ * stops each container explicitly, and isolation comes from testcontainers'
+ * random host ports + generated names. An explicit outer value wins, so CI can
+ * opt back in.
+ */
+export function ryukDisabled(
+  env: Readonly<Record<string, string | undefined>>,
+): string {
+  return env.TESTCONTAINERS_RYUK_DISABLED ?? 'true';
+}
+
+/** A descriptor's bind mount, resolved to an absolute source path. */
+export interface ResolvedBindMount {
+  source: string;
+  target: string;
+  mode: 'ro' | 'rw';
+}
+
+/**
+ * Everything the engine decides about a descriptor *before* a container exists.
+ *
+ * Splitting it out is what makes the descriptor contract assertable: the
+ * defaults (`mode`, `waitLogTimes`), the compiled wait pattern and the
+ * repo-relative mount resolution are all decisions, and a test can read them
+ * off a plan without a container runtime. `command` and `startupTimeoutMs` stay
+ * *absent* when the descriptor gives none — testcontainers keeps its own
+ * defaults rather than one of ours standing in for them, since a default here
+ * would be the same guess about image weight with worse provenance.
+ */
+export interface ContainerPlan {
+  readonly image: string;
+  readonly exposedPorts: readonly number[];
+  /** Env set inside the container; `{}` when the descriptor sets none. */
+  readonly environment: Record<string, string>;
+  readonly command?: readonly string[];
+  readonly bindMounts: readonly ResolvedBindMount[];
+  readonly waitLogRegex: RegExp;
+  readonly waitLogTimes: number;
+  readonly startupTimeoutMs?: number;
+}
+
+const resolveBindMount = (
+  repoRoot: string,
+  mount: InfraBindMount,
+): ResolvedBindMount => ({
+  source: resolve(repoRoot, mount.repoPath),
+  target: mount.target,
+  mode: mount.mode ?? 'ro',
+});
+
+/** Turn a descriptor into the container the engine would build from it. */
+export function containerPlan(
+  repoRoot: string,
+  descriptor: InfraDescriptor,
+): ContainerPlan {
+  return {
+    image: descriptor.image,
+    exposedPorts: [descriptor.containerPort],
+    environment: descriptor.containerEnv ?? {},
+    ...(descriptor.command?.length ? { command: descriptor.command } : {}),
+    bindMounts: (descriptor.bindMounts ?? []).map((mount) =>
+      resolveBindMount(repoRoot, mount),
+    ),
+    waitLogRegex: new RegExp(descriptor.waitLogRegex),
+    waitLogTimes: descriptor.waitLogTimes ?? 1,
+    ...(descriptor.startupTimeoutMs !== undefined
+      ? { startupTimeoutMs: descriptor.startupTimeoutMs }
+      : {}),
+  };
+}
 
 /**
  * Fail once, up front, when no container runtime is reachable.
@@ -118,36 +224,29 @@ function captureStartupLogs() {
 }
 
 /** Start a real container described by the descriptor. */
-async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
-  let builder = new GenericContainer(descriptor.image).withExposedPorts(
-    descriptor.containerPort,
+async function startOne(
+  repoRoot: string,
+  descriptor: InfraDescriptor,
+): Promise<StartedInfra> {
+  const plan = containerPlan(repoRoot, descriptor);
+
+  let builder = new GenericContainer(plan.image).withExposedPorts(
+    ...plan.exposedPorts,
   );
-  if (descriptor.containerEnv) {
-    builder = builder.withEnvironment(descriptor.containerEnv);
+  if (Object.keys(plan.environment).length) {
+    builder = builder.withEnvironment(plan.environment);
   }
-  if (descriptor.command?.length) {
-    builder = builder.withCommand(descriptor.command);
+  if (plan.command?.length) {
+    builder = builder.withCommand([...plan.command]);
   }
-  if (descriptor.bindMounts?.length) {
-    builder = builder.withBindMounts(
-      descriptor.bindMounts.map((mount) => ({
-        source: resolve(REPO_ROOT, mount.repoPath),
-        target: mount.target,
-        mode: mount.mode ?? 'ro',
-      })),
-    );
+  if (plan.bindMounts.length) {
+    builder = builder.withBindMounts([...plan.bindMounts]);
   }
   builder = builder.withWaitStrategy(
-    Wait.forLogMessage(
-      new RegExp(descriptor.waitLogRegex),
-      descriptor.waitLogTimes ?? 1,
-    ),
+    Wait.forLogMessage(plan.waitLogRegex, plan.waitLogTimes),
   );
-  // Absent means absent: testcontainers keeps its own default rather than one of
-  // ours standing in for it, since a default here would be the same guess about
-  // image weight with worse provenance.
-  if (descriptor.startupTimeoutMs !== undefined) {
-    builder = builder.withStartupTimeout(descriptor.startupTimeoutMs);
+  if (plan.startupTimeoutMs !== undefined) {
+    builder = builder.withStartupTimeout(plan.startupTimeoutMs);
   }
 
   const logs = captureStartupLogs();
@@ -176,34 +275,44 @@ async function startOne(descriptor: InfraDescriptor): Promise<StartedInfra> {
   return { descriptor, container, env };
 }
 
-/** Bring up the given infra and return the merged `process.env` contribution. */
+/**
+ * Bring up the given infra and hand back what was started.
+ *
+ * Later descriptors win on a key collision, which is `Object.assign` order and
+ * also the only answer available: two infra claiming one env key is the owners
+ * disagreeing, not something the engine can arbitrate.
+ */
 export async function startInfra(
   descriptors: InfraDescriptor[],
-): Promise<Record<string, string>> {
-  // Ryuk (the testcontainers reaper) is off by default on every run. A rootless
-  // podman machine — the macOS default — can't bind-mount the docker socket Ryuk
-  // needs, so startup dies with "operation not supported" and every backend run
-  // fails in global-setup. Cleanup doesn't depend on it: stopInfra() in the
-  // global teardown stops each container explicitly, and isolation comes from
-  // testcontainers' random host ports + generated names. An explicit outer value
-  // wins, so CI can opt back in.
-  process.env.TESTCONTAINERS_RYUK_DISABLED ??= 'true';
+): Promise<InfraHandle> {
+  // Testcontainers reads the toggle off `process.env` when it first builds its
+  // config, so the decision has to land there rather than in the handle.
+  process.env.TESTCONTAINERS_RYUK_DISABLED = ryukDisabled(process.env);
 
-  await assertContainerRuntime();
-  startedInfra = await Promise.all(descriptors.map(startOne));
+  const repoRoot = findRepoRoot(__dirname);
+
+  // No descriptors means no container, so there is nothing for an unreachable
+  // runtime to break and nothing for the probe to say. It also makes the engine
+  // drivable where no runtime exists at all.
+  if (descriptors.length > 0) await assertContainerRuntime();
+
+  const started = await Promise.all(
+    descriptors.map((descriptor) => startOne(repoRoot, descriptor)),
+  );
 
   const env: Record<string, string> = {};
-  for (const started of startedInfra) {
-    Object.assign(env, started.env);
+  for (const one of started) {
+    Object.assign(env, one.env);
   }
-  return env;
-}
 
-/** Stop every container started by `startInfra`. */
-export async function stopInfra(): Promise<void> {
-  const running = startedInfra.map((s) => s.container);
-  await Promise.all(running.map((c) => c.stop()));
-  startedInfra = [];
+  return {
+    repoRoot,
+    env,
+    stop: async () => {
+      const running = started.splice(0, started.length);
+      await Promise.all(running.map((one) => one.container.stop()));
+    },
+  };
 }
 
 /**
@@ -222,8 +331,8 @@ export async function stopInfra(): Promise<void> {
  * preference would have nothing to be right about; where they differ, the fix is
  * one app owning the aggregate rather than a tiebreak here.
  */
-function findPushApp(): string {
-  const apps = resolve(REPO_ROOT, 'apps');
+export function findPushApp(repoRoot: string): string {
+  const apps = resolve(repoRoot, 'apps');
   const hasConfig = (name: string) =>
     existsSync(resolve(apps, name, 'drizzle.push.config.ts'));
 
@@ -260,12 +369,19 @@ function findPushApp(): string {
  * runtime and are excluded by the config's `tablesFilter`, so push never touches
  * them.
  *
+ * `repoRoot` comes from the `InfraHandle` whose Postgres is being provisioned,
+ * so the push app is looked for under the same root the containers were planned
+ * against rather than one resolved a second time.
+ *
  * `with-env` is bypassed: `setup.ts` has already put the container's `DB_*` into
  * `process.env`, so drizzle-kit is invoked directly (no dependence on a `.env`
  * file, no risk of it shadowing the container). Gated by the caller on Postgres
  * being in the infra set.
  */
-export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
+export async function pushDatabaseSchemas(
+  targetSchema: string,
+  repoRoot: string,
+): Promise<void> {
   console.log(`📊 Pushing database schemas into "${targetSchema}"...`);
   // Host/port are the dynamic bits (a testcontainer hands back a mapped port);
   // user/name are authored config the owning slice declares (`@acme/db`
@@ -285,7 +401,7 @@ export async function pushDatabaseSchemas(targetSchema: string): Promise<void> {
       ],
       {
         stdio: 'inherit',
-        cwd: findPushApp(),
+        cwd: findPushApp(repoRoot),
         env: { ...process.env, NEXT_PUBLIC_WEBAPP: targetSchema },
       },
     );

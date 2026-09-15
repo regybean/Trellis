@@ -27,7 +27,7 @@ import 'vitest';
 import type { TestProject } from 'vitest/node';
 
 import type { InfraDescriptor } from './infra';
-import { pushDatabaseSchemas, startInfra, stopInfra } from './containers';
+import { pushDatabaseSchemas, startInfra } from './containers';
 
 // The whole connection contribution rides through `project.provide` as one
 // record, so hydrate-env (and any test) reads a single injected value rather
@@ -43,9 +43,9 @@ export function runInfraSetup(descriptors: InfraDescriptor[]) {
     console.log('\n🧪 Global setup: Starting backend test environment...\n');
     console.log(`   📋 Infra: [${descriptors.map((d) => d.name).join(', ')}]`);
 
-    const infraEnv = await startInfra(descriptors);
-    project.provide('infraEnv', infraEnv);
-    console.log('   📤 Provided to test workers:', infraEnv);
+    const infra = await startInfra(descriptors);
+    project.provide('infraEnv', infra.env);
+    console.log('   📤 Provided to test workers:', infra.env);
 
     // Every Postgres we start is fresh and empty, so app tables are always
     // provisioned here.
@@ -59,16 +59,16 @@ export function runInfraSetup(descriptors: InfraDescriptor[]) {
       // drizzle-kit push reads the connection from process.env; test.env doesn't
       // reach this main process, so seed it from the container's resolved values
       // before spawning.
-      Object.assign(process.env, infraEnv, {
+      Object.assign(process.env, infra.env, {
         NEXT_PUBLIC_WEBAPP: targetSchema,
       });
-      await pushDatabaseSchemas(targetSchema);
+      await pushDatabaseSchemas(targetSchema, infra.repoRoot);
     }
 
     console.log('\n✅ Global setup complete!\n');
     return async () => {
       console.log('\n🧹 Global teardown: Cleaning up...\n');
-      await stopInfra();
+      await infra.stop();
       console.log('✅ Global teardown complete!\n');
     };
   };

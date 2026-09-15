@@ -140,8 +140,11 @@ decision is the bank's own rather than this one.
   shape and the refusal paths — that is a command-line program's actual
   contract.
 - **`@acme/test-utils` is honest about what it is, and about what it lacks.**
-  With the borrowed 121 tests gone it declares `acme.testStatus: "todo"` with a
-  reason. Testing the thing that starts testcontainers is a separate decision.
+  With the borrowed 121 tests gone it declared `acme.testStatus: "todo"` with a
+  reason, because testing the thing that starts testcontainers was a separate
+  decision. That decision has since been taken in the package's own ADRs: the
+  engine hands its caller a handle rather than keeping a run in module scope, so
+  it is constructible twice in one process and the `todo` is gone.
 - **The count reconciles, which is how we know nothing was dropped.** 672 tests
   before the move; 956 after. The 551 that never lived in `scripts/` are
   unchanged, and the 121 subprocess tests became 405 across the five packages
