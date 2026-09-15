@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import {
   allowedEvents,
   resolveWebhookEvent,
-} from '../../../utils/stripe-webhook';
+} from '../../../api/services/stripe-webhook';
 
 // Minimal Stripe.Event shape for routing tests — only the fields the handler
 // reads. Cast is confined to the test builder, not production code.

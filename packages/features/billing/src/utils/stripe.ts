@@ -22,14 +22,14 @@ export {
   createDashboardSession,
   findOrCreateCustomer,
   getProductWithPrice,
-} from './stripe-checkout';
+} from '../api/services/stripe-checkout';
 export { syncStripeDataToKV } from '../api/services/stripe-sync';
 export {
   allowedEvents,
   processEvent,
   resolveWebhookEvent,
-} from './stripe-webhook';
-export { setUserTier } from './stripe-dev';
+} from '../api/services/stripe-webhook';
+export { setUserTier } from '../api/services/stripe-dev';
 export {
   billingError,
   BillingErrorCode,

@@ -4,10 +4,10 @@ import type { SubscriptionTier } from '@acme/subscriptions';
 import { getStripeCustomerId, setStripeCustomerId } from '@acme/subscriptions';
 import { setSpanAttributes } from '@acme/telemetry/server';
 
-import type { STRIPE_SUB_CACHE } from '../api/services/stripe-client';
-import { getStripe, localstripeMode } from '../api/services/stripe-client';
-import { syncStripeDataToKV } from '../api/services/stripe-sync';
-import { billingError, BillingErrorCode } from './stripe-errors';
+import type { STRIPE_SUB_CACHE } from './stripe-client';
+import { billingError, BillingErrorCode } from '../../utils/stripe-errors';
+import { getStripe, localstripeMode } from './stripe-client';
+import { syncStripeDataToKV } from './stripe-sync';
 
 /**
  * Resolve (or create) the Stripe customer for a user, without the active-
