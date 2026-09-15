@@ -1,7 +1,6 @@
 import { definePlugin } from 'nitro';
 
 import { initTelemetry } from '@acme/telemetry';
-import { env as telemetryEnv } from '@acme/telemetry/env';
 
 /**
  * Telemetry bootstrap — the app-owned half of the telemetry seam.
@@ -24,18 +23,12 @@ import { env as telemetryEnv } from '@acme/telemetry/env';
  * `@acme/telemetry/register` via NODE_OPTIONS instead. See
  * packages/platform/telemetry/docs/adr/0001-ambient-telemetry-no-context-object.md.
  */
-// The OTLP endpoint and the on/off switch are authored config, overridable per
-// deploy (@acme/env ADR 0001); the per-app service name stays an app-owned
-// literal (app identity, not shared config). The switch is passed through
-// rather than acted on here — `initTelemetry` owns what a half-configured
-// target does, so no call site repeats the check.
-initTelemetry({
-  serviceName: 'trellis-tanstack-slim',
-  serviceVersion: process.env.npm_package_version ?? '0.0.0',
-  otlpEndpoint: telemetryEnv.OTEL_EXPORTER_OTLP_ENDPOINT,
-  enabled: telemetryEnv.OTEL_TELEMETRY_ENABLED,
-  debug: process.env.NODE_ENV === 'development',
-});
+// The service name is app identity, so it is the one telemetry value this app
+// states. The collector endpoint, the on/off switch, the version and the debug
+// flag are the telemetry slice's own reads — this app has no opinion on any of
+// them, and stating them here only gave it four ways to disagree with the other
+// apps.
+initTelemetry('trellis-tanstack-slim');
 
 // Boot-time parity with apps/nextjs's instrumentation.ts: resolve the active
 // chat+embed providers so a missing/invalid env for a *selected* provider

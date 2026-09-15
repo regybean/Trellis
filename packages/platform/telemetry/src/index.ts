@@ -23,6 +23,7 @@ import {
 } from '@opentelemetry/semantic-conventions';
 
 import type { TelemetryConfig } from './plan';
+import { telemetryConfigFromEnv } from './config';
 import { planTelemetry } from './plan';
 
 let sdk: NodeSDK | null = null;
@@ -33,16 +34,36 @@ let sdk: NodeSDK | null = null;
  * Call this at the very start of your application, before any other imports.
  * In Next.js, use the instrumentation.ts file.
  *
+ * The service name is the only thing an app has to say. It is app identity —
+ * the platform cannot know what your service is called — and the remaining four
+ * values are the slice's own to read: the collector endpoint and the off switch
+ * from its env, the version and the debug flag from the process. Assembling
+ * them at the call site gave every new app four chances to get right what only
+ * ever had one answer.
+ *
  * @example
  * // an app's src/instrumentation.ts
  * export async function register() {
  *   if (process.env.NEXT_RUNTIME === 'nodejs') {
  *     const { initTelemetry } = await import('@acme/telemetry');
- *     initTelemetry({ serviceName: 'acme-web' });
+ *     initTelemetry('acme-web');
  *   }
  * }
  */
-export function initTelemetry(config: TelemetryConfig): void {
+export function initTelemetry(serviceName: string) {
+  initTelemetryWithConfig(telemetryConfigFromEnv(serviceName));
+}
+
+/**
+ * Initialize the SDK from a configuration stated in full.
+ *
+ * For the caller that genuinely differs — a one-off script exporting under
+ * another service version, a process pointed at a second collector — so
+ * narrowing the common entry costs nobody the ability to override. It states
+ * all five fields on purpose, and the guard below still holds it to a valid
+ * one: enabled with no endpoint raises here, not at the call site.
+ */
+export function initTelemetryWithConfig(config: TelemetryConfig) {
   if (sdk) {
     console.warn('[Telemetry] SDK already initialized, skipping...');
     return;
@@ -141,7 +162,7 @@ export { instrumentDrizzleClient } from '@kubiks/otel-drizzle';
 // Re-export types for tRPC telemetry integration
 export type { ChildSpanOptions } from './trpc';
 
-// The config a caller hands `initTelemetry`. The guard that reads it
+// The config a caller hands `initTelemetryWithConfig`. The guard that reads it
 // (`planTelemetry`) stays internal — a caller cannot be given the option of
-// running it instead of `initTelemetry`, which is the point of it.
+// running it instead of the initialiser, which is the point of it.
 export type { TelemetryConfig } from './plan';

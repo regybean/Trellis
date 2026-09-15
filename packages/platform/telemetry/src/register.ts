@@ -15,21 +15,8 @@
 import { env } from './env';
 import { initTelemetry } from './index';
 
-// This preload runs before any app composition, so it reads the slice's own
-// env: the values are authored as profile defaults and any of them can be
-// retuned by a same-named variable, which is how a deploy points at its own
-// collector, and how a deploy with no collector switches telemetry off.
-// `serviceVersion`/`debug` stay `process.env`/`NODE_ENV` reads — a build signal
-// and a runtime mode, not config.
-//
-// The switch is passed, not acted on: whether an enabled-with-no-endpoint
-// configuration is a crash is `initTelemetry`'s decision, so that no call site
-// carries a copy of it.
+// This preload runs before any app composition, so it has no app to take a
+// service name from: `OTEL_SERVICE_NAME` is its stand-in for the literal an app
+// would pass. Everything else `initTelemetry` reads itself.
 
-initTelemetry({
-  serviceName: env.OTEL_SERVICE_NAME,
-  serviceVersion: process.env.npm_package_version ?? '0.0.0',
-  otlpEndpoint: env.OTEL_EXPORTER_OTLP_ENDPOINT,
-  enabled: env.OTEL_TELEMETRY_ENABLED,
-  debug: process.env.NODE_ENV === 'development',
-});
+initTelemetry(env.OTEL_SERVICE_NAME);

@@ -6,8 +6,8 @@ then produces spans without being handed anything
 
 ## What it gives you
 
-- `initTelemetry` — one call that configures the exporter and instrumentation
-  for the whole process.
+- `initTelemetry(serviceName)` — one call that configures the exporter and
+  instrumentation for the whole process. Your service name is the only argument.
 - Automatic per-procedure spans on every tRPC procedure, so mounting a feature
   gets you its traces with no per-feature wiring.
 - Database query instrumentation, so a slow procedure shows which query it
@@ -31,13 +31,15 @@ then produces spans without being handed anything
   Importing `./register` for its side effect does the same thing where you have
   no hook to put a call in.
 - Do it in your worker entrypoint too, or background work produces no traces.
-- Pass the service name from your app. A shared package cannot know what your
-  service is called, so this is a parameter rather than something read from env
-  by the package.
-- Pass the switch through (`enabled: env.OTEL_TELEMETRY_ENABLED`) rather than
-  branching on it yourself. `initTelemetry` refuses to run enabled with no
-  endpoint, and that refusal belongs in one place — a check copied to each call
-  site is a check the next call site forgets.
+- Pass the service name from your app, and pass nothing else. A shared package
+  cannot know what your service is called, so that stays a parameter; the
+  collector endpoint, the off switch, the version and the debug flag are this
+  package's own to read, and it reads them.
+- Reach for `initTelemetryWithConfig` only when you genuinely differ — a
+  one-off process exporting under another version, or pointed at a second
+  collector. It takes all five fields and still refuses to run enabled with no
+  endpoint, because that refusal belongs in one place: a check copied to each
+  call site is a check the next call site forgets.
 - Nothing to thread afterwards. Spans are ambient, so no context object is
   passed to features
   ([ADR 0001](docs/adr/0001-ambient-telemetry-no-context-object.md)).

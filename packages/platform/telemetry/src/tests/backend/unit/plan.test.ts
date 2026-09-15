@@ -1,29 +1,32 @@
 import { describe, expect, it } from 'vitest';
 
-import { initTelemetry } from '../../../index';
+import { initTelemetryWithConfig } from '../../../index';
 import { planTelemetry } from '../../../plan';
 
 /**
  * The guard, at both levels it has to hold.
  *
  * `planTelemetry` is asserted directly because it is the only path to an
- * exporter: `initTelemetry` constructs nothing until it has a plan, so "no plan"
+ * exporter: the initialiser constructs nothing until it has a plan, so "no plan"
  * *is* "no exporter and no span processor". That is the assertion, rather than a
  * spy on the exporter constructor — a unit test that needs a collaborator to
  * stand in for the thing under test is describing the implementation, and
  * mocking the OTel SDK would pin the shape of the code rather than the behaviour
  * a caller depends on.
  *
- * `initTelemetry` is then asserted for the raising case, because the ticket's
+ * `initTelemetryWithConfig` is then asserted for the raising case, because the
  * load-bearing claim is about *where* the check lives. A test that only
  * exercised the helper would pass just as happily if a call site were the one
- * doing the checking.
+ * doing the checking. The full-config form is where that matters now: it is the
+ * only entry a caller can hand an invalid configuration to, since the narrow
+ * `initTelemetry(serviceName)` reads an endpoint this slice's env has already
+ * validated. Its own coverage is in `init.test.ts`.
  *
  * No test here starts the SDK. The suite runs with `isolate: false` and one
  * worker, so a started SDK would patch the runtime for everything after it — and
  * a started SDK pointed at a collector that does not exist is the exact defect
  * under repair. So the "enabled with an endpoint" case is asserted as the plan
- * the SDK would be built from, and `initTelemetry`'s success path is left to the
+ * the SDK would be built from, and the initialiser's success path is left to the
  * apps that run it. Said out loud rather than left as a gap.
  */
 
@@ -102,19 +105,19 @@ describe('planTelemetry — an absent switch', () => {
   });
 });
 
-describe('initTelemetry — the guard is inside the initialiser', () => {
+describe('initTelemetryWithConfig — the guard is inside the initialiser', () => {
   it('raises on an enabled configuration with no endpoint', () => {
     // The whole point of the ticket: there are several callers (each app's
     // server boundary, plus the `register.ts` preload) and the next one would
     // forget the check, so the initialiser refuses rather than trusting them.
-    expect(() => initTelemetry({ serviceName: 'acme' })).toThrow(
+    expect(() => initTelemetryWithConfig({ serviceName: 'acme' })).toThrow(
       /no OTLP endpoint/,
     );
   });
 
   it('returns quietly when telemetry is switched off', () => {
     expect(() =>
-      initTelemetry({
+      initTelemetryWithConfig({
         serviceName: 'acme',
         enabled: false,
         otlpEndpoint: ENDPOINT,
@@ -123,12 +126,12 @@ describe('initTelemetry — the guard is inside the initialiser', () => {
   });
 
   it('latches nothing when it was switched off', () => {
-    initTelemetry({ serviceName: 'acme', enabled: false });
+    initTelemetryWithConfig({ serviceName: 'acme', enabled: false });
 
     // If the disabled call had built an SDK, this one would hit the
     // already-initialized early return and pass silently. It reaches the guard,
     // so the disabled call left the module untouched.
-    expect(() => initTelemetry({ serviceName: 'acme' })).toThrow(
+    expect(() => initTelemetryWithConfig({ serviceName: 'acme' })).toThrow(
       /no OTLP endpoint/,
     );
   });
