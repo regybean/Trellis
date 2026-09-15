@@ -23,6 +23,42 @@ vi.mock('../../../../api/services/stripe-client');
 const CUSTOMER_ID = 'cus_sync_test';
 const USER_ID = 'user_sync_test';
 
+// The pair a tier change leaves behind: the grant cancels the predecessor, then
+// creates the replacement.
+const CANCELED_PREDECESSOR = {
+  id: 'sub_canceled',
+  status: 'canceled',
+  created: 1000,
+  cancel_at_period_end: false,
+  default_payment_method: null,
+  items: {
+    data: [
+      {
+        price: { id: 'price_std', product: 'prod_std' },
+        current_period_start: 1000,
+        current_period_end: 2000,
+      },
+    ],
+  },
+};
+
+const ACTIVE_REPLACEMENT = {
+  id: 'sub_active',
+  status: 'active',
+  created: 2000,
+  cancel_at_period_end: false,
+  default_payment_method: null,
+  items: {
+    data: [
+      {
+        price: { id: 'price_pro', product: 'prod_pro' },
+        current_period_start: 2000,
+        current_period_end: 3000,
+      },
+    ],
+  },
+};
+
 function makeStripeFake(subscriptions: unknown[]) {
   return {
     subscriptions: { list: vi.fn().mockResolvedValue({ data: subscriptions }) },
@@ -100,6 +136,35 @@ describe('syncStripeDataToKV', () => {
       product: 'prod_dev',
     });
   });
+
+  // A customer mid-tier-change holds two subscriptions, and the list order they
+  // arrive in differs by server (real Stripe newest-first, localstripe
+  // oldest-first). Both orders must cache the active one — this is the seam
+  // where the ordering assumption used to live, so it is asserted here and not
+  // only over the pure ranking function.
+  it.each([
+    [
+      'oldest-first, as localstripe lists',
+      [CANCELED_PREDECESSOR, ACTIVE_REPLACEMENT],
+    ],
+    [
+      'newest-first, as real Stripe lists',
+      [ACTIVE_REPLACEMENT, CANCELED_PREDECESSOR],
+    ],
+  ])(
+    'caches the active subscription when listed %s',
+    async (_order, subscriptions) => {
+      vi.mocked(getStripe).mockReturnValue(makeStripeFake(subscriptions));
+
+      await syncStripeDataToKV(CUSTOMER_ID);
+
+      expect(await getUserSubscriptionFromRedis(USER_ID)).toMatchObject({
+        status: 'active',
+        subscriptionId: 'sub_active',
+        product: 'prod_pro',
+      });
+    },
+  );
 
   it('writes {status:"none"} when no subscriptions exist', async () => {
     vi.mocked(getStripe).mockReturnValue(makeStripeFake([]));
