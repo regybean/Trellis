@@ -23,3 +23,7 @@ export { startInfra, pushDatabaseSchemas } from './containers';
 
 // Global setup factory
 export { runInfraSetup } from './setup';
+
+// Env hydration rule (the setupFile `./hydrate-env` is the import-time caller)
+export type { HydrateEnvInput } from './env-hydration';
+export { hydrateEnv } from './env-hydration';

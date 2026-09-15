@@ -18,28 +18,25 @@
  * - `TEST_REDIS_DB` — dedicated Redis logical DB per suite (parallel flushDb
  *   isolation). Appended to the injected `REDIS_URL` when present.
  *
+ * This module is the import-time half only: it gathers the two inputs and
+ * assigns what `hydrateEnv` resolves. The rule itself lives in
+ * `./env-hydration`, where a test can call it. Nothing here is exported, so a
+ * suite's `setupFiles` entry is unchanged.
+ *
  * Usage: list before the package's own setup file in `setupFiles`:
  *   setupFiles: ['@acme/test-utils/hydrate-env', './src/tests/backend/setup.ts']
  */
 
 import { inject } from 'vitest';
 
-function set(key: string, value: string | undefined) {
-  if (value !== undefined && value !== '') {
-    process.env[key] = value;
-  }
-}
+import { hydrateEnv } from './env-hydration';
 
-// Every key the suite's infra contributes, generically — no per-key list.
-const infraEnv = inject('infraEnv');
-for (const [key, value] of Object.entries(infraEnv)) {
-  set(key, value);
-}
+const resolved = hydrateEnv({
+  infraEnv: inject('infraEnv'),
+  // eslint-disable-next-line turbo/no-undeclared-env-vars
+  redisDb: process.env.TEST_REDIS_DB,
+});
 
-// Redis: append the per-suite logical DB when one is configured, so a parallel
-// suite's flushDb() can't wipe ours. `redis://host:port/2` is a valid url.
-// eslint-disable-next-line turbo/no-undeclared-env-vars
-const redisDb = process.env.TEST_REDIS_DB;
-if (infraEnv.REDIS_URL && redisDb) {
-  process.env.REDIS_URL = `${infraEnv.REDIS_URL.replace(/\/+$/, '')}/${redisDb}`;
+for (const [key, value] of Object.entries(resolved)) {
+  process.env[key] = value;
 }
