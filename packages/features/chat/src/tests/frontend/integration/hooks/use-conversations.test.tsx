@@ -10,7 +10,7 @@
  * can intercept all network calls and onUnhandledRequest:'error' is used
  * throughout.
  */
-import { act, renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, screen, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -41,6 +41,9 @@ const folder = (id: string, name: string): SelectFolder => ({
 
 const renderUseConversations = () =>
   renderHook(() => useConversations(), { wrapper: Providers });
+
+/** The generic error handler's non-rate-limited message, as it renders. */
+const ERROR_TOAST = 'Service currently unavailable. Please try again later.';
 
 // ── Reads ──────────────────────────────────────────────────────────────────
 describe('useConversations – reads', () => {
@@ -114,11 +117,22 @@ describe('useConversations – deleteConversation', () => {
     );
   });
 
-  it('rolls back when delete mutation errors', async () => {
+  it('rolls the list back to its pre-mutation contents and toasts the error', async () => {
     const id = crypto.randomUUID();
     const c1 = conv(id, 'Resilient');
+    const c2 = conv(crypto.randomUUID(), 'Keeper');
+    // Serve the list once, then leave the settle refetch hanging: the ONLY
+    // thing that can restore both rows is the rollback itself.
+    let listCalls = 0;
     server.use(
-      trpcMsw.chat.list.query(() => [c1]),
+      trpcMsw.chat.list.query(async () => {
+        listCalls += 1;
+        if (listCalls > 1)
+          await new Promise(() => {
+            // Never responds: the rollback is the only restoration.
+          });
+        return [c1, c2];
+      }),
       trpcMsw.chat.folders.list.query(() => []),
       trpcMsw.chat.delete.mutation(() => {
         throw new Error('INTERNAL_SERVER_ERROR');
@@ -127,15 +141,16 @@ describe('useConversations – deleteConversation', () => {
 
     const { result } = renderUseConversations();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const before = result.current.conversations;
+    expect(before).toHaveLength(2);
 
     act(() => result.current.deleteConversation(id));
 
-    // After optimistic removal, the error triggers a rollback → row is restored.
-    await waitFor(() =>
-      expect(
-        result.current.conversations.find((c) => c.sessionId === id),
-      ).toBeDefined(),
-    );
+    // The toast is written after the rollback, so its arrival is the signal
+    // that the error path has finished — no polling for a window that the
+    // optimistic removal and its undo both pass through in one tick.
+    expect(await screen.findByText(ERROR_TOAST)).toBeDefined();
+    expect(result.current.conversations).toEqual(before);
   });
 });
 
@@ -222,6 +237,37 @@ describe('useConversations – createFolder', () => {
       expect(
         result.current.folders.find((f) => f.name === 'New folder'),
       ).toBeDefined(),
+    );
+  });
+
+  it('reconciles the client-minted id to one row when the server settles', async () => {
+    // A fake server holding real state: it stores the id the client minted, so
+    // the settle refetch returns the same folder the optimistic patch appended.
+    // Two rows here would mean the optimistic copy outlived the reconciliation.
+    const stored: SelectFolder[] = [];
+    server.use(
+      trpcMsw.chat.list.query(() => []),
+      trpcMsw.chat.folders.list.query(() => [...stored]),
+      trpcMsw.chat.folders.create.mutation(({ input }) => {
+        const row = folder(input.id, input.name);
+        stored.push(row);
+        return row;
+      }),
+    );
+
+    const { result } = renderUseConversations();
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.createFolder('Reconciled'));
+
+    // The optimistic row carries userId='' (the client has no user id);
+    // the server's carries a real one, so the settled row is provably the
+    // refetched one and provably the only one.
+    await waitFor(() => expect(stored).toHaveLength(1));
+    await waitFor(() =>
+      expect(result.current.folders).toEqual([
+        expect.objectContaining({ name: 'Reconciled', userId: 'user_test' }),
+      ]),
     );
   });
 
