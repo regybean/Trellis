@@ -77,6 +77,13 @@ and `repo-checks` has to keep working in a consumer repo that has no bank at all
 A future reader will find the duplication and try to remove it; the removal
 passes every gate here and breaks both callers.
 
+Twice does not mean two rules. Both halves are held to one corpus of cases,
+`../../src/tests/backend/portable-token-cases.json`, so a boundary or an
+exemption that moves on one side and not the other fails a suite rather than
+reading as green in both —
+[0001-the-bank-keeps-its-own-workspace-helpers.md](0001-the-bank-keeps-its-own-workspace-helpers.md)
+says why this pair must agree where the workspace helpers beside it may drift.
+
 ## Considered and rejected
 
 - **Keep the hyphen inside the word and add the missed spellings by hand.**

@@ -44,24 +44,69 @@ product: a repo that can be adopted from nothing is the claim the bank makes.
 
 ## What this does not license
 
-This is the **only** duplication the reorganisation preserves, and it is scoped
-to reading the workspace graph — the glob parsing and the package index in
-`src/lib/bank-closure.mjs`. It is not a general exemption for this package.
+The exemption is the bootstrap, not the package. What earns a copy is running
+before `pnpm install`, and two things in here do:
+
+- **Reading the workspace graph** — the glob parsing and the package index in
+  `src/lib/bank-closure.mjs`, against the kernel the rest of the repo's
+  checkers read the same workspace through.
+- **The portable-token rule** — the scoped-name and shell-default patterns, the
+  span arithmetic measured back from the closing brace, the scoped-name dedupe,
+  the symlink skip and both derivations, in `src/check-bank-tokens.mjs`, against
+  the copy that ships with `tooling/repo-checks`. That checker arrives with the
+  first sync and runs in a repo where nothing is installed, so it is in the file
+  list `src/tests/backend/bootstrap.test.ts` holds and the no-bare-import rule
+  reaches it. The rule that forces the first copy forces this one.
+  [0002-a-hyphen-is-a-word-boundary-and-what-that-forces.md](0002-a-hyphen-is-a-word-boundary-and-what-that-forces.md)
+  is the rule itself.
+
 Anything the bank does that does not run before install has no reason to be a
 copy.
 
-The constraint has a consequence worth stating: **the two copies are allowed to
-disagree.** The kernel serves checkers running in an installed workspace and can
-grow toward that; this copy answers one question at a fetched git ref, on
-plumbing alone. Keeping them identical is not a goal, and a diff between them is
-not a defect to close.
+## Which copies may drift, and which must not
+
+A forced copy is not a licence to disagree, and the two here are opposite cases.
+Reading one as the other is how a checker goes quiet.
+
+**The workspace pair may drift.** The two sides answer different questions. The
+kernel serves checkers running in an installed workspace and can grow toward
+that; this copy answers one question at a fetched git ref, on plumbing alone.
+Keeping them identical is not a goal, and a diff between them is not a defect to
+close.
+
+**The token pair must agree.** Both halves enforce one rule — the same sentence
+about what a distributed file may name — over the same content, and they are
+split only because neither can import the other. A divergence there is not two
+answers to two questions. It is one rule reporting differently depending on
+which gate ran, and the half that went quiet is invisible in either copy,
+because each reads as a complete and correct implementation on its own.
+
+So that pair is held to **one set of cases rather than two suites written side
+by side**. The cases are data — `src/tests/backend/portable-token-cases.json` —
+and each carries the verdict both implementations owe it: the derived app tokens
+and workspace scopes, the line-level shapes for the regexes, the span
+arithmetic, the dedupe, and the symlink skip. This package's suite reads it as a
+sibling, which is the only reach the no-bare-import rule leaves it; the
+`tooling/repo-checks` suite reads the same file from the repo root and drives its
+own functions with it. The corpus lives here for that reason, not because the
+rule belongs here: the constrained side can reach nothing, so the data sits
+beside it and the unconstrained side does the reaching.
+
+One consequence is worth writing down, because it is easy to leave out and
+silent when it is missing. A file outside the reading package is invisible to the
+task graph that decides which suites re-run, so a case added here would leave the
+other suite cached and green while it disagreed. The corpus is therefore named in
+the root `turbo.json` as a global dependency: editing it re-runs everything,
+which is the honest price of one file two packages are held to.
 
 ## How it is held
 
 - `src/tests/backend/bootstrap.test.ts` asserts every runtime file in this
   package imports only `node:` builtins and its own siblings — the four
-  hand-copied ones and the two that arrive with the first sync, since all six
-  share the same libs. That is the tripwire for the one-line removal above.
+  hand-copied ones and the three that arrive with the first sync, since all
+  seven share the same libs. That is the tripwire for the one-line removal
+  above, and the list is why both duplications above are forced rather than
+  only the first.
 - The sibling suites run the real commands from a sandbox with nothing
   installed, so the constraint is exercised end to end rather than only
   asserted.

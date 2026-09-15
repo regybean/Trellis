@@ -26,10 +26,10 @@ paths. The consumer-facing guide is [docs/bank.md](../../docs/bank.md).
 
 **This package is plain `.mjs` on `node:` builtins, with no build step and no
 runtime dependencies.** It runs hand-copied into a repo that has installed
-nothing, which is why it keeps its own copy of the workspace-graph helpers
-rather than importing the shared kernel — see
+nothing, which is why it keeps its own copies of the workspace-graph helpers and
+of the portable-token rule rather than importing the shared ones — see
 [ADR 0001](docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md) before
-removing that duplication.
+removing either duplication, and for which of the two may drift.
 
 The root delegates every command here with `pnpm -C tooling/bank`, so
 `tooling/bank` rides the always-included `delegated-tooling` bundle in
