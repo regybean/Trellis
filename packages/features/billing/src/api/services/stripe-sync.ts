@@ -7,8 +7,8 @@ import {
 } from '@acme/subscriptions';
 import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 
-import type { STRIPE_SUB_CACHE } from '../api/services/stripe-client';
-import { getStripe, localstripeMode } from '../api/services/stripe-client';
+import type { STRIPE_SUB_CACHE } from './stripe-client';
+import { getStripe, localstripeMode } from './stripe-client';
 import { buildSubscriptionCache } from './subscription-cache';
 
 /**

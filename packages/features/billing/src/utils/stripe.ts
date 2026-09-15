@@ -23,7 +23,7 @@ export {
   findOrCreateCustomer,
   getProductWithPrice,
 } from './stripe-checkout';
-export { syncStripeDataToKV } from './stripe-sync';
+export { syncStripeDataToKV } from '../api/services/stripe-sync';
 export {
   allowedEvents,
   processEvent,

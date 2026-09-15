@@ -7,7 +7,7 @@ import {
 } from '@acme/subscriptions';
 
 import { getStripe } from '../../../../api/services/stripe-client';
-import { syncStripeDataToKV } from '../../../../utils/stripe-sync';
+import { syncStripeDataToKV } from '../../../../api/services/stripe-sync';
 
 // Use the real @acme/subscriptions module (real Redis writes), overriding the
 // global mock that setup.ts installs for the API suite. The service contract is

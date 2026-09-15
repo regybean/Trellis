@@ -1,6 +1,6 @@
 import type Stripe from 'stripe';
 
-import { syncStripeDataToKV } from './stripe-sync';
+import { syncStripeDataToKV } from '../api/services/stripe-sync';
 
 // Events I Track - for webhook processing
 export const allowedEvents = new Set<Stripe.Event.Type>([

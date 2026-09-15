@@ -6,8 +6,8 @@ import { setSpanAttributes } from '@acme/telemetry/server';
 
 import type { STRIPE_SUB_CACHE } from '../api/services/stripe-client';
 import { getStripe, localstripeMode } from '../api/services/stripe-client';
+import { syncStripeDataToKV } from '../api/services/stripe-sync';
 import { billingError, BillingErrorCode } from './stripe-errors';
-import { syncStripeDataToKV } from './stripe-sync';
 
 /**
  * Resolve (or create) the Stripe customer for a user, without the active-
