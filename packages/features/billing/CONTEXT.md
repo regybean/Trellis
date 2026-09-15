@@ -36,6 +36,16 @@ _Avoid_: "dashboard", "account page"
 The single signal for "are we talking to localstripe rather than real Stripe?" — `localstripeMode`, derived once on the server from the `STRIPE_CONNECTION` union in `src/env.ts` and threaded to the browser through `BillingConfigProvider`. `true` when the SDK is pointed at the fake stateful Stripe server, which serves the legacy `plan` shape and has no Checkout or Billing-portal API.
 _Avoid_: "dev mode", proxying the condition through `NODE_ENV`
 
+**`localstripeContainer`** (`@acme/billing/testing`):
+The localstripe test container this slice owns, declared the way `@acme/db` and
+`@acme/redis` declare theirs — so the backend suite provisions its own Stripe
+server and `pnpm turbo run test -F @acme/billing` needs a container runtime and
+nothing else. Readiness is an HTTP wait, not a log one: localstripe writes no
+startup line. It ships beside `seedLocalstripePlans`, the products-and-plans
+seed shared with `pnpm infra:up`.
+_Avoid_: "the Stripe mock" (it is a real server), "the compose localstripe"
+(that is dev's, on a fixed port)
+
 ## Relationships
 
 - A **Subscription** is associated with a Stripe customer (looked up via `stripe:user:{userId}` Redis key)

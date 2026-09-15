@@ -9,13 +9,20 @@
  * Run via `pnpm --filter @acme/billing seed:localstripe` (wired into infra:up).
  * No-ops when the Stripe connection config resolves to `real` Stripe.
  *
+ * The products and plans themselves come from `seedLocalstripePlans`
+ * (`src/testing.ts`), shared with the backend suite that seeds its own
+ * throwaway container — so the plan table has one definition. What stays here
+ * is what only a dev stack has: the env-derived connection, and a webhook
+ * pointing at a running app.
+ *
  * Note: localstripe predates Stripe's Prices API — it models the legacy Plans
  * API. We seed Products + Plans (not Prices); the app reads the deprecated
  * `plan` shape via buildSubscriptionCache. See docs/adr/0003.
  */
 import Stripe from 'stripe';
 
-import { env } from '../src/env';
+import { env, toPlanIds } from '../src/env';
+import { seedLocalstripePlans } from '../src/testing';
 
 // The Stripe connection is authored config: localstripe (dev) carries the
 // `apiBase`; real Stripe carries none and needs no seeding. Read off the
@@ -39,50 +46,6 @@ const stripe = new Stripe(
     protocol: isHttps ? 'https' : 'http',
   },
 );
-
-// Product IDs must match the env plan IDs — getSubscriptionType derives the
-// tier by comparing the subscription's product against these.
-const standardProduct =
-  process.env.NEXT_PUBLIC_STRIPE_STANDARD_PLAN_ID ?? 'prod_dev_standard';
-const proProduct = process.env.NEXT_PUBLIC_STRIPE_PRO_PLAN_ID ?? 'prod_dev_pro';
-
-// Amounts (pence) mirror the pricing-data.ts display: Standard £30, Pro £80.
-const plans = [
-  {
-    productId: standardProduct,
-    productName: 'Standard',
-    planId: 'price_dev_standard',
-    amount: 3000,
-  },
-  {
-    productId: proProduct,
-    productName: 'Pro',
-    planId: 'price_dev_pro',
-    amount: 8000,
-  },
-];
-
-async function ensureProduct(id: string, name: string) {
-  try {
-    return await stripe.products.retrieve(id);
-  } catch {
-    return await stripe.products.create({ id, name });
-  }
-}
-
-async function ensurePlan(id: string, product: string, amount: number) {
-  try {
-    return await stripe.plans.retrieve(id);
-  } catch {
-    return await stripe.plans.create({
-      id,
-      product,
-      amount,
-      currency: 'gbp',
-      interval: 'month',
-    });
-  }
-}
 
 async function registerWebhook() {
   // localstripe-only endpoint: it signs and delivers events to this URL using
@@ -110,9 +73,10 @@ async function registerWebhook() {
 async function main() {
   console.log(`Seeding localstripe at ${apiBase} …`);
 
-  for (const plan of plans) {
-    await ensureProduct(plan.productId, plan.productName);
-    await ensurePlan(plan.planId, plan.productId, plan.amount);
+  // The plan ids come from this slice's env through the one mapper, so the
+  // seeded products are the ones getSubscriptionType will compare against.
+  const seeded = await seedLocalstripePlans(stripe, toPlanIds(env));
+  for (const plan of seeded) {
     console.log(
       `  ${plan.productName}: ${plan.productId} / ${plan.planId} (${plan.amount} gbp)`,
     );

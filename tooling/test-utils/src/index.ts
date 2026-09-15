@@ -15,7 +15,7 @@
  */
 
 // Infra descriptor contract
-export type { InfraDescriptor, InfraBindMount } from './infra';
+export type { InfraDescriptor, InfraBindMount, InfraWait } from './infra';
 
 // Engine
 export type { InfraHandle, StartedInfra } from './containers';
