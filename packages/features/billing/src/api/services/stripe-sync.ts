@@ -10,6 +10,7 @@ import { setSpanAttributes, withSpan } from '@acme/telemetry/server';
 import type { STRIPE_SUB_CACHE } from './stripe-client';
 import { getStripe, localstripeMode } from './stripe-client';
 import { buildSubscriptionCache } from './subscription-cache';
+import { selectCurrentSubscription } from './subscription-selection';
 
 /**
  * Read the customer's current subscription from Stripe and mirror it into the
@@ -23,9 +24,16 @@ export async function syncStripeDataToKV(
     'stripe.syncStripeDataToKV',
     async () => {
       const stripe = getStripe();
+      // Every subscription, not the first one: a customer can hold several
+      // (a tier change cancels the predecessor before creating the
+      // replacement), and which of them is "current" is a decision
+      // `selectCurrentSubscription` makes on status and recency rather than
+      // one the two servers' list ordering makes for us. 100 is Stripe's page
+      // maximum; a customer with more than that has a data problem, not a
+      // pagination one.
       const subscriptions = await stripe.subscriptions.list({
         customer: customerId,
-        limit: 1,
+        limit: 100,
         status: 'all',
         // localstripe has no `price` on items and no `default_payment_method` on
         // subscriptions, and 400s on expand paths it can't resolve. Skip expands
@@ -35,7 +43,9 @@ export async function syncStripeDataToKV(
           : ['data.default_payment_method', 'data.items.data.price'],
       });
 
-      if (subscriptions.data.length === 0 || !subscriptions.data[0]) {
+      const subscription = selectCurrentSubscription(subscriptions.data);
+
+      if (!subscription) {
         const none = { status: 'none' } as const;
         await setSubscriptionCache(customerId, none);
         setSpanAttributes({
@@ -45,7 +55,6 @@ export async function syncStripeDataToKV(
         return none;
       }
 
-      const subscription = subscriptions.data[0];
       const candidate = buildSubscriptionCache(subscription);
 
       const validated = SubscriptionCacheSchema.safeParse(candidate);
