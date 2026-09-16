@@ -14,13 +14,17 @@
  * leave the orphaned-chunk state that ordering exists to avoid.
  */
 
-import { eq, inArray, sql } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 
 import { createDb } from '@acme/db';
 
 import { env } from '../../../env';
 import { dataSource } from '../../../schemas/data-source-schema';
-import { documents } from '../../../schemas/documents-schema';
+import {
+  documents,
+  metadataField,
+  SCOPE_KEYS,
+} from '../../../schemas/documents-schema';
 import { ensureVectorIndex } from '../../../vector';
 
 const db = createDb();
@@ -41,7 +45,7 @@ export async function cleanupDataSources(ownerIds: string[]) {
 
   await vdb
     .delete(documents)
-    .where(inArray(sql`(${documents.metadata} ->> 'owner_id')`, ownerIds));
+    .where(inArray(metadataField(SCOPE_KEYS.owner_id), ownerIds));
 
   for (const ownerId of ownerIds) {
     await db.delete(dataSource).where(eq(dataSource.ownerId, ownerId));
