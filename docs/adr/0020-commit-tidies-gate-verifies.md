@@ -56,8 +56,8 @@ force a re-run to find the log:
   agent reads one file and sees exactly what failed. The stage table and the
   scheduling over it are `@acme/quality-gate` at `tooling/quality-gate`, where
   they are typechecked, linted and tested like anything else the gate verifies;
-  `scripts/quality-gate.sh` is the entry point a human types and decides
-  nothing.
+  the root `quality-gate` script is a `pnpm --filter` delegation into it and
+  decides nothing.
 - Turbo `lint` / `typecheck` / `build` / `test` tasks set
   `"outputLogs": "errors-only"` — successful tasks stay silent, so any terminal
   run surfaces only the failing task.

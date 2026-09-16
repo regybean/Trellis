@@ -37,5 +37,5 @@ On failure, read that file for the failing stage, fix (or re-`tidy`), and re-run
 
 Which stages there are, what follows what, and every line of that summary live
 in `@acme/quality-gate` (`tooling/quality-gate`) — add or reorder a stage there,
-in the table, not in `scripts/quality-gate.sh`, which is one `exec` line into
-the package.
+in the table. The root `quality-gate` script is one `pnpm --filter` delegation
+into the package and holds no stage of its own.

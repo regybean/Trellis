@@ -15,7 +15,7 @@ an unfixable advisory lands.
   Threshold `high` matches the existing `dependency-review` action and
   `--audit-level=high`, giving one consistent severity line. Moderate/low are
   out of scope — they don't surface at `--audit-level=high`.
-- **Same gate locally.** Add an `audit` stage to `scripts/quality-gate.sh` and
+- **Same gate locally.** Add an `audit` stage to `@acme/quality-gate` and
   an `"audit"` script, so the gate is caught before PR, not only in CI. The
   stage **graceful-degrades on network failure** (skips with a warning, like
   `gitleaks` when absent) — offline must never block local PR prep. A registry

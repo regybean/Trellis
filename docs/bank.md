@@ -79,7 +79,7 @@ are the tooling contract for `scripts/`, which arrives in the same `commands`
 bundle, and for `tooling/bank`, which arrives with the `delegated-tooling`
 bundle beside it — the script entries that invoke those files, and the
 devDependencies they run on. Take
-`scripts/quality-gate.sh` without the manifest and you have a script with no
+`scripts/dev.sh` without the manifest and you have a script with no
 `turbo` installed and no `postinstall` to register the skills. See
 [Bringing your own root manifest](#bringing-your-own-root-manifest) if your repo
 already has one.
