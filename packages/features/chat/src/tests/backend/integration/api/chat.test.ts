@@ -12,9 +12,14 @@
  * back through the memory API rather than a chat-owned table.
  */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { memory } from '@acme/rag';
+import {
+  createDataSource,
+  deleteDataSource,
+  listDataSources,
+} from '@acme/rag/server';
 import { redis } from '@acme/redis';
 
 import type { TestContextOptions } from '../../utils/test-context';
@@ -57,6 +62,14 @@ const baseCredits = {
   limit: 100,
   resetAt: Date.now() + 86_400_000,
 };
+
+// The enqueued job's payload — what the Generation worker will actually act on.
+async function jobPayload(conversationId: string, turnId: string) {
+  const job = await _generationQueue.getJob(
+    generationJobId(conversationId, turnId),
+  );
+  return job?.data;
+}
 
 describe('chatRouter', () => {
   beforeEach(async () => {
@@ -949,6 +962,149 @@ describe('chatRouter', () => {
       ).rejects.toMatchObject({ code: 'INTERNAL_SERVER_ERROR' });
 
       expect(await redis.get(chatInflightKey(conversationId))).toBeNull();
+    });
+
+    // ========================================================================
+    // SOURCE SELECTION
+    //
+    // What `send` can prove about the privacy boundary is *rejection*, never
+    // *exclusion*: `chatAgent.stream` is stubbed for every test in this suite,
+    // so no Turn here ever retrieves. Exclusion is proven below the router, in
+    // rag's `retrieval-scope` test and chat's `retrieval-tool-scope` test.
+    // What belongs here is the wire contract — which ids survive validation,
+    // and what lands in the job payload the worker will act on.
+    // ========================================================================
+    describe('data source selection', () => {
+      const sourceOwners: string[] = [];
+
+      // Owner-scoped teardown, not wholesale: the shared `cleanupTestData`
+      // deliberately leaves `data_source` alone, because a sibling suite file
+      // seeds a corpus in `beforeAll` that an `afterEach` truncation would
+      // pull out from under it.
+      afterEach(async () => {
+        for (const ownerId of sourceOwners.splice(0)) {
+          for (const source of await listDataSources({ ownerId })) {
+            await deleteDataSource({ ownerId, id: source.id });
+          }
+        }
+      });
+
+      async function seedSource(ownerId: string, name: string) {
+        sourceOwners.push(ownerId);
+        const source = await createDataSource({
+          ownerId,
+          id: crypto.randomUUID(),
+          name,
+        });
+        return source.id;
+      }
+
+      it('drops unowned and unknown ids, carrying only the validated set', async () => {
+        const userId = createTestUserId();
+        const otherUserId = createTestUserId();
+        const conversationId = createTestSessionId();
+        const turnId = crypto.randomUUID();
+
+        const mine = await seedSource(userId, 'Mine');
+        const theirs = await seedSource(otherUserId, 'Theirs');
+        const neverExisted = crypto.randomUUID();
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        // No FORBIDDEN: a hard-deleted row and a never-owned one are
+        // indistinguishable, so rejecting would make ordinary staleness cost
+        // the user their message. Dropping can only narrow scope.
+        const result = await caller.chat.send({
+          query: 'Hello there',
+          conversationId,
+          turnId,
+          dataSourceIds: [mine, theirs, neverExisted],
+        });
+
+        expect(result).toEqual({ status: 'accepted', turnId });
+
+        const payload = await jobPayload(conversationId, turnId);
+        expect(payload?.dataSourceIds).toEqual([mine]);
+      });
+
+      it('proceeds with an empty scope when every id is dropped', async () => {
+        // An empty scope is reachable by staleness, not only by choice — this
+        // is that path. The Turn must still run and answer ungrounded rather
+        // than fail.
+        const userId = createTestUserId();
+        const conversationId = createTestSessionId();
+        const turnId = crypto.randomUUID();
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        const result = await caller.chat.send({
+          query: 'Hello there',
+          conversationId,
+          turnId,
+          dataSourceIds: [crypto.randomUUID(), crypto.randomUUID()],
+        });
+
+        expect(result).toEqual({ status: 'accepted', turnId });
+
+        const payload = await jobPayload(conversationId, turnId);
+        expect(payload?.dataSourceIds).toEqual([]);
+      });
+
+      it('carries every id when the caller owns them all', async () => {
+        const userId = createTestUserId();
+        const conversationId = createTestSessionId();
+        const turnId = crypto.randomUUID();
+
+        const first = await seedSource(userId, 'Work');
+        const second = await seedSource(userId, 'Personal');
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await caller.chat.send({
+          query: 'Hello there',
+          conversationId,
+          turnId,
+          dataSourceIds: [first, second],
+        });
+
+        const payload = await jobPayload(conversationId, turnId);
+        expect(payload?.dataSourceIds).toEqual([first, second]);
+      });
+
+      it('defaults to an unscoped Turn when the caller sends no selection', async () => {
+        // The empty set is the default and a valid choice, so a caller with no
+        // picker is an unscoped Turn rather than a validation error.
+        const userId = createTestUserId();
+        const conversationId = createTestSessionId();
+        const turnId = crypto.randomUUID();
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        await caller.chat.send({ query: 'Hello', conversationId, turnId });
+
+        const payload = await jobPayload(conversationId, turnId);
+        expect(payload?.dataSourceIds).toEqual([]);
+      });
     });
   });
 

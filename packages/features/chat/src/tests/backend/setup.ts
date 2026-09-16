@@ -12,6 +12,7 @@
 import { MockEmbeddingModelV3 } from 'ai/test';
 import { afterEach, beforeEach, vi } from 'vitest';
 
+import type * as AcmeModels from '@acme/models';
 import { EMBED_DIMENSIONS } from '@acme/rag/schema';
 
 import { chatAgent } from '../../api/services/chat-agent';
@@ -35,7 +36,7 @@ vi.mock('server-only', () => ({}));
 // can decide what comes back, and the privacy claim never rests on relevance
 // ranking being stable.
 vi.mock('@acme/models', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@acme/models')>()),
+  ...(await importOriginal<typeof AcmeModels>()),
   embedModel: new MockEmbeddingModelV3({
     doEmbed: ({ values }: { values: string[] }) =>
       Promise.resolve({

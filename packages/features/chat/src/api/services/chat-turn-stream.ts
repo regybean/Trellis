@@ -44,8 +44,10 @@ export interface ScopedTurn {
   /**
    * The Data Sources this Turn may retrieve from. Raw, not pre-validated:
    * `resolveRetrievalScope` re-asserts ownership itself, which is what closes
-   * the delete-while-in-flight case — a Source deleted between `chat.send` and
-   * this call is simply not in scope.
+   * the delete-while-in-flight case. A Source deleted between `chat.send` and
+   * this call makes that assert THROW, so the Turn settles on its `error`
+   * terminal and the credit is refunded — loud, and nothing is retrieved from
+   * a Source that no longer exists.
    */
   dataSourceIds: string[];
 }
@@ -77,11 +79,13 @@ export async function streamScopedTurn({
     // `[]` yields zero tools; it does not degrade into "all tools" the way an
     // empty filter degrades into "no filtering".
     //
-    // `hasSources` comes from rag's validated scope and must NOT be recomputed
-    // from `dataSourceIds` here. A Source deleted since `chat.send` is dropped
-    // by the re-assert, so the raw array can be non-empty while the validated
-    // scope is empty — counting the raw input would attach the tool to a Turn
-    // that can retrieve nothing.
+    // `hasSources` comes from rag's validated scope and is deliberately not
+    // recomputed from `dataSourceIds` here. Today the two always agree, since
+    // rag throws on an id it cannot verify rather than dropping it — but
+    // whether there is anything to retrieve is rag's fact to state, not chat's
+    // to infer. If rag ever narrows instead of throwing, this line is already
+    // right; a local `dataSourceIds.length > 0` would silently start attaching
+    // the tool to Turns that can retrieve nothing.
     //
     // Safe in both directions: a wrong `[]` means retrieval silently does not
     // happen (a degraded answer, fail-closed), a wrong `undefined` means a
