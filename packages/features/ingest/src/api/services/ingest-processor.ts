@@ -1,6 +1,7 @@
 import pLimit from 'p-limit';
 
 import type { Job } from '@acme/queue';
+import type { UploadScope } from '@acme/rag/server';
 import { logger } from '@acme/logger';
 import { DocumentParseError, uploadDoc } from '@acme/rag/server';
 
@@ -31,6 +32,7 @@ type ProgressWriter = ReturnType<typeof createIngestProgressWriter>;
 // record `failed`, then re-throw so the whole Job fails.
 async function processUpload(
   writer: ProgressWriter,
+  scope: UploadScope,
   upload: IngestJob['uploads'][number],
 ) {
   const { uploadId, filename, s3Key } = upload;
@@ -38,7 +40,7 @@ async function processUpload(
     const { buffer, contentType } = await downloadFileFromS3(s3Key);
     const file = new File([buffer], filename, { type: contentType });
 
-    await uploadDoc(file, {
+    await uploadDoc(file, scope, {
       onStage: (stage) => writer.stage(uploadId, filename, stage),
     });
 
@@ -61,12 +63,16 @@ async function processUpload(
 }
 
 async function runIngestJob(job: Job<IngestJob>) {
-  const { jobId, userId, uploads } = job.data;
-  const writer = createIngestProgressWriter(userId, jobId);
+  const { jobId, userId, dataSourceId, uploads } = job.data;
+  const writer = createIngestProgressWriter(userId, { jobId, dataSourceId });
+  // The destination, re-asserted by `uploadDoc` immediately before each upsert
+  // rather than once here: a Source deleted mid-Job must fail the uploads still
+  // to come, not just the ones that had not started when the Job was picked up.
+  const scope: UploadScope = { ownerId: userId, dataSourceId };
   const limit = pLimit(env.INGEST_CONCURRENCY);
 
   logger.info(
-    { jobId, userId, total: uploads.length },
+    { jobId, userId, dataSourceId, total: uploads.length },
     'ingest worker: starting',
   );
 
@@ -75,7 +81,7 @@ async function runIngestJob(job: Job<IngestJob>) {
   for (const u of uploads) await writer.queued(u.uploadId, u.filename);
 
   const results = await Promise.allSettled(
-    uploads.map((u) => limit(() => processUpload(writer, u))),
+    uploads.map((u) => limit(() => processUpload(writer, scope, u))),
   );
 
   // A rejected result is an INFRA failure. Fail the whole Job loud (throw →
