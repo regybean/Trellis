@@ -12,6 +12,7 @@ import {
   selectDataSourceSchema,
 } from './schemas/data-source-schema';
 import { documents } from './schemas/documents-schema';
+import { ensureVectorIndex } from './vector';
 
 /**
  * The Data Source module: every read and write of `data_source`, the ownership
@@ -315,6 +316,14 @@ export async function deleteDataSource({
   id: string;
 }) {
   await assertDataSourceOwned({ ownerId, dataSourceIds: [id] });
+
+  // Mastra creates `mastra_documents` lazily, and the app provisions it at boot
+  // — but a delete must not depend on either having happened. Deleting a Source
+  // in a process where nothing has been uploaded yet would otherwise fail on a
+  // missing relation, which is the one thing this function cannot do: the row
+  // would survive and the user would see the delete bounce. The guard is the
+  // same idempotent, memoised one `uploadDoc` uses.
+  await ensureVectorIndex();
 
   const deletedChunks = await vdb
     .delete(documents)
