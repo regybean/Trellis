@@ -12,5 +12,22 @@ runs:
         node-version-file: ".nvmrc"
         cache: "pnpm"
 
+    # An unset TURBO_API is the dangerous case, not a missing token: turbo falls
+    # back to its default apiUrl of https://vercel.com, so a misconfigured repo
+    # variable sends cache traffic to Vercel under a token Vercel never issued.
+    # That reads as "caching is broken somehow" rather than "a variable is unset".
+    - name: Verify turbo cache is configured
+      shell: bash
+      run: |
+        [ -n "${TURBO_API:-}" ] || {
+          echo "::error::TURBO_API is unset. Set the TURBO_API repository variable to the" \
+               "self-hosted cache endpoint, or turbo will fall back to https://vercel.com."
+          exit 1
+        }
+        [ -n "${TURBO_TOKEN:-}" ] || {
+          echo "::error::TURBO_TOKEN is unset. Set it as a repository secret."; exit 1
+        }
+        echo "turbo remote cache -> $TURBO_API"
+
     - shell: bash
       run: pnpm install --frozen-lockfile
