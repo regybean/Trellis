@@ -7,13 +7,18 @@
  * can be tested without the database, because in every case the database IS the
  * mechanism.
  *
- * What is NOT here: retrieval exclusion and the delete cascade's blast radius.
- * Both need stamped chunks, and stamping arrives with `uploadDoc`'s scope
- * argument in the next ticket. They land beside it, seeded through
- * `createDataSource` rather than a raw insert — a fixture with more power than
- * production can lie in both directions.
+ * The cascade's blast radius is here too, because a too-broad delete predicate
+ * is the mirror image of a too-broad retrieval filter and worse: this one is
+ * destructive and unrecoverable. The negative — that the siblings are untouched
+ * — is the point of those tests, not the happy path.
  *
- * Each test mints its own owner ids so nothing depends on suite ordering.
+ * What is NOT here: retrieval exclusion. That claim needs a fixture shaped
+ * around rag's identical-vector embed fake, and it lives in
+ * `retrieval-scope.test.ts` with the reasoning written out.
+ *
+ * Each test mints its own owner ids so nothing depends on suite ordering, and
+ * every Source is seeded through `createDataSource` rather than a raw insert —
+ * a fixture with more power than production can lie in both directions.
  */
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -28,7 +33,9 @@ import {
   renameDataSource,
   resolveRetrievalScope,
 } from '../../../../data-source';
+import { deleteByFilename, uploadDoc } from '../../../../document-uploader';
 import { env } from '../../../../env';
+import { chunksIn } from '../../utils/chunks';
 import { cleanupDataSources } from '../../utils/cleanup';
 
 // Seeding goes through the production create function, never a raw insert. A
@@ -36,6 +43,17 @@ import { cleanupDataSources } from '../../utils/cleanup';
 // a state that cannot occur, or failing on one that cannot either.
 function source(ownerId: string, name: string) {
   return createDataSource({ ownerId, id: crypto.randomUUID(), name });
+}
+
+// One short file per upload, so a Source's chunk count is just the number of
+// files put in it — no dependence on how the chunker splits text.
+async function upload(ownerId: string, dataSourceId: string) {
+  const fileName = `cascade-${crypto.randomUUID()}.txt`;
+  const file = new File([`Content of ${fileName} worth chunking.`], fileName, {
+    type: 'text/plain',
+  });
+  await uploadDoc(file, { ownerId, dataSourceId });
+  return fileName;
 }
 
 describe('data source module (integration)', () => {
@@ -301,16 +319,68 @@ describe('data source module (integration)', () => {
       expect(remaining.map((row) => row.id)).toEqual([keeper.id]);
     });
 
-    it('deletes cleanly when the Source has no chunks', async () => {
-      // The interrupted cross-database state: chunks gone, row surviving.
-      // Retrying has to finish the job rather than error, which is the whole
-      // reason chunks are deleted before the row.
+    it('deletes cleanly when the Source never held a chunk', async () => {
+      // Nothing has uploaded in this process, so `mastra_documents` may not
+      // exist yet. A delete must not depend on Mastra having lazily created it
+      // — the row would survive and the user would see the delete bounce.
       const ownerId = newOwner();
       const created = await source(ownerId, 'No chunks');
 
       await expect(
         deleteDataSource({ ownerId, id: created.id }),
       ).resolves.toMatchObject({ id: created.id, deletedChunkCount: 0 });
+    });
+  });
+
+  describe('the cascade', () => {
+    it("deletes the Source's chunks and leaves every sibling's alone", async () => {
+      // The blast radius. The chunk delete filters on the same metadata shape
+      // retrieval does, so getting it too broad destroys another Source's — or
+      // another user's — documents, unrecoverably.
+      const ownerA = newOwner();
+      const ownerB = newOwner();
+      const a1 = await source(ownerA, 'A1');
+      const a2 = await source(ownerA, 'A2');
+      const b1 = await source(ownerB, 'B1');
+
+      await upload(ownerA, a1.id);
+      await upload(ownerA, a1.id);
+      await upload(ownerA, a2.id);
+      await upload(ownerB, b1.id);
+
+      const a2Before = await chunksIn(a2.id);
+      const b1Before = await chunksIn(b1.id);
+      expect(await chunksIn(a1.id)).toHaveLength(2);
+      expect(a2Before).toHaveLength(1);
+      expect(b1Before).toHaveLength(1);
+
+      const result = await deleteDataSource({ ownerId: ownerA, id: a1.id });
+
+      expect(result.deletedChunkCount).toBe(2);
+      expect(await chunksIn(a1.id)).toEqual([]);
+      expect(await chunksIn(a2.id)).toEqual(a2Before);
+      expect(await chunksIn(b1.id)).toEqual(b1Before);
+    });
+
+    it('finishes an interrupted delete rather than erroring on it', async () => {
+      // The one interrupted cross-database state this ordering can produce:
+      // chunks gone, row surviving. Hitting delete again has to finish the job,
+      // which is the whole reason chunks go before the row. Reached here by
+      // deleting the chunks through their own production path, not by injecting
+      // a failure into a module we own.
+      const ownerId = newOwner();
+      const created = await source(ownerId, 'Half deleted');
+      const fileName = await upload(ownerId, created.id);
+
+      await deleteByFilename(fileName);
+      expect(await chunksIn(created.id)).toEqual([]);
+
+      await expect(
+        deleteDataSource({ ownerId, id: created.id }),
+      ).resolves.toMatchObject({ id: created.id, deletedChunkCount: 0 });
+
+      const remaining = await listDataSources({ ownerId });
+      expect(remaining).toEqual([]);
     });
   });
 });

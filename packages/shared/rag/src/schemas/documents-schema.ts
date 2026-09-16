@@ -83,8 +83,10 @@ export const documents = ragSchema.table(KNOWLEDGE_BASE_TABLE, {
 // rename is a compile error at every predicate rather than a query that quietly
 // matches nothing. `sql.raw` is safe here precisely because the argument is a
 // compile-time key name off that interface and can never be caller input.
-export const metadataField = (key: keyof DocumentMetadata) =>
-  sql<string>`(${documents.metadata} ->> ${sql.raw(`'${key}'`)})`;
+export const metadataField = (key: keyof DocumentMetadata) => {
+  const quotedKey = `'${key}'`;
+  return sql<string>`(${documents.metadata} ->> ${sql.raw(quotedKey)})`;
+};
 
 // The `metadata` column's shape, hand-written because drizzle-zod only knows it
 // as `jsonb`. It is the third place the two scope keys are spelled, so it takes
