@@ -1,9 +1,16 @@
 import { z } from 'zod/v4';
 
-// Request presigned upload URLs for a set of files. The server mints the `jobId`
-// and per-file `uploadId` in the response — the client sends only filename +
-// content-type.
+// Request presigned upload URLs for a set of files, all landing in ONE Data
+// Source. The server mints the `jobId` and per-file `uploadId` in the response —
+// the client sends only the destination, filename and content-type.
+//
+// `dataSourceId` is mandatory and has no default. There is no implicit Data
+// Source: the first upload forces an explicit create (inline in the dialog,
+// with a client-minted id), because an auto-created "My Documents" lets a user
+// go their whole life never naming a Source, leaving the partition on paper
+// only.
 export const getPresignedUrlsSchema = z.object({
+  dataSourceId: z.uuid(),
   files: z
     .array(
       z.object({
@@ -16,11 +23,13 @@ export const getPresignedUrlsSchema = z.object({
 export type GetPresignedUrlsInput = z.infer<typeof getPresignedUrlsSchema>;
 
 // Start the async ingest Job for a batch already uploaded to S3. The client
-// echoes back the server-minted ids + `s3Key` from the presign response (trusted:
-// admin-only). The router validates non-empty + a cheap `jobId`-prefix guard on
-// each `s3Key` (no HEAD), then enqueues one BullMQ job.
+// echoes back the server-minted ids + `s3Key` from the presign response, plus
+// the destination Source. The router validates non-empty, asserts the
+// destination is the caller's, and applies a cheap `jobId`-prefix guard on each
+// `s3Key` (no HEAD), then enqueues one BullMQ job.
 export const startIngestJobSchema = z.object({
   jobId: z.string().min(1),
+  dataSourceId: z.uuid(),
   uploads: z
     .array(
       z.object({
@@ -45,7 +54,19 @@ export const progressReaderSchema = z.object({
 });
 export type ProgressReaderInput = z.infer<typeof progressReaderSchema>;
 
+// List the caller's Documents, optionally narrowed to one Data Source. Absent
+// `dataSourceId` is the `All documents` roll-up — every Source the caller owns,
+// never a global read.
+export const listDocumentsSchema = z.object({
+  dataSourceId: z.uuid().optional(),
+});
+export type ListDocumentsInput = z.infer<typeof listDocumentsSchema>;
+
+// Delete one Document. The Source is part of the input because it is part of
+// Document identity now: the same filename in two Sources is two Documents, so
+// a bare filename would name both.
 export const deleteDocumentSchema = z.object({
+  dataSourceId: z.uuid(),
   filename: z.string().min(1),
 });
 export type DeleteDocumentInput = z.infer<typeof deleteDocumentSchema>;
