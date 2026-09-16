@@ -44,6 +44,17 @@ export const SendChatRequest = z.object({
   query: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long'),
   conversationId: z.uuid(),
   turnId: z.uuid(),
+  // The Source Selection for this Turn: the Data Sources the user ticked in the
+  // composer. Zero or more, and the empty set is the default and a valid,
+  // meaningful choice — it means retrieve nothing, so it must be expressible
+  // rather than merely absent. Defaulted so a caller that has no picker (and
+  // every existing one) sends an unscoped Turn rather than a validation error.
+  //
+  // This is the user's SELECTION, not the retrieval filter: the server derives
+  // the filter from the verified `userId` and never from anything on the wire.
+  // Ids are client-minted, which is safe only because the filter's first clause
+  // is `owner_id = <verified userId>`.
+  dataSourceIds: z.array(z.uuid()).default([]),
 });
 
 export const StopChatRequest = z.object({

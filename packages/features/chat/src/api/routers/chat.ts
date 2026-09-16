@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
+import { listDataSources } from '@acme/rag/server';
 import { HEAD_CURSOR } from '@acme/redis';
 
 import { env } from '../../env';
@@ -52,6 +53,43 @@ import { assertFolderOwned, foldersRouter } from './folders';
 
 // CREDITS_PER_TURN has one origin in env — the credit gate + consume read it
 // here; the Turn lifecycle's refund reads the same config value.
+
+/**
+ * Narrow a Turn's Source Selection to the Sources this caller actually owns.
+ *
+ * It DROPS the rest. It does not throw `FORBIDDEN`, and that is a decision, not
+ * laxity. Data Source rows are hard-deleted, so "was yours, now deleted" and
+ * "never was yours" are both simply absent and the server cannot tell them
+ * apart; one policy has to cover both. Rejecting would make ordinary staleness
+ * destructive — a ghost row in a panel the user has not refreshed would cost
+ * them their message — while dropping can only ever narrow scope, which is the
+ * fail-closed direction. Two costs swallowed: an attacker presenting a stolen
+ * Source id gets silence rather than a 403 (it retrieves nothing either way),
+ * and dropping *every* id synthesises an empty scope the user never chose, so
+ * an empty scope is reachable by staleness and not only by intent.
+ *
+ * The intersection is the ownership check: `listDataSources` is owner-scoped in
+ * rag, so anything not in it is not the caller's. One indexed read against a
+ * table capped at ten rows per user. `resolveRetrievalScope` re-asserts at use
+ * anyway — this pass exists so the per-Turn record and the job payload state
+ * what actually applied, not so the worker can trust them.
+ */
+async function validateSourceSelection(userId: string, selected: string[]) {
+  if (selected.length === 0) return [];
+
+  const ownedSources = await listDataSources({ ownerId: userId });
+  const owned = new Set(ownedSources.map((source) => source.id));
+  const validated = [...new Set(selected)].filter((id) => owned.has(id));
+
+  if (validated.length !== new Set(selected).size) {
+    logger.info(
+      { userId, requested: selected.length, validated: validated.length },
+      'chat.send: dropped unowned or unknown data sources',
+    );
+  }
+
+  return validated;
+}
 
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no
@@ -124,6 +162,11 @@ export const chatRouter = createTRPCRouter({
       // in the app. Every read below is off this snapshot.
       const { tier, credits } = await ctx.entitlements.resolve(userId);
 
+      const dataSourceIds = await validateSourceSelection(
+        userId,
+        input.dataSourceIds,
+      );
+
       try {
         const outcome = await beginTurn({
           conversationId,
@@ -131,6 +174,7 @@ export const chatRouter = createTRPCRouter({
           userId,
           tier,
           query,
+          dataSourceIds,
           conversationExists: ctx.conversation != null,
           consume: async () => {
             if (credits.remaining < env.CREDITS_PER_TURN) {

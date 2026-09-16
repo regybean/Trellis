@@ -4,7 +4,6 @@ import { logger } from '@acme/logger';
 
 import type { GenerationJob } from './chat-queue';
 import type { TurnTerminalKind } from './chat-turn-lifecycle';
-import { chatAgent } from './chat-agent';
 import { generateThreadTitle, persistAssistantMessage } from './chat-memory';
 import { createStreamWriter } from './chat-stream';
 import {
@@ -12,6 +11,7 @@ import {
   refundTurnCredits,
   settleTurn,
 } from './chat-turn-lifecycle';
+import { streamScopedTurn } from './chat-turn-stream';
 
 // The Stream's producer seam is the writer (chat-stream-writer.ts): it owns
 // every `xAdd`, the wire shape, and the safety TTL. The lock/abort TTLs and the
@@ -64,7 +64,8 @@ async function runGenerationTurn(
   entitlements: EntitlementsProvider,
   job: Job<GenerationJob>,
 ) {
-  const { conversationId, turnId, userId, tier, query } = job.data;
+  const { conversationId, turnId, userId, tier, query, dataSourceIds } =
+    job.data;
   const writer = createStreamWriter(conversationId);
   // The terminal this Turn settled on — the worker names it for `settleTurn` in
   // the `finally`. Defaults to `error` (the catch path); the success and abort
@@ -75,15 +76,16 @@ async function runGenerationTurn(
   logger.info({ conversationId, turnId }, 'generation worker: starting');
 
   try {
-    // readOnly: true — Mastra recalls context but does NOT auto-persist the
-    // user or assistant turn. We persist the assistant message explicitly on
-    // terminal so we control the messageId and persistence timing.
-    const result = await chatAgent.stream(query, {
-      memory: {
-        thread: conversationId,
-        resource: userId,
-        options: { readOnly: true },
-      },
+    // Retrieval is scoped to the Sources `chat.send` validated, and the wrapper
+    // re-asserts ownership over them before building anything — so a Source
+    // deleted since the send simply is not in scope. Streaming goes through
+    // `streamScopedTurn` and nowhere else; the direct `chatAgent.stream` call
+    // this replaced is now a lint error.
+    const result = await streamScopedTurn({
+      conversationId,
+      userId,
+      query,
+      dataSourceIds,
     });
 
     let accumulated = '';

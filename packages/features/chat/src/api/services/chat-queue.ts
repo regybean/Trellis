@@ -9,6 +9,18 @@ export interface GenerationJob {
   userId: string;
   tier: SubscriptionTier;
   query: string;
+  /**
+   * The Data Sources this Turn may retrieve from, as validated by `chat.send`
+   * against the caller's own Sources — unowned and unknown ids are already
+   * dropped. The worker does NOT read the selection off the thread: "per-Turn"
+   * means the scope is validated at every send and travels with the job.
+   *
+   * Still re-asserted at use, in `resolveRetrievalScope`. The two checks answer
+   * different questions: this one asked "are these yours?" at send time, the
+   * other asks "are these still yours?" when the Turn actually runs. A brand
+   * proving the first would not survive BullMQ's JSON boundary anyway.
+   */
+  dataSourceIds: string[];
 }
 
 // Singleton queue — module-private. enqueueGenerationTurn is the only call site
