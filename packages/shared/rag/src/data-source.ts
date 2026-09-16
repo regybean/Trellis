@@ -11,7 +11,11 @@ import {
   DataSourceName,
   selectDataSourceSchema,
 } from './schemas/data-source-schema';
-import { documents } from './schemas/documents-schema';
+import {
+  documents,
+  metadataField,
+  SCOPE_KEYS,
+} from './schemas/documents-schema';
 import { ensureVectorIndex } from './vector';
 
 /**
@@ -96,9 +100,12 @@ export class DataSourceQuotaError extends Error {
  * rechecked.
  */
 export const retrievalContextSchema = z.object({
+  // Keyed through `SCOPE_KEYS`, so the validator, the writer's stamp and the
+  // filter below cannot drift apart: renaming a metadata key is a compile error
+  // in all three rather than a silent total retrieval failure.
   filter: z.object({
-    owner_id: z.string().min(1),
-    data_source_id: z.object({ $in: z.array(z.uuid()) }),
+    [SCOPE_KEYS.owner_id]: z.string().min(1),
+    [SCOPE_KEYS.data_source_id]: z.object({ $in: z.array(z.uuid()) }),
   }),
   topK: z.number().int().positive(),
 });
@@ -129,7 +136,10 @@ function buildDataSourceFilter({
   ownerId,
   dataSourceIds,
 }: DataSourceScope): RetrievalContextValues['filter'] {
-  return { owner_id: ownerId, data_source_id: { $in: dataSourceIds } };
+  return {
+    [SCOPE_KEYS.owner_id]: ownerId,
+    [SCOPE_KEYS.data_source_id]: { $in: dataSourceIds },
+  };
 }
 
 /**
@@ -328,7 +338,10 @@ export async function deleteDataSource({
   const deletedChunks = await vdb
     .delete(documents)
     .where(
-      sql`(${documents.metadata} ->> 'owner_id') = ${ownerId} and (${documents.metadata} ->> 'data_source_id') = ${id}`,
+      and(
+        eq(metadataField(SCOPE_KEYS.owner_id), ownerId),
+        eq(metadataField(SCOPE_KEYS.data_source_id), id),
+      ),
     )
     .returning({ id: documents.id });
 

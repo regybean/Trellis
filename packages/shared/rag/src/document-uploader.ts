@@ -8,17 +8,44 @@ import { logger } from '@acme/logger';
 import { embedModel, embedProviderOptions } from '@acme/models';
 
 import type { DocumentMetadata } from './schemas/documents-schema';
+import { assertDataSourceOwned } from './data-source';
 import { env } from './env';
 import { extractText } from './parsing';
-import { documents } from './schemas/documents-schema';
+import { documents, SCOPE_KEYS } from './schemas/documents-schema';
 import { ensureVectorIndex, indexName, pgVector } from './vector';
 
 const TEXT_NODE_NAMESPACE = '3b241101-e2bb-4255-8caf-4136c566a962';
 
-// Deterministic chunk id: identical content from the same file always maps to
-// the same vector_id, so re-uploads update in place instead of duplicating.
-export function deriveChunkId(text: string, fileName: string) {
-  return uuidv5(`${text.trim()}-${fileName}`, TEXT_NODE_NAMESPACE);
+/**
+ * Where one upload is going: the verified owner and the single Data Source it
+ * lands in. One Source per upload, because a chunk belongs to exactly one.
+ *
+ * Deliberately NOT `DataSourceScope` (the plural, retrieval-side shape). Reading
+ * over a set of Sources is the normal case; writing into a set of them is not a
+ * thing, and one type covering both would make `dataSourceIds: [a, b]` a
+ * type-legal write with no meaning.
+ */
+export interface UploadScope {
+  ownerId: string;
+  dataSourceId: string;
+}
+
+// Deterministic chunk id. Document identity is (owner_id, data_source_id,
+// file_name), so the scope is part of the key: identical content from the same
+// file in the same Source always maps to the same vector_id and a re-upload
+// updates in place, while the same file uploaded to a second Source derives a
+// second id and embeds again. That is the intended reading of "the same file in
+// two Sources is two Documents", and it is also the line of code that forces
+// the reindex — every id derived before the partition existed is now wrong.
+export function deriveChunkId(
+  text: string,
+  fileName: string,
+  { ownerId, dataSourceId }: UploadScope,
+) {
+  return uuidv5(
+    `${ownerId}-${dataSourceId}-${fileName}-${text.trim()}`,
+    TEXT_NODE_NAMESPACE,
+  );
 }
 
 // The empty/unparseable case, tagged so a caller can classify it as a *content*
@@ -54,6 +81,7 @@ interface ParsedDocument {
   file: File;
   uploadTimestamp: number;
   chunks: { text: string }[];
+  scope: UploadScope;
 }
 
 // Collapse one file's chunks to one row per deterministic id: repeated content —
@@ -64,16 +92,22 @@ export function dedupeChunks({
   file,
   uploadTimestamp,
   chunks,
+  scope,
 }: ParsedDocument) {
   const byId = new Map<string, DocumentMetadata>();
   for (const chunk of chunks) {
-    const id = deriveChunkId(chunk.text, file.name);
+    const id = deriveChunkId(chunk.text, file.name, scope);
     byId.set(id, {
       text: chunk.text,
       file_name: file.name,
       upload_timestamp: uploadTimestamp,
       chunk_size: env.CHUNK_SIZE,
       parser: 'officeparser',
+      // The stamp. Keyed through `SCOPE_KEYS` rather than spelled inline so a
+      // rename of either metadata key breaks here as loudly as it breaks the
+      // filter that reads them back.
+      [SCOPE_KEYS.owner_id]: scope.ownerId,
+      [SCOPE_KEYS.data_source_id]: scope.dataSourceId,
     });
   }
   return { ids: [...byId.keys()], metadata: [...byId.values()] };
@@ -93,13 +127,25 @@ export interface DocumentFilenameSummary {
 /**
  * Parse, chunk, embed and index ONE file into the knowledge base, reporting its
  * `parsing` / `embedding` transitions through the injected reporter. Idempotent by
- * construction: `dedupeChunks` derives each chunk's id from its content + filename,
- * so a re-upload upserts in place rather than duplicating (no skip-checkpoint).
- * Throws `DocumentParseError` when the file yields no parseable text; any other
- * failure (parse, embed, upsert) propagates raw.
+ * construction: `dedupeChunks` derives each chunk's id from its content + filename
+ * + destination scope, so a re-upload into the same Source upserts in place
+ * rather than duplicating (no skip-checkpoint). Throws `DocumentParseError` when
+ * the file yields no parseable text, `DataSourceOwnershipError` when the
+ * destination Source is not the caller's, and any other failure (parse, embed,
+ * upsert) propagates raw.
+ *
+ * `scope` is a POSITIONALLY REQUIRED argument rather than another key in the
+ * options bag. Everything in `UploadDocOptions` is optional and `uploadDoc(file)`
+ * was a legal call, so scope inside that bag would have inherited its
+ * optionality; split out, an unstamped upload fails to compile at every call
+ * site. What that buys is not leak prevention — an unstamped chunk has no
+ * `owner_id`, fails the filter's first clause and is retrievable by nobody. It
+ * prevents silent no-op uploads: files that embed successfully, cost money,
+ * appear nowhere and are deletable by nothing.
  */
 export async function uploadDoc(
   file: File,
+  scope: UploadScope,
   { onStage }: UploadDocOptions = {},
 ) {
   await ensureVectorIndex();
@@ -121,7 +167,12 @@ export async function uploadDoc(
     overlap: env.CHUNK_OVERLAP,
   });
 
-  const { ids, metadata } = dedupeChunks({ file, uploadTimestamp, chunks });
+  const { ids, metadata } = dedupeChunks({
+    file,
+    uploadTimestamp,
+    chunks,
+    scope,
+  });
 
   if (ids.length === 0) {
     logger.warn(
@@ -136,6 +187,20 @@ export async function uploadDoc(
     model: embedModel,
     values: metadata.map((m) => m.text),
     providerOptions: embedProviderOptions('document'),
+  });
+
+  // Re-assert ownership AFTER the embed and immediately before the upsert.
+  // Checking up front instead would save embedding spend on a Source that was
+  // already gone, but it would leave delete-during-embed wide open; checking
+  // here covers both, because an embed is the long part of an upload and the
+  // window it opens is the one that matters. A residual window survives, where
+  // a delete lands between this assert and the upsert below and orphans chunks
+  // — unreachable and fail-closed. Deliberately no sweeper job and no Source
+  // lock while a Job is in flight: that is real machinery bought for an
+  // invisible, harmless residue.
+  await assertDataSourceOwned({
+    ownerId: scope.ownerId,
+    dataSourceIds: [scope.dataSourceId],
   });
 
   logger.info(`[Chunked]: Indexing ${ids.length} chunk(s) for ${file.name}.`);

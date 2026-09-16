@@ -27,6 +27,7 @@ export type {
   RagUploadStage,
   StageReporter,
   UploadDocOptions,
+  UploadScope,
 } from './document-uploader';
 export { extractText } from './parsing';
 export { ensureVectorIndex } from './vector';
