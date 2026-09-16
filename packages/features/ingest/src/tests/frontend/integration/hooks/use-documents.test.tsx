@@ -16,7 +16,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+const DATA_SOURCE_ID = '11111111-1111-4111-8111-111111111111';
+
 const doc = (filename: string, count = 3, uploadTimestamp = 1) => ({
+  dataSourceId: DATA_SOURCE_ID,
+  dataSourceName: 'Work notes',
   filename,
   count,
   uploadTimestamp,
@@ -73,7 +77,7 @@ describe('useDocuments', () => {
       }),
       trpcMsw.documents.delete.mutation(() => ({
         deletedCount: 3,
-        filename: 'a.pdf',
+        fileName: 'a.pdf',
       })),
     );
 
@@ -81,13 +85,13 @@ describe('useDocuments', () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.documents).toHaveLength(1);
 
-    act(() => result.current.deleteDocument('a.pdf'));
+    act(() => result.current.deleteDocument(DATA_SOURCE_ID, 'a.pdf'));
 
     await waitFor(() => expect(result.current.documents).toHaveLength(0));
   });
 
   it('is deleting while the delete mutation is in-flight', async () => {
-    const deleteResponse = { deletedCount: 3, filename: 'a.pdf' };
+    const deleteResponse = { deletedCount: 3, fileName: 'a.pdf' };
     let resolveDelete!: (v: typeof deleteResponse) => void;
 
     server.use(
@@ -103,7 +107,7 @@ describe('useDocuments', () => {
     const { result } = renderUseDocuments();
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    act(() => result.current.deleteDocument('a.pdf'));
+    act(() => result.current.deleteDocument(DATA_SOURCE_ID, 'a.pdf'));
 
     await waitFor(() => expect(result.current.isDeleting).toBe(true));
 

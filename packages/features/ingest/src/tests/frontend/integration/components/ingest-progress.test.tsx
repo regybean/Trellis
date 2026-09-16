@@ -36,6 +36,7 @@ const file = (
 ): PerFileProgress => {
   const base = {
     jobId: over.jobId ?? 'job-1',
+    dataSourceId: '11111111-1111-4111-8111-111111111111',
     uploadId: over.uploadId ?? 'u1',
     filename: over.filename ?? 'doc.pdf',
   };

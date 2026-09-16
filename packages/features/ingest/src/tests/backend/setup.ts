@@ -54,8 +54,13 @@ const EMBED_DIMENSIONS = 768;
 // reason. The fix is the `@acme/models` devDependency in package.json: with the
 // symlink present both packages resolve to the same realpath, one module id,
 // one mock.
+// `titleModel` joined this list when the routers took up rag's
+// `./ownership-trpc` seam for the Data Source FORBIDDEN: that module imports
+// thread ownership, which imports `memory.ts`, which reads `titleModel` at
+// module scope. Ingest never names a thread — the export only has to exist.
 vi.mock('@acme/models', () => ({
   chatModel: {},
+  titleModel: {},
   embedModel: new MockEmbeddingModelV3({
     doEmbed: ({ values }: { values: string[] }) =>
       Promise.resolve({

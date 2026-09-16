@@ -42,6 +42,17 @@ async function assertOwned(ownerId: string, dataSourceId: string) {
   }
 }
 
+/**
+ * The quota rejection, in the caller's terms: what is left, not what the limit
+ * is. Naming the headroom is what lets the client trim its own batch on the
+ * retry instead of guessing.
+ */
+function capMessage(cap: number, headroom: number) {
+  if (headroom === 0) return `This data source is full (${cap} documents).`;
+  const plural = headroom === 1 ? '' : 's';
+  return `This data source has room for ${headroom} more document${plural}.`;
+}
+
 export const documentsRouter = createTRPCRouter({
   /**
    * The caller's Documents, optionally narrowed to one Data Source, each row
@@ -100,15 +111,9 @@ export const documentsRouter = createTRPCRouter({
       const cap = ragEnv.MAX_DOCUMENTS_PER_DATA_SOURCE;
       const existing = await countDocuments({ ownerId: userId, dataSourceId });
       if (existing + input.files.length > cap) {
-        const headroom = Math.max(cap - existing, 0);
         throw new TRPCError({
           code: 'TOO_MANY_REQUESTS',
-          message:
-            headroom === 0
-              ? `This data source is full (${cap} documents).`
-              : `This data source has room for ${headroom} more document${
-                  headroom === 1 ? '' : 's'
-                }.`,
+          message: capMessage(cap, Math.max(cap - existing, 0)),
         });
       }
 

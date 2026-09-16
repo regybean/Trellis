@@ -23,6 +23,8 @@ afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
 const doc = (filename: string, count: number, uploadTimestamp = 1) => ({
+  dataSourceId: '11111111-1111-4111-8111-111111111111',
+  dataSourceName: 'Work notes',
   filename,
   count,
   uploadTimestamp,
@@ -54,7 +56,7 @@ describe('DocumentsList', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders each document with its chunk count', async () => {
+  it('renders each document with its Data Source and chunk count', async () => {
     server.use(
       trpcMsw.documents.list.query(() => [doc('a.pdf', 3), doc('b.txt', 1, 2)]),
     );
@@ -62,9 +64,9 @@ describe('DocumentsList', () => {
     renderWithProviders(<DocumentsList />);
 
     expect(await screen.findByText('a.pdf')).toBeInTheDocument();
-    expect(screen.getByText('3 chunks')).toBeInTheDocument();
+    expect(screen.getByText('Work notes · 3 chunks')).toBeInTheDocument();
     expect(screen.getByText('b.txt')).toBeInTheDocument();
-    expect(screen.getByText('1 chunks')).toBeInTheDocument();
+    expect(screen.getByText('Work notes · 1 chunks')).toBeInTheDocument();
   });
 
   it('deletes a document: removes its row and toasts success', async () => {
@@ -78,7 +80,7 @@ describe('DocumentsList', () => {
       }),
       trpcMsw.documents.delete.mutation(() => ({
         deletedCount: 3,
-        filename: 'a.pdf',
+        fileName: 'a.pdf',
       })),
     );
 

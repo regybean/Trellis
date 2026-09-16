@@ -58,6 +58,13 @@ async function seedSource(opts: TestContextOptions, name: string) {
   return created;
 }
 
+// A batch of n distinct filenames, for the cap boundary.
+const batchOf = (n: number) =>
+  Array.from({ length: n }, (_, i) => ({
+    filename: `batch-${i}.txt`,
+    contentType: 'text/plain',
+  }));
+
 function txtFile(name: string) {
   return new File(['Indexable content worth chunking.'], name, {
     type: 'text/plain',
@@ -261,22 +268,16 @@ describe('documentsRouter', () => {
       vi.mocked(generatePresignedUploadUrl).mockImplementation((key) =>
         Promise.resolve(`https://s3.test/${key}`),
       );
-      const files = (n: number) =>
-        Array.from({ length: n }, (_, i) => ({
-          filename: `batch-${i}.txt`,
-          contentType: 'text/plain',
-        }));
-
       const exact = await createCaller(userA).documents.getPresignedUploadUrls({
         dataSourceId: source.id,
-        files: files(cap),
+        files: batchOf(cap),
       });
       expect(exact.uploads).toHaveLength(cap);
 
       await expect(
         createCaller(userA).documents.getPresignedUploadUrls({
           dataSourceId: source.id,
-          files: files(cap + 1),
+          files: batchOf(cap + 1),
         }),
       ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
     });
@@ -364,14 +365,14 @@ describe('documentsRouter', () => {
       });
       expect(result.deletedCount).toBeGreaterThan(0);
 
-      expect(
-        await createCaller(userA).documents.list({ dataSourceId: source.id }),
-      ).toEqual([]);
-      expect(
-        (
-          await createCaller(userA).documents.list({ dataSourceId: other.id })
-        ).map((d) => d.filename),
-      ).toEqual([filename]);
+      const inSource = await createCaller(userA).documents.list({
+        dataSourceId: source.id,
+      });
+      const inOther = await createCaller(userA).documents.list({
+        dataSourceId: other.id,
+      });
+      expect(inSource).toEqual([]);
+      expect(inOther.map((d) => d.filename)).toEqual([filename]);
     });
 
     it('reports zero deletions for a filename that was never indexed', async () => {
@@ -428,8 +429,7 @@ describe('dataSourcesRouter', () => {
       createCaller(userA).dataSources.delete({ id: bSource.id }),
     ).rejects.toMatchObject({ code: 'FORBIDDEN' });
 
-    expect(
-      (await createCaller(userB).dataSources.list()).map((s) => s.name),
-    ).toEqual(["B's untouchable"]);
+    const bSources = await createCaller(userB).dataSources.list();
+    expect(bSources.map((s) => s.name)).toEqual(["B's untouchable"]);
   });
 });
