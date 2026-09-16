@@ -5,16 +5,20 @@
  * - Test auth/validation ONCE since all procedures use the same middleware
  * - Focus on BUSINESS LOGIC with real Redis scenarios
  * - Test with "zero, one, many" pattern for data
- * - Use real Redis via testcontainers or docker-compose
- * - Mock only external services (Stripe, Otel)
+ * - Real Redis and a real Stripe server (localstripe) via testcontainers
+ * - Stub only the two hosted-page calls localstripe has no endpoint for
  */
 
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type * as StripeCheckout from '../../../../api/services/stripe-checkout';
 import type { TestContextOptions } from '../../utils/test-context';
 import { appRouter } from '../../../../api/root';
+import { getStripe } from '../../../../api/services/stripe-client';
+import { env, toPlanIds } from '../../../../env';
+import { seedLocalstripePlans } from '../../../../testing';
 import { BillingErrorCode } from '../../../../utils/stripe-errors';
 import {
   createTestSubscription,
@@ -23,11 +27,64 @@ import {
 } from '../../utils/fixtures';
 import { cleanupTestData, createTestContext } from '../../utils/test-context';
 
+// The only two Stripe calls in this slice localstripe cannot serve, stubbed
+// here rather than in the shared setup because this is the one file that
+// reaches them.
+//
+// Both build a Stripe-*hosted* page: `checkout.sessions.create` and
+// `billingPortal.sessions.create`. localstripe 1.15.10 answers 404 on
+// /v1/checkout/sessions and /v1/billing_portal/sessions, and
+// ../../../../../docs/adr/0001-localstripe-dev-billing.md decided that on
+// purpose — "Reproducing hosted Checkout / Billing Portal locally. localstripe
+// serves the API, not Stripe's hosted pages. Rebuilding them would be large and
+// divergent from production … Rejected." So there is nothing to cross the seam
+// to, and the stub stands in for Stripe's own page rather than for our code.
+//
+// Everything else in `stripe-checkout` — the product/price lookup, the customer
+// resolve, the active-subscription guard — is the real module, imported through
+// the factory and run against the container.
+vi.mock('../../../../api/services/stripe-checkout', async (importOriginal) => ({
+  ...(await importOriginal<typeof StripeCheckout>()),
+  createCheckoutSession: vi.fn().mockResolvedValue({
+    id: 'cs_12345',
+    url: 'https://checkout.stripe.com/test',
+    created: 1_234_567_890,
+  }),
+  createDashboardSession: vi.fn().mockResolvedValue({
+    billingPortalUrl: 'https://billing.stripe.com/test',
+  }),
+}));
+
+const planIds = toPlanIds(env);
+
 // Helper to create a tRPC caller with the given context options
 function createCaller(opts: TestContextOptions) {
   const ctx = createTestContext(opts);
   return appRouter.createCaller(ctx);
 }
+
+const adminCaller = () =>
+  createCaller({
+    userId: createTestUserId('admin'),
+    role: 'admin',
+    tier: 'Basic',
+    credits: { remaining: 250, limit: 250, resetAt: Date.now() },
+  });
+
+const subscriberCaller = (userId: string) =>
+  createCaller({
+    userId,
+    role: 'user',
+    tier: 'Basic',
+    credits: { remaining: 250, limit: 250, resetAt: Date.now() },
+  });
+
+// localstripe keeps products and plans in memory, so a fresh container has
+// none. Seeded once per file through the same function `pnpm infra:up` uses, so
+// the products the checkout path looks up are the ones the env names.
+beforeAll(async () => {
+  await seedLocalstripePlans(getStripe(), planIds);
+});
 
 describe('accountRouter', () => {
   beforeEach(async () => {
@@ -122,23 +179,88 @@ describe('accountRouter', () => {
   // BUSINESS LOGIC: createCheckoutSession
   // ==========================================================================
   describe('createCheckoutSession', () => {
-    it('creates checkout session for authenticated user with email', async () => {
+    it('opens a Stripe customer and resolves the product for a new subscriber', async () => {
       const userId = createTestUserId();
-      const caller = createCaller({
+
+      const result = await subscriberCaller(
         userId,
-        role: 'user',
-        tier: 'Basic',
-        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
-      });
+      ).account.createCheckoutSession({ productId: planIds.standardPlanId });
 
-      const result = await caller.account.createCheckoutSession({
-        productId: 'prod_12345',
-      });
+      // The customer is real — `findOrCreateCustomer` created it in the
+      // container, so the id is whatever Stripe assigned rather than a fixture.
+      expect(result.customerId).toMatch(/^cus_/);
+      expect(result.isReturningCustomer).toBe(false);
+      expect(
+        await getStripe().customers.retrieve(result.customerId),
+      ).toMatchObject({ id: result.customerId, metadata: { userId } });
 
+      // The session is the stub: the one hop that has no localstripe endpoint.
       expect(result).toMatchObject({
         sessionId: 'cs_12345',
         checkoutUrl: 'https://checkout.stripe.com/test',
-        customerId: 'cus_12345',
+      });
+    });
+
+    it('reuses the customer it already opened on a second checkout', async () => {
+      const userId = createTestUserId();
+      const caller = subscriberCaller(userId);
+
+      const first = await caller.account.createCheckoutSession({
+        productId: planIds.standardPlanId,
+      });
+      const second = await caller.account.createCheckoutSession({
+        productId: planIds.standardPlanId,
+      });
+
+      expect(second.customerId).toBe(first.customerId);
+      expect(second.isReturningCustomer).toBe(true);
+    });
+
+    // The legacy Plans fallback in `getProductWithPrice`: localstripe products
+    // carry no `default_price`, so the lookup has to fall through to
+    // `plans.list` or every checkout fails. See ADR 0001 decision 3.
+    it('resolves the price from the legacy plan when the product has no default_price', async () => {
+      const product = await getStripe().products.retrieve(planIds.proPlanId);
+      expect(product.default_price).toBeUndefined();
+
+      const result = await subscriberCaller(
+        createTestUserId(),
+      ).account.createCheckoutSession({ productId: planIds.proPlanId });
+
+      expect(result.sessionId).toBe('cs_12345');
+    });
+
+    it('rejects a product that does not exist in Stripe', async () => {
+      await expect(
+        subscriberCaller(createTestUserId()).account.createCheckoutSession({
+          productId: 'prod_not_seeded',
+        }),
+      ).rejects.toMatchObject({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: BillingErrorCode.StripeUnavailable,
+      });
+    });
+
+    // `validateNoActiveSubscription` only runs on the returning-customer
+    // branch, so the subscription has to be a real one: granted through
+    // `setUserTier`, which creates it in the container.
+    it('rejects a customer who already has an active subscription', async () => {
+      const userId = createTestUserId();
+
+      await adminCaller().account.setUserTier({
+        userId,
+        email: 'test@example.com',
+        tier: 'Pro',
+        productId: planIds.proPlanId,
+      });
+
+      await expect(
+        subscriberCaller(userId).account.createCheckoutSession({
+          productId: planIds.standardPlanId,
+        }),
+      ).rejects.toMatchObject({
+        code: 'BAD_REQUEST',
+        message: BillingErrorCode.ActiveSubscription,
       });
     });
   });
@@ -146,6 +268,10 @@ describe('accountRouter', () => {
   // ==========================================================================
   // BUSINESS LOGIC: createDashboardSession
   // ==========================================================================
+  // The portal URL itself is the stub — Stripe hosts that page and localstripe
+  // does not serve it (ADR 0001, as above). What is real here is the router's
+  // own contract: it refuses to open a portal for a user with no customer
+  // mapping, and passes the mapped customer through when there is one.
   describe('createDashboardSession', () => {
     it('creates billing portal session for user with Stripe customer', async () => {
       const userId = createTestUserId();
@@ -437,52 +563,11 @@ describe('accountRouter', () => {
     });
   });
 
-  // ==========================================================================
-  // ADMIN: setUserTier (localstripe dev)
-  // ==========================================================================
-  describe('setUserTier', () => {
-    it('sets a target user to a paid tier', async () => {
-      const targetUserId = createTestUserId('target');
-      const adminUserId = createTestUserId('admin');
-
-      const caller = createCaller({
-        userId: adminUserId,
-        role: 'admin',
-        tier: 'Basic',
-        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
-      });
-
-      const result = await caller.account.setUserTier({
-        userId: targetUserId,
-        email: 'target@example.com',
-        tier: 'Pro',
-      });
-
-      expect(result).toMatchObject({
-        userId: targetUserId,
-        tier: 'Pro',
-        status: 'active',
-        message: expect.stringContaining('Successfully set'),
-      });
-    });
-
-    it('rejects an invalid email', async () => {
-      const caller = createCaller({
-        userId: createTestUserId('admin'),
-        role: 'admin',
-        tier: 'Basic',
-        credits: { remaining: 250, limit: 250, resetAt: Date.now() },
-      });
-
-      await expect(
-        caller.account.setUserTier({
-          userId: createTestUserId('target'),
-          email: 'not-an-email',
-          tier: 'Standard',
-        }),
-      ).rejects.toMatchObject({ code: 'BAD_REQUEST' });
-    });
-  });
+  // `setUserTier` has no block here: it is driven against localstripe for real
+  // — grant, re-grant, downgrade and both input refusals — in
+  // ./set-user-tier.test.ts. What used to sit here asserted the same procedure
+  // against a `vi.fn().mockResolvedValue({ status: 'active' })`, which could
+  // only ever agree with itself.
 
   // ==========================================================================
   // SUBSCRIPTION FEATURES
