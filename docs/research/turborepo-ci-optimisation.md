@@ -163,7 +163,7 @@ PackageMapping::All(_) => {
 | `.github/workflows/ci.yml` + root `package.json`                             | 35       | 112                  |
 
 The last row only reaches 35 because turbo 2.7.5 still has root `package.json` in the trigger
-list. [PR #12469](https://github.com/vercel/turborepo/pull/12469) (merged 2026-03-27) removed it:
+list. [PR vercel/turborepo#12469](https://github.com/vercel/turborepo/pull/12469) (merged 2026-03-27) removed it:
 
 > Removes `package.json` from the hardcoded `DEFAULT_GLOBAL_DEPS` list that triggers
 > all-packages-affected. … Root `package.json` is not part of the global hash when a lockfile
@@ -176,12 +176,12 @@ changes, all tasks will miss cache.**"
 ([configuration#globaldependencies](https://turborepo.dev/docs/reference/configuration#globaldependencies)).
 
 Related fixes, all closed, all indicating `--affected` has been actively debugged:
-[#12900](https://github.com/vercel/turborepo/pull/12900) include lockfile-changed packages,
-[#12722](https://github.com/vercel/turborepo/pull/12722) respect SCM env vars in `query affected`,
-[#12543](https://github.com/vercel/turborepo/pull/12543) allow `--affected` + `--filter`,
-[#13790](https://github.com/vercel/turborepo/issues/13790) commandless tasks never reported
-affected, [#13885](https://github.com/vercel/turborepo/pull/13885) adds `--base`/`--head` flags,
-[#12650](https://github.com/vercel/turborepo/issues/12650) `affected` failing to resolve the main
+[vercel/turborepo#12900](https://github.com/vercel/turborepo/pull/12900) include lockfile-changed packages,
+[vercel/turborepo#12722](https://github.com/vercel/turborepo/pull/12722) respect SCM env vars in `query affected`,
+[vercel/turborepo#12543](https://github.com/vercel/turborepo/pull/12543) allow `--affected` + `--filter`,
+[vercel/turborepo#13790](https://github.com/vercel/turborepo/issues/13790) commandless tasks never reported
+affected, [vercel/turborepo#13885](https://github.com/vercel/turborepo/pull/13885) adds `--base`/`--head` flags,
+[vercel/turborepo#12650](https://github.com/vercel/turborepo/issues/12650) `affected` failing to resolve the main
 branch in GitHub Actions. This repo is on **2.7.5**; latest is **2.10.13** (2026-09-14).
 
 ### 2.3 Official CI guidance
@@ -302,29 +302,29 @@ Spec: [turborepo.dev/api/remote-cache-spec](https://turborepo.dev/api/remote-cac
 3.0.3). Six endpoints; `GET /artifacts/{hash}`, `PUT`, `HEAD`, `GET /artifacts/status`,
 `POST /artifacts/events`, `POST /artifacts`.
 
-| Implementation                                                                                                                   | Status                                                                                                                                                                                                                     | Protocol coverage                                                                                                                                                             | Setup shape                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`rharkor/caching-for-turbo`](https://github.com/rharkor/caching-for-turbo)                                                      | **healthy** — v2.5.1 (2026-07-25), 211★, 1 real open issue, MIT                                                                                                                                                            | `PUT`/`GET`(+auto `HEAD`)/`status`; **no** `events`, **no** batch `POST` — turbo tolerates both                                                                               | one `uses:` step. Spawns a detached Fastify server, exports `TURBO_API=http://localhost:<port>`, `TURBO_TOKEN=turbogha`, `TURBO_TEAM=turbogha`. Backends: GitHub Actions cache (default) or S3/R2/MinIO.                                                                                                                                                        |
-| [`brunojppb/turbo-cache-server`](https://github.com/brunojppb/turbo-cache-server)                                                | **healthy** — 4.0.18 (2026-09-08), 220★, Rust/actix. Officially name-checked.                                                                                                                                              | **all six**, explicit `HEAD`                                                                                                                                                  | GitHub Action _or_ `ghcr.io` image. S3-compatible only (S3, R2, RustFS). Auth off unless `TURBO_TOKEN` set.                                                                                                                                                                                                                                                     |
-| [`ducktors/turborepo-remote-cache`](https://github.com/ducktors/turborepo-remote-cache)                                          | **healthy** — v2.12.3 (2026-09-02), 1 485★, 47 contributors. Officially name-checked.                                                                                                                                      | `GET`/`HEAD`/`PUT`/`status`/`events`; no batch `POST`                                                                                                                         | Docker / `npx` / Vercel / Lambda / Cloud Run. S3, GCS, Azure Blob, local. JWT or static auth, CDN read-redirect. Uploads buffered in memory (`BODY_LIMIT`, 100 MB default). **No GC** ([#433](https://github.com/ducktors/turborepo-remote-cache/issues/433) open). Needs `TURBO_REMOTE_CACHE_SIGNATURE_KEY` set _server-side_ for signed artifacts to persist. |
-| [`AdiRishi/turborepo-remote-cache-cloudflare`](https://github.com/AdiRishi/turborepo-remote-cache-cloudflare)                    | v4.0.0 (2026-01), 238★, last commit 2026-06. Lumpy cadence.                                                                                                                                                                | correct `x-artifact-tag` round-trip; `GET`/`HEAD` via Hono                                                                                                                    | `wrangler deploy` + R2 bucket. Cron-based expiry built in (`BUCKET_OBJECT_EXPIRATION_HOURS: 720`).                                                                                                                                                                                                                                                              |
-| [`Tapico/tapico-turborepo-remote-cache`](https://github.com/Tapico/tapico-turborepo-remote-cache)                                | **dead** — last substantive merge 2022-02, last release v0.0.8 (2021-12). Not archived, still linked from turbo's docs.                                                                                                    | `GET`/`POST`/`PUT` only. **No `HEAD`, no `status`, no `events`.** HMAC signing [unimplemented since 2022](https://github.com/Tapico/tapico-turborepo-remote-cache/issues/21). | avoid                                                                                                                                                                                                                                                                                                                                                           |
-| `turbogha` = [`dtinth/setup-github-actions-caching-for-turbo`](https://github.com/dtinth/setup-github-actions-caching-for-turbo) | **dead, and says so**: "This action is no longer actively maintained, and there have been breaking changes to the underlying API that makes this action no longer work." Its README points at `rharkor/caching-for-turbo`. | —                                                                                                                                                                             | avoid                                                                                                                                                                                                                                                                                                                                                           |
+| Implementation                                                                                                                   | Status                                                                                                                                                                                                                     | Protocol coverage                                                                                                                                                             | Setup shape                                                                                                                                                                                                                                                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`rharkor/caching-for-turbo`](https://github.com/rharkor/caching-for-turbo)                                                      | **healthy** — v2.5.1 (2026-07-25), 211★, 1 real open issue, MIT                                                                                                                                                            | `PUT`/`GET`(+auto `HEAD`)/`status`; **no** `events`, **no** batch `POST` — turbo tolerates both                                                                               | one `uses:` step. Spawns a detached Fastify server, exports `TURBO_API=http://localhost:<port>`, `TURBO_TOKEN=turbogha`, `TURBO_TEAM=turbogha`. Backends: GitHub Actions cache (default) or S3/R2/MinIO.                                                                                                                                                                                       |
+| [`brunojppb/turbo-cache-server`](https://github.com/brunojppb/turbo-cache-server)                                                | **healthy** — 4.0.18 (2026-09-08), 220★, Rust/actix. Officially name-checked.                                                                                                                                              | **all six**, explicit `HEAD`                                                                                                                                                  | GitHub Action _or_ `ghcr.io` image. S3-compatible only (S3, R2, RustFS). Auth off unless `TURBO_TOKEN` set.                                                                                                                                                                                                                                                                                    |
+| [`ducktors/turborepo-remote-cache`](https://github.com/ducktors/turborepo-remote-cache)                                          | **healthy** — v2.12.3 (2026-09-02), 1 485★, 47 contributors. Officially name-checked.                                                                                                                                      | `GET`/`HEAD`/`PUT`/`status`/`events`; no batch `POST`                                                                                                                         | Docker / `npx` / Vercel / Lambda / Cloud Run. S3, GCS, Azure Blob, local. JWT or static auth, CDN read-redirect. Uploads buffered in memory (`BODY_LIMIT`, 100 MB default). **No GC** ([ducktors/turborepo-remote-cache#433](https://github.com/ducktors/turborepo-remote-cache/issues/433) open). Needs `TURBO_REMOTE_CACHE_SIGNATURE_KEY` set _server-side_ for signed artifacts to persist. |
+| [`AdiRishi/turborepo-remote-cache-cloudflare`](https://github.com/AdiRishi/turborepo-remote-cache-cloudflare)                    | v4.0.0 (2026-01), 238★, last commit 2026-06. Lumpy cadence.                                                                                                                                                                | correct `x-artifact-tag` round-trip; `GET`/`HEAD` via Hono                                                                                                                    | `wrangler deploy` + R2 bucket. Cron-based expiry built in (`BUCKET_OBJECT_EXPIRATION_HOURS: 720`).                                                                                                                                                                                                                                                                                             |
+| [`Tapico/tapico-turborepo-remote-cache`](https://github.com/Tapico/tapico-turborepo-remote-cache)                                | **dead** — last substantive merge 2022-02, last release v0.0.8 (2021-12). Not archived, still linked from turbo's docs.                                                                                                    | `GET`/`POST`/`PUT` only. **No `HEAD`, no `status`, no `events`.** HMAC signing [unimplemented since 2022](https://github.com/Tapico/tapico-turborepo-remote-cache/issues/21). | avoid                                                                                                                                                                                                                                                                                                                                                                                          |
+| `turbogha` = [`dtinth/setup-github-actions-caching-for-turbo`](https://github.com/dtinth/setup-github-actions-caching-for-turbo) | **dead, and says so**: "This action is no longer actively maintained, and there have been breaking changes to the underlying API that makes this action no longer work." Its README points at `rharkor/caching-for-turbo`. | —                                                                                                                                                                             | avoid                                                                                                                                                                                                                                                                                                                                                                                          |
 
 `rharkor/caching-for-turbo` detail, since it's the direct answer to the rate limit:
 
 ```yaml
 - uses: rharkor/caching-for-turbo@v2.5.1 # README examples still pin the stale v2.3.12
   with:
-    server-port: 0 # 0 = ephemeral; fixes EADDRINUSE on shared runners (#917)
-    use-relative-cache-path: true # needed for cross-OS cache reuse (#992)
+    server-port: 0 # 0 = ephemeral; fixes EADDRINUSE on shared runners (rharkor/caching-for-turbo#917)
+    use-relative-cache-path: true # needed for cross-OS cache reuse (rharkor/caching-for-turbo#992)
 - run: pnpm turbo run build lint typecheck test
 ```
 
 Caveats worth knowing before adopting: it inherits GitHub's cache scoping, so PRs warm from
 `main` but never from each other or back into `main`; the `github` provider cannot delete, so
 `max-age`/`max-size` are no-ops there and you live with the 10 GB LRU; signature keys were broken
-until v2.5.1 ([#1048](https://github.com/rharkor/caching-for-turbo/issues/1048) — empty
+until v2.5.1 ([rharkor/caching-for-turbo#1048](https://github.com/rharkor/caching-for-turbo/issues/1048) — empty
 `restoreKeys` plus `/` in base64 tags breaking temp filenames); and its env gate reads only the
 legacy `ACTIONS_CACHE_URL`, never `ACTIONS_RESULTS_URL`, so if a runner stops exporting the
 legacy var it silently degrades to a job-local filesystem cache while still logging "saved".
@@ -478,7 +478,7 @@ Broken:
 
 - **Missing `include-hidden-files: true`.** Per the action's README, "Hidden files are defined as
   any file beginning with `.` or files within folders beginning with `.`", and
-  [#614](https://github.com/actions/upload-artifact/issues/614) confirms explicit naming does not
+  [actions/upload-artifact#614](https://github.com/actions/upload-artifact/issues/614) confirms explicit naming does not
   override it. As written the artifact uploads empty, the downstream `download-artifact` succeeds
   with nothing, and the three jobs silently fall through to Vercel at the full request count. The
   `continue-on-error: true` on the download hides it. This would have looked like "the change
@@ -507,7 +507,7 @@ Right:
   so a PR cannot break an untouched app without that app entering scope. Verified in the docs
   and by the 3-package result for a `packages/features/billing` change.
 - Setting `TURBO_SCM_BASE` explicitly rather than relying on `GITHUB_BASE_REF` matches homarr and
-  midday, and sidesteps [#12650](https://github.com/vercel/turborepo/issues/12650).
+  midday, and sidesteps [vercel/turborepo#12650](https://github.com/vercel/turborepo/issues/12650).
 - `fetch-depth: 0` is required; without it "all packages will be considered changed" (docs, twice).
 - Restricting to `pull_request` so `main` keeps the cache populated is sound.
 - Not adding `AFFECTED_FLAG` to `globalEnv` is correct — it changes scope, not inputs, and
@@ -523,7 +523,7 @@ It does not. `DEFAULT_GLOBAL_DEPS` is `["turbo.json", "turbo.jsonc"]`, plus lock
 handled separately. Measured on this repo: a `scripts/*.sh`-only commit yields **0 packages,
 0 tasks**. The `turbo.json` → 35 observation the plan generalised from is the single special case.
 Worse, the 35 for root `package.json` disappears on upgrade past ~2.8
-([#12469](https://github.com/vercel/turborepo/pull/12469)), so the plan's evidence base degrades
+([vercel/turborepo#12469](https://github.com/vercel/turborepo/pull/12469)), so the plan's evidence base degrades
 silently on a version bump.
 
 Concrete exposure in this repo: `scripts/test.sh` is the entrypoint for every backend and frontend
@@ -631,7 +631,7 @@ That is the correct trade for `scripts/test.sh` and `.nvmrc`. Deliberately _not_
 root `pnpm` scripts that never go through turbo and whose jobs are ungated, so they already always
 run. Keep the list minimal; every entry is a repo-wide cache buster.
 
-Consider also adding `package.json` to restore the pre-#12469 behaviour before you upgrade turbo,
+Consider also adding `package.json` to restore the behaviour from before vercel/turborepo#12469 before you upgrade turbo,
 so the upgrade doesn't silently change scoping.
 
 ### 5.4 Fix change 2 or replace it with a job merge
@@ -668,8 +668,10 @@ the requests — on a docs-only PR that is the difference between four ~2-minute
 ### 5.6 Upgrade turbo
 
 2.7.5 → 2.10.13. Two reasons beyond the usual: `--affected` has had a long run of fixes
-(#12469 root `package.json`, #12543 `--affected` + `--filter`, #12722 SCM env vars in `query affected`,
-#12900 lockfile-changed packages, #13790 commandless tasks, #13885 `--base`/`--head`), and #12469 in
+(vercel/turborepo#12469 root `package.json`, vercel/turborepo#12543 `--affected` + `--filter`,
+vercel/turborepo#12722 SCM env vars in `query affected`,
+vercel/turborepo#12900 lockfile-changed packages, vercel/turborepo#13790 commandless tasks,
+vercel/turborepo#13885 `--base`/`--head`), and vercel/turborepo#12469 in
 particular **changes** `--affected` scoping in a way that makes the plan's `turbo.json → 35`
 evidence stop generalising. Better to upgrade and re-measure than to ship against 2.7.5 behaviour.
 
@@ -715,14 +717,14 @@ Docs source read raw from
 [`turborepo-repository/src/change_mapper/package.rs`](https://github.com/vercel/turborepo/blob/main/crates/turborepo-repository/src/change_mapper/package.rs).
 
 `vercel/turborepo` issues/PRs:
-[#12469](https://github.com/vercel/turborepo/pull/12469) ·
-[#12543](https://github.com/vercel/turborepo/pull/12543) ·
-[#12650](https://github.com/vercel/turborepo/issues/12650) ·
-[#12722](https://github.com/vercel/turborepo/pull/12722) ·
-[#12900](https://github.com/vercel/turborepo/pull/12900) ·
-[#13790](https://github.com/vercel/turborepo/issues/13790) ·
-[#13885](https://github.com/vercel/turborepo/pull/13885) ·
-[#12382](https://github.com/vercel/turborepo/pull/12382) (turbo-ignore deprecation).
+[vercel/turborepo#12469](https://github.com/vercel/turborepo/pull/12469) ·
+[vercel/turborepo#12543](https://github.com/vercel/turborepo/pull/12543) ·
+[vercel/turborepo#12650](https://github.com/vercel/turborepo/issues/12650) ·
+[vercel/turborepo#12722](https://github.com/vercel/turborepo/pull/12722) ·
+[vercel/turborepo#12900](https://github.com/vercel/turborepo/pull/12900) ·
+[vercel/turborepo#13790](https://github.com/vercel/turborepo/issues/13790) ·
+[vercel/turborepo#13885](https://github.com/vercel/turborepo/pull/13885) ·
+[vercel/turborepo#12382](https://github.com/vercel/turborepo/pull/12382) (turbo-ignore deprecation).
 
 Vercel docs:
 [monorepos/remote-caching](https://vercel.com/docs/monorepos/remote-caching) ·
@@ -734,23 +736,23 @@ GitHub docs:
 [changelog 2025-03-20 cache service v2](https://github.blog/changelog/2025-03-20-notification-of-upcoming-breaking-changes-in-github-actions/) ·
 [changelog 2026-09-10 cache-mode](https://github.blog/changelog/2026-09-10-control-github-actions-cache-access-with-cache-mode/) ·
 [actions/upload-artifact README](https://github.com/actions/upload-artifact) and
-[#614](https://github.com/actions/upload-artifact/issues/614).
+[actions/upload-artifact#614](https://github.com/actions/upload-artifact/issues/614).
 
 Cache implementations:
 [rharkor/caching-for-turbo](https://github.com/rharkor/caching-for-turbo)
-([#1048](https://github.com/rharkor/caching-for-turbo/issues/1048),
-[#992](https://github.com/rharkor/caching-for-turbo/issues/992),
-[#944](https://github.com/rharkor/caching-for-turbo/issues/944),
-[#917](https://github.com/rharkor/caching-for-turbo/issues/917),
-[#370](https://github.com/rharkor/caching-for-turbo/issues/370),
-[#260](https://github.com/rharkor/caching-for-turbo/issues/260)) ·
+([rharkor/caching-for-turbo#1048](https://github.com/rharkor/caching-for-turbo/issues/1048),
+[rharkor/caching-for-turbo#992](https://github.com/rharkor/caching-for-turbo/issues/992),
+[rharkor/caching-for-turbo#944](https://github.com/rharkor/caching-for-turbo/issues/944),
+[rharkor/caching-for-turbo#917](https://github.com/rharkor/caching-for-turbo/issues/917),
+[rharkor/caching-for-turbo#370](https://github.com/rharkor/caching-for-turbo/issues/370),
+[rharkor/caching-for-turbo#260](https://github.com/rharkor/caching-for-turbo/issues/260)) ·
 [brunojppb/turbo-cache-server](https://github.com/brunojppb/turbo-cache-server) ·
 [ducktors/turborepo-remote-cache](https://github.com/ducktors/turborepo-remote-cache)
-([#433](https://github.com/ducktors/turborepo-remote-cache/issues/433),
-[#622](https://github.com/ducktors/turborepo-remote-cache/issues/622),
-[#679](https://github.com/ducktors/turborepo-remote-cache/issues/679)) ·
+([ducktors/turborepo-remote-cache#433](https://github.com/ducktors/turborepo-remote-cache/issues/433),
+[ducktors/turborepo-remote-cache#622](https://github.com/ducktors/turborepo-remote-cache/issues/622),
+[ducktors/turborepo-remote-cache#679](https://github.com/ducktors/turborepo-remote-cache/issues/679)) ·
 [Tapico/tapico-turborepo-remote-cache](https://github.com/Tapico/tapico-turborepo-remote-cache)
-([#21](https://github.com/Tapico/tapico-turborepo-remote-cache/issues/21)) ·
+([Tapico/tapico-turborepo-remote-cache#21](https://github.com/Tapico/tapico-turborepo-remote-cache/issues/21)) ·
 [AdiRishi/turborepo-remote-cache-cloudflare](https://github.com/AdiRishi/turborepo-remote-cache-cloudflare) ·
 [dtinth/setup-github-actions-caching-for-turbo](https://github.com/dtinth/setup-github-actions-caching-for-turbo) ·
 [vercel/setup-turborepo-remote-cache-action](https://github.com/vercel/setup-turborepo-remote-cache-action) ·
