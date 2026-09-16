@@ -2,7 +2,7 @@ import 'server-only';
 
 import { TRPCError } from '@trpc/server';
 
-import { DataSourceOwnershipError } from './data-source';
+import { DataSourceOwnershipError, DataSourceQuotaError } from './data-source';
 import { assertThreadOwned, ThreadOwnershipError } from './ownership';
 
 // The single tRPC adapter for rag's transport-agnostic ownership rules — thread
@@ -71,4 +71,24 @@ export function mapDataSourceOwnershipError(error: unknown): never {
     });
   }
   throw error;
+}
+
+// The whole Data Source failure vocabulary in one catch: foreign/absent
+// ownership becomes FORBIDDEN (above), and hitting `MAX_DATA_SOURCES_PER_USER`
+// becomes TOO_MANY_REQUESTS — the code this repo already uses for "your
+// allowance is spent" (chat's credit exhaustion), rather than a BAD_REQUEST
+// that would read as a malformed call.
+//
+// Separate from `mapDataSourceOwnershipError` rather than folded into it,
+// because the assert-only surfaces (presign, rename, delete) cannot raise a
+// quota error and a mapper that claimed to handle one would invite the reader
+// to look for a cap that is not there. `create` is the only caller of this.
+export function mapDataSourceError(error: unknown): never {
+  if (error instanceof DataSourceQuotaError) {
+    throw new TRPCError({
+      code: 'TOO_MANY_REQUESTS',
+      message: `You have reached the limit of ${error.cap} data sources`,
+    });
+  }
+  mapDataSourceOwnershipError(error);
 }
