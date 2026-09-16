@@ -20,6 +20,10 @@ import {
 import { cleanupTestData } from '../../utils/test-context';
 
 const userId = 'user-1';
+// The destination Data Source rides on every progress event now. These suites
+// exercise the stream, not ownership, so a fixed id is enough — nothing here
+// reads `data_source`.
+const DATA_SOURCE_ID = '11111111-1111-4111-8111-111111111111';
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function waitFor(predicate: () => boolean, timeoutMs = 2000) {
@@ -63,7 +67,10 @@ describe('tailIngestProgress (integration)', () => {
   });
 
   it('re-emits the full per-file stage sequence in order', async () => {
-    const writer = createIngestProgressWriter(userId, 'job-1');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-1',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
     await writer.stage('u1', 'a.pdf', 'parsing');
     await writer.stage('u1', 'a.pdf', 'embedding');
@@ -89,7 +96,10 @@ describe('tailIngestProgress (integration)', () => {
   });
 
   it('stamps a rolling TTL on every append (never persists forever)', async () => {
-    const writer = createIngestProgressWriter(userId, 'job-ttl');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-ttl',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
 
     const ttl = await redis.ttl(ingestProgressKey(userId));
@@ -99,7 +109,10 @@ describe('tailIngestProgress (integration)', () => {
 
   it('rolls a decayed TTL back up on the next append', async () => {
     const key = ingestProgressKey(userId);
-    const writer = createIngestProgressWriter(userId, 'job-roll');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-roll',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
 
     // Force the TTL to decay near expiry, then append again: a rolling TTL must
@@ -113,7 +126,10 @@ describe('tailIngestProgress (integration)', () => {
   });
 
   it('resumes strictly after lastEventId on a transient reconnect', async () => {
-    const writer = createIngestProgressWriter(userId, 'job-r');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-r',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
     await writer.stage('u1', 'a.pdf', 'parsing');
 
@@ -139,7 +155,10 @@ describe('tailIngestProgress (integration)', () => {
   it('a fresh mount resumes strictly after the snapshot lastId', async () => {
     // Mirrors the client's cold-mount: fold the retained stream, take its lastId,
     // then tail from it — prior stages are seeded from the snapshot, not replayed.
-    const writer = createIngestProgressWriter(userId, 'job-s');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-s',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
     await writer.stage('u1', 'a.pdf', 'parsing');
 
@@ -176,7 +195,10 @@ describe('tailIngestProgress (integration)', () => {
       }
     })();
 
-    const writer = createIngestProgressWriter(userId, 'job-skew');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-skew',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
     await writer.done('u1', 'a.pdf');
 

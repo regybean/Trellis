@@ -17,7 +17,12 @@ import {
   encodeProgress,
 } from '../../../api/services/ingest-progress-stream';
 
-const base = { jobId: 'job-1', uploadId: 'up-1', filename: 'report.pdf' };
+const base = {
+  jobId: 'job-1',
+  dataSourceId: '11111111-1111-4111-8111-111111111111',
+  uploadId: 'up-1',
+  filename: 'report.pdf',
+};
 
 describe('encodeProgress ⇄ decodeProgress round-trip', () => {
   it.each<IngestProgressEvent>([
