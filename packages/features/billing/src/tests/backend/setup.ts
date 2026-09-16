@@ -2,111 +2,92 @@
  * Backend Test Setup
  *
  * Runs before each test file (after `@acme/test-utils/hydrate-env`, which has
- * populated `process.env` with the testcontainer DB/Redis details). Every
- * `env.ts` validates against the real running services — no env mocks. Only the
- * behavioral boundaries are mocked here: the Stripe-calling services the
- * account router reaches for, `@acme/subscriptions`, and `server-only`.
+ * populated `process.env` with the testcontainer Postgres/Redis/localstripe
+ * details). Every `env.ts` validates against the real running services — no env
+ * mocks.
+ *
+ * **Billing's own Stripe seam is not mocked here.** The suite starts a
+ * localstripe container of its own (`global-setup.ts`), so everything under
+ * `api/services/` runs for real against a real Stripe server. Two calls have no
+ * localstripe endpoint to run against — `createCheckoutSession` and
+ * `createDashboardSession`, which produce Stripe-*hosted* pages that
+ * ../../../docs/adr/0001-localstripe-dev-billing.md explicitly declined to
+ * reproduce ("Reproducing hosted Checkout / Billing Portal locally … Rejected").
+ * Both 404 on localstripe, so they are stubbed in
+ * `integration/api/account.test.ts`, the one file that reaches them, beside
+ * that reason. Nothing blanket.
+ *
+ * What is still mocked here, and why:
+ *
+ * - `server-only` — a Next.js build-time marker with no runtime implementation
+ *   for vitest to load.
+ * - `@acme/subscriptions`, **partially**: the `credits` façade only. That is the
+ *   Redis rate-limit seam, a different seam from Stripe's and not this suite's
+ *   subject, and the admin rate-limit procedures assert exact balances against
+ *   it. Everything else in the package — the Stripe-customer mapping, the
+ *   subscription cache read/write, `getSubscriptionType`, the cache schema — is
+ *   the real module against the suite's isolated Redis DB, which
+ *   `cleanupTestData` flushes between tests.
+ *
+ * The typed error seam (`utils/stripe-errors`) is real, as it always was: a
+ * pure, side-effect-free module with no live Stripe or Redis at import, so the
+ * router's error construction is exercised rather than stubbed.
  */
 
 import { afterEach, beforeEach, vi } from 'vitest';
 
-import { cleanupTestData } from './utils/test-context';
+import type * as Subscriptions from '@acme/subscriptions';
 
-// In-memory userId -> Stripe customer id store backing the @acme/subscriptions
-// mock, so setStripeCustomerId/getStripeCustomerId round-trip within a test.
-const stripeCustomerStore = vi.hoisted(() => new Map<string, string>());
+import { cleanupTestData } from './utils/test-context';
 
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 
-// Mock the two Stripe-calling services the account router imports. The typed
-// error seam (`utils/stripe-errors`) is deliberately left real, so the router's
-// error construction is exercised rather than stubbed; it is a pure,
-// side-effect-free module with no live Stripe/Redis at import.
-//
-// Mocked per module rather than in one go: `api/services/stripe-sync` is left
-// real here because the service suite drives it for real over a fake SDK
-// client, and `api/services/stripe-webhook` because its unit suite drives the
-// real routing logic.
-vi.mock('../../api/services/stripe-checkout', () => ({
-  getProductWithPrice: vi.fn().mockResolvedValue({
-    defaultPriceId: 'price_12345',
-    productId: 'prod_12345',
-  }),
-  findOrCreateCustomer: vi.fn().mockResolvedValue({
-    customer: { id: 'cus_12345', email: 'test@example.com' },
-    isExisting: false,
-  }),
-  createCheckoutSession: vi.fn().mockResolvedValue({
-    id: 'cs_12345',
-    url: 'https://checkout.stripe.com/test',
-    created: 1_234_567_890,
-  }),
-  createDashboardSession: vi.fn().mockResolvedValue({
-    billingPortalUrl: 'https://billing.stripe.com/test',
-  }),
-}));
+const CREDIT_LIMIT = 250;
+const thirtyDaysOut = () => Math.floor(Date.now() / 1000) + 86_400 * 30;
 
-vi.mock('../../api/services/stripe-dev', () => ({
-  setUserTier: vi.fn().mockResolvedValue({ status: 'active' }),
-}));
-
-// Mock rate limiting utilities — isTierAtLeast delegates to the real
-// implementation from @acme/entitlements so requireTier gates behave correctly.
-vi.mock('@acme/subscriptions', async () => {
-  const { isTierAtLeast } = await import('@acme/entitlements');
-  return {
-    credits: {
-      read: vi.fn().mockResolvedValue({
-        remaining: 100,
-        limit: 250,
-        resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-      }),
-      consume: vi.fn(() => Promise.resolve()),
-      reset: vi.fn().mockResolvedValue({
-        tier: 'Basic',
-        limit: 250,
-        resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-      }),
-      maxOut: vi.fn().mockResolvedValue({
-        tier: 'Basic',
-        previousLimit: 250,
-        resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-      }),
-      overrideExpiry: vi.fn().mockResolvedValue({
-        tier: 'Basic',
-        keyExisted: true,
-        previousExpiryTimestamp: Math.floor(Date.now() / 1000) + 86_400 * 30,
-      }),
-      status: vi.fn().mockResolvedValue({
-        tier: 'Basic',
-        remaining: 100,
-        limit: 250,
-        resetAt: Math.floor(Date.now() / 1000) + 86_400 * 30,
-        keyExists: true,
-      }),
-    },
-    getUserSubscriptionFromRedis: vi.fn().mockResolvedValue({ status: 'none' }),
-    // userId <-> Stripe customer id mapping, backed by an in-memory store so
-    // fixtures (setStripeCustomerId) and the router (getStripeCustomerId) agree.
-    setStripeCustomerId: vi.fn((userId: string, customerId: string) => {
-      stripeCustomerStore.set(userId, customerId);
-      return Promise.resolve();
+// Deterministic credit balances for the admin rate-limit procedures. Spread
+// over the real module so a real export is never shadowed by omission — the
+// blanket hand-written mock this replaced had to re-declare every export, and
+// went stale the moment the real code reached for one it had not listed.
+vi.mock('@acme/subscriptions', async (importOriginal) => ({
+  ...(await importOriginal<typeof Subscriptions>()),
+  credits: {
+    read: vi.fn().mockResolvedValue({
+      remaining: 100,
+      limit: CREDIT_LIMIT,
+      resetAt: thirtyDaysOut(),
     }),
-    getStripeCustomerId: vi.fn((userId: string | null) =>
-      Promise.resolve(stripeCustomerStore.get(String(userId)) ?? null),
-    ),
-    setSubscriptionCache: vi.fn(() => Promise.resolve()),
-    getSubscriptionType: vi.fn().mockReturnValue('Basic'),
-    isTierAtLeast: vi.fn().mockImplementation(isTierAtLeast),
-  };
-});
+    consume: vi.fn(() => Promise.resolve()),
+    reset: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      limit: CREDIT_LIMIT,
+      resetAt: thirtyDaysOut(),
+    }),
+    maxOut: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      previousLimit: CREDIT_LIMIT,
+      resetAt: thirtyDaysOut(),
+    }),
+    overrideExpiry: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      keyExisted: true,
+      previousExpiryTimestamp: thirtyDaysOut(),
+    }),
+    status: vi.fn().mockResolvedValue({
+      tier: 'Basic',
+      remaining: 100,
+      limit: CREDIT_LIMIT,
+      resetAt: thirtyDaysOut(),
+      keyExists: true,
+    }),
+  },
+}));
 
 // Clean up test data before each test for isolation
 beforeEach(() => {
   // Reset all mocks between tests
   vi.clearAllMocks();
-  stripeCustomerStore.clear();
 });
 
 // Clean up after each test

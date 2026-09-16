@@ -1,20 +1,14 @@
 /**
  * `account.setUserTier` against a real Stripe server.
  *
- * The one path in this slice that runs for real. Everywhere else in this suite
- * the Stripe-calling services are mocked in `setup.ts`, which meant the tier
- * grant — cancel, attach a card, create a subscription, mirror to Redis — was
- * asserted only against `vi.fn().mockResolvedValue({ status: 'active' })`. Here
- * the module is unmocked and the work happens in localstripe, the same fake
- * stateful server dev runs on, started as this suite's own throwaway container.
+ * The tier grant — cancel, attach a card, create a subscription, mirror to
+ * Redis — runs in localstripe, the same fake stateful server dev runs on,
+ * started as this suite's own throwaway container. Nothing in billing's Stripe
+ * seam is mocked to get here; `setup.ts` mocks none of it.
  *
- * `@acme/subscriptions` is unmocked too, and has to be: the point of the test is
- * what `getSubscriptionType` resolves the grant to, and a mock that returns
- * `'Basic'` unconditionally cannot answer that. Its Redis reads and writes go to
- * the suite's isolated logical DB.
- *
- * Both unmocks are per-file — the blanket mock still stands for every other file
- * in this suite.
+ * `@acme/subscriptions` needs no unmock either: the suite-wide mock covers only
+ * its `credits` façade, so `getSubscriptionType` and the subscription cache are
+ * the real thing, reading and writing the suite's isolated logical Redis DB.
  *
  * This is the test ../../../../../docs/adr/0001-localstripe-dev-billing.md asked
  * for: it records whether attaching `pm_card_visa` moves a fresh subscription to
@@ -22,7 +16,7 @@
  * round-trips through `getSubscriptionType` to the expected tier.
  */
 
-import { beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
   getStripeCustomerId,
@@ -37,9 +31,6 @@ import { env, toPlanIds } from '../../../../env';
 import { seedLocalstripePlans } from '../../../../testing';
 import { createTestUserId } from '../../utils/fixtures';
 import { createTestContext } from '../../utils/test-context';
-
-vi.unmock('../../../../api/services/stripe-dev');
-vi.unmock('@acme/subscriptions');
 
 const planIds = toPlanIds(env);
 

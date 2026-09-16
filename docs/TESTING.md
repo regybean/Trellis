@@ -169,18 +169,24 @@ spread still applies.
 Per [ADR 0014](adr/0014-tests-validate-real-env.md): **tests validate the real
 `env.ts` and exercise real in-repo infrastructure. Never mock either.**
 
-| Dependency                | Approach                                                                                                                                                 |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `env.ts` (every package)  | **Real** — validated against `createEnv`, never mocked. Static values come from `staticTestEnv`; live DB/Redis details are hydrated from the containers. |
-| PostgreSQL / pgvector     | **Real** — a throwaway testcontainer per suite, on every run.                                                                                            |
-| Redis                     | **Real** — same.                                                                                                                                         |
-| Auth                      | Stubbed via the test context (`@acme/trpc/testing`) — we don't test the provider.                                                                        |
-| LLM / Bedrock, embeddings | Mocked — a true external. Behavioral fake (e.g. rag's fixed embed vector).                                                                               |
-| Stripe, S3                | Mocked — true externals.                                                                                                                                 |
-| OpenTelemetry             | Noop telemetry from the test context.                                                                                                                    |
+| Dependency                | Approach                                                                                                                                                                                                                                                                     |
+| ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `env.ts` (every package)  | **Real** — validated against `createEnv`, never mocked. Static values come from `staticTestEnv`; live DB/Redis details are hydrated from the containers.                                                                                                                     |
+| PostgreSQL / pgvector     | **Real** — a throwaway testcontainer per suite, on every run.                                                                                                                                                                                                                |
+| Redis                     | **Real** — same.                                                                                                                                                                                                                                                             |
+| Auth                      | Stubbed via the test context (`@acme/trpc/testing`) — we don't test the provider.                                                                                                                                                                                            |
+| LLM / Bedrock, embeddings | Mocked — a true external. Behavioral fake (e.g. rag's fixed embed vector).                                                                                                                                                                                                   |
+| Stripe                    | **Real** — a throwaway [localstripe](https://github.com/adrienverge/localstripe) testcontainer per billing suite, the same fake stateful server dev runs on. Exception: the two Stripe-**hosted** pages (Checkout, Billing Portal), which localstripe does not serve at all. |
+| S3                        | Mocked — a true external.                                                                                                                                                                                                                                                    |
+| OpenTelemetry             | Noop telemetry from the test context.                                                                                                                                                                                                                                        |
 
 The one rule that resolves every "should I mock this?": **mock true externals
-(third-party network services); never mock `env` or in-repo infra.** Mocking a
+(third-party network services); never mock `env` or in-repo infra.** And where a
+faithful fake server exists, a true external stops being one: Stripe is real
+because localstripe can be a container like Postgres and Redis are. A seam the
+feature itself owns is never a candidate — `vi.mock`ing
+`@acme/billing`'s own `api/services/stripe-*` would mean the suite asserting
+against itself. Mocking a
 third-party SDK for _behavior_ (e.g. `@acme/models`' embed model) is expected
 and different from mocking `env` for _shape_ — the latter is what
 [ADR 0014](adr/0014-tests-validate-real-env.md) forbids.

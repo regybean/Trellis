@@ -9,15 +9,16 @@ import {
 import { getStripe } from '../../../../api/services/stripe-client';
 import { syncStripeDataToKV } from '../../../../api/services/stripe-sync';
 
-// Use the real @acme/subscriptions module (real Redis writes), overriding the
-// global mock that setup.ts installs for the API suite. The service contract is
-// "subscription data lands in Redis" — assertion reads back through the same
-// public API the rest of the app uses, not a spy on setSubscriptionCache.
-vi.mock('@acme/subscriptions', async () =>
-  vi.importActual('@acme/subscriptions'),
-);
+// `@acme/subscriptions` is real here (setup.ts mocks only its `credits`
+// façade), so the service contract — "subscription data lands in Redis" — is
+// asserted by reading back through the same public API the rest of the app
+// uses, not with a spy on setSubscriptionCache.
 
-// Behavioral fake for the Stripe SDK: each test supplies the subscription shape.
+// Behavioral fake for the Stripe SDK: each test supplies the subscription
+// shape. localstripe cannot serve the *real* Stripe `price` shape (it predates
+// the Prices API), so the shapes both servers return are covered over a fake
+// here; the localstripe half is then pinned against the container itself in
+// ./stripe-sync-localstripe.test.ts.
 vi.mock('../../../../api/services/stripe-client');
 
 const CUSTOMER_ID = 'cus_sync_test';
