@@ -16,12 +16,13 @@ const appEnv = resolveAppEnv(process.env.APP_ENV);
 
 /**
  * RAG's environment, declared once. The dedicated vector database name, the
- * chunker knobs and the conversation-memory tunables (previously hardcoded in
- * `memory.ts`) are authored here as profile values, and every one of them is
- * env-overridable — they are the operational knobs most likely to be retuned on
- * a live deploy. The DB connection host/port/creds stay with `@acme/db`; only
- * the vector *name* is rag's. Server-side — ingestion, the vector store and
- * memory all run on the backend.
+ * chunker knobs, the conversation-memory tunables (previously hardcoded in
+ * `memory.ts`) and the Data Source caps plus retrieval `topK` are authored here
+ * as profile values, and every one of them is env-overridable — they are the
+ * operational knobs most likely to be retuned on a live deploy. The DB
+ * connection host/port/creds stay with `@acme/db`; only the vector *name* is
+ * rag's. Server-side — ingestion, the vector store and memory all run on the
+ * backend.
  *
  * `MEMORY_SEMANTIC_RECALL` goes through `jsonEnv` rather than
  * `z.coerce.boolean()`: coercion is JavaScript truthiness, so `'false'` would
@@ -51,6 +52,20 @@ export const env = createEnv({
     MEMORY_LAST_MESSAGES: z.coerce.number().int().positive(),
     MEMORY_SEMANTIC_RECALL: jsonEnv(z.boolean()),
     MEMORY_TITLE_WORD_CAP: z.coerce.number().int().positive(),
+    // Data Source quota caps. `@acme/rag` owns the entity and its rules, so the
+    // numbers are declared here and read by whoever enforces them — `@acme/ingest`
+    // at presign, authoritatively. The per-user cap is set by picker legibility
+    // (it is a checkbox list a user scans before making a privacy decision), not
+    // by cost; the per-Source cap is what bounds query latency, because a
+    // filtered vector query scans every row matching the filter rather than
+    // using the HNSW index.
+    MAX_DATA_SOURCES_PER_USER: z.coerce.number().int().positive(),
+    MAX_DOCUMENTS_PER_DATA_SOURCE: z.coerce.number().int().positive(),
+    // Chunks retrieved per vector-query tool call, flat over the union of the
+    // selected Sources. Server-pinned so the number is ours: it sits in Mastra's
+    // tool input schema unconditionally, so with no server value the *model*
+    // authors it on every call.
+    RETRIEVAL_TOP_K: z.coerce.number().int().positive(),
   },
   createFinalSchema: (shape) =>
     withProfiles(shape, appEnv, {
@@ -71,6 +86,9 @@ export const env = createEnv({
     MEMORY_LAST_MESSAGES: readEnv('MEMORY_LAST_MESSAGES'),
     MEMORY_SEMANTIC_RECALL: readEnv('MEMORY_SEMANTIC_RECALL'),
     MEMORY_TITLE_WORD_CAP: readEnv('MEMORY_TITLE_WORD_CAP'),
+    MAX_DATA_SOURCES_PER_USER: readEnv('MAX_DATA_SOURCES_PER_USER'),
+    MAX_DOCUMENTS_PER_DATA_SOURCE: readEnv('MAX_DOCUMENTS_PER_DATA_SOURCE'),
+    RETRIEVAL_TOP_K: readEnv('RETRIEVAL_TOP_K'),
   },
   emptyStringAsUndefined: true,
 });
