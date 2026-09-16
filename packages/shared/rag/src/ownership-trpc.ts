@@ -2,14 +2,20 @@ import 'server-only';
 
 import { TRPCError } from '@trpc/server';
 
+import { DataSourceOwnershipError } from './data-source';
 import { assertThreadOwned, ThreadOwnershipError } from './ownership';
 
-// The single tRPC adapter for the transport-agnostic thread-ownership rule
-// (`ownership.ts`). `ownership.ts` itself stays free of any transport — it only
-// knows "owned / absent / belongs-to-someone-else". This module is the ONE place
-// that decides how a `ThreadOwnershipError` maps onto tRPC, so a new ownership
-// variant is handled here rather than re-expressed in every feature that
-// annotates Mastra-owned data (chat's ownership builders, feedback's `submit`).
+// The single tRPC adapter for rag's transport-agnostic ownership rules — thread
+// ownership (`ownership.ts`) and Data Source ownership (`data-source.ts`).
+// Neither rule module knows any transport; each only knows "owned / absent /
+// belongs-to-someone-else". This module is the ONE place that decides how those
+// errors map onto tRPC, so a new ownership variant is handled here rather than
+// re-expressed in every feature that annotates Mastra-owned data (chat's
+// ownership builders, feedback's `submit`).
+//
+// Data Source ownership needs the same seam for the same reason thread ownership
+// does: two consumers across two features want the identical FORBIDDEN —
+// ingest's presign and chat's `send`.
 //
 // It is boundary-legal for `@acme/rag` (shared) to depend on `@acme/trpc`'s
 // transport error type here: shared may depend on platform. Only
@@ -44,4 +50,25 @@ export async function assertOwnedThreadForTRPC(
   } catch (error) {
     mapOwnershipError(error);
   }
+}
+
+// Maps a caught error onto tRPC: a `DataSourceOwnershipError` becomes FORBIDDEN;
+// anything else is rethrown unchanged. Absence is NOT a separate case here, and
+// that is deliberate rather than an omission — `data_source` rows are
+// hard-deleted, so the server cannot distinguish "was yours, now deleted" from
+// "never was yours", and one policy has to cover both.
+//
+// FORBIDDEN is the right answer for the surfaces that ASSERT (presign, rename,
+// delete): the caller named a specific Source it wants to act on. It is the
+// wrong answer for `chat.send`, which drops unowned ids instead, because a ghost
+// row in a stale panel would otherwise cost the user their message. Dropping can
+// only ever narrow scope, which is the fail-closed direction.
+export function mapDataSourceOwnershipError(error: unknown): never {
+  if (error instanceof DataSourceOwnershipError) {
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'You do not have access to this data source',
+    });
+  }
+  throw error;
 }

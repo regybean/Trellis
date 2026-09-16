@@ -19,6 +19,16 @@ export { appSchema } from '../app-schema';
 export { feedbackRating, messageFeedback } from '@acme/feedback/schema';
 export { chatFolder } from '@acme/chat/schema';
 
+// `data_source` — the user-owned partition of the knowledge base. This is the
+// one push-managed table from `@acme/rag`, whose other schema exports are
+// Mastra-owned tables in the dedicated VECTOR database; naming this import
+// rather than `export *` is what keeps push to the app database's table.
+// Load-bearing for tests as well as production DDL: backend suites provision
+// their tables by pushing this barrel, so a missed line here fails nothing at
+// build or lint and fails rag's suite at runtime with a bare
+// `relation "data_source" does not exist`.
+export { dataSource } from '@acme/rag/schema';
+
 // Better Auth's tables, in their own `auth` Postgres schema rather than
 // `appSchema` — identity is shared across the apps on one database (@acme/auth ADR 0002).
 // `authSchema` is exported so drizzle owns `CREATE SCHEMA auth`, and `auth` is
