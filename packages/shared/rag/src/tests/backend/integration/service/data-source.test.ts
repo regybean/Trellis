@@ -33,7 +33,7 @@ import {
   renameDataSource,
   resolveRetrievalScope,
 } from '../../../../data-source';
-import { deleteByFilename, uploadDoc } from '../../../../document-uploader';
+import { deleteDocument, uploadDoc } from '../../../../document-uploader';
 import { env } from '../../../../env';
 import { chunksIn } from '../../utils/chunks';
 import { cleanupDataSources } from '../../utils/cleanup';
@@ -372,7 +372,7 @@ describe('data source module (integration)', () => {
       const created = await source(ownerId, 'Half deleted');
       const fileName = await upload(ownerId, created.id);
 
-      await deleteByFilename(fileName);
+      await deleteDocument({ ownerId, dataSourceId: created.id, fileName });
       expect(await chunksIn(created.id)).toEqual([]);
 
       await expect(
