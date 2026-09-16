@@ -7,6 +7,9 @@ reload ([ADR 0001](docs/adr/0001-ingest-progress-survives-refresh.md)).
 ## What it gives you
 
 - An upload control and a document list, ready to drop on a page.
+- Data Source management — create, rename, delete and list — so a user can
+  partition their own knowledge base. Every procedure is owner-scoped; there is
+  no admin role anywhere in this slice.
 - A progress view fed by a per-user stream, so a user who reloads mid-batch
   rejoins the progress rather than losing it.
 - A background processor that extracts text, chunks it and indexes it into
@@ -25,6 +28,9 @@ reload ([ADR 0001](docs/adr/0001-ingest-progress-survives-refresh.md)).
 
 This slice owns no tables. Documents live in object storage and their chunks in
 the vector store, so there is no `./schema` subpath and nothing to re-export.
+Data Sources are `@acme/rag`'s table, not this slice's: re-export `dataSource`
+from `@acme/rag/schema` in your app's schema barrel so drizzle-kit pushes it,
+and the procedures here reach it only through rag's `./server` module.
 
 ## Wiring
 
