@@ -218,7 +218,8 @@ describe('accountRouter', () => {
 
     // The legacy Plans fallback in `getProductWithPrice`: localstripe products
     // carry no `default_price`, so the lookup has to fall through to
-    // `plans.list` or every checkout fails. See ADR 0001 decision 3.
+    // `plans.list` or every checkout fails. See decision 3 of
+    // ../../../../../docs/adr/0001-localstripe-dev-billing.md.
     it('resolves the price from the legacy plan when the product has no default_price', async () => {
       const product = await getStripe().products.retrieve(planIds.proPlanId);
       expect(product.default_price).toBeUndefined();
@@ -269,7 +270,7 @@ describe('accountRouter', () => {
   // BUSINESS LOGIC: createDashboardSession
   // ==========================================================================
   // The portal URL itself is the stub — Stripe hosts that page and localstripe
-  // does not serve it (ADR 0001, as above). What is real here is the router's
+  // does not serve it (the ADR cited above). What is real here is the router's
   // own contract: it refuses to open a portal for a user with no customer
   // mapping, and passes the mapped customer through when there is one.
   describe('createDashboardSession', () => {
