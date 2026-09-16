@@ -18,13 +18,36 @@ env:
   TURBO_TELEMETRY_DISABLED: 1
   TURBO_TEAM: ${{ vars.TURBO_TEAM }}
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  # Scope turbo runs to packages a PR actually changed, plus their dependents.
+  # A change outside any package (root config, lockfile) invalidates the whole
+  # graph, so this cannot silently skip work. Pushes to `main` run everything,
+  # which is what keeps the remote cache populated for laptops and later PRs.
+  AFFECTED_FLAG: ${{ github.event_name == 'pull_request' && '--affected' || '' }}
+  TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || 'main' }}
 
 jobs:
   # Mirrors Bitbucket "Checking Code"
   lint:
+    needs: build
+    # Still report when the build breaks.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # `--affected` diffs against TURBO_SCM_BASE, which needs real history.
+          fetch-depth: 0
+
+      # Turbo decides by input hash and never inspects whether outputs already
+      # exist, so restoring `dist/` would not help — its own cache is the thing
+      # to share. Produced by `build` in this same run and expiring with it, so
+      # Vercel stays the only durable cache. Falls through to Vercel if absent.
+      - name: Restore turbo cache from build
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: turbo-cache
+          path: .turbo/cache
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -40,9 +63,23 @@ jobs:
         run: pnpm check:bank-paths
 
   typecheck:
+    needs: build
+    # Still report when the build breaks.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # `--affected` diffs against TURBO_SCM_BASE, which needs real history.
+          fetch-depth: 0
+
+      # See the lint job for why this shares turbo's cache and not `dist/`.
+      - name: Restore turbo cache from build
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: turbo-cache
+          path: .turbo/cache
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -83,6 +120,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # `--affected` diffs against TURBO_SCM_BASE, which needs real history.
+          fetch-depth: 0
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -140,9 +180,23 @@ jobs:
 
   # Mirrors Bitbucket "Testing Code"
   test:
+    needs: build
+    # Still report when the build breaks.
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # `--affected` diffs against TURBO_SCM_BASE, which needs real history.
+          fetch-depth: 0
+
+      # See the lint job for why this shares turbo's cache and not `dist/`.
+      - name: Restore turbo cache from build
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: turbo-cache
+          path: .turbo/cache
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -164,6 +218,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # `--affected` diffs against TURBO_SCM_BASE, which needs real history.
+          fetch-depth: 0
 
       - name: Setup
         uses: ./.github/actions/setup
@@ -186,6 +243,16 @@ jobs:
           OLLAMA_CHAT_MODEL: stub
           OLLAMA_EMBED_MODEL: stub
         run: pnpm build
+
+      # Hands this run's build results to lint/typecheck/test so they resolve
+      # `^build` off local disk instead of re-querying the remote cache.
+      - name: Share turbo cache
+        uses: actions/upload-artifact@v4
+        with:
+          name: turbo-cache
+          path: .turbo/cache
+          retention-days: 1
+          if-no-files-found: ignore
 
   # --- Security hardening ---
 
