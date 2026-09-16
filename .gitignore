@@ -60,3 +60,7 @@ dist/
 /logs/
 # Agent scratch space (never committed)
 .scratch/
+
+# Shared turbo cache values, written by scripts/wizards/turbo-cache-setup.sh.
+# Holds the cache bearer token, so it never gets committed.
+.turbo-cache.env

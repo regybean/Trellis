@@ -134,6 +134,14 @@
     "enabled": true,
     "signature": false
   },
+  "globalDependencies": [
+    "pnpm-workspace.yaml",
+    ".nvmrc",
+    ".prettierignore",
+    ".gitleaks.toml",
+    "patches/**",
+    "scripts/test.sh"
+  ],
   "globalEnv": [
     "DB_PASSWORD",
     "DB_PORT",
