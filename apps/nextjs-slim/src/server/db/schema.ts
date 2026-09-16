@@ -16,3 +16,13 @@ export { appSchema } from '../app-schema';
 // drops auth/billing but keeps Conversation History; Folders are scoped to the
 // local principal's userId. Re-exported so push/generate own its DDL (@acme/rag ADR 0001).
 export { chatFolder } from '@acme/chat/schema';
+
+// `data_source` — the user-owned partition of the knowledge base, scoped to the
+// slim subset's local principal like Folders are. This is the one push-managed
+// table from `@acme/rag`, whose other schema exports are Mastra-owned tables in
+// the dedicated VECTOR database; naming this import rather than `export *` is
+// what keeps push to the app database's table. Load-bearing for tests as well as
+// production DDL: backend suites provision their tables by pushing an app's
+// barrel, so a missed line fails nothing at build or lint and fails rag's suite
+// at runtime with a bare `relation "data_source" does not exist`.
+export { dataSource } from '@acme/rag/schema';
