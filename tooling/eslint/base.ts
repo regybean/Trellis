@@ -66,7 +66,12 @@ const banFeatureTrpc = {
 // ships no React, so no frontend test imports it.
 // `no-restricted-syntax` is flat-config replace (last match wins), so the
 // override re-declares the shared console ban to keep it in force.
-const banConsole = {
+//
+// EXPORTED for that reason: a package adding its own `no-restricted-syntax`
+// block has to carry this entry too or silently drop the console ban, and a
+// copy of the message string would drift from this one the first time it is
+// reworded. Import it rather than restating it (see `@acme/chat`'s config).
+export const banConsole = {
   selector: "CallExpression[callee.object.name='console']",
   message:
     "Direct console usage is not allowed. Use `import { logger } from '@acme/logger'` instead for structured logging.",

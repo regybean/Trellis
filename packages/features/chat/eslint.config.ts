@@ -1,4 +1,5 @@
 import {
+  banConsole,
   baseConfig,
   containmentOverride,
   restrictEnvAccess,
@@ -39,12 +40,8 @@ const banAgentStream = {
 
 // `no-restricted-syntax` takes an option ARRAY, and flat config replaces rule
 // options rather than merging them — so every block below that sets this rule
-// has to re-declare the shared console ban or it silently drops out of force.
-const banConsole = {
-  selector: "CallExpression[callee.object.name='console']",
-  message:
-    "Direct console usage is not allowed. Use `import { logger } from '@acme/logger'` instead for structured logging.",
-};
+// has to re-carry the shared `banConsole` (imported from the base config, not
+// restated) or it silently drops out of force.
 
 export default [
   {
@@ -71,7 +68,7 @@ export default [
     },
   },
   {
-    // The one exemption. Re-declares `banConsole` for the replace-not-merge
+    // The one exemption. Re-carries `banConsole` for the replace-not-merge
     // reason above.
     files: [STREAM_CALL_SITE],
     rules: {
