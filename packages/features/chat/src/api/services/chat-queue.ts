@@ -1,7 +1,7 @@
 import type { SubscriptionTier } from '@acme/entitlements';
-import type { SourceSelection } from '@acme/rag/schema';
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
+import type { RecordedSources } from '../schemas/message-source-schema';
 import { env } from '../../env';
 
 export interface GenerationJob {
@@ -11,17 +11,23 @@ export interface GenerationJob {
   tier: SubscriptionTier;
   query: string;
   /**
-   * The Turn's Source Selection (rag's `SourceSelection`), already narrowed by
-   * `chat.send` to the caller's own Sources. The worker does NOT read the
-   * selection off the thread: "per-Turn" means the scope is resolved at every
-   * send and travels with the job.
+   * The Turn's Source Selection, already narrowed by `chat.send` to the
+   * caller's own Sources, and carrying each Source's NAME beside its id.
    *
-   * Narrowed AGAIN at use, in `resolveRetrievalScope`. The two passes answer
+   * Names travel because the worker writes the per-Message receipt, and a
+   * receipt has to survive the Source being deleted. So the job carries one
+   * clump rather than ids for retrieval plus names for the record: two fields
+   * for one selection is how the two drift, and the drift would be a receipt
+   * that disagrees with what was retrieved.
+   *
+   * The worker does NOT read the selection off the thread — "per-Turn" means
+   * the scope is resolved at every send and travels with the job. It is
+   * narrowed AGAIN at use, in `resolveRetrievalScope`. The two passes answer
    * different questions: this one asked "which of these are yours?" at send
    * time, the other asks "which are still yours?" when the Turn actually runs.
    * A brand proving the first would not survive BullMQ's JSON boundary anyway.
    */
-  dataSourceIds: SourceSelection;
+  dataSources: RecordedSources;
 }
 
 // Singleton queue — module-private. enqueueGenerationTurn is the only call site

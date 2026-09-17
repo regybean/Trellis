@@ -989,14 +989,16 @@ describe('chatRouter', () => {
         }
       });
 
+      // Returns `{ id, name }` — the shape the job payload and the per-Message
+      // receipt carry, so an assertion reads as the receipt would.
       async function seedSource(ownerId: string, name: string) {
         sourceOwners.push(ownerId);
-        const source = await createDataSource({
+        const { id } = await createDataSource({
           ownerId,
           id: crypto.randomUUID(),
           name,
         });
-        return source.id;
+        return { id, name };
       }
 
       it('drops unowned and unknown ids, carrying only the validated set', async () => {
@@ -1023,13 +1025,17 @@ describe('chatRouter', () => {
           query: 'Hello there',
           conversationId,
           turnId,
-          dataSourceIds: [mine, theirs, neverExisted],
+          dataSourceIds: [mine.id, theirs.id, neverExisted],
         });
 
         expect(result).toEqual({ status: 'accepted', turnId });
 
+        // The surviving id arrives NAMED. The name is resolved server-side from
+        // the row the ownership read already fetched, because it is what the
+        // worker writes into the receipt — a client-supplied label would make
+        // the transcript repeat whatever the sender claimed.
         const payload = await jobPayload(conversationId, turnId);
-        expect(payload?.dataSourceIds).toEqual([mine]);
+        expect(payload?.dataSources).toEqual([mine]);
       });
 
       it('proceeds with an empty scope when every id is dropped', async () => {
@@ -1057,7 +1063,7 @@ describe('chatRouter', () => {
         expect(result).toEqual({ status: 'accepted', turnId });
 
         const payload = await jobPayload(conversationId, turnId);
-        expect(payload?.dataSourceIds).toEqual([]);
+        expect(payload?.dataSources).toEqual([]);
       });
 
       it('carries every id when the caller owns them all', async () => {
@@ -1079,11 +1085,11 @@ describe('chatRouter', () => {
           query: 'Hello there',
           conversationId,
           turnId,
-          dataSourceIds: [first, second],
+          dataSourceIds: [first.id, second.id],
         });
 
         const payload = await jobPayload(conversationId, turnId);
-        expect(payload?.dataSourceIds).toEqual([first, second]);
+        expect(payload?.dataSources).toEqual([first, second]);
       });
 
       it('defaults to an unscoped Turn when the caller sends no selection', async () => {
@@ -1103,7 +1109,7 @@ describe('chatRouter', () => {
         await caller.chat.send({ query: 'Hello', conversationId, turnId });
 
         const payload = await jobPayload(conversationId, turnId);
-        expect(payload?.dataSourceIds).toEqual([]);
+        expect(payload?.dataSources).toEqual([]);
       });
     });
   });

@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
-import { ownedDataSourceIds } from '@acme/rag/server';
+import { ownedDataSources } from '@acme/rag/server';
 import { HEAD_CURSOR } from '@acme/redis';
 
 import { env } from '../../env';
@@ -58,19 +58,26 @@ import { assertFolderOwned, foldersRouter } from './folders';
  * Narrow a Turn's Source Selection to the Sources this caller actually owns,
  * and say so in the log when anything fell out.
  *
- * The narrowing itself is rag's — `ownedDataSourceIds` owns both the query and
+ * The narrowing itself is rag's — `ownedDataSources` owns both the query and
  * the drop-don't-throw policy, and `resolveRetrievalScope` narrows through the
- * same function when the Turn actually runs, so send-time and use-time cannot
- * disagree about what "yours" means. What is chat's here is only the OBSERVABILITY:
- * an id silently vanishing between the picker and the answer is the kind of
- * thing a user reports as "it ignored my documents", so it gets a line.
+ * same read when the Turn actually runs, so send-time and use-time cannot
+ * disagree about what "yours" means. What is chat's here is only the
+ * OBSERVABILITY: an id silently vanishing between the picker and the answer is
+ * the kind of thing a user reports as "it ignored my documents", so it gets a
+ * line.
  *
- * This pass exists so the per-Turn record and the job payload state what
- * actually applied; it is not what the worker trusts, since the worker's
- * `streamScopedTurn` narrows again at use.
+ * It returns each Source's NAME beside its id, because that clump is what the
+ * worker writes into the per-Message receipt. Names are resolved here, server
+ * side, from the row the ownership read already fetched — never taken from the
+ * client, which would make a truth-obligation surface repeat whatever the
+ * sender claimed.
+ *
+ * This pass is what makes the receipt and the job payload state what actually
+ * applied; it is not what the worker trusts, since `streamScopedTurn` narrows
+ * again at use.
  */
 async function validateSourceSelection(userId: string, selected: string[]) {
-  const validated = await ownedDataSourceIds({
+  const validated = await ownedDataSources({
     ownerId: userId,
     dataSourceIds: selected,
   });
@@ -82,7 +89,7 @@ async function validateSourceSelection(userId: string, selected: string[]) {
     );
   }
 
-  return validated;
+  return validated.map(({ id, name }) => ({ id, name }));
 }
 
 export const chatRouter = createTRPCRouter({
@@ -156,7 +163,7 @@ export const chatRouter = createTRPCRouter({
       // in the app. Every read below is off this snapshot.
       const { tier, credits } = await ctx.entitlements.resolve(userId);
 
-      const dataSourceIds = await validateSourceSelection(
+      const dataSources = await validateSourceSelection(
         userId,
         input.dataSourceIds,
       );
@@ -168,7 +175,7 @@ export const chatRouter = createTRPCRouter({
           userId,
           tier,
           query,
-          dataSourceIds,
+          dataSources,
           conversationExists: ctx.conversation != null,
           consume: async () => {
             if (credits.remaining < env.CREDITS_PER_TURN) {
