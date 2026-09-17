@@ -36,7 +36,7 @@ export function Home() {
                 variant="outline"
                 className="rounded-none font-sans text-xs tracking-[0.18em] uppercase"
               >
-                <Link href="/admin">Manage Documents</Link>
+                <Link href="/documents">Manage Documents</Link>
               </Button>
             </div>
           </div>

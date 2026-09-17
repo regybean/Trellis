@@ -31,7 +31,7 @@ interface NavItem {
 // dense icon rail to prove the shell can diverge while the routes/features match.
 const navItems: NavItem[] = [
   { title: 'Chat', to: '/chat-assistant/{-$sessionId}', icon: MessageSquare },
-  { title: 'Documents', to: '/admin', icon: FileText },
+  { title: 'Documents', to: '/documents', icon: FileText },
   { title: 'Pricing', to: '/pricing', icon: Tag },
 ];
 

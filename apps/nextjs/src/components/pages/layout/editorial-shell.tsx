@@ -18,7 +18,7 @@ interface NavItem {
 // re-skin via the editorial tokens.
 const navItems: NavItem[] = [
   { title: 'Chat', href: '/chat-assistant' },
-  { title: 'Documents', href: '/admin' },
+  { title: 'Documents', href: '/documents' },
   { title: 'Pricing', href: '/pricing' },
 ];
 
