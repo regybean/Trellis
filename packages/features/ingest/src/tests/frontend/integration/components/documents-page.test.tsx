@@ -136,7 +136,10 @@ describe('DocumentsPage', () => {
         return listCalls === 1 ? THREE_SOURCES : THREE_SOURCES.slice(0, 2);
       }),
       trpcMsw.documents.list.query(() => TWO_DOCS),
-      trpcMsw.dataSources.delete.mutation(() => ({ id: EMPTY })),
+      trpcMsw.dataSources.delete.mutation(() => ({
+        id: EMPTY,
+        deletedChunkCount: 0,
+      })),
     );
 
     const user = userEvent.setup();
@@ -166,7 +169,10 @@ describe('DocumentsPage', () => {
       ]),
       // Registered so a fired mutation would visibly succeed — the assertion
       // below is that it does NOT fire while the name is unconfirmed.
-      trpcMsw.dataSources.delete.mutation(() => ({ id: WORK })),
+      trpcMsw.dataSources.delete.mutation(() => ({
+        id: WORK,
+        deletedChunkCount: 6,
+      })),
     );
 
     const user = userEvent.setup();

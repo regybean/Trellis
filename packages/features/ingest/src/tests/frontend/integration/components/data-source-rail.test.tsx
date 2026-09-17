@@ -34,6 +34,11 @@ const noop = () => {
   // the rail's callbacks belong to the page; these cases assert its DOM only
 };
 
+// None of the cases below commits a name, so this resolves to no row.
+const neverCreates = async (): Promise<undefined> => {
+  await Promise.resolve();
+};
+
 const renderRail = ({
   sources = [] as DataSourceSummary[],
   totalDocumentCount = 0,
@@ -46,7 +51,7 @@ const renderRail = ({
       onSelect={noop}
       totalDocumentCount={totalDocumentCount}
       maxDataSourcesPerUser={maxDataSourcesPerUser}
-      onCreate={() => Promise.resolve(undefined)}
+      onCreate={neverCreates}
       isCreating={false}
       onDelete={noop}
     />,
