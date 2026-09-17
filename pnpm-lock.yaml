@@ -1340,6 +1340,9 @@ importers:
       '@t3-oss/env-core':
         specifier: 'catalog:'
         version: 0.13.10(typescript@5.9.3)(zod@4.4.3)
+      '@tanstack/react-form':
+        specifier: 'catalog:'
+        version: 1.33.5(react-dom@19.2.3(react@19.2.3))(react@19.2.3)
       '@tanstack/react-query':
         specifier: 'catalog:'
         version: 5.90.16(react@19.2.3)
