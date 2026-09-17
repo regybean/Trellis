@@ -37,8 +37,9 @@ export type Roles = 'admin' | 'user';
  *
  * The substrate itself still reads only `id` (identity) and `role` (the
  * `adminProcedure` gate). `email` is here because `@acme/billing` opens a
- * Stripe customer against it, and optional because the slim apps inject a
- * constant `{ id: 'local', role: 'admin' }` and drop billing entirely.
+ * Stripe customer against it, and optional because the no-auth apps inject a
+ * constant `{ id: 'local' }` and drop billing entirely. `role` is optional for
+ * the same reason: an app with no authorization model asserts none.
  */
 export interface InjectedUser {
   id: string;
