@@ -18,6 +18,10 @@ import { createIngestProgressWriter } from '../../../../api/services/ingest-prog
 import { cleanupTestData } from '../../utils/test-context';
 
 const userId = 'user-1';
+// The destination Data Source rides on every progress event now. These suites
+// exercise the stream, not ownership, so a fixed id is enough — nothing here
+// reads `data_source`.
+const DATA_SOURCE_ID = '11111111-1111-4111-8111-111111111111';
 
 describe('readProgressSnapshot (integration)', () => {
   beforeEach(async () => {
@@ -34,7 +38,10 @@ describe('readProgressSnapshot (integration)', () => {
   });
 
   it('folds to the latest stage per Upload and drops done', async () => {
-    const writer = createIngestProgressWriter(userId, 'job-1');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-1',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     // u1 runs to completion → dropped (it lives in documents.list).
     await writer.queued('u1', 'a.pdf');
     await writer.stage('u1', 'a.pdf', 'parsing');
@@ -68,7 +75,10 @@ describe('readProgressSnapshot (integration)', () => {
   });
 
   it('drops a Job whose every Upload is done (nothing to re-seed)', async () => {
-    const writer = createIngestProgressWriter(userId, 'job-done');
+    const writer = createIngestProgressWriter(userId, {
+      jobId: 'job-done',
+      dataSourceId: DATA_SOURCE_ID,
+    });
     await writer.queued('u1', 'a.pdf');
     await writer.done('u1', 'a.pdf');
     await writer.queued('u2', 'b.pdf');

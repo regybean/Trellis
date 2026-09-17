@@ -17,13 +17,14 @@ export {
 } from './data-source';
 export type { DataSourceScope } from './data-source';
 export {
-  deleteByFilename,
+  countDocuments,
+  deleteDocument,
   DocumentParseError,
   listDocuments,
   uploadDoc,
 } from './document-uploader';
 export type {
-  DocumentFilenameSummary,
+  DocumentSummary,
   RagUploadStage,
   StageReporter,
   UploadDocOptions,

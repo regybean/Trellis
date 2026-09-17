@@ -19,7 +19,9 @@ const INGEST_PERSIST_MAX_AGE = 24 * 60 * 60 * 1000; // 24 hours
 // `NEXT_PUBLIC_APP_VERSION` (chat's choice) because what invalidates an ingest
 // snapshot is a change to the `documents.list` row shape, not every deploy —
 // mirrors feedback. Bump it whenever that shape changes.
-const INGEST_PERSIST_VERSION = '1';
+// Bumped to '2' when `documents.list` rows gained their Source's name and id:
+// a restored v1 snapshot would paint rows with no Source, for up to 24 hours.
+const INGEST_PERSIST_VERSION = '2';
 
 // Ingest's client half, assembled from the shared factory (`@acme/hooks`). The
 // scaffold lives once in the factory; ingest's variation is its router type,

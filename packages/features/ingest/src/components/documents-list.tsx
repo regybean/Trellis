@@ -24,22 +24,28 @@ export function DocumentsList() {
   return (
     <ul className="divide-border divide-y">
       {documents.map((doc) => (
+        // The same filename in two Sources is two Documents, so the row key is
+        // the pair rather than the filename.
         <li
-          key={doc.filename}
+          key={`${doc.dataSourceId}:${doc.filename}`}
           className="flex items-center justify-between py-2"
         >
           <div>
             <p className="text-sm font-medium">{doc.filename}</p>
-            <p className="text-muted-foreground text-xs">{doc.count} chunks</p>
+            <p className="text-muted-foreground text-xs">
+              {doc.dataSourceName} · {doc.count} chunks
+            </p>
           </div>
           <Button
             variant="ghost"
             size="sm"
             disabled={isDeleting}
-            onClick={() => deleteDocument(doc.filename)}
+            onClick={() => deleteDocument(doc.dataSourceId, doc.filename)}
           >
             <Trash2 className="h-4 w-4" />
-            <span className="sr-only">Delete {doc.filename}</span>
+            <span className="sr-only">
+              Delete {doc.filename} from {doc.dataSourceName}
+            </span>
           </Button>
         </li>
       ))}

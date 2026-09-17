@@ -20,6 +20,7 @@ import { ingestProgressEventSchema } from '../schemas/ingest-progress-schema';
 export function encodeProgress(event: IngestProgressEvent) {
   const fields: Record<string, string> = {
     jobId: event.jobId,
+    dataSourceId: event.dataSourceId,
     uploadId: event.uploadId,
     filename: event.filename,
     stage: event.stage,
@@ -50,26 +51,32 @@ export const ingestProgressStream = (userId: string) =>
   });
 
 // A progress writer bound to one Job of one user. The stream key is per-user, so
-// the varying `jobId` is closed over here and stamped into every event — the
-// processor's contract stays `queued(uploadId, filename)` etc. Fire-and-forget:
-// there is no job-level terminal on this stream (completion is the notification
+// the Job's invariants — its id and its single destination Data Source — are
+// closed over here and stamped into every event, and the processor's contract
+// stays `queued(uploadId, filename)` etc. One Source per Job is what makes the
+// destination a closure rather than a per-call argument. Fire-and-forget: there
+// is no job-level terminal on this stream (completion is the notification
 // stream's job).
-export function createIngestProgressWriter(userId: string, jobId: string) {
+export function createIngestProgressWriter(
+  userId: string,
+  { jobId, dataSourceId }: { jobId: string; dataSourceId: string },
+) {
   const stream = ingestProgressStream(userId);
   const write = (event: IngestProgressEvent) => stream.write(event);
+  const identity = { jobId, dataSourceId };
 
   return {
     queued: (uploadId: string, filename: string) =>
-      write({ jobId, uploadId, filename, stage: 'queued' }),
+      write({ ...identity, uploadId, filename, stage: 'queued' }),
     stage: (
       uploadId: string,
       filename: string,
       stage: 'parsing' | 'embedding',
-    ) => write({ jobId, uploadId, filename, stage }),
+    ) => write({ ...identity, uploadId, filename, stage }),
     done: (uploadId: string, filename: string) =>
-      write({ jobId, uploadId, filename, stage: 'done' }),
+      write({ ...identity, uploadId, filename, stage: 'done' }),
     failed: (uploadId: string, filename: string, error: string) =>
-      write({ jobId, uploadId, filename, stage: 'failed', error }),
+      write({ ...identity, uploadId, filename, stage: 'failed', error }),
   };
 }
 

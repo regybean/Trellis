@@ -6,9 +6,9 @@ import { toast } from 'react-toastify';
 import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
 
 /**
- * Data access for the Documents list: the indexed knowledge base and Document
- * deletion. Keeps `DocumentsList` UI-only (see CLAUDE.md — business logic in
- * hooks).
+ * Data access for the Documents list: the caller's own Documents across every
+ * Data Source they own (the `All documents` roll-up), and Document deletion.
+ * Keeps `DocumentsList` UI-only (see CLAUDE.md — business logic in hooks).
  */
 export function useDocuments() {
   const trpc = useTRPC();
@@ -18,7 +18,7 @@ export function useDocuments() {
   // The Documents pane persists for offline read — it is the query that buys
   // the paint on a surface operators revisit constantly.
   const documentsQuery = useQuery(
-    trpc.documents.list.queryOptions(undefined, persisted),
+    trpc.documents.list.queryOptions({}, persisted),
   );
 
   const deleteDocument = useMutation(
@@ -34,7 +34,10 @@ export function useDocuments() {
   return {
     documents: documentsQuery.data ?? [],
     isLoading: documentsQuery.isLoading,
-    deleteDocument: (filename: string) => deleteDocument.mutate({ filename }),
+    // The Source is part of the argument because it is part of Document
+    // identity: the same filename in two Sources is two Documents.
+    deleteDocument: (dataSourceId: string, filename: string) =>
+      deleteDocument.mutate({ dataSourceId, filename }),
     isDeleting: deleteDocument.isPending,
   };
 }

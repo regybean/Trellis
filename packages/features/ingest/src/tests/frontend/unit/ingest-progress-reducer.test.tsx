@@ -34,10 +34,19 @@ const runFrom = (
 
 const run = (events: ProgressEvent[]) => runFrom(events);
 
+// Every row carries its destination Data Source. These cases are about the
+// merge contract, not about scoping, so one fixed id keeps them terse.
+const DATA_SOURCE_ID = '11111111-1111-4111-8111-111111111111';
+
 const presigned = (
   jobId: string,
   uploads: { uploadId: string; filename: string }[],
-): ProgressEvent => ({ type: 'presigned', jobId, uploads });
+): ProgressEvent => ({
+  type: 'presigned',
+  jobId,
+  dataSourceId: DATA_SOURCE_ID,
+  uploads,
+});
 
 // A live server progress entry now carries the full wire identity (jobId +
 // filename) so an unknown uploadId can seed its own row. Defaults keep the
@@ -49,16 +58,16 @@ const server = (
 ): ProgressEvent => {
   const jobId = opts.jobId ?? 'job-1';
   const filename = opts.filename ?? `${uploadId}.pdf`;
+  const identity = {
+    type: 'serverStage',
+    jobId,
+    dataSourceId: DATA_SOURCE_ID,
+    uploadId,
+    filename,
+  } as const;
   return stage === 'failed'
-    ? {
-        type: 'serverStage',
-        jobId,
-        uploadId,
-        filename,
-        stage: 'failed',
-        error: opts.error ?? 'err',
-      }
-    : { type: 'serverStage', jobId, uploadId, filename, stage };
+    ? { ...identity, stage: 'failed', error: opts.error ?? 'err' }
+    : { ...identity, stage };
 };
 
 // A wire snapshot upload (what `documents.progressSnapshot` returns) for `hydrate`.
@@ -67,11 +76,15 @@ const wire = (
   stage: IngestProgressEvent['stage'],
   opts: { jobId?: string; filename?: string; error?: string } = {},
 ): IngestProgressEvent => {
-  const jobId = opts.jobId ?? 'job-old';
-  const filename = opts.filename ?? `${uploadId}.pdf`;
+  const identity = {
+    jobId: opts.jobId ?? 'job-old',
+    dataSourceId: DATA_SOURCE_ID,
+    uploadId,
+    filename: opts.filename ?? `${uploadId}.pdf`,
+  };
   return stage === 'failed'
-    ? { jobId, uploadId, filename, stage: 'failed', error: opts.error ?? 'e' }
-    : { jobId, uploadId, filename, stage };
+    ? { ...identity, stage: 'failed', error: opts.error ?? 'e' }
+    : { ...identity, stage };
 };
 
 describe('ingestProgressReducer', () => {
