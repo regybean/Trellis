@@ -31,7 +31,7 @@ export function findNameCollision<T extends { name: string }>(
   name: string,
 ) {
   const candidate = fold(name);
-  if (candidate.length === 0) return undefined;
+  if (candidate.length === 0) return;
   return sources.find((source) => fold(source.name) === candidate);
 }
 
@@ -50,6 +50,6 @@ export function headroomFor({
   documentCount: number;
   cap: number | undefined;
 }) {
-  if (cap === undefined) return undefined;
+  if (cap === undefined) return;
   return Math.max(cap - documentCount, 0);
 }
