@@ -45,6 +45,31 @@ userId`). Mastra rows carry no row-level auth, so this is a rule, not a constrai
 `null` (absent), or throws `ThreadOwnershipError` (owned by someone else).
 _Avoid_: "auth check", "guard" (it's a domain rule any feature can reuse)
 
+**Data Source**:
+A user-owned, private, named partition of the **knowledge base** (`data_source`, an
+**app-owned table**). Every chunk belongs to exactly one, carried as `data_source_id`
+in its metadata alongside `owner_id`. Capped per owner (`MAX_DATA_SOURCES_PER_USER`),
+names unique per owner case-insensitively, ids client-minted. Deleting one deletes
+its chunks first and its row second, across two databases and therefore
+non-atomically. _Avoid_: "collection", "folder", "workspace", "namespace"
+
+**Source Selection**:
+The Data Sources a caller has chosen to retrieve from, as a list of ids on the wire
+(`SourceSelection`). It is the user's CHOICE, never the filter: the server derives
+the filter from the verified owner and takes nothing about ownership from the
+request. The empty set is the default and a meaningful choice — it means retrieve
+nothing. _Avoid_: "scope" (that is the resolved object below), "filter", "allowlist"
+
+**Retrieval scope**:
+The trusted object `resolveRetrievalScope` builds from a Source Selection — a Mastra
+`RequestContext` carrying the two-clause filter (`owner_id` + `data_source_id $in`)
+and the server-pinned `topK`, plus `hasSources`. It NARROWS: ids the caller does not
+own, including ones deleted since the selection was made, are dropped rather than
+made fatal ([ADR 0005](docs/adr/0005-retrieval-scope-narrows-rather-than-rejects.md)).
+`hasSources` is read off the narrowed set, so it is a fact a caller cannot recompute
+from its own raw input. _Avoid_: "the filter" (the context overrides more knobs than
+that), "validated ids"
+
 **Embed purpose**:
 Whether an embedding is for a stored document or a query — `document` when indexing,
 `query` when retrieving. The uploader and vector query tool pass this to
@@ -64,6 +89,11 @@ detail), "mode", "direction"
 - `assertThreadOwned` is the shared **thread ownership** rule: chat's ownership
   middleware and feedback's `submit` mutation both call it rather than re-reading
   `resourceId` inline.
+- Data Source ownership has two forms over one read (`ownedDataSourceIds`):
+  `assertDataSourceOwned` rejects, and is what `deleteDataSource`/`renameDataSource`
+  and ingest's upload path use; `resolveRetrievalScope` narrows, and is what chat's
+  `chat.send` and its stream wrapper use. Neither takes a pre-validated input, so
+  there is no "already checked" variant to trust.
 
 ## Decisions
 
