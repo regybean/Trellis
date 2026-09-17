@@ -2,6 +2,7 @@ import type {
   EntitlementsProvider,
   SubscriptionTier,
 } from '@acme/entitlements';
+import type { SourceSelection } from '@acme/rag/schema';
 import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 
@@ -69,6 +70,10 @@ export interface BeginTurnInput extends TurnRef {
   userId: string;
   tier: SubscriptionTier;
   query: string;
+  // The Turn's Source Selection, already narrowed by `chat.send` and forwarded
+  // to the job payload verbatim. `beginTurn` orders the begin steps; it does
+  // not police scope.
+  dataSourceIds: SourceSelection;
   conversationExists: boolean;
   consume: () => Promise<void>;
 }
@@ -162,7 +167,7 @@ export async function refundTurnCredits(
 // never leak a held lock; the original error propagates for the caller to map.
 // Reports winner (`accepted`) vs loser (`alreadyInflight`).
 export async function beginTurn(input: BeginTurnInput) {
-  const { conversationId, turnId, userId, tier, query } = input;
+  const { conversationId, turnId, userId, tier, query, dataSourceIds } = input;
   const ref: TurnRef = { conversationId, turnId };
 
   const acquired = await acquireInflightLock(ref);
@@ -181,6 +186,7 @@ export async function beginTurn(input: BeginTurnInput) {
       userId,
       tier,
       query,
+      dataSourceIds,
     });
     return { status: 'accepted' as const };
   } catch (error) {

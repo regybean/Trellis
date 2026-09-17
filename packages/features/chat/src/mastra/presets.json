@@ -1,0 +1,9 @@
+{
+  "studio-local": {
+    "filter": {
+      "owner_id": "studio-local-fake-owner",
+      "data_source_id": { "$in": [] }
+    },
+    "topK": 10
+  }
+}

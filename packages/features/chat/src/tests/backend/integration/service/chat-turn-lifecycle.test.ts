@@ -84,6 +84,9 @@ function beginInput(
     userId: seed.userId,
     tier: 'Basic' as SubscriptionTier,
     query: 'Hello there',
+    // These tests are about the lock, the begin-step ordering and the unwind —
+    // none of which read the scope. An unscoped Turn is the ordinary default.
+    dataSourceIds: [],
     conversationExists: true,
     consume,
   };

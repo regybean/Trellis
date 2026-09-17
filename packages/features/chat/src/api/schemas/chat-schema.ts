@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { SourceSelection } from '@acme/rag/schema';
+
 // A Conversation is a Mastra Memory thread (id = sessionId, resourceId =
 // userId). This schema is the client-facing view of that thread.
 export const selectChatSchema = z.object({
@@ -44,6 +46,11 @@ export const SendChatRequest = z.object({
   query: z.string().max(MAX_MESSAGE_LENGTH, 'Message too long'),
   conversationId: z.uuid(),
   turnId: z.uuid(),
+  // The Source Selection for this Turn — the Data Sources the user ticked in
+  // the composer. The schema is rag's (`SourceSelection`), because the same
+  // clump travels from here to the queued job and on to the stream wrapper, and
+  // rag is where its meaning and its bound are stated.
+  dataSourceIds: SourceSelection,
 });
 
 export const StopChatRequest = z.object({

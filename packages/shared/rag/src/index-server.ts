@@ -11,6 +11,7 @@ export {
   DataSourceQuotaError,
   deleteDataSource,
   listDataSources,
+  ownedDataSourceIds,
   renameDataSource,
   resolveRetrievalScope,
   retrievalContextSchema,

@@ -74,6 +74,11 @@ function makeJob(overrides: Partial<GenerationJob> = {}): Job<GenerationJob> {
       userId,
       tier: 'Basic',
       query: 'Hello, world!',
+      // An unscoped Turn — the default, and what these tests want: they are
+      // about the Stream, the terminals and the refund, not about retrieval.
+      // An empty scope also costs no ownership query, so these stay off the
+      // `data_source` table entirely.
+      dataSourceIds: [],
       ...overrides,
     },
   } as Job<GenerationJob>;

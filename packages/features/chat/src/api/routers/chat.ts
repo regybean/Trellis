@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
+import { ownedDataSourceIds } from '@acme/rag/server';
 import { HEAD_CURSOR } from '@acme/redis';
 
 import { env } from '../../env';
@@ -52,6 +53,37 @@ import { assertFolderOwned, foldersRouter } from './folders';
 
 // CREDITS_PER_TURN has one origin in env — the credit gate + consume read it
 // here; the Turn lifecycle's refund reads the same config value.
+
+/**
+ * Narrow a Turn's Source Selection to the Sources this caller actually owns,
+ * and say so in the log when anything fell out.
+ *
+ * The narrowing itself is rag's — `ownedDataSourceIds` owns both the query and
+ * the drop-don't-throw policy, and `resolveRetrievalScope` narrows through the
+ * same function when the Turn actually runs, so send-time and use-time cannot
+ * disagree about what "yours" means. What is chat's here is only the OBSERVABILITY:
+ * an id silently vanishing between the picker and the answer is the kind of
+ * thing a user reports as "it ignored my documents", so it gets a line.
+ *
+ * This pass exists so the per-Turn record and the job payload state what
+ * actually applied; it is not what the worker trusts, since the worker's
+ * `streamScopedTurn` narrows again at use.
+ */
+async function validateSourceSelection(userId: string, selected: string[]) {
+  const validated = await ownedDataSourceIds({
+    ownerId: userId,
+    dataSourceIds: selected,
+  });
+
+  if (validated.length !== new Set(selected).size) {
+    logger.info(
+      { userId, requested: selected.length, validated: validated.length },
+      'chat.send: dropped unowned or unknown data sources',
+    );
+  }
+
+  return validated;
+}
 
 export const chatRouter = createTRPCRouter({
   // Pure, stateless reader of the durable token Stream — no LLM call, no
@@ -124,6 +156,11 @@ export const chatRouter = createTRPCRouter({
       // in the app. Every read below is off this snapshot.
       const { tier, credits } = await ctx.entitlements.resolve(userId);
 
+      const dataSourceIds = await validateSourceSelection(
+        userId,
+        input.dataSourceIds,
+      );
+
       try {
         const outcome = await beginTurn({
           conversationId,
@@ -131,6 +168,7 @@ export const chatRouter = createTRPCRouter({
           userId,
           tier,
           query,
+          dataSourceIds,
           conversationExists: ctx.conversation != null,
           consume: async () => {
             if (credits.remaining < env.CREDITS_PER_TURN) {

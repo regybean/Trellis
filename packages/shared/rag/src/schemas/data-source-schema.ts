@@ -87,6 +87,39 @@ export const DataSourceName = z
   .min(1, 'Required')
   .max(50, 'Too long');
 
+/**
+ * A **Source Selection**: the Data Sources one Turn may retrieve from, as the
+ * user ticked them.
+ *
+ * One type, named once, because the same clump travels the whole way through —
+ * the send request, the Turn begin input, the queued job, the stream wrapper —
+ * and four bespoke `string[]` fields with four doc comments is how the four
+ * drift. It is the user's SELECTION and never the retrieval filter: the server
+ * derives the filter from the verified `userId`, and the ids here are
+ * client-minted, which is safe only because the filter's first clause is
+ * `owner_id = <verified userId>`.
+ *
+ * Zero or more. The empty set is the default AND a meaningful choice — it means
+ * retrieve nothing — so it has to be expressible rather than merely absent, and
+ * the `.default([])` is what lets a caller with no picker send an unscoped Turn
+ * instead of a validation error.
+ *
+ * `MAX_SOURCE_SELECTION` is a wire bound, deliberately not the
+ * `MAX_DATA_SOURCES_PER_USER` quota: that one is server env and would drag env
+ * into a schema the client imports, and the two answer different questions.
+ * This one only has to keep an unbounded array off the `$in` clause and the
+ * ownership read, so it sits an order of magnitude above any sane quota rather
+ * than tracking it.
+ */
+export const MAX_SOURCE_SELECTION = 100;
+
+export const SourceSelection = z
+  .array(z.uuid())
+  .max(MAX_SOURCE_SELECTION, 'Too many data sources selected')
+  .default([]);
+
+export type SourceSelection = z.infer<typeof SourceSelection>;
+
 // Procedure input schemas. The `id` is client-minted (see the table comment).
 export const CreateDataSourceRequest = z.object({
   id: z.uuid(),

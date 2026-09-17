@@ -16,6 +16,10 @@
       "types": "./dist/index-server.d.ts",
       "default": "./src/index-server.ts"
     },
+    "./testing": {
+      "types": "./dist/testing.d.ts",
+      "default": "./src/testing.ts"
+    },
     "./ownership-trpc": {
       "types": "./dist/ownership-trpc.d.ts",
       "default": "./src/ownership-trpc.ts"

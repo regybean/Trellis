@@ -146,31 +146,48 @@ describe('data source module (integration)', () => {
   });
 
   describe('ownership', () => {
-    it('resolveRetrievalScope throws when the owner does not own the Source', async () => {
+    // Two policies over one read, and which one a caller gets is the point of
+    // the split. `assertDataSourceOwned` REJECTS, because a rename or a delete
+    // names one Source and must fail loudly when it is not yours.
+    // `resolveRetrievalScope` NARROWS, because a retrieval scope names a set
+    // and ordinary staleness must not cost the user their message.
+
+    it('drops a Source the caller does not own, rather than rejecting', async () => {
       const ownerA = newOwner();
       const ownerB = newOwner();
       const bSource = await source(ownerB, "B's notes");
 
-      await expect(
-        resolveRetrievalScope({
-          ownerId: ownerA,
-          dataSourceIds: [bSource.id],
-        }),
-      ).rejects.toBeInstanceOf(DataSourceOwnershipError);
+      const { requestContext, hasSources } = await resolveRetrievalScope({
+        ownerId: ownerA,
+        dataSourceIds: [bSource.id],
+      });
+
+      expect(hasSources).toBe(false);
+      // The foreign id never reaches the filter. Nothing is given away by
+      // dropping it rather than rejecting: `owner_id` would have excluded B's
+      // chunks even if the id had survived.
+      expect(requestContext.get('filter')).toEqual({
+        owner_id: ownerA,
+        data_source_id: { $in: [] },
+      });
     });
 
-    it('throws for a mixed selection rather than silently keeping the owned half', async () => {
+    it('keeps the owned half of a mixed selection and drops the rest', async () => {
       const ownerA = newOwner();
       const ownerB = newOwner();
       const aSource = await source(ownerA, "A's notes");
       const bSource = await source(ownerB, "B's notes");
 
-      await expect(
-        resolveRetrievalScope({
-          ownerId: ownerA,
-          dataSourceIds: [aSource.id, bSource.id],
-        }),
-      ).rejects.toBeInstanceOf(DataSourceOwnershipError);
+      const { requestContext, hasSources } = await resolveRetrievalScope({
+        ownerId: ownerA,
+        dataSourceIds: [aSource.id, bSource.id],
+      });
+
+      expect(hasSources).toBe(true);
+      expect(requestContext.get('filter')).toEqual({
+        owner_id: ownerA,
+        data_source_id: { $in: [aSource.id] },
+      });
     });
 
     it("names only the ids that were not the caller's", async () => {
@@ -193,28 +210,48 @@ describe('data source module (integration)', () => {
       }
     });
 
-    it('throws for a Source deleted since the selection was made', async () => {
+    it('drops a Source deleted since the selection was made', async () => {
       // The delete-while-in-flight case. There is no interleaving to arrange,
-      // because the assert runs at use rather than at the edge: delete, then
-      // call, then assert.
+      // because the narrowing runs at use rather than at the edge: delete, then
+      // resolve. The Turn carries on without it instead of dying on it.
+      const ownerId = newOwner();
+      const kept = await source(ownerId, 'Staying');
+      const deleted = await source(ownerId, 'Going away');
+      await deleteDataSource({ ownerId, id: deleted.id });
+
+      const { requestContext, hasSources } = await resolveRetrievalScope({
+        ownerId,
+        dataSourceIds: [kept.id, deleted.id],
+      });
+
+      expect(hasSources).toBe(true);
+      expect(requestContext.get('filter')).toEqual({
+        owner_id: ownerId,
+        data_source_id: { $in: [kept.id] },
+      });
+    });
+
+    it('still rejects a deleted Source through the rejecting form', async () => {
+      // Same fact, opposite policy — this is the one `deleteDataSource` and
+      // `renameDataSource` rest on, so it has to survive the narrowing.
       const ownerId = newOwner();
       const deleted = await source(ownerId, 'Going away');
       await deleteDataSource({ ownerId, id: deleted.id });
 
       await expect(
-        resolveRetrievalScope({ ownerId, dataSourceIds: [deleted.id] }),
+        assertDataSourceOwned({ ownerId, dataSourceIds: [deleted.id] }),
       ).rejects.toBeInstanceOf(DataSourceOwnershipError);
     });
 
-    it('treats an unknown id as unowned', async () => {
+    it('drops an unknown id', async () => {
       const ownerId = newOwner();
 
-      await expect(
-        resolveRetrievalScope({
-          ownerId,
-          dataSourceIds: [crypto.randomUUID()],
-        }),
-      ).rejects.toBeInstanceOf(DataSourceOwnershipError);
+      const { hasSources } = await resolveRetrievalScope({
+        ownerId,
+        dataSourceIds: [crypto.randomUUID()],
+      });
+
+      expect(hasSources).toBe(false);
     });
   });
 
