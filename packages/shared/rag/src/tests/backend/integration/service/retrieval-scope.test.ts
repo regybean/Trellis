@@ -35,6 +35,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import {
   createDataSource,
+  deleteDataSource,
   resolveRetrievalScope,
 } from '../../../../data-source';
 import { uploadDoc } from '../../../../document-uploader';
@@ -135,11 +136,12 @@ describe('retrieval scope (integration)', () => {
     });
   });
 
-  // The corpus is read-only for every test below — nothing here creates,
-  // deletes or re-uploads — so it is seeded once and swept once. Mutating it
-  // mid-file would make the set-equality assertions depend on test order, which
-  // is the last thing a privacy claim should rest on. The cascade's effect on
-  // it is asserted in `data-source.test.ts`, on its own fixture.
+  // The shared corpus is read-only, so it is seeded once and swept once —
+  // mutating it mid-file would make the set-equality assertions depend on test
+  // order, which is the last thing a privacy claim should rest on. The one case
+  // below that needs a deleted Source creates and destroys its OWN, leaving
+  // these four chunks untouched either side of it. The cascade's effect on the
+  // corpus is asserted in `data-source.test.ts`, on its own fixture.
   afterAll(async () => {
     await cleanupDataSources(owners.splice(0));
   });
@@ -176,10 +178,44 @@ describe('retrieval scope (integration)', () => {
     await expect(retrieve(ownerA, [])).resolves.toEqual([]);
   });
 
-  it("rejects B's Source id presented by A, before any query runs", async () => {
-    // The assert is inside `resolveRetrievalScope`, so there is no filter to
-    // get wrong: the call never reaches Postgres.
-    await expect(retrieve(ownerA, [b1])).rejects.toThrow();
-    await expect(retrieve(ownerA, [a1, b1])).rejects.toThrow();
+  it("drops B's Source id presented by A, rather than failing the call", async () => {
+    // The narrowing is inside `resolveRetrievalScope`, so the foreign id never
+    // reaches the filter. Dropping, not throwing: the same policy has to cover
+    // "never yours" and "yours until it was deleted a second ago", and the
+    // second must not cost the user their message. Nothing is given away —
+    // `owner_id` would have excluded B's chunks even if the id had survived.
+    await expect(retrieve(ownerA, [b1])).resolves.toEqual([]);
+    await expect(retrieve(ownerA, [a1, b1])).resolves.toEqual(
+      sorted([names.a1First, names.a1Second]),
+    );
+  });
+
+  it('drops a Source deleted between the selection and the retrieval', async () => {
+    // The delete-while-in-flight case, which is not a race: the narrowing runs
+    // when the Turn actually executes, so it is simply delete-then-retrieve.
+    // A2's chunk falls out and A1's two survive — the Turn answers from what
+    // is left instead of dying on a stale tick box.
+    const doomed = await newSource(ownerA, `Doomed ${run}`);
+    await uploadDoc(txtFile(`doomed-${run}.txt`), {
+      ownerId: ownerA,
+      dataSourceId: doomed.id,
+    });
+    await deleteDataSource({ ownerId: ownerA, id: doomed.id });
+
+    await expect(retrieve(ownerA, [a1, doomed.id])).resolves.toEqual(
+      sorted([names.a1First, names.a1Second]),
+    );
+  });
+
+  it('reports an all-dropped selection as having no sources', async () => {
+    // `hasSources` is read off the NARROWED set, which is what lets chat skip
+    // the retrieval tool for a Turn whose every Source has since been deleted.
+    // Recomputing it from the raw array would get this case wrong.
+    const { hasSources } = await resolveRetrievalScope({
+      ownerId: ownerA,
+      dataSourceIds: [b1],
+    });
+
+    expect(hasSources).toBe(false);
   });
 });

@@ -76,11 +76,11 @@ async function runGenerationTurn(
   logger.info({ conversationId, turnId }, 'generation worker: starting');
 
   try {
-    // Retrieval is scoped to the Sources `chat.send` validated, and the wrapper
-    // re-asserts ownership over them before building anything — so a Source
-    // deleted since the send simply is not in scope. Streaming goes through
-    // `streamScopedTurn` and nowhere else; the direct `chatAgent.stream` call
-    // this replaced is now a lint error.
+    // Retrieval is scoped to the Sources `chat.send` narrowed to, and the
+    // wrapper narrows again before building anything — so a Source deleted
+    // since the send is dropped here and the Turn still answers. Streaming goes
+    // through `streamScopedTurn` and nowhere else; the direct
+    // `chatAgent.stream` call this replaced is now a lint error.
     const result = await streamScopedTurn({
       conversationId,
       userId,

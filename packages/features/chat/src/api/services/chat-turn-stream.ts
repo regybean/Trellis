@@ -1,28 +1,9 @@
 import { stepCountIs } from 'ai';
 
+import type { SourceSelection } from '@acme/rag/schema';
 import { resolveRetrievalScope } from '@acme/rag/server';
 
 import { chatAgent } from './chat-agent';
-
-/**
- * The one and only `chatAgent.stream` call site.
- *
- * Sole, and lint-enforced: chat's ESLint config bans the call everywhere but
- * this file. That is what makes the privacy boundary structural rather than
- * remembered — Mastra's retrieval tool is fail-OPEN by construction (no filter
- * in the request context means `enableFilter: false` and a full-corpus read),
- * so a second `stream` call that forgot its scope would leak every user's
- * chunks silently. There is nothing to remember here: a Turn cannot be streamed
- * without going through this function, and this function cannot build a scope
- * without asserting ownership.
- *
- * The ban covers the CALL, not the `chatAgent` import, so Studio registration
- * and the backend suite's `vi.spyOn` stub both still work. Its one known gap:
- * the selector matches the identifier, so aliasing the import
- * (`import { chatAgent as a }`) defeats it. Accepted — an import ban would have
- * to whitelist all of `tests/**`, which reopens the hole for any future test
- * that streams for real.
- */
 
 /**
  * The step budget for one Turn, pinned here rather than inherited.
@@ -37,27 +18,45 @@ import { chatAgent } from './chat-agent';
  */
 const TURN_STEP_BUDGET = 5;
 
-export interface ScopedTurn {
+export interface StreamScopedTurnOptions {
   conversationId: string;
   userId: string;
   query: string;
   /**
-   * The Data Sources this Turn may retrieve from. Raw, not pre-validated:
-   * `resolveRetrievalScope` re-asserts ownership itself, which is what closes
-   * the delete-while-in-flight case. A Source deleted between `chat.send` and
-   * this call makes that assert THROW, so the Turn settles on its `error`
-   * terminal and the credit is refunded — loud, and nothing is retrieved from
-   * a Source that no longer exists.
+   * The Turn's Source Selection, raw and not pre-validated:
+   * `resolveRetrievalScope` narrows it to the caller's own Sources itself,
+   * which is what closes the delete-while-in-flight case. A Source deleted
+   * between `chat.send` and this call is simply dropped from the scope, so the
+   * Turn still answers — from the Sources that remain, or from none.
    */
-  dataSourceIds: string[];
+  dataSourceIds: SourceSelection;
 }
 
+/**
+ * The one and only `chatAgent.stream` call site.
+ *
+ * Sole, and lint-enforced: chat's ESLint config bans the call everywhere but
+ * this file. That is what makes the privacy boundary structural rather than
+ * remembered — Mastra's retrieval tool is fail-OPEN by construction (no filter
+ * in the request context means `enableFilter: false` and a full-corpus read),
+ * so a second `stream` call that forgot its scope would leak every user's
+ * chunks silently. There is nothing to remember here: a Turn cannot be streamed
+ * without going through this function, and this function cannot build a scope
+ * without resolving ownership.
+ *
+ * The ban covers the CALL, not the `chatAgent` import, so Studio registration
+ * and the backend suite's `vi.spyOn` stub both still work. Its one known gap:
+ * the selector matches the identifier, so aliasing the import
+ * (`import { chatAgent as a }`) defeats it. Accepted — an import ban would have
+ * to whitelist all of `tests/**`, which reopens the hole for any future test
+ * that streams for real.
+ */
 export async function streamScopedTurn({
   conversationId,
   userId,
   query,
   dataSourceIds,
-}: ScopedTurn) {
+}: StreamScopedTurnOptions) {
   const { requestContext, hasSources } = await resolveRetrievalScope({
     ownerId: userId,
     dataSourceIds,
@@ -79,18 +78,16 @@ export async function streamScopedTurn({
     // `[]` yields zero tools; it does not degrade into "all tools" the way an
     // empty filter degrades into "no filtering".
     //
-    // `hasSources` comes from rag's validated scope and is deliberately not
-    // recomputed from `dataSourceIds` here. Today the two always agree, since
-    // rag throws on an id it cannot verify rather than dropping it — but
-    // whether there is anything to retrieve is rag's fact to state, not chat's
-    // to infer. If rag ever narrows instead of throwing, this line is already
-    // right; a local `dataSourceIds.length > 0` would silently start attaching
-    // the tool to Turns that can retrieve nothing.
+    // `hasSources` comes from rag's NARROWED scope and is deliberately not
+    // recomputed from `dataSourceIds` here. A Turn whose every selected Source
+    // was deleted since the send has a non-empty raw array and an empty scope,
+    // so a local `dataSourceIds.length > 0` would attach the tool to a Turn
+    // that can retrieve nothing.
     //
     // Safe in both directions: a wrong `[]` means retrieval silently does not
     // happen (a degraded answer, fail-closed), a wrong `undefined` means a
-    // round trip that was previously accepted. Neither leaks, because the
-    // filter below is built and validated unconditionally either way. This is a
+    // round trip that retrieves nothing. Neither leaks, because the filter
+    // below is built and validated unconditionally either way. This is a
     // performance branch sitting above an unbranched privacy boundary.
     activeTools: hasSources ? undefined : [],
     // The trusted object, assembled by rag, passed through untouched. Chat sets

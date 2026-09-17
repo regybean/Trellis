@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import type { SubscriptionTier } from '@acme/entitlements';
 import { logger } from '@acme/logger';
-import { listDataSources } from '@acme/rag/server';
+import { ownedDataSourceIds } from '@acme/rag/server';
 import { HEAD_CURSOR } from '@acme/redis';
 
 import { env } from '../../env';
@@ -55,31 +55,25 @@ import { assertFolderOwned, foldersRouter } from './folders';
 // here; the Turn lifecycle's refund reads the same config value.
 
 /**
- * Narrow a Turn's Source Selection to the Sources this caller actually owns.
+ * Narrow a Turn's Source Selection to the Sources this caller actually owns,
+ * and say so in the log when anything fell out.
  *
- * It DROPS the rest. It does not throw `FORBIDDEN`, and that is a decision, not
- * laxity. Data Source rows are hard-deleted, so "was yours, now deleted" and
- * "never was yours" are both simply absent and the server cannot tell them
- * apart; one policy has to cover both. Rejecting would make ordinary staleness
- * destructive — a ghost row in a panel the user has not refreshed would cost
- * them their message — while dropping can only ever narrow scope, which is the
- * fail-closed direction. Two costs swallowed: an attacker presenting a stolen
- * Source id gets silence rather than a 403 (it retrieves nothing either way),
- * and dropping *every* id synthesises an empty scope the user never chose, so
- * an empty scope is reachable by staleness and not only by intent.
+ * The narrowing itself is rag's — `ownedDataSourceIds` owns both the query and
+ * the drop-don't-throw policy, and `resolveRetrievalScope` narrows through the
+ * same function when the Turn actually runs, so send-time and use-time cannot
+ * disagree about what "yours" means. What is chat's here is only the OBSERVABILITY:
+ * an id silently vanishing between the picker and the answer is the kind of
+ * thing a user reports as "it ignored my documents", so it gets a line.
  *
- * The intersection is the ownership check: `listDataSources` is owner-scoped in
- * rag, so anything not in it is not the caller's. One indexed read against a
- * table capped at ten rows per user. `resolveRetrievalScope` re-asserts at use
- * anyway — this pass exists so the per-Turn record and the job payload state
- * what actually applied, not so the worker can trust them.
+ * This pass exists so the per-Turn record and the job payload state what
+ * actually applied; it is not what the worker trusts, since the worker's
+ * `streamScopedTurn` narrows again at use.
  */
 async function validateSourceSelection(userId: string, selected: string[]) {
-  if (selected.length === 0) return [];
-
-  const ownedSources = await listDataSources({ ownerId: userId });
-  const owned = new Set(ownedSources.map((source) => source.id));
-  const validated = [...new Set(selected)].filter((id) => owned.has(id));
+  const validated = await ownedDataSourceIds({
+    ownerId: userId,
+    dataSourceIds: selected,
+  });
 
   if (validated.length !== new Set(selected).size) {
     logger.info(

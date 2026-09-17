@@ -143,33 +143,57 @@ function buildDataSourceFilter({
 }
 
 /**
- * The ownership rule. Takes ids raw and throws `DataSourceOwnershipError` naming
- * the ones that are not the caller's. An empty request is trivially owned and
- * costs no query.
+ * The ownership rule, in its narrowing form: the subset of a raw selection the
+ * caller actually owns, deduped and in request order. An empty request costs no
+ * query.
  *
- * Called at every point of use rather than once at the edge. A brand proving a
- * caller had already validated would die at BullMQ's JSON boundary anyway, and
- * re-asserting costs one indexed read against a table capped at ten rows per
- * user — which buys the delete-while-in-flight case for free, because a Source
- * deleted mid-flight simply is not in scope.
+ * This is the single read both policies are expressed over. Narrowing is the
+ * primitive and throwing is derived from it, rather than the other way round,
+ * because the two callers want opposite things from the same fact: a retrieval
+ * scope must survive a Source that vanished mid-flight, while a rename or a
+ * delete must not silently succeed on an id the caller does not own.
  */
-export async function assertDataSourceOwned({
+export async function ownedDataSourceIds({
   ownerId,
   dataSourceIds,
 }: DataSourceScope) {
   const requested = [...new Set(dataSourceIds)];
-  if (requested.length === 0) return;
+  if (requested.length === 0) return [];
 
-  const owned = await db
+  const rows = await db
     .select({ id: dataSource.id })
     .from(dataSource)
     .where(
       and(eq(dataSource.ownerId, ownerId), inArray(dataSource.id, requested)),
     );
 
+  const ownedIds = new Set(rows.map((row) => row.id));
+  return requested.filter((id) => ownedIds.has(id));
+}
+
+/**
+ * The ownership rule, in its rejecting form: throws `DataSourceOwnershipError`
+ * naming the ids that are not the caller's. An empty request is trivially owned.
+ *
+ * Called at every point of use rather than once at the edge. A brand proving a
+ * caller had already validated would die at BullMQ's JSON boundary anyway, and
+ * re-asserting costs one indexed read against a table capped at ten rows per
+ * user.
+ *
+ * Note which callers want this and which want `ownedDataSourceIds`: a
+ * DESTRUCTIVE or mutating operation names one Source and must fail loudly when
+ * it is not the caller's, so `deleteDataSource` asserts. A retrieval scope names
+ * a set and must degrade rather than fail, so `resolveRetrievalScope` narrows.
+ */
+export async function assertDataSourceOwned({
+  ownerId,
+  dataSourceIds,
+}: DataSourceScope) {
+  const requested = [...new Set(dataSourceIds)];
+  const owned = await ownedDataSourceIds({ ownerId, dataSourceIds: requested });
   if (owned.length === requested.length) return;
 
-  const ownedIds = new Set(owned.map((row) => row.id));
+  const ownedIds = new Set(owned);
   throw new DataSourceOwnershipError(
     requested.filter((id) => !ownedIds.has(id)),
   );
@@ -178,10 +202,19 @@ export async function assertDataSourceOwned({
 /**
  * Resolve a caller's Source selection into a trusted retrieval context.
  *
- * Asserts ownership ITSELF, before building anything, so no code path can reach
+ * Resolves ownership ITSELF, before building anything, so no code path can reach
  * a filter that skipped validation. That is the whole point of the function: it
  * takes ids raw precisely so there is no "already validated" variant of the
  * input to trust.
+ *
+ * It NARROWS rather than throws. A Source deleted between the user's selection
+ * and the moment the Turn runs is dropped from the scope, not made fatal —
+ * ordinary staleness must not cost the user their message, and rows are
+ * hard-deleted, so "was yours, now gone" and "never was yours" are
+ * indistinguishable here and need one policy. Nothing is given away by the
+ * choice: both clauses of the filter still apply, so a foreign id that somehow
+ * survived narrowing would retrieve nothing anyway. Dropping can only ever
+ * shrink the scope, which is the fail-closed direction.
  *
  * It returns the whole `RequestContext`, never a bare filter, because `filter`
  * is not the only knob the request context overrides — `indexName`,
@@ -190,24 +223,24 @@ export async function assertDataSourceOwned({
  * `indexName` leaks as surely as a missing filter, so the trusted object is
  * assembled inside the module that owns the trust rule.
  *
- * `hasSources` is the one addition to that otherwise opaque return. Whether
- * there is anything to retrieve is a fact the caller cannot legally recompute
- * from its own raw input: a Source deleted since the selection was made is
- * rejected here, so a caller counting its raw array would attach a retrieval
- * tool to a Turn that can retrieve nothing.
+ * `hasSources` is the one addition to that otherwise opaque return, and it is
+ * read off the NARROWED set. Whether there is anything to retrieve is therefore
+ * a fact the caller cannot legally recompute from its own raw input: a caller
+ * counting its raw array would attach a retrieval tool to a Turn whose every
+ * Source has since been deleted.
  */
 export async function resolveRetrievalScope({
   ownerId,
   dataSourceIds,
 }: DataSourceScope) {
-  await assertDataSourceOwned({ ownerId, dataSourceIds });
+  const scoped = await ownedDataSourceIds({ ownerId, dataSourceIds });
 
   const requestContext = new RequestContext<RetrievalContextValues>([
-    ['filter', buildDataSourceFilter({ ownerId, dataSourceIds })],
+    ['filter', buildDataSourceFilter({ ownerId, dataSourceIds: scoped })],
     ['topK', env.RETRIEVAL_TOP_K],
   ]);
 
-  return { requestContext, hasSources: dataSourceIds.length > 0 };
+  return { requestContext, hasSources: scoped.length > 0 };
 }
 
 /** A caller's own Data Sources, oldest first. */
