@@ -4,16 +4,11 @@
  * Runs before each test file (after `@acme/test-utils/hydrate-env`, which has
  * populated `process.env` with the testcontainer DB/Redis details). Every
  * `env.ts` validates against the real running services — no env mocks. Only
- * behavioral mocks live here: `server-only`, the embed fake, and the
- * `chatAgent.stream` spy that keeps Bedrock/the vector store out of the router
- * tests.
+ * behavioral mocks live here: `server-only`, the model provider, and the
+ * `chatAgent.stream` spy that keeps the vector store out of the router tests.
  */
 
-import { MockEmbeddingModelV3 } from 'ai/test';
 import { afterEach, beforeEach, vi } from 'vitest';
-
-import type * as AcmeModels from '@acme/models';
-import { EMBED_DIMENSIONS } from '@acme/rag/schema';
 
 import { chatAgent } from '../../api/services/chat-agent';
 import { cleanupTestData } from './utils/test-context';
@@ -21,33 +16,74 @@ import { cleanupTestData } from './utils/test-context';
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 
-// The embed fake, copied from rag's backend setup. This suite has never needed
-// one, because a stubbed `stream` never reaches a model — but
-// `retrieval-tool-scope.test.ts` executes the retrieval tool for real against
-// pgvector, which embeds both the seeded Documents and the query.
-//
-// `chatModel` is left REAL (`importOriginal`): `chatAgent` is constructed with
-// it at module load, and every test that streams goes through the `vi.spyOn`
-// below, so it is never called. Only the embed half is faked.
-//
-// The fake returns an IDENTICAL, dimension-correct vector for every value, and
-// that is deliberate — see the fixture note in `retrieval-tool-scope.test.ts`.
-// Every chunk ends up equidistant from every query, so nothing but the filter
-// can decide what comes back, and the privacy claim never rests on relevance
-// ranking being stable.
-vi.mock('@acme/models', async (importOriginal) => ({
-  ...(await importOriginal<typeof AcmeModels>()),
-  embedModel: new MockEmbeddingModelV3({
-    doEmbed: ({ values }: { values: string[] }) =>
-      Promise.resolve({
-        embeddings: values.map(() =>
-          Array.from({ length: EMBED_DIMENSIONS }, () => 0.1),
-        ),
-        warnings: [],
+/**
+ * The provider stand-ins, built before the module mock that installs them.
+ *
+ * `vi.hoisted` is what makes them reachable from BOTH the factory below (which
+ * is itself hoisted above every import) and the test files that import this
+ * module — a plain `const` would be in its temporal dead zone when the factory
+ * runs. The imports are dynamic for the same reason.
+ *
+ * Both are recording mocks. `chatModelStub.doStreamCalls` is what the provider
+ * was actually asked for — the tool list, the messages — and
+ * `embedModelStub.doEmbedCalls` is whether a query embedding was computed at
+ * all. That is the honest observation point for `streamScopedTurn`'s contract:
+ * the LLM is a true external, so what reaches it is an outcome, where reading
+ * the arguments of a stubbed in-repo method would only be the mechanism.
+ *
+ * A test chooses what the provider answers with through `respondWith`, NOT by
+ * reassigning `chatModelStub.doStream`: the constructor wraps the function it
+ * is handed in the recorder that appends to `doStreamCalls`, so overwriting the
+ * field throws the recording away and leaves every assertion about it vacuously
+ * green. Unset, the provider throws — a file that reaches the model without
+ * meaning to should say so rather than return something plausible.
+ */
+const { chatModelStub, embedModelStub, fakeModelsModule, respondWith } =
+  await vi.hoisted(async () => {
+    const { MockLanguageModelV3 } = await import('ai/test');
+    const ragTesting = await import('@acme/rag/testing');
+
+    type Streamed = Awaited<
+      ReturnType<InstanceType<typeof MockLanguageModelV3>['doStream']>
+    >;
+
+    let response: (() => Streamed) | null = null;
+
+    return {
+      chatModelStub: new MockLanguageModelV3({
+        doStream: () => {
+          if (!response) {
+            throw new Error(
+              'The chat provider was called with no response configured. Either the test meant to stream through the chatAgent.stream stub, or it needs respondWith(...).',
+            );
+          }
+          return Promise.resolve(response());
+        },
       }),
-  }),
-  embedProviderOptions: () => ({}),
-}));
+      embedModelStub: ragTesting.fakeEmbedModel(),
+      fakeModelsModule: ragTesting.fakeModelsModule,
+      respondWith: (next: (() => Streamed) | null) => {
+        response = next;
+      },
+    };
+  });
+
+export { chatModelStub, embedModelStub, respondWith };
+
+// The provider fake is rag's (`@acme/rag/testing`) rather than a copy: both
+// suites embed against the same pgvector store, so the dimension and the
+// provider-options shape have to agree or the upsert fails rather than the
+// assertion. This suite needs the embed half because
+// `retrieval-tool-scope.test.ts` executes the retrieval tool for real, which
+// embeds the seeded Documents and the query.
+//
+// `chatModel` is a mock too, not the real client. Every test either streams
+// through the `vi.spyOn` stub below or drives the agent against
+// `chatModelStub` — nothing is supposed to reach Bedrock, and a stand-in makes
+// that structural rather than a property of how the tests happen to be written.
+vi.mock('@acme/models', () =>
+  fakeModelsModule({ chatModel: chatModelStub, embedModel: embedModelStub }),
+);
 
 // Predictable streamed response. The router consumes `chatAgent.stream(...)`
 // directly, iterating the resolved result's `textStream`; spying on the agent
@@ -97,8 +133,20 @@ beforeEach(() => {
   );
 });
 
-// Clean up after each test
+// Clean up after each test.
+//
+// The provider state is reset HERE and not in `beforeEach`, and the reason is
+// worth knowing: the backend project runs `isolate: false` in one forked worker
+// (`@acme/test-utils`), so a setup hook is not reliably ordered before a test
+// file's own — teardown is. Resetting on the way in would silently undo a
+// file's `respondWith(...)`, which is how this file was wrong once: the
+// provider then answered nothing, the call log was empty, and every assertion
+// about "no tools were offered" passed vacuously.
 afterEach(async () => {
+  respondWith(null);
+  chatModelStub.doStreamCalls.length = 0;
+  embedModelStub.doEmbedCalls.length = 0;
+
   try {
     await cleanupTestData();
   } catch {
