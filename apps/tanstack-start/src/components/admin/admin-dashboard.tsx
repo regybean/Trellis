@@ -7,12 +7,7 @@ import {
   StripeTesting,
   TierManagement,
 } from '@acme/billing';
-import {
-  DocumentsList,
-  IngestProgress,
-  IngestUploadProvider,
-  UploadDocumentsButton,
-} from '@acme/ingest';
+import { DocumentsPage } from '@acme/ingest';
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { setUserRole } from '../../lib/admin';
@@ -60,18 +55,17 @@ export function AdminDashboard({
       </div>
 
       <div className="space-y-12">
-        <IngestUploadProvider>
-          <Card className="border-border shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <h2 className="text-2xl font-bold">Documents</h2>
-              <UploadDocumentsButton />
-            </CardHeader>
-            <CardContent>
-              <IngestProgress />
-              <DocumentsList />
-            </CardContent>
-          </Card>
-        </IngestUploadProvider>
+        {/* The user's own Documents, still rendered here only because this app
+            has no `/documents` route yet. The page is a user's own content, so
+            it moves out from behind the admin gate with that route. */}
+        <Card className="border-border shadow-sm">
+          <CardHeader>
+            <h2 className="text-2xl font-bold">Documents</h2>
+          </CardHeader>
+          <CardContent>
+            <DocumentsPage />
+          </CardContent>
+        </Card>
 
         <div className="space-y-6">
           <Card className="border-border shadow-sm">

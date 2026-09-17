@@ -28,8 +28,28 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { DocumentSummary } from '@acme/rag/server';
 
 import { DocumentsList } from '../../../../components/documents-list';
+import { useDocuments } from '../../../../hooks/use-documents';
 import { clearIngestPersistedCache } from '../../../../trpc/react';
 import { ScopedProviders, trpcMsw } from '../../setup';
+
+/**
+ * The pane as the page mounts it: `useDocuments` through the persister, its rows
+ * rendered by the prop-driven list. `useDocumentsPage` is deliberately NOT used
+ * — these cases are about one query's storage, and the page hook would drag
+ * `dataSources.list`, the caps and the upload context in beside it.
+ */
+function DocumentsPane() {
+  const { documents, isLoading, deleteDocument, isDeleting } = useDocuments();
+  return (
+    <DocumentsList
+      documents={documents}
+      isLoading={isLoading}
+      isRollUp
+      onDelete={deleteDocument}
+      isDeleting={isDeleting}
+    />
+  );
+}
 
 const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -66,12 +86,12 @@ const neverResolves = async (): Promise<PersistedRow[]> => {
 };
 
 /**
- * Render `DocumentsList` under the persister for `scopeKey`, wait for the given
+ * Render the pane under the persister for `scopeKey`, wait for the given
  * filename to paint, then wait for the async IndexedDB write to flush and
  * unmount — leaving a primed `rq-ingest` store for a cold open.
  */
 async function primeCache(filename: string, scopeKey = SCOPE) {
-  const warm = render(<DocumentsList />, {
+  const warm = render(<DocumentsPane />, {
     wrapper: ScopedProviders(scopeKey),
   });
   await screen.findByText(filename);
@@ -87,7 +107,7 @@ describe('ingest offline read — the Documents pane (documents.list)', () => {
     // Cold open, offline: the mount revalidation errors, so a rendered list
     // proves the persisted snapshot paints and survives the failed refetch.
     server.resetHandlers(trpcMsw.documents.list.query(offline));
-    render(<DocumentsList />, { wrapper: ScopedProviders(SCOPE) });
+    render(<DocumentsPane />, { wrapper: ScopedProviders(SCOPE) });
 
     expect(await screen.findByText('handbook.pdf')).toBeInTheDocument();
     expect(
@@ -112,7 +132,7 @@ describe('ingest offline read — the Documents pane (documents.list)', () => {
         doc('just-uploaded.pdf', 3),
       ]),
     );
-    render(<DocumentsList />, { wrapper: ScopedProviders(SCOPE) });
+    render(<DocumentsPane />, { wrapper: ScopedProviders(SCOPE) });
 
     // The snapshot paints first, then the revalidation lands.
     expect(await screen.findByText('handbook.pdf')).toBeInTheDocument();
@@ -130,7 +150,7 @@ describe('ingest offline read — scoping and clearing', () => {
     // restore. With the server never answering, the pane can only hold its
     // skeleton — user-1's file appearing would mean it rehydrated.
     server.resetHandlers(trpcMsw.documents.list.query(neverResolves));
-    render(<DocumentsList />, { wrapper: ScopedProviders('user-2') });
+    render(<DocumentsPane />, { wrapper: ScopedProviders('user-2') });
 
     expect(await screen.findByText('Loading documents…')).toBeInTheDocument();
     expect(screen.queryByText('private.pdf')).not.toBeInTheDocument();
@@ -147,7 +167,7 @@ describe('ingest offline read — scoping and clearing', () => {
     // The departing user's Documents are gone, not merely out of scope: a cold
     // open on the SAME scope has nothing left to restore.
     server.resetHandlers(trpcMsw.documents.list.query(neverResolves));
-    render(<DocumentsList />, { wrapper: ScopedProviders(SCOPE) });
+    render(<DocumentsPane />, { wrapper: ScopedProviders(SCOPE) });
 
     expect(await screen.findByText('Loading documents…')).toBeInTheDocument();
     expect(screen.queryByText('handbook.pdf')).not.toBeInTheDocument();

@@ -62,4 +62,7 @@ swap stays cheap.
 - `firstErrorMessage` in `lib/auth-credentials.ts` narrows TanStack's
   union-typed `meta.errors` structurally. That array is typed as the union of
   every validator slot a field could carry, so the narrowing is required by the
-  types rather than working around them.
+  types rather than working around them. It is exported from the package for the
+  same reason the library is scoped beyond it: a feature form reading
+  `meta.errors` needs the identical narrowing, and re-deriving it per feature is
+  the duplication this ADR exists to prevent.

@@ -1,3 +1,4 @@
+import { env as ragEnv } from '@acme/rag/env';
 import { mapDataSourceError } from '@acme/rag/ownership-trpc';
 import {
   CreateDataSourceRequest,
@@ -36,10 +37,32 @@ export const dataSourcesRouter = createTRPCRouter({
   ),
 
   /**
-   * Create a Data Source under a client-minted id, so the rail row can appear
-   * optimistically and still reconcile 1:1 with the server row. Safe only
-   * because the retrieval filter's first clause is `owner_id = <verified
-   * userId>`.
+   * The quota caps, for the client's ADVISORY checks: `3/10` in the rail
+   * header, a disabled `+ New data source` at the cap, and "3 slots left" on
+   * the upload dialog.
+   *
+   * The numbers are read here rather than hardcoded in the client because they
+   * are rag's env, retunable on a live deploy — a client constant would be a
+   * second declaration to keep in step. They are handed over the wire and
+   * carry NO authority: the authoritative per-Source check re-counts from the
+   * database at presign, which assumes this response was never fetched. That
+   * asymmetry is what makes shipping both safe — this one can be stale, or
+   * skipped by a direct tRPC call, without any of that being a hole.
+   *
+   * Separate from `list` so the list keeps the shape `@acme/chat`'s panel reads
+   * from the same rag function, and so a caps change never busts the persisted
+   * list snapshot.
+   */
+  limits: protectedProcedure.query(() => ({
+    maxDataSourcesPerUser: ragEnv.MAX_DATA_SOURCES_PER_USER,
+    maxDocumentsPerDataSource: ragEnv.MAX_DOCUMENTS_PER_DATA_SOURCE,
+  })),
+
+  /**
+   * Create a Data Source under a client-minted id, so a retried create
+   * reconciles 1:1 with the row it already made rather than adding a second
+   * Source of the same name. Safe only because the retrieval filter's first
+   * clause is `owner_id = <verified userId>`.
    *
    * The per-user cap is rag's, not this router's: a second expression of it
    * here would be a number to keep in step with `@acme/chat`'s create.

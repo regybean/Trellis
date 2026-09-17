@@ -10,11 +10,10 @@ import type {
   Stage,
 } from '../hooks/ingest-progress-reducer';
 import { STAGE_RANK } from '../hooks/ingest-progress-reducer';
-import { useIngestUpload } from '../hooks/ingest-upload-context';
 
-// Variant A — dense rows. One line per Upload under a job summary strip: admin
-// ingest is a batch operation (6+ files common), so density + a primary "is the
-// whole batch done" signal beat per-file steppers/kanban.
+// Variant A — dense rows. One line per Upload under a job summary strip:
+// uploading is a batch operation (6+ files common), so density + a primary "is
+// the whole batch done" signal beat per-file steppers/kanban.
 
 type PillVariant = 'default' | 'secondary' | 'destructive';
 
@@ -53,6 +52,21 @@ function StagePill({ stage, className }: { stage: Stage; className?: string }) {
  * (hook-derived state). Kept prop-driven (no context) so it is directly
  * testable with synthetic state, the un-drivable SSE tail out of the way.
  * Renders nothing until there is at least one Upload to show.
+ *
+ * Progress belongs to its destination, and `useDocumentsPage` is what scopes it:
+ * this panel is handed the Uploads landing in the Source the user is standing
+ * in, so from `All documents` or from any other Source it is handed none and
+ * renders nothing. A globally pinned strip that follows the user across the page
+ * was explicitly rejected — it turns one Source's batch into chrome every other
+ * Source has to live under. What keeps the batch findable from elsewhere is the
+ * rail: the destination row swaps its document count for a spinner. The summary
+ * is derived from the same scoped subset, so "Ingesting 2 of 3…" counts that
+ * Source's files and not the union of every batch in flight.
+ *
+ * Accented rather than plain, and that is load-bearing: this panel sits
+ * directly above the Document list, and a neutral bordered box of file rows
+ * above a list of file rows reads as more of the same list. The accent plus its
+ * own header strip makes it two regions, unmistakably.
  */
 export function IngestProgressView({
   files,
@@ -69,9 +83,9 @@ export function IngestProgressView({
       : ((summary.succeeded + summary.failed) / summary.total) * 100;
 
   return (
-    <div className="border-border mb-4 overflow-hidden rounded-md border">
+    <div className="border-primary/40 bg-primary/5 mb-4 overflow-hidden rounded-md border">
       {/* Job summary strip */}
-      <div className="bg-muted/40 flex items-center justify-between gap-4 border-b px-4 py-2.5">
+      <div className="bg-primary/10 border-primary/30 flex items-center justify-between gap-4 border-b px-4 py-2.5">
         <span className="text-sm font-medium">
           {summary.isComplete
             ? 'Ingest complete'
@@ -86,7 +100,7 @@ export function IngestProgressView({
       </div>
 
       {/* Per-file rows */}
-      <ul className="divide-border divide-y">
+      <ul className="divide-primary/20 divide-y">
         {files.map((file) => (
           <li
             key={file.uploadId}
@@ -114,14 +128,4 @@ export function IngestProgressView({
       </ul>
     </div>
   );
-}
-
-/**
- * The app-mounted panel: reads the shared upload state from context and renders
- * the pure view above the `DocumentsList`. Always-on while the documents section
- * (the `IngestUploadProvider`) is mounted.
- */
-export function IngestProgress() {
-  const { files, summary } = useIngestUpload();
-  return <IngestProgressView files={files} summary={summary} />;
 }
