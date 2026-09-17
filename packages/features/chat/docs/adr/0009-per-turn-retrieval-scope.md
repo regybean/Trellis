@@ -2,7 +2,7 @@
 
 **Status:** accepted
 
-**Related:** [ADR 0004](0004-generation-worker-and-queue.md) (the worker that streams the Turn), [@acme/rag ADR 0005](../../../../shared/rag/docs/adr/0005-retrieval-scope-narrows-rather-than-rejects.md) (the narrowing policy this rides on).
+**Related:** [ADR 0004](0004-generation-worker-and-queue.md) (the worker that streams the Turn). The narrowing policy this rides on is `@acme/rag`'s, recorded in that package's own decisions — the constraint chat depends on is restated below rather than linked.
 
 ## Context
 
@@ -42,7 +42,10 @@ options rather than merging them.
 
 The selection is intersected with the caller's own Sources through rag's
 `ownedDataSourceIds`, and the rest are dropped with a log line. The policy and
-its reasoning are rag's ([ADR 0005]); what is chat's is that the narrowed set is
+its reasoning are rag's: Source rows are hard-deleted, so "never yours" and
+"yours until a second ago" are indistinguishable to the server, one policy has
+to cover both, and rejecting would make ordinary staleness cost the user their
+message. What is chat's is that the narrowed set is
 what goes on the per-Turn record and into the `GenerationJob` payload, so the
 job states what actually applied. The worker does not trust it — `streamScopedTurn`
 narrows again at use — because a brand proving "already checked" would not
@@ -79,9 +82,9 @@ ours, not a transitive dependency's to move on a version bump.
   read against a table capped at ten rows per user, against a window of minutes
   in which a Source can be deleted. Rejected — the read is free and the window
   is not theoretical.
-- **Reject a selection containing an unowned id with `FORBIDDEN`.** See [ADR
-  0005]; the short version is that rejecting makes ordinary staleness cost the
-  user their message.
+- **Reject a selection containing an unowned id with `FORBIDDEN`.** rag settled
+  this: rejecting makes ordinary staleness cost the user their message, and the
+  filter's `owner_id` clause means dropping gives nothing away.
 - **Let the agent author its own `filter`.** `enableFilter` is deliberately left
   off the tool, so `filter` never enters the LLM-facing schema. The model cannot
   author the privacy boundary, and a request-context filter self-enables
@@ -113,5 +116,3 @@ ours, not a transitive dependency's to move on a version bump.
   `MockLanguageModelV3` and asserts what the model was offered. One clause stays
   unproven and is named in the test file — that a live provider accepts an empty
   `tools` array.
-
-[ADR 0005]: ../../../../shared/rag/docs/adr/0005-retrieval-scope-narrows-rather-than-rejects.md

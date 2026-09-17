@@ -2,7 +2,7 @@
 
 **Status:** accepted
 
-**Related:** [ADR 0004](0004-thread-ownership-rule-and-its-one-trpc-adapter.md) (the sibling ownership rule, which only rejects), [@acme/chat ADR 0009](../../../../features/chat/docs/adr/0009-per-turn-retrieval-scope.md) (the consumer this was written for).
+**Related:** [ADR 0004](0004-thread-ownership-rule-and-its-one-trpc-adapter.md) (the sibling ownership rule, which only rejects). The consumer this was written for is `@acme/chat`'s per-Turn retrieval scope, recorded in that package's own decisions.
 
 ## Context
 
