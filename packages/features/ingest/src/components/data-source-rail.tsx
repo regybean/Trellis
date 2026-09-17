@@ -1,15 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
+import { revalidateLogic, useForm } from '@tanstack/react-form';
 import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { z } from 'zod';
 
-import { Button, cn, Input } from '@acme/ui';
+import { Button, cn, firstErrorMessage, Input } from '@acme/ui';
 
 import type { DataSourceSummary } from '../hooks/use-documents-page';
-import {
-  collisionMessage,
-  findNameCollision,
-} from '../lib/data-source-validation';
+import { dataSourceNameSchema } from '../lib/data-source-validation';
 
 /**
  * The master half of the documents page: the user's Data Sources, one row each,
@@ -43,6 +42,7 @@ export function DataSourceRail({
   onSelect,
   totalDocumentCount,
   maxDataSourcesPerUser,
+  atCap,
   onCreate,
   isCreating,
   onDelete,
@@ -52,52 +52,53 @@ export function DataSourceRail({
   onSelect: (id: string | null) => void;
   totalDocumentCount: number;
   maxDataSourcesPerUser: number | undefined;
+  atCap: boolean;
   onCreate: (name: string) => Promise<{ id: string } | undefined>;
   isCreating: boolean;
   onDelete: (source: DataSourceSummary) => void;
 }) {
+  // Whether the create row is open, and nothing else: the draft name and its
+  // collision error are the form's, so this is the one thing left that is not
+  // derivable — clicking `＋ New data source` opens an empty, autofocused
+  // field, which is a state an empty string cannot distinguish from closed.
   const [isNaming, setIsNaming] = useState(false);
-  const [name, setName] = useState('');
-  const [error, setError] = useState<string | null>(null);
+  const railRef = useRef<HTMLDivElement>(null);
 
-  // At the cap only when the cap is actually known. While it is in flight the
-  // control stays live: an advisory check that guesses is worse than one that
-  // waits, and presign rejects the batch either way.
-  const atCap =
-    maxDataSourcesPerUser !== undefined &&
-    sources.length >= maxDataSourcesPerUser;
+  // Validate on submit, then on every keystroke after the first attempt — so a
+  // collision surfaces when the user commits and clears itself as they fix the
+  // name, without nagging about a blank field they are still filling in.
+  const form = useForm({
+    defaultValues: { name: '' },
+    validationLogic: revalidateLogic(),
+    validators: {
+      onDynamic: z.object({ name: dataSourceNameSchema(sources) }),
+    },
+    onSubmit: async ({ value, formApi }) => {
+      const created = await onCreate(value.name.trim());
+      setIsNaming(false);
+      formApi.reset();
+      // Land in the Source you just made; a create that failed leaves you put.
+      if (created) onSelect(created.id);
+    },
+  });
 
   const closeNaming = () => {
     setIsNaming(false);
-    setName('');
-    setError(null);
+    form.reset();
   };
 
-  const commit = async () => {
-    const trimmed = name.trim();
-    if (trimmed.length === 0) {
+  const commit = () => {
+    // An empty draft is an abandonment, not a validation failure: there is
+    // nothing to fix and nothing to tell the user about.
+    if (form.state.values.name.trim().length === 0) {
       closeNaming();
       return;
     }
-
-    // Reject, never absorb. The collision has to surface beside the field
-    // before the mutation fires, because landing the user's documents in a
-    // Source they did not knowingly pick — one that may already be ticked in an
-    // open conversation — is the one failure this page must not have.
-    const clash = findNameCollision(sources, trimmed);
-    if (clash) {
-      setError(collisionMessage(clash.name));
-      return;
-    }
-
-    const created = await onCreate(trimmed);
-    closeNaming();
-    // Land in the Source you just made; a create that failed leaves you put.
-    if (created) onSelect(created.id);
+    void form.handleSubmit();
   };
 
   return (
-    <div className="w-60 shrink-0 space-y-1">
+    <div ref={railRef} className="w-60 shrink-0 space-y-1">
       <div className="mb-2 flex items-baseline justify-between px-2">
         <h2 className="text-sm font-semibold">Data sources</h2>
         <span className="text-muted-foreground text-xs tabular-nums">
@@ -127,38 +128,58 @@ export function DataSourceRail({
       ))}
 
       {isNaming ? (
+        // A plain row, not a `<form>`: one field with no submit control, so
+        // Enter is the commit and there is no implicit submission to route it
+        // through. TanStack Form owns the value and the validation either way.
         <div className="px-2 py-1">
-          <Input
-            autoFocus
-            aria-label="New data source name"
-            // A placeholder, never a prefill: a field arriving pre-filled with
-            // "My Documents" gets accepted unread, and the partition ends up on
-            // paper only.
-            placeholder="e.g. Work notes"
-            value={name}
-            disabled={isCreating}
-            onChange={(evt) => {
-              setName(evt.target.value);
-              setError(null);
+          <form.Field name="name">
+            {(field) => {
+              const error = firstErrorMessage(field.state.meta.errors);
+              return (
+                <>
+                  <Input
+                    autoFocus
+                    aria-label="New data source name"
+                    // A placeholder, never a prefill: a field arriving
+                    // pre-filled with "My Documents" gets accepted unread, and
+                    // the partition ends up on paper only.
+                    placeholder="e.g. Work notes"
+                    value={field.state.value}
+                    disabled={isCreating}
+                    onChange={(evt) => field.handleChange(evt.target.value)}
+                    onKeyDown={(evt) => {
+                      if (evt.key === 'Enter') commit();
+                      if (evt.key === 'Escape') closeNaming();
+                    }}
+                    // Commit on blur as well as Enter — the row is the field, so
+                    // clicking away is a finish, not an abandonment. Clicking
+                    // ANOTHER rail control is the exception: reaching for a
+                    // row's trash or switching Source is that action, not a
+                    // finish, and creating a Source out of it would be a create
+                    // the user never asked for. The draft stays open and
+                    // uncommitted instead, so nothing typed is lost either.
+                    onBlur={(evt) => {
+                      field.handleBlur();
+                      const movedTo = evt.relatedTarget;
+                      if (
+                        movedTo instanceof Node &&
+                        railRef.current?.contains(movedTo)
+                      ) {
+                        return;
+                      }
+                      commit();
+                    }}
+                    className="h-8"
+                  />
+                  {error && (
+                    <p role="alert" className="text-destructive mt-1 text-xs">
+                      {error}
+                    </p>
+                  )}
+                </>
+              );
             }}
-            onKeyDown={(evt) => {
-              if (evt.key === 'Enter') void commit();
-              if (evt.key === 'Escape') closeNaming();
-            }}
-            // Commit on blur as well as Enter — the row is the field, so
-            // clicking away is a finish, not an abandonment. A collision error
-            // is the exception: blurring on it would discard the name the user
-            // still has to fix.
-            onBlur={() => {
-              if (!error) void commit();
-            }}
-            className="h-8"
-          />
-          {error && (
-            <p role="alert" className="text-destructive mt-1 text-xs">
-              {error}
-            </p>
-          )}
+          </form.Field>
         </div>
       ) : (
         <Button

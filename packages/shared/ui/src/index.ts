@@ -108,8 +108,12 @@ export { SignInForm } from './widgets/sign-in-form';
 export { SignUpForm } from './widgets/sign-up-form';
 export { UserButton, type UserButtonUser } from './widgets/user-button';
 // The schemas ship alongside the types so a caller owning the provider call can
-// re-validate what it was handed before sending it on.
+// re-validate what it was handed before sending it on. `firstErrorMessage` ships
+// because the ADR puts feature forms on the same library: a feature reading
+// `meta.errors` needs the same structural narrowing, and re-deriving it per
+// feature is the duplication the ADR exists to prevent.
 export {
+  firstErrorMessage,
   MIN_PASSWORD_LENGTH,
   signInSchema,
   signUpSchema,

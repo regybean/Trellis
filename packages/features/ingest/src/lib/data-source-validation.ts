@@ -1,7 +1,12 @@
 // lib/data-source-validation.ts
 //
-// The client-side half of the Data Source name rule: reject a collision against
-// the cached list BEFORE the create mutation fires.
+// The client-side half of the Data Source name rule, plus the upload dialog's
+// own rule — as zod schemas, because both forms hand them straight to TanStack
+// Form as Standard Schema validators
+// (packages/shared/ui/docs/adr/0002-tanstack-form-in-acme-ui.md). The collision
+// check lives INSIDE validation rather than as a step sequenced before the
+// mutation, so the message arrives through `field.state.meta.errors` like every
+// other field error and neither form keeps its own error slot.
 //
 // Pure and React-free so both inline-create sites — the rail row and the upload
 // dialog's `＋ New data source…` option — share one rule and one message
@@ -11,12 +16,14 @@
 // the one outcome that must not happen. The user believes they created a fresh,
 // unselected Source, while their documents land in one that may already be
 // ticked in an open conversation. So the collision surfaces as a form error
-// beside the name field, before any optimistic row and before any presign call.
+// beside the name field, before any create mutation and before any presign call.
 //
 // The server-side rule is rag's, and it stays: the unique index case-folds, so
 // a race that beats this check is still rejected there. This check exists to
 // make the common case a form error instead of a 500-shaped toast — it is not
 // the enforcement.
+
+import { z } from 'zod';
 
 /** Case-insensitive, trim-insensitive — the same folding rag's unique index does. */
 const fold = (name: string) => name.trim().toLowerCase();
@@ -39,6 +46,26 @@ export const collisionMessage = (existingName: string) =>
   `You already have a data source called "${existingName}".`;
 
 /**
+ * The name field's rule, closed over the list the user currently has: blank is
+ * rejected, and so is a name they already own.
+ *
+ * Built per render rather than declared once because the list is the rule —
+ * `sources` is what a collision is measured against, and it arrives from a
+ * query. Both create sites pass the result to `validators.onDynamic`, so the
+ * two of them share the rule, the folding and the message.
+ */
+export const dataSourceNameSchema = (sources: readonly { name: string }[]) =>
+  z
+    .string()
+    .trim()
+    .min(1, 'Name your data source.')
+    .superRefine((name, ctx) => {
+      const clash = findNameCollision(sources, name);
+      if (!clash) return;
+      ctx.addIssue({ code: 'custom', message: collisionMessage(clash.name) });
+    });
+
+/**
  * Remaining Document slots in a Source, or `undefined` while the cap is still
  * loading. Advisory: it is shown when known and omitted while pending, and it
  * never gates the upload control, because presign is the authoritative check.
@@ -53,3 +80,17 @@ export function headroomFor({
   if (cap === undefined) return;
   return Math.max(cap - documentCount, 0);
 }
+
+/**
+ * The refusal when more files were chosen than the destination can take.
+ *
+ * Refuses the whole batch rather than admitting the files that fit, matching
+ * what presign does authoritatively — partial admission would leave the user
+ * reconciling which of their files made it.
+ */
+export const headroomMessage = (slots: number) =>
+  slots === 0
+    ? 'That data source is full.'
+    : `That data source has room for ${slots} more document${plural(slots)}.`;
+
+const plural = (count: number) => (count === 1 ? '' : 's');
