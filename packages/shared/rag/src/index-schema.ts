@@ -28,6 +28,8 @@ export {
   CreateDataSourceRequest,
   RenameDataSourceRequest,
   DeleteDataSourceRequest,
+  MAX_SOURCE_SELECTION,
+  SourceSelection,
 } from './schemas/data-source-schema';
 export type { SelectDataSource } from './schemas/data-source-schema';
 export {

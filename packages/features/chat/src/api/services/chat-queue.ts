@@ -1,4 +1,5 @@
 import type { SubscriptionTier } from '@acme/entitlements';
+import type { SourceSelection } from '@acme/rag/schema';
 import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
 import { env } from '../../env';
@@ -10,17 +11,17 @@ export interface GenerationJob {
   tier: SubscriptionTier;
   query: string;
   /**
-   * The Data Sources this Turn may retrieve from, as validated by `chat.send`
-   * against the caller's own Sources — unowned and unknown ids are already
-   * dropped. The worker does NOT read the selection off the thread: "per-Turn"
-   * means the scope is validated at every send and travels with the job.
+   * The Turn's Source Selection (rag's `SourceSelection`), already narrowed by
+   * `chat.send` to the caller's own Sources. The worker does NOT read the
+   * selection off the thread: "per-Turn" means the scope is resolved at every
+   * send and travels with the job.
    *
-   * Still re-asserted at use, in `resolveRetrievalScope`. The two checks answer
-   * different questions: this one asked "are these yours?" at send time, the
-   * other asks "are these still yours?" when the Turn actually runs. A brand
-   * proving the first would not survive BullMQ's JSON boundary anyway.
+   * Narrowed AGAIN at use, in `resolveRetrievalScope`. The two passes answer
+   * different questions: this one asked "which of these are yours?" at send
+   * time, the other asks "which are still yours?" when the Turn actually runs.
+   * A brand proving the first would not survive BullMQ's JSON boundary anyway.
    */
-  dataSourceIds: string[];
+  dataSourceIds: SourceSelection;
 }
 
 // Singleton queue — module-private. enqueueGenerationTurn is the only call site

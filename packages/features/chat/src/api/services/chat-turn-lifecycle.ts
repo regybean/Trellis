@@ -2,6 +2,7 @@ import type {
   EntitlementsProvider,
   SubscriptionTier,
 } from '@acme/entitlements';
+import type { SourceSelection } from '@acme/rag/schema';
 import { logger } from '@acme/logger';
 import { redis } from '@acme/redis';
 
@@ -69,9 +70,10 @@ export interface BeginTurnInput extends TurnRef {
   userId: string;
   tier: SubscriptionTier;
   query: string;
-  // The caller's validated Source selection, forwarded to the job payload
-  // verbatim. `beginTurn` orders the begin steps; it does not police scope.
-  dataSourceIds: string[];
+  // The Turn's Source Selection, already narrowed by `chat.send` and forwarded
+  // to the job payload verbatim. `beginTurn` orders the begin steps; it does
+  // not police scope.
+  dataSourceIds: SourceSelection;
   conversationExists: boolean;
   consume: () => Promise<void>;
 }
