@@ -13,26 +13,13 @@
  *   behavioral, not env-shaped, so it stays.
  */
 
-import { MockEmbeddingModelV3 } from 'ai/test';
 import { vi } from 'vitest';
 
-// Fixed vector dimension for tests — matches EMBED_DIMENSIONS (staticTestEnv),
-// the dimension documents-schema sizes the vector column / PgVector index with.
-const EMBED_DIMENSIONS = 768;
+import { fakeModelsModule } from '../../testing';
 
-// Real `embedMany` runs against this fake model: it returns a fixed,
-// dimension-correct vector per value so PgVector upserts succeed. The vector
-// content is irrelevant to dedup, which keys on the content-derived id.
-vi.mock('@acme/models', () => ({
-  chatModel: {},
-  embedModel: new MockEmbeddingModelV3({
-    doEmbed: ({ values }: { values: string[] }) =>
-      Promise.resolve({
-        embeddings: values.map(() =>
-          Array.from({ length: EMBED_DIMENSIONS }, () => 0.1),
-        ),
-        warnings: [],
-      }),
-  }),
-  embedProviderOptions: vi.fn().mockReturnValue({}),
-}));
+// Real `embedMany` runs against the shared fake, which returns a fixed,
+// dimension-correct vector per value so PgVector upserts succeed. The fake lives
+// in `../../testing` (the `@acme/rag/testing` subpath) because chat's suite
+// needs the identical one — see the note there on why the fixed vector is
+// load-bearing rather than lazy.
+vi.mock('@acme/models', () => fakeModelsModule());
