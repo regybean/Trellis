@@ -39,11 +39,21 @@ export const useTRPC = client.useTRPC;
 export const useTRPCClient = client.useTRPCClient;
 
 /**
- * Cache policy for chat's persisted queries — `chat.list` and `chat.get` — to
- * spread into their options. Carries the persister, `gcTime`, the `persistMeta`
- * mark, and the `staleTime: 0` that keeps a restore stale-while-revalidate
- * rather than serve-stale. Chat's other queries (`chat.inflightTurn`, Folders)
- * are deliberately left off it.
+ * Cache policy for chat's persisted queries — `chat.list`, `chat.get` and
+ * `chat.dataSources.list` — to spread into their options. Carries the
+ * persister, `gcTime`, the `persistMeta` mark, and the `staleTime: 0` that keeps
+ * a restore stale-while-revalidate rather than serve-stale.
+ *
+ * The Source list is on it so the composer panel is populated on a cold open.
+ * What that costs is a list that can be momentarily stale, which is why nothing
+ * with a truth obligation reads NAMES from it: the composer tooltip and
+ * "Sources included" take names from the per-Message record, and the panel uses
+ * this list for existence only (see `use-source-selection`).
+ *
+ * Chat's other queries are deliberately left off it. `chat.inflightTurn` is
+ * volatile by nature, and `chat.dataSources.records` is what the sticky
+ * selection derives from — a selection restored from a stale snapshot is the one
+ * client-state error that silently widens perceived scope.
  */
 export const usePersistedQueryOptions = client.usePersistedQueryOptions;
 

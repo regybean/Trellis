@@ -25,6 +25,8 @@ export const RecordedSource = z.object({
   name: z.string(),
 });
 
+export type RecordedSource = z.infer<typeof RecordedSource>;
+
 export const RecordedSources = z.array(RecordedSource);
 export type RecordedSources = z.infer<typeof RecordedSources>;
 
