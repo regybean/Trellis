@@ -50,8 +50,9 @@ export type RecordedSources = z.infer<typeof RecordedSources>;
  * insert two contradictory Source sets for one Message.
  *
  * No foreign key to `mastra_messages`, following the same seam as `chat_folder`:
- * Mastra owns those rows' DDL and lifecycle (see `@acme/rag` ADR 0001), so
- * Mastra-owned ids are carried by value.
+ * Mastra creates and owns those rows at runtime, so a Mastra-owned id is
+ * carried by value and a deleted Message simply leaves a receipt that stops
+ * resolving.
  *
  * `sources` is a jsonb collection and **the empty collection is a first-class
  * value** — that is what makes "zero Sources, deliberately" distinguishable
