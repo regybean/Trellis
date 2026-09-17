@@ -500,11 +500,11 @@ describe('chatGenerationProcessor', () => {
       // The failed Turn is invisible to stickiness rather than resetting it.
       // Had it written an empty row it would be the latest, and the composer
       // would silently untick everything after an error the user did not cause.
-      // The id is left open here because the point is the count and the
-      // Sources: the failed Turn minted no Message to key a second row on.
-      expect(await receipts(conversationId, userId)).toEqual([
-        { messageId: expect.any(String), sources: [work] },
-      ]);
+      // One row, still the settled Turn's — the failed Turn minted no Message
+      // to key a second one on.
+      const recorded = await receipts(conversationId, userId);
+      expect(recorded).toHaveLength(1);
+      expect(recorded.at(-1)?.sources).toEqual([work]);
     });
 
     it('keeps the name a Source had when the Turn settled, after a rename', async () => {

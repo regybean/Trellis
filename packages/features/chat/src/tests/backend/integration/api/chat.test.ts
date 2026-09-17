@@ -71,10 +71,44 @@ async function jobPayload(conversationId: string, turnId: string) {
   return job?.data;
 }
 
+// ── Data Source seeding ─────────────────────────────────────────────────────
+// Every owner this file created a Source for, swept after each case. Seeding
+// goes through rag's own create rather than a raw insert: `data_source` is
+// reached only through a module-private client precisely so the ownership
+// predicate cannot be bypassed, and a fixture with more power than production
+// can lie in both directions.
+const sourceOwners: string[] = [];
+
+// Returns `{ id, name }` — the shape the job payload and the per-Message
+// receipt both carry, so an assertion reads the way they do.
+async function seedSource(ownerId: string, name: string) {
+  sourceOwners.push(ownerId);
+  const { id } = await createDataSource({
+    ownerId,
+    id: crypto.randomUUID(),
+    name,
+  });
+  return { id, name };
+}
+
+// Owner-scoped teardown, not wholesale: the shared `cleanupTestData`
+// deliberately leaves `data_source` alone, because a sibling suite file seeds a
+// corpus in `beforeAll` that a blanket truncation would pull out from under it.
+// Sweeping only the owners this file seeded is safe for the same reason.
+async function sweepSeededSources() {
+  for (const ownerId of sourceOwners.splice(0)) {
+    for (const source of await listDataSources({ ownerId })) {
+      await deleteDataSource({ ownerId, id: source.id });
+    }
+  }
+}
+
 describe('chatRouter', () => {
   beforeEach(async () => {
     await cleanupTestData();
   });
+
+  afterEach(sweepSeededSources);
 
   // ==========================================================================
   // MIDDLEWARE TESTS (test once since all procedures share the same middleware)
@@ -975,32 +1009,6 @@ describe('chatRouter', () => {
     // and what lands in the job payload the worker will act on.
     // ========================================================================
     describe('data source selection', () => {
-      const sourceOwners: string[] = [];
-
-      // Owner-scoped teardown, not wholesale: the shared `cleanupTestData`
-      // deliberately leaves `data_source` alone, because a sibling suite file
-      // seeds a corpus in `beforeAll` that an `afterEach` truncation would
-      // pull out from under it.
-      afterEach(async () => {
-        for (const ownerId of sourceOwners.splice(0)) {
-          for (const source of await listDataSources({ ownerId })) {
-            await deleteDataSource({ ownerId, id: source.id });
-          }
-        }
-      });
-
-      // Returns `{ id, name }` — the shape the job payload and the per-Message
-      // receipt carry, so an assertion reads as the receipt would.
-      async function seedSource(ownerId: string, name: string) {
-        sourceOwners.push(ownerId);
-        const { id } = await createDataSource({
-          ownerId,
-          id: crypto.randomUUID(),
-          name,
-        });
-        return { id, name };
-      }
-
       it('drops unowned and unknown ids, carrying only the validated set', async () => {
         const userId = createTestUserId();
         const otherUserId = createTestUserId();
@@ -1241,6 +1249,117 @@ describe('chatRouter', () => {
       expect(
         await redis.xRange(chatStreamKey(conversationId), '-', '+'),
       ).toHaveLength(0);
+    });
+  });
+
+  // ==========================================================================
+  // DATA SOURCES
+  //
+  // `list` and `create` are thin calls into `@acme/rag/server`, and the policy
+  // they wrap — the ownership predicate, the name rule, the per-user cap — is
+  // covered once in rag. What is chat's, and what is therefore tested here, is
+  // the WIRING: a router that forgot to pass `ownerId` is a per-router mistake
+  // no amount of rag coverage catches. One assertion each, no matrix.
+  //
+  // `records` is chat's own read, so it gets slightly more: that it is scoped
+  // to the Conversation, and that an unstarted one answers empty rather than
+  // erroring.
+  // ==========================================================================
+  describe('dataSources', () => {
+    describe('list', () => {
+      it("omits another user's Source", async () => {
+        const userId = createTestUserId();
+        const otherUserId = createTestUserId();
+        const mine = await seedSource(userId, 'Mine');
+        await seedSource(otherUserId, 'Theirs');
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        // Asserted as the whole list, not "does not contain theirs": a
+        // negative-only assertion passes just as happily against a list that
+        // came back empty for some unrelated reason. `toMatchObject` over an
+        // array still pins the length, so a leaked second row fails.
+        expect(await caller.chat.dataSources.list()).toMatchObject([mine]);
+      });
+    });
+
+    describe('create', () => {
+      it('creates under the caller as owner, at the client-minted id', async () => {
+        const userId = createTestUserId();
+        sourceOwners.push(userId);
+        const id = crypto.randomUUID();
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        const created = await caller.chat.dataSources.create({
+          id,
+          name: 'From the composer',
+        });
+
+        // The owner is the verified principal, never anything on the request —
+        // the client mints only the id, which is safe solely because the
+        // retrieval filter's first clause is the verified owner.
+        expect(created).toMatchObject({
+          id,
+          ownerId: userId,
+          name: 'From the composer',
+        });
+      });
+    });
+
+    describe('records', () => {
+      it('returns the empty list for a Conversation with no Turn yet', async () => {
+        const userId = createTestUserId();
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        // The composer asks on mount, before any Turn exists. An absent thread
+        // answers empty rather than NOT_FOUND, or a brand-new Conversation
+        // would open with an error where it should open with nothing ticked.
+        expect(
+          await caller.chat.dataSources.records({
+            conversationId: createTestSessionId(),
+          }),
+        ).toEqual([]);
+      });
+
+      it("rejects reading another user's Conversation", async () => {
+        const userId = createTestUserId();
+        const otherUserId = createTestUserId();
+        const conversationId = createTestSessionId();
+        await createTestChat({
+          userId: otherUserId,
+          sessionId: conversationId,
+        });
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        // The receipt states what a question was exposed to, so the
+        // Conversation-ownership builder guards it exactly as it guards the
+        // transcript itself.
+        await expect(
+          caller.chat.dataSources.records({ conversationId }),
+        ).rejects.toMatchObject({ code: 'FORBIDDEN' });
+      });
     });
   });
 });

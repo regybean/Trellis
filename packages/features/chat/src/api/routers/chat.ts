@@ -49,6 +49,7 @@ import {
   ownedConversationProcedure,
   protectedProcedure,
 } from '../trpc';
+import { dataSourcesRouter } from './data-sources';
 import { assertFolderOwned, foldersRouter } from './folders';
 
 // CREDITS_PER_TURN has one origin in env — the credit gate + consume read it
@@ -429,6 +430,10 @@ export const chatRouter = createTRPCRouter({
 
   // Folder CRUD (definitions only — the assignment is `setFolder` above).
   folders: foldersRouter,
+
+  // Data Source list + inline create for the composer panel, and the
+  // per-Message receipts the transcript discloses.
+  dataSources: dataSourcesRouter,
 
   adminGet: adminProcedure
     .input(z.object({ sessionId: z.uuid() }))
