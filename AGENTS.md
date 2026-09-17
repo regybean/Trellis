@@ -22,10 +22,12 @@ Consult the map before grepping; it turns most searches into a direct jump.
 3. **Broad / cross-layer search** (a seam wired app→feature→platform; all callers
    of X): delegate to the `Explore` subagent so the fan-out stays out of this
    context. Single greps and known-location lookups stay inline.
-4. **Before calling a change done:** `pnpm turbo run lint typecheck -F @acme/<pkg>`
-   (cached, seconds — catches boundaries/exports/`as`/`useEffect`). Then
-   `pnpm tidy` (auto-fix) and `pnpm quality-gate` (read-only verify) once at end
-   of task.
+4. **After each file you write, tests included:**
+   `pnpm turbo run lint typecheck -F @acme/<pkg>` (cached, seconds — catches
+   boundaries/exports/`as`/`useEffect`, and type errors in `src/tests/**` that
+   `vitest run` cannot see because it does not typecheck). Then `pnpm tidy`
+   (auto-fix), a `pnpm turbo run typecheck` because autofix can change types, and
+   `pnpm quality-gate` (read-only verify) once at end of task.
 
 > `turbo` is not installed globally — always invoke it as `pnpm turbo …`.
 
