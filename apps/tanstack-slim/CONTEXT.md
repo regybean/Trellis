@@ -14,10 +14,11 @@ frameworks.
 
 **Constant principal** (`src/lib/trpc-route.ts`):
 The fixed `InjectedSession` injected in place of a resolved session —
-`{ user: { id: 'local', role: 'admin' } }`. The
-TanStack Start analogue of
-`apps/nextjs-slim`'s constant principal.
-_Avoid_: "fake user", "mock auth".
+`{ user: { id: 'local' } }`. The TanStack Start analogue of
+`apps/nextjs-slim`'s constant principal, including its **vacuous ownership**:
+both features scope their rows by the principal's id, and with one principal
+that filter can never exclude anything.
+_Avoid_: "fake user", "mock auth", "local admin".
 
 **Server route handler**:
 A file route bridging a feature's tRPC router to `/api/trpc/{feature}/$` via

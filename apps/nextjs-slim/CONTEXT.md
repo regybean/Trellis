@@ -13,11 +13,20 @@ a deployment can drop both and still run.
 
 **Constant principal** (`src/server/trpc-route.ts`):
 The fixed `InjectedSession` this app injects in place of a resolved session —
-`{ user: { id: 'local', role: 'admin' } }`. The features still require a principal
-(`@acme/chat` is `protectedProcedure`; `@acme/ingest` is `adminProcedure`), so the
-app supplies one constant admin user rather than resolving auth. Nothing behind it
-resolves a provider: the platform's session type names none.
-_Avoid_: "fake user", "mock auth".
+`{ user: { id: 'local' } }`. Both features are `protectedProcedure` and scope
+their rows by the principal's id, so the app supplies one constant user rather
+than resolving auth. It carries no `role`: nothing gates on one, and asserting
+one would describe an authorization model this app does not have. Nothing behind
+it resolves a provider either — the platform's session type names none.
+_Avoid_: "fake user", "mock auth", "local admin".
+
+**Vacuous ownership**:
+The consequence of one constant principal meeting owner-scoped features: every
+Data Source and every Document belongs to `local`, so the ownership filter can
+never exclude anything. Real in the full apps, a tautology here. Worth naming
+because the gap is silent — this app exercises the same code paths and would
+keep passing if the scoping were dropped.
+_Avoid_: reading a green slim app as evidence the privacy boundary holds.
 
 **Unlimited entitlements** (`src/server/deps.ts`):
 `unlimitedEntitlements` from `@acme/entitlements` — the no-billing entitlements
