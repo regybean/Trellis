@@ -2,7 +2,7 @@
 
 Feature for managing the signed-in user's own knowledge base. Users upload files into a **Data Source** they own, indexed into the vector store so the chat assistant can answer questions about them.
 
-Every procedure is `protectedProcedure`, owner-scoped. Authorization here is **row ownership, not a role**: there is no admin gate, and a call naming a Data Source is asserted against `data_source` before it does anything. The rest of this document still reads in the operator vocabulary this feature was born in; that sweep belongs with the documents-page rework.
+Every procedure is `protectedProcedure`, owner-scoped. Authorization here is **row ownership, not a role**: there is no admin gate, and a call naming a Data Source is asserted against `data_source` before it does anything.
 
 ## Language
 
@@ -11,7 +11,7 @@ A file uploaded to the knowledge base. Identified by `(owner_id, data_source_id,
 _Avoid_: "file", "attachment", "resource"
 
 **Chunk**:
-A fragment of a Document produced during indexing. Multiple chunks share a `filename`. Stored in the vector store. Not directly visible to operators — they manage Documents, not chunks.
+A fragment of a Document produced during indexing. Multiple chunks share a `filename`. Stored in the vector store. Not directly visible to users — they manage Documents, not chunks.
 _Avoid_: "piece", "segment", "embedding"
 
 **Knowledge base**:
@@ -27,12 +27,12 @@ The transient act of processing one file through a Job. Identified by a server-m
 _Avoid_: "file", "upload job", "document" (a Document is the result, not the act)
 
 **Stage**:
-The lifecycle position of a single Upload, shown live to the operator:
+The lifecycle position of a single Upload, shown live to the user:
 `uploading → queued → parsing → embedding → done | failed`.
 
 - `uploading` — client-owned (browser→S3 PUT); the only Stage the server never observes.
 - `queued` — enqueued, awaiting a worker concurrency slot. The first server-emitted Stage.
-- `parsing` — text extraction and chunking, folded; the operator doesn't distinguish them.
+- `parsing` — text extraction and chunking, folded; the user doesn't distinguish them.
 - `embedding` — per-file embedding and vector-store upsert, folded.
 - `done` / `failed` — terminal per Upload; `failed` carries an error message.
 
@@ -44,10 +44,10 @@ _Avoid_: "signed URL", "upload link"
 
 ## Relationships
 
-- An operator submits a set of files → one **Job** (`jobId`) grouping one **Upload** (`uploadId`) per file, both server-minted in the presign response
+- A user submits a set of files → one **Job** (`jobId`) grouping one **Upload** (`uploadId`) per file, both server-minted in the presign response
 - Each **Upload** is uploaded browser-direct to S3, then processed server-side (parse → chunk → embed → upsert) into **Chunks**, producing or refreshing one filename-keyed **Document**
 - Each **Upload** carries its own **Stage**, and reaches `done` or `failed` independently of its siblings
-- A **Job** completes when all its Uploads reach a terminal **Stage**; completion emits a single notification `{ jobId, total, succeeded, failed: { uploadId, filename, error }[] }` → one operator-facing toast
+- A **Job** completes when all its Uploads reach a terminal **Stage**; completion emits a single notification `{ jobId, total, succeeded, failed: { uploadId, filename, error }[] }` → one user-facing toast
 - Deleting a **Document** removes all its **Chunks** from the vector store, matched on owner, Data Source and filename — never filename alone, which would now cross Sources
 - The `list` procedure returns the caller's Documents grouped by `(data_source_id, file_name)`, each row naming its Data Source — one row per Document, not per Chunk
 - Presign is the **authoritative** quota check: it re-counts the destination Source's Documents from the database and rejects the whole batch when `existing + N` would exceed the cap, naming the remaining headroom. The client's own check is advisory

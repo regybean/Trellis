@@ -63,7 +63,7 @@ which would replay an hour of completed jobs and worsen the duplicate.
 The IndexedDB persister is deliberately **not** used: progress is a
 subscription-fed reducer, not a query; the server-side fold is multi-tab correct
 and reuses durable data the stream already holds. The persister stays for
-`documents.list` ([ADR 0005](0005-documents-list-is-the-only-persisted-query.md)).
+`documents.list` ([ADR 0005](0005-which-ingest-queries-persist.md)).
 
 ## Consequences
 

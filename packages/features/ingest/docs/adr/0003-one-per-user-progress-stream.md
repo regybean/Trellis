@@ -9,7 +9,7 @@ navigate away, or be one of several tabs. The obvious grain is one stream per
 Job — chat does exactly that per Turn, and a per-Job stream can announce its own
 end and then be closed.
 
-Ingest cannot use that grain honestly. An operator can start a second batch while
+Ingest cannot use that grain honestly. A user can start a second batch while
 the first is still indexing, and the reader is mounted on the documents page, not
 on a Job. A per-Job stream would mean the page subscribing to an open-ended set
 of streams and discovering new ones as they appear.
@@ -72,5 +72,9 @@ back a reload may rejoin — so a deploy gets to move it.
   nothing, and a `lastId` older than the window resumes from a stream that has
   expired past it.
 - **A user's streams are unbounded in count, not size.** One key per user with no
-  reaper means a deployment accumulates one expiring key per active operator.
-  Acceptable because ingest is admin-only — there are few operators.
+  reaper means a deployment accumulates one expiring key per active uploader.
+  Bounded by the TTL rather than by a reaper, and each key holds one user's
+  in-flight Uploads — so the count tracks concurrent uploaders, not signups.
+  This used to read "acceptable because ingest is admin-only"; that stopped
+  being true when authorization became row ownership, and the TTL is what the
+  bound actually rests on.

@@ -6,12 +6,15 @@ reload ([ADR 0001](docs/adr/0001-ingest-progress-survives-refresh.md)).
 
 ## What it gives you
 
-- An upload control and a document list, ready to drop on a page.
+- A documents page, ready to drop on a page of yours: a Data Source rail, the
+  document list for wherever the user is standing, the upload dialog and a
+  progress panel scoped to the batch's destination. One surface rather than four
+  pieces, because all of them read which Data Source the user is standing in.
 - Data Source management — create, rename, delete and list — so a user can
   partition their own knowledge base. Every procedure is owner-scoped; there is
   no admin role anywhere in this slice.
-- A progress view fed by a per-user stream, so a user who reloads mid-batch
-  rejoins the progress rather than losing it.
+- Progress fed by a per-user stream, so a user who reloads mid-batch rejoins it
+  rather than losing it.
 - A background processor that extracts text, chunks it and indexes it into
   `@acme/rag`'s vector store, with bounded concurrency so a large batch cannot
   exhaust memory.
@@ -20,11 +23,11 @@ reload ([ADR 0001](docs/adr/0001-ingest-progress-survives-refresh.md)).
 
 ## Surface
 
-| Import                | What's in it                                      | Runs   |
-| --------------------- | ------------------------------------------------- | ------ |
-| `@acme/ingest`        | Upload control, document list, progress, provider | client |
-| `@acme/ingest/server` | Router, context factory, processor                | server |
-| `@acme/ingest/env`    | This package's env factory                        | either |
+| Import                | What's in it                                       | Runs   |
+| --------------------- | -------------------------------------------------- | ------ |
+| `@acme/ingest`        | `DocumentsPage`, the tRPC provider, cache clearing | client |
+| `@acme/ingest/server` | Router, context factory, processor                 | server |
+| `@acme/ingest/env`    | This package's env factory                         | either |
 
 This slice owns no tables. Documents live in object storage and their chunks in
 the vector store, so there is no `./schema` subpath and nothing to re-export.
@@ -39,9 +42,8 @@ and the procedures here reach it only through rag's `./server` module.
   [provider.md](../../../docs/mounting/provider.md)).
 - Run the processor in your worker entrypoint. It takes no arguments: it neither
   reads nor writes entitlements — [worker.md](../../../docs/mounting/worker.md).
-- Put the components on a page of yours. The upload control and the document
-  list are separate, so they need not sit together —
-  [ui.md](../../../docs/mounting/ui.md).
+- Put `DocumentsPage` on a route of yours; it owns the whole surface below your
+  heading and padding — [ui.md](../../../docs/mounting/ui.md).
 - Compose the env factory, select an embedding model and provide a bucket
   ([env.md](../../../docs/mounting/env.md)). Mount `@acme/notifications` too if
   you want completion messages: without it, indexing finishes silently.

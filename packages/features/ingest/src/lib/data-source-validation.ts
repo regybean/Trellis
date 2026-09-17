@@ -1,12 +1,12 @@
 // lib/data-source-validation.ts
 //
-// The client-side half of the Data Source name rule, plus the upload dialog's
-// own rule — as zod schemas, because both forms hand them straight to TanStack
-// Form as Standard Schema validators
-// (packages/shared/ui/docs/adr/0002-tanstack-form-in-acme-ui.md). The collision
-// check lives INSIDE validation rather than as a step sequenced before the
-// mutation, so the message arrives through `field.state.meta.errors` like every
-// other field error and neither form keeps its own error slot.
+// The client-side half of the Data Source name rule, as a zod schema: forms in
+// this repo use TanStack Form, and a form that hand-rolls a `useState` per field
+// is a review finding rather than a style preference. So the rule goes straight
+// to `validators.onDynamic` as a Standard Schema, and the collision check lives
+// INSIDE validation rather than as a step sequenced before the mutation — the
+// message then arrives through `field.state.meta.errors` like every other field
+// error, and neither create site keeps an error slot of its own.
 //
 // Pure and React-free so both inline-create sites — the rail row and the upload
 // dialog's `＋ New data source…` option — share one rule and one message

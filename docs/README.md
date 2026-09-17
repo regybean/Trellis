@@ -105,7 +105,7 @@ package.
 | `@acme/ingest`        | [0002](../packages/features/ingest/docs/adr/0002-browser-direct-s3-upload.md)                    | Bytes go browser→S3 direct, and a batch fails per file.                                    |
 | `@acme/ingest`        | [0003](../packages/features/ingest/docs/adr/0003-one-per-user-progress-stream.md)                | One progress stream per user, carrying no job-level terminal.                              |
 | `@acme/ingest`        | [0004](../packages/features/ingest/docs/adr/0004-two-authors-one-pure-reducer.md)                | Two authors, one pure reducer, forward-only stage ranks.                                   |
-| `@acme/ingest`        | [0005](../packages/features/ingest/docs/adr/0005-documents-list-is-the-only-persisted-query.md)  | `documents.list` is the only persisted query.                                              |
+| `@acme/ingest`        | [0005](../packages/features/ingest/docs/adr/0005-which-ingest-queries-persist.md)                | Which ingest queries persist.                                                              |
 | `@acme/models`        | [0001](../packages/shared/models/docs/adr/0001-multi-provider-models.md)                         | Multi-provider models behind a single `@acme/models` package.                              |
 | `@acme/models`        | [0002](../packages/shared/models/docs/adr/0002-one-authored-value-per-role.md)                   | One authored value per role, validated as a discriminated union.                           |
 | `@acme/notifications` | [0001](../packages/shared/notifications/docs/adr/0001-notifications-seam.md)                     | `@acme/notifications` is a shared package that owns a tRPC router.                         |
