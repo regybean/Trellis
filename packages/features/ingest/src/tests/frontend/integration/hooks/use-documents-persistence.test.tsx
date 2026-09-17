@@ -25,7 +25,7 @@ import { delay } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
-import type { DocumentFilenameSummary } from '@acme/rag/server';
+import type { DocumentSummary } from '@acme/rag/server';
 
 import { DocumentsList } from '../../../../components/documents-list';
 import { clearIngestPersistedCache } from '../../../../trpc/react';
@@ -41,7 +41,12 @@ const ingestStore = () => createStore('rq-ingest', 'cache');
 const persisted = async () => keys(ingestStore());
 const SCOPE = 'user-1';
 
-const doc = (filename: string, count: number): DocumentFilenameSummary => ({
+// The row shape the pane persists, which now names its Data Source.
+type PersistedRow = DocumentSummary & { dataSourceName: string };
+
+const doc = (filename: string, count: number): PersistedRow => ({
+  dataSourceId: '11111111-1111-4111-8111-111111111111',
+  dataSourceName: 'Work notes',
   filename,
   count,
   uploadTimestamp: Date.UTC(2020, 0, 1),
@@ -55,7 +60,7 @@ const offline = () => {
 
 // Stand-in for a server that never answers: the pane holds its skeleton, so
 // anything that *does* render came from the persisted snapshot.
-const neverResolves = async (): Promise<DocumentFilenameSummary[]> => {
+const neverResolves = async (): Promise<PersistedRow[]> => {
   await delay('infinite');
   return [];
 };
@@ -85,7 +90,9 @@ describe('ingest offline read — the Documents pane (documents.list)', () => {
     render(<DocumentsList />, { wrapper: ScopedProviders(SCOPE) });
 
     expect(await screen.findByText('handbook.pdf')).toBeInTheDocument();
-    expect(await screen.findByText('12 chunks')).toBeInTheDocument();
+    expect(
+      await screen.findByText('Work notes · 12 chunks'),
+    ).toBeInTheDocument();
     expect(screen.queryByText('Loading documents…')).not.toBeInTheDocument();
   });
 

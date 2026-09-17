@@ -21,7 +21,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Job } from '@acme/queue';
 import { notificationSchema } from '@acme/notifications/schema';
 import { notificationKey } from '@acme/notifications/server';
-import { deleteByFilename, listDocuments } from '@acme/rag/server';
+import {
+  createDataSource,
+  deleteDataSource,
+  listDocuments,
+} from '@acme/rag/server';
 import { redis } from '@acme/redis';
 
 import type { IngestJob } from '../../../../api/services/ingest-queue';
@@ -35,21 +39,25 @@ import { cleanupTestData } from '../../utils/test-context';
 
 const userId = 'user-ingest-proc';
 
+// Every upload needs a real destination Data Source: `uploadDoc` re-asserts
+// ownership immediately before the upsert, so an invented id indexes nothing.
+// Seeded per test through rag's own create function — never a raw insert, so
+// the fixture has exactly production's power and cannot lie in either
+// direction.
+let dataSourceId: string;
+
 // The processor takes a BullMQ Job; only `.data` is read. Cast the minimal shape
 // (mirrors chat's processor test) — constructing a full BullMQ Job is impractical.
 function makeJob(uploads: IngestJob['uploads']): Job<IngestJob> {
   return {
-    data: { jobId: crypto.randomUUID(), userId, uploads },
+    data: { jobId: crypto.randomUUID(), userId, dataSourceId, uploads },
   } as Job<IngestJob>;
 }
 
 // A distinct filename per Upload so parallel test files never collide in the
-// shared vector DB; tracked for cleanup.
-const created: string[] = [];
+// shared vector DB.
 function uniqueName() {
-  const name = `proc-${crypto.randomUUID()}.txt`;
-  created.push(name);
-  return name;
+  return `proc-${crypto.randomUUID()}.txt`;
 }
 
 // Wire `downloadFileFromS3` to return the given text for each s3Key.
@@ -84,10 +92,18 @@ describe('createIngestProcessor', () => {
   beforeEach(async () => {
     await cleanupTestData();
     vi.mocked(deleteFilesFromS3).mockImplementation(() => Promise.resolve());
+    dataSourceId = crypto.randomUUID();
+    await createDataSource({
+      ownerId: userId,
+      id: dataSourceId,
+      name: `Processor ${dataSourceId}`,
+    });
   });
 
   afterEach(async () => {
-    for (const name of created.splice(0)) await deleteByFilename(name);
+    // The Source's cascade takes its chunks with it, so this replaces the old
+    // per-filename cleanup loop — and exercises the production delete path.
+    await deleteDataSource({ ownerId: userId, id: dataSourceId });
     await cleanupTestData();
   });
 
@@ -167,7 +183,7 @@ describe('createIngestProcessor', () => {
     });
 
     // The good document was indexed for real.
-    const docs = await listDocuments();
+    const docs = await listDocuments({ ownerId: userId, dataSourceId });
     expect(docs.find((d) => d.filename === okName)?.count).toBeGreaterThan(0);
   });
 
@@ -199,13 +215,13 @@ describe('createIngestProcessor', () => {
     await createIngestProcessor()(
       makeJob([{ uploadId: 'u1', filename, s3Key }]),
     );
-    const firstDocs = await listDocuments();
+    const firstDocs = await listDocuments({ ownerId: userId, dataSourceId });
     const first = firstDocs.find((d) => d.filename === filename);
 
     await createIngestProcessor()(
       makeJob([{ uploadId: 'u1', filename, s3Key }]),
     );
-    const secondDocs = await listDocuments();
+    const secondDocs = await listDocuments({ ownerId: userId, dataSourceId });
     const second = secondDocs.find((d) => d.filename === filename);
 
     expect(first?.count).toBeGreaterThan(0);

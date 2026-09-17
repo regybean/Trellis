@@ -42,7 +42,9 @@ const reasonMessage = (reason: unknown) =>
  *
  * The three-step upload protocol (presign → direct S3 PUT → `startIngestJob`
  * enqueue) plus the always-on per-user progress subscription are fused behind a
- * flat surface: `{ upload, files, summary, accept, maxFileSizeBytes }`. Live
+ * flat surface: `{ upload, files, summary, accept, maxFileSizeBytes }`. `upload`
+ * takes its destination Data Source explicitly — one Source per Job, mandatory,
+ * with no default, because there is no implicit Data Source. Live
  * per-file Stage lives in a mount-owned `Record<uploadId, …>` driven by the pure
  * `ingestProgressReducer` — this hook is only wiring (mutations, subscription,
  * one completion effect, request-level toasts). Business logic stays out of
@@ -124,25 +126,12 @@ export function useDocumentUpload() {
     onData: ({ data: event }) =>
       dispatch(
         event.stage === 'failed'
-          ? {
-              type: 'serverStage',
-              jobId: event.jobId,
-              uploadId: event.uploadId,
-              filename: event.filename,
-              stage: 'failed',
-              error: event.error,
-            }
-          : {
-              type: 'serverStage',
-              jobId: event.jobId,
-              uploadId: event.uploadId,
-              filename: event.filename,
-              stage: event.stage,
-            },
+          ? { type: 'serverStage', ...event, stage: 'failed' }
+          : { type: 'serverStage', ...event, stage: event.stage },
       ),
   });
 
-  const upload = async (files: File[]) => {
+  const upload = async (files: File[], dataSourceId: string) => {
     if (files.length === 0) return;
 
     const validationErrors = validateFiles(files);
@@ -156,6 +145,7 @@ export function useDocumentUpload() {
     let presigned;
     try {
       presigned = await presign.mutateAsync({
+        dataSourceId,
         files: files.map((file) => ({
           filename: file.name,
           contentType: file.type || 'application/octet-stream',
@@ -168,6 +158,7 @@ export function useDocumentUpload() {
     dispatch({
       type: 'presigned',
       jobId,
+      dataSourceId,
       uploads: uploads.map((u) => ({
         uploadId: u.uploadId,
         filename: u.filename,
@@ -209,6 +200,7 @@ export function useDocumentUpload() {
     try {
       await start.mutateAsync({
         jobId,
+        dataSourceId,
         uploads: puttable.map((u) => ({
           uploadId: u.uploadId,
           filename: u.filename,

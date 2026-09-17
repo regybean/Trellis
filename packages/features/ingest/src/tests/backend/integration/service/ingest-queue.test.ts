@@ -17,6 +17,7 @@ import {
 const baseJob = (jobId: string): IngestJob => ({
   jobId,
   userId: 'user-queue',
+  dataSourceId: '11111111-1111-4111-8111-111111111111',
   uploads: [
     { uploadId: 'u1', filename: 'a.pdf', s3Key: `uploads/${jobId}/u1/a.pdf` },
   ],

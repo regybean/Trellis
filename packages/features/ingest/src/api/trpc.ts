@@ -2,7 +2,6 @@ import { initTRPC } from '@trpc/server';
 
 import type { BaseContext } from '@acme/trpc';
 import {
-  requireAdmin,
   requirePrincipal,
   trpcConfig,
   withProcedureSpan,
@@ -14,6 +13,12 @@ import {
  * `BaseContext` the app adapter injects, and nothing else. Ingest owns no
  * database and has no tier to gate on, so it names neither a Drizzle client nor
  * a billing type.
+ *
+ * This survived the Data Source work unchanged, which is the point. Ingest now
+ * creates, renames, deletes and lists Data Sources and asserts ownership on
+ * every Document call — and still holds no client, because all of it goes
+ * through `@acme/rag/server`'s module-private ones. Widen this type to carry a
+ * `db` and the ownership predicate becomes bypassable from inside this package.
  */
 export type IngestContext = BaseContext;
 
@@ -29,12 +34,12 @@ const timing = t.middleware(({ next, path }) => withTimingLog(path, next));
 const authed = t.middleware(({ next, ctx }) =>
   next({ ctx: { session: { user: requirePrincipal(ctx.session) } } }),
 );
-const admin = t.middleware(({ next, ctx }) =>
-  next({ ctx: { session: { user: requireAdmin(ctx.session) } } }),
-);
 
 export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
 const publicProcedure = t.procedure.use(telemetry).use(timing);
+// Every procedure in this feature is `protectedProcedure`. There is no admin
+// gate left: Documents and Data Sources are the signed-in user's own, and
+// authorization is row ownership rather than a role — asserted per call against
+// `data_source` in `@acme/rag/server`.
 export const protectedProcedure = publicProcedure.use(authed);
-export const adminProcedure = publicProcedure.use(admin);

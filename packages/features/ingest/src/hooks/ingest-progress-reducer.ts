@@ -25,6 +25,10 @@ export type Stage = IngestStage | 'uploading';
 // comment. `fail()`/`reduceServerStage` narrow instead of leaning on a fallback.
 interface PerFileBase {
   jobId: string;
+  // The destination Data Source, one per Job. Carried on the row so progress
+  // can be rendered per Source — the panel shows only the batch destined for
+  // the Source you are standing in.
+  dataSourceId: string;
   uploadId: string;
   filename: string;
 }
@@ -69,6 +73,7 @@ export type ProgressEvent =
   | {
       type: 'presigned';
       jobId: string;
+      dataSourceId: string;
       uploads: { uploadId: string; filename: string }[];
     }
   // A browser→S3 PUT rejected: that file fails independently (in-list, not toasted).
@@ -90,6 +95,7 @@ export type ProgressEvent =
   | ({
       type: 'serverStage';
       jobId: string;
+      dataSourceId: string;
       uploadId: string;
       filename: string;
     } & (
@@ -158,6 +164,7 @@ function reducePresigned(
     if (byId[u.uploadId]) continue;
     byId[u.uploadId] = {
       jobId: event.jobId,
+      dataSourceId: event.dataSourceId,
       uploadId: u.uploadId,
       filename: u.filename,
       stage: 'uploading',
@@ -170,15 +177,21 @@ function reducePresigned(
 
 // Materialize a per-file record from a wire-shaped stage (server snapshot or live
 // entry) — the one place `error`-on-`failed` is narrowed into a `PerFileProgress`.
-type WireStage = { jobId: string; uploadId: string; filename: string } & (
+type WireStage = {
+  jobId: string;
+  dataSourceId: string;
+  uploadId: string;
+  filename: string;
+} & (
   | { stage: Exclude<IngestStage, 'failed'> }
   | { stage: 'failed'; error: string }
 );
 function recordFromWire(wire: WireStage): PerFileProgress {
-  const { jobId, uploadId, filename } = wire;
+  const { jobId, dataSourceId, uploadId, filename } = wire;
+  const identity = { jobId, dataSourceId, uploadId, filename };
   return wire.stage === 'failed'
-    ? { jobId, uploadId, filename, stage: 'failed', error: wire.error }
-    : { jobId, uploadId, filename, stage: wire.stage };
+    ? { ...identity, stage: 'failed', error: wire.error }
+    : { ...identity, stage: wire.stage };
 }
 
 // Insert a brand-new record, appended to `order` (submission / first-seen order).

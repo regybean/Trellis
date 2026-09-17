@@ -2,11 +2,20 @@ import { createQueue, QUEUE_NAMES } from '@acme/queue';
 
 import { env } from '../../env';
 
-// One BullMQ job per batch (one presign call). `s3Key` is passed explicitly so
-// the worker stays dumb — it never re-derives a key from `jobId`/`uploadId`.
+// One BullMQ job per batch (one presign call), landing in ONE Data Source —
+// `dataSourceId` is per Job rather than per upload because a chunk belongs to
+// exactly one Source and the destination is chosen once, at presign. `s3Key` is
+// passed explicitly so the worker stays dumb — it never re-derives a key from
+// `jobId`/`uploadId`.
+//
+// The destination rides in the payload rather than being re-read at run time,
+// but it is NOT trusted on arrival: `uploadDoc` re-asserts ownership after the
+// embed, so a Source deleted while the Job sat in the queue simply fails its
+// uploads instead of writing unstamped chunks.
 export interface IngestJob {
   jobId: string;
   userId: string;
+  dataSourceId: string;
   uploads: { uploadId: string; filename: string; s3Key: string }[];
 }
 

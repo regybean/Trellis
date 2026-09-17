@@ -1,11 +1,13 @@
 # Ingest (`@acme/ingest`)
 
-Admin-only feature for managing the knowledge base. Operators upload files that are indexed into the vector store so the chat assistant can answer questions about them. There is no user-facing upload path — every procedure is admin-only.
+Feature for managing the signed-in user's own knowledge base. Users upload files into a **Data Source** they own, indexed into the vector store so the chat assistant can answer questions about them.
+
+Every procedure is `protectedProcedure`, owner-scoped. Authorization here is **row ownership, not a role**: there is no admin gate, and a call naming a Data Source is asserted against `data_source` before it does anything. The rest of this document still reads in the operator vocabulary this feature was born in; that sweep belongs with the documents-page rework.
 
 ## Language
 
 **Document**:
-A file uploaded by an operator to the knowledge base. Identified by its filename. Accepted types: `.pdf`, `.docx` (parsed to text with officeparser) and `.txt` (read natively). Stored in S3 and indexed as one or more chunks in the vector store.
+A file uploaded to the knowledge base. Identified by `(owner_id, data_source_id, file_name)` — the same file in two Data Sources is two Documents, deleted and re-indexed independently. Accepted types: `.pdf`, `.docx` (parsed to text with officeparser) and `.txt` (read natively). Stored in S3 and indexed as one or more chunks in the vector store.
 _Avoid_: "file", "attachment", "resource"
 
 **Chunk**:
@@ -13,11 +15,11 @@ A fragment of a Document produced during indexing. Multiple chunks share a `file
 _Avoid_: "piece", "segment", "embedding"
 
 **Knowledge base**:
-The collection of all indexed Documents available to the chat assistant at query time. Operators build and maintain it via this feature.
+The collection of all indexed Documents available to the chat assistant at query time. Partitioned into **Data Sources**, which `@acme/rag` owns — the entity, the ownership rule and the caps all live there, and every read and write of `data_source` from here goes through its `./server` module. Ingest holds no database client.
 _Avoid_: "vector store", "index", "database"
 
 **Job**:
-A grouping identity for the 1..N Uploads created by one presign call — the batch an operator submits together. Identified by a server-minted `jobId` that flows presign → S3 PUT → enqueue. A Job is **derived, never persisted as a row**: there is no stored Job status, and "the Job succeeded/failed" is computed from its Uploads.
+A grouping identity for the 1..N Uploads created by one presign call — the batch submitted together, landing in exactly ONE Data Source, chosen at presign. Identified by a server-minted `jobId` that flows presign → S3 PUT → enqueue. A Job is **derived, never persisted as a row**: there is no stored Job status, and "the Job succeeded/failed" is computed from its Uploads.
 _Avoid_: "batch", "task", "run"
 
 **Upload**:
@@ -46,8 +48,9 @@ _Avoid_: "signed URL", "upload link"
 - Each **Upload** is uploaded browser-direct to S3, then processed server-side (parse → chunk → embed → upsert) into **Chunks**, producing or refreshing one filename-keyed **Document**
 - Each **Upload** carries its own **Stage**, and reaches `done` or `failed` independently of its siblings
 - A **Job** completes when all its Uploads reach a terminal **Stage**; completion emits a single notification `{ jobId, total, succeeded, failed: { uploadId, filename, error }[] }` → one operator-facing toast
-- Deleting a **Document** removes all its **Chunks** from the vector store by filename
-- The `list` procedure returns Documents grouped by filename — one row per Document, not per Chunk
+- Deleting a **Document** removes all its **Chunks** from the vector store, matched on owner, Data Source and filename — never filename alone, which would now cross Sources
+- The `list` procedure returns the caller's Documents grouped by `(data_source_id, file_name)`, each row naming its Data Source — one row per Document, not per Chunk
+- Presign is the **authoritative** quota check: it re-counts the destination Source's Documents from the database and rejects the whole batch when `existing + N` would exceed the cap, naming the remaining headroom. The client's own check is advisory
 
 ## Decisions
 

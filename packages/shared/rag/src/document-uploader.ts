@@ -1,6 +1,6 @@
 import { MDocument } from '@mastra/rag';
 import { embedMany } from 'ai';
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { v5 as uuidv5 } from 'uuid';
 
 import { createDb } from '@acme/db';
@@ -11,7 +11,11 @@ import type { DocumentMetadata } from './schemas/documents-schema';
 import { assertDataSourceOwned } from './data-source';
 import { env } from './env';
 import { extractText } from './parsing';
-import { documents, SCOPE_KEYS } from './schemas/documents-schema';
+import {
+  documents,
+  metadataField,
+  SCOPE_KEYS,
+} from './schemas/documents-schema';
 import { ensureVectorIndex, indexName, pgVector } from './vector';
 
 const TEXT_NODE_NAMESPACE = '3b241101-e2bb-4255-8caf-4136c566a962';
@@ -114,11 +118,16 @@ export function dedupeChunks({
 }
 
 // Drizzle client against the vector database, for direct reads/deletes that
-// don't need the vector store (listing and deletion by filename). Module-private
-// so callers can't run arbitrary SQL against the knowledge base.
+// don't need the vector store (listing, counting and deleting Documents).
+// Module-private so callers can't run arbitrary SQL against the knowledge base.
 const vdb = createDb({ database: env.DB_VECTOR_NAME });
 
-export interface DocumentFilenameSummary {
+// One Document: the Source it lives in, its filename, its chunk count and the
+// most recent upload that produced it. `dataSourceId` rides on every row rather
+// than only on the unscoped read — the `All documents` roll-up needs it to
+// resolve a name, and delete needs it to target the right Document.
+export interface DocumentSummary {
+  dataSourceId: string;
   filename: string;
   count: number;
   uploadTimestamp: number;
@@ -208,26 +217,107 @@ export async function uploadDoc(
   await pgVector.upsert({ indexName, ids, vectors: embeddings, metadata });
 }
 
-/** List uploaded documents grouped by filename. */
-export async function listDocuments() {
-  const summaries: DocumentFilenameSummary[] = await vdb
+/**
+ * The owner's Documents, optionally narrowed to one Data Source.
+ *
+ * Grouped by `(data_source_id, file_name)` because that, with the owner, IS
+ * Document identity now — the same file in two Sources is two Documents, so
+ * grouping by filename alone would fold them into one row whose chunk count is
+ * the sum and whose delete would have no unambiguous target.
+ *
+ * `owner_id` is in the predicate unconditionally, exactly as it is in the
+ * retrieval filter. Narrowing to a Source is scope selection on top of that,
+ * never instead of it: an unowned `dataSourceId` reaching here returns nothing
+ * rather than someone else's rows. Callers that want a caller-visible rejection
+ * assert ownership first.
+ *
+ * The Source's NAME is not joined here. It lives in `data_source`, in the app
+ * database, and this reads the vector mirror — so composing the two is the
+ * caller's (`listDataSources` is right beside this on `./server`).
+ */
+export async function listDocuments({
+  ownerId,
+  dataSourceId,
+}: {
+  ownerId: string;
+  dataSourceId?: string;
+}) {
+  const scope = dataSourceId
+    ? and(
+        eq(metadataField(SCOPE_KEYS.owner_id), ownerId),
+        eq(metadataField(SCOPE_KEYS.data_source_id), dataSourceId),
+      )
+    : eq(metadataField(SCOPE_KEYS.owner_id), ownerId);
+
+  const summaries: DocumentSummary[] = await vdb
     .select({
-      filename: sql<string>`(${documents.metadata} ->> 'file_name')`,
+      dataSourceId: metadataField(SCOPE_KEYS.data_source_id),
+      filename: metadataField('file_name'),
       count: sql<number>`count(*)::integer`,
-      uploadTimestamp: sql<number>`max((${documents.metadata} ->> 'upload_timestamp')::double precision)`,
+      uploadTimestamp: sql<number>`max((${metadataField('upload_timestamp')})::double precision)`,
     })
     .from(documents)
-    .groupBy(sql`(${documents.metadata} ->> 'file_name')`);
+    .where(scope)
+    .groupBy(
+      metadataField(SCOPE_KEYS.data_source_id),
+      metadataField('file_name'),
+    );
   return summaries;
 }
 
-/** Delete all chunks belonging to a given filename. */
-export async function deleteByFilename(filename: string) {
+/**
+ * How many Documents a Source already holds — distinct filenames, not chunks,
+ * because the cap counts Documents.
+ *
+ * This is the authoritative read behind the presign quota check. It is a live
+ * count from the database on every call, deliberately: the client's own check
+ * is advisory and a direct tRPC call bypasses the UI entirely.
+ */
+export async function countDocuments({
+  ownerId,
+  dataSourceId,
+}: UploadScope): Promise<number> {
+  const [row] = await vdb
+    .select({
+      count: sql<number>`count(distinct ${metadataField('file_name')})::integer`,
+    })
+    .from(documents)
+    .where(
+      and(
+        eq(metadataField(SCOPE_KEYS.owner_id), ownerId),
+        eq(metadataField(SCOPE_KEYS.data_source_id), dataSourceId),
+      ),
+    );
+  return row?.count ?? 0;
+}
+
+/**
+ * Delete one Document: every chunk carrying this owner, Source and filename.
+ *
+ * Takes the whole identity triple rather than a bare filename. Delete-by-
+ * filename would now cross Sources, which is the destructive mirror image of a
+ * too-broad retrieval filter — and a user who deletes `notes.pdf` from `Work`
+ * must not lose the copy in `Personal`.
+ */
+export async function deleteDocument({
+  ownerId,
+  dataSourceId,
+  fileName,
+}: UploadScope & { fileName: string }) {
   const deleted = await vdb
     .delete(documents)
-    .where(sql`(${documents.metadata} ->> 'file_name') = ${filename}`)
+    .where(
+      and(
+        eq(metadataField(SCOPE_KEYS.owner_id), ownerId),
+        eq(metadataField(SCOPE_KEYS.data_source_id), dataSourceId),
+        eq(metadataField('file_name'), fileName),
+      ),
+    )
     .returning({ id: documents.id });
 
-  logger.info({ filename, deletedCount: deleted.length }, 'Deleted document');
-  return { deletedCount: deleted.length, filename };
+  logger.info(
+    { ownerId, dataSourceId, fileName, deletedCount: deleted.length },
+    'Deleted document',
+  );
+  return { deletedCount: deleted.length, fileName };
 }

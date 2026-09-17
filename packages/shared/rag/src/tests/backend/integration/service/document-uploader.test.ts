@@ -20,7 +20,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createDataSource, deleteDataSource } from '../../../../data-source';
 import {
-  deleteByFilename,
+  countDocuments,
+  deleteDocument,
   DocumentParseError,
   listDocuments,
   uploadDoc,
@@ -35,6 +36,8 @@ function txtFile(name: string, content: string) {
 function newSource(ownerId: string, name: string) {
   return createDataSource({ ownerId, id: crypto.randomUUID(), name });
 }
+
+const byName = (a: string, b: string) => a.localeCompare(b);
 
 function uniqueFilename() {
   return `dedup-${crypto.randomUUID()}.txt`;
@@ -131,10 +134,16 @@ describe('uploadDoc (integration)', () => {
 
   describe('deduplication', () => {
     it('returns deletedCount 0 when the filename does not exist', async () => {
-      const result = await deleteByFilename('nonexistent-never-uploaded.txt');
+      const ownerId = newOwner();
+      const source = await newSource(ownerId, 'Nothing here');
+      const result = await deleteDocument({
+        ownerId,
+        dataSourceId: source.id,
+        fileName: 'nonexistent-never-uploaded.txt',
+      });
       expect(result).toEqual({
         deletedCount: 0,
-        filename: 'nonexistent-never-uploaded.txt',
+        fileName: 'nonexistent-never-uploaded.txt',
       });
     });
 
@@ -153,9 +162,17 @@ describe('uploadDoc (integration)', () => {
         { ownerId, dataSourceId: source.id },
       );
 
-      const docs = await listDocuments();
-      expect(docs.find((d) => d.filename === nameA)?.count).toBeGreaterThan(0);
-      expect(docs.find((d) => d.filename === nameB)?.count).toBeGreaterThan(0);
+      const docs = await listDocuments({ ownerId });
+      expect(docs.map((d) => d.filename).toSorted(byName)).toEqual(
+        [nameA, nameB].toSorted(byName),
+      );
+      for (const doc of docs) {
+        expect(doc.dataSourceId).toBe(source.id);
+        expect(doc.count).toBeGreaterThan(0);
+      }
+      expect(await countDocuments({ ownerId, dataSourceId: source.id })).toBe(
+        2,
+      );
     });
 
     it('uploading the same file twice into the same Source does not duplicate its chunks', async () => {

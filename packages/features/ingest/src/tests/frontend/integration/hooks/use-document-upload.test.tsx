@@ -38,6 +38,11 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'bypass' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
+// The destination Data Source every `upload()` call names. Upload takes
+// exactly one Source and it is mandatory, so there is no "no destination"
+// case to drive here.
+const DATA_SOURCE_ID = '11111111-1111-4111-8111-111111111111';
+
 const pdfFile = (name = 'doc.pdf') =>
   new File(['content'], name, { type: 'application/pdf' });
 
@@ -87,12 +92,14 @@ describe('useDocumentUpload', () => {
         [
           {
             jobId: 'job-old',
+            dataSourceId: DATA_SOURCE_ID,
             uploadId: 'u1',
             filename: 'resume.pdf',
             stage: 'parsing',
           },
           {
             jobId: 'job-old',
+            dataSourceId: DATA_SOURCE_ID,
             uploadId: 'u2',
             filename: 'broken.pdf',
             stage: 'failed',
@@ -118,7 +125,7 @@ describe('useDocumentUpload', () => {
 
   it('does nothing for an empty file list', async () => {
     const { result } = renderUpload();
-    await act(() => result.current.upload([]));
+    await act(() => result.current.upload([], DATA_SOURCE_ID));
     expect(result.current.files).toEqual([]);
   });
 
@@ -134,7 +141,7 @@ describe('useDocumentUpload', () => {
     );
 
     const { result } = renderUpload();
-    act(() => void result.current.upload([pdfFile()]));
+    act(() => void result.current.upload([pdfFile()], DATA_SOURCE_ID));
 
     // Presign resolved, PUT pending → the row sits at `uploading`.
     await waitFor(() => expect(result.current.files).toHaveLength(1));
@@ -150,7 +157,7 @@ describe('useDocumentUpload', () => {
     server.use(presignHandler('job-1', ['u1']), s3Ok(), startHandler('job-1'));
 
     const { result } = renderUpload();
-    await act(() => result.current.upload([pdfFile()]));
+    await act(() => result.current.upload([pdfFile()], DATA_SOURCE_ID));
 
     expect(result.current.files).toHaveLength(1);
     expect(result.current.files[0]?.stage).toBe('queued');
@@ -160,9 +167,10 @@ describe('useDocumentUpload', () => {
   it('toasts a validation error and makes no request for an unsupported type', async () => {
     const { result } = renderUpload();
     await act(() =>
-      result.current.upload([
-        new File(['x'], 'malware.exe', { type: 'application/x-msdownload' }),
-      ]),
+      result.current.upload(
+        [new File(['x'], 'malware.exe', { type: 'application/x-msdownload' })],
+        DATA_SOURCE_ID,
+      ),
     );
 
     expect(
@@ -182,7 +190,7 @@ describe('useDocumentUpload', () => {
     );
 
     const { result } = renderUpload();
-    await act(() => result.current.upload([pdfFile()]));
+    await act(() => result.current.upload([pdfFile()], DATA_SOURCE_ID));
 
     await waitFor(() => expect(result.current.files[0]?.stage).toBe('failed'));
     expect(result.current.summary.failed).toBe(1);
@@ -196,7 +204,7 @@ describe('useDocumentUpload', () => {
     );
 
     const { result } = renderUpload();
-    await act(() => result.current.upload([pdfFile()]));
+    await act(() => result.current.upload([pdfFile()], DATA_SOURCE_ID));
 
     // The tRPC reject is toasted as an error (exact message is transport-shaped).
     await waitFor(() =>
@@ -215,7 +223,7 @@ describe('useDocumentUpload', () => {
     );
 
     const { result } = renderUpload();
-    await act(() => result.current.upload([pdfFile()]));
+    await act(() => result.current.upload([pdfFile()], DATA_SOURCE_ID));
 
     await waitFor(() =>
       expect(document.querySelector('.Toastify__toast--error')).not.toBeNull(),
