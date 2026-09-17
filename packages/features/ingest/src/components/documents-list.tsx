@@ -4,21 +4,19 @@ import { Trash2 } from 'lucide-react';
 
 import { Button } from '@acme/ui';
 
-import { useDocuments } from '../hooks/use-documents';
+import type { DocumentRow } from '../hooks/use-documents-page';
 
 /**
  * The detail pane's Document list — the right-hand half of the master-detail.
  *
- * `dataSourceId` is where the user is standing: a Source id narrows the list to
- * it, and `undefined` is the `All documents` roll-up, which is the only mode
- * that prints a Source name on each row (inside one Source the name would be
- * the same word repeated down the column).
+ * Prop-driven, like the rail and the progress panel: `documents` arrives already
+ * narrowed to where the user is standing. Scoping the list here as well would
+ * make "the Source you are standing in" a rule written in three places, and the
+ * hook is the one that holds the selection.
  *
- * The narrowing is client-side over the roll-up query on purpose. One
- * `documents.list` fetch feeds every pane and every rail count, so switching
- * Sources is instant and the persisted snapshot is one key rather than one per
- * Source. The corpus is capped at 10 Sources x 50 Documents, so the list it
- * filters is bounded by construction.
+ * `isRollUp` is the `All documents` view, and the only mode that prints a Source
+ * name on each row — inside one Source the name would be the same word repeated
+ * down the column.
  *
  * Deleting a Document is a hover-revealed trash with NO confirmation. That is
  * the light end of the page's deliberate asymmetry: one file, re-uploadable in
@@ -26,23 +24,25 @@ import { useDocuments } from '../hooks/use-documents';
  * demands its name typed out.
  */
 export function DocumentsList({
-  dataSourceId,
+  documents,
+  isLoading,
+  isRollUp,
+  onDelete,
+  isDeleting,
   onRequestUpload,
 }: {
-  dataSourceId?: string;
+  documents: DocumentRow[];
+  isLoading: boolean;
+  isRollUp: boolean;
+  onDelete: (dataSourceId: string, filename: string) => void;
+  isDeleting: boolean;
   onRequestUpload?: () => void;
 }) {
-  const { documents, isLoading, deleteDocument, isDeleting } = useDocuments();
-
-  const visible = dataSourceId
-    ? documents.filter((doc) => doc.dataSourceId === dataSourceId)
-    : documents;
-
   if (isLoading) {
     return <p className="text-muted-foreground text-sm">Loading documents…</p>;
   }
 
-  if (visible.length === 0) {
+  if (documents.length === 0) {
     return (
       <p className="text-muted-foreground text-sm">
         No documents uploaded yet.{' '}
@@ -62,7 +62,7 @@ export function DocumentsList({
 
   return (
     <ul className="divide-border divide-y">
-      {visible.map((doc) => (
+      {documents.map((doc) => (
         // The same filename in two Sources is two Documents, so the row key is
         // the pair rather than the filename.
         <li
@@ -73,7 +73,7 @@ export function DocumentsList({
             <p className="text-sm font-medium">{doc.filename}</p>
             <p className="text-muted-foreground text-xs">
               {/* The Source name earns its place only in the roll-up. */}
-              {dataSourceId ? null : `${doc.dataSourceName} · `}
+              {isRollUp ? `${doc.dataSourceName} · ` : null}
               {doc.count} chunks
             </p>
           </div>
@@ -82,7 +82,7 @@ export function DocumentsList({
             size="sm"
             disabled={isDeleting}
             className="opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-            onClick={() => deleteDocument(doc.dataSourceId, doc.filename)}
+            onClick={() => onDelete(doc.dataSourceId, doc.filename)}
           >
             <Trash2 className="h-4 w-4" />
             <span className="sr-only">

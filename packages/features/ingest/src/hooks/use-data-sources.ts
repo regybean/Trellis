@@ -21,10 +21,13 @@ import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
  * one round trip, and persisting it would put a retunable cap on disk for a day
  * for no paint worth having.
  *
- * The create id is minted here, client-side, so a rail row can appear
- * optimistically and still reconcile 1:1 with the server row. That is safe only
- * because the retrieval filter's first clause is `owner_id = <verified
- * userId>`.
+ * The create id is minted here, client-side, so the mutation is idempotent: a
+ * retry of the same create reconciles 1:1 with the row it already made rather
+ * than adding a second Source of the same name. There is NO optimistic insert —
+ * the create invalidates and waits, because the rail row is the thing a
+ * collision must not produce, and a row that appears before the server has
+ * accepted the name is exactly that row. Minting the id here is safe only
+ * because the retrieval filter's first clause is `owner_id = <verified userId>`.
  */
 export function useDataSources() {
   const trpc = useTRPC();

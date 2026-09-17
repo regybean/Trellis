@@ -59,10 +59,10 @@ export const dataSourcesRouter = createTRPCRouter({
   })),
 
   /**
-   * Create a Data Source under a client-minted id, so the rail row can appear
-   * optimistically and still reconcile 1:1 with the server row. Safe only
-   * because the retrieval filter's first clause is `owner_id = <verified
-   * userId>`.
+   * Create a Data Source under a client-minted id, so a retried create
+   * reconciles 1:1 with the row it already made rather than adding a second
+   * Source of the same name. Safe only because the retrieval filter's first
+   * clause is `owner_id = <verified userId>`.
    *
    * The per-user cap is rag's, not this router's: a second expression of it
    * here would be a number to keep in step with `@acme/chat`'s create.

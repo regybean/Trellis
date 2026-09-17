@@ -9,8 +9,7 @@ import type {
   ProgressSummary,
   Stage,
 } from '../hooks/ingest-progress-reducer';
-import { deriveSummary, STAGE_RANK } from '../hooks/ingest-progress-reducer';
-import { useIngestUpload } from '../hooks/ingest-upload-context';
+import { STAGE_RANK } from '../hooks/ingest-progress-reducer';
 
 // Variant A — dense rows. One line per Upload under a job summary strip:
 // uploading is a batch operation (6+ files common), so density + a primary "is
@@ -53,6 +52,16 @@ function StagePill({ stage, className }: { stage: Stage; className?: string }) {
  * (hook-derived state). Kept prop-driven (no context) so it is directly
  * testable with synthetic state, the un-drivable SSE tail out of the way.
  * Renders nothing until there is at least one Upload to show.
+ *
+ * Progress belongs to its destination, and `useDocumentsPage` is what scopes it:
+ * this panel is handed the Uploads landing in the Source the user is standing
+ * in, so from `All documents` or from any other Source it is handed none and
+ * renders nothing. A globally pinned strip that follows the user across the page
+ * was explicitly rejected — it turns one Source's batch into chrome every other
+ * Source has to live under. What keeps the batch findable from elsewhere is the
+ * rail: the destination row swaps its document count for a spinner. The summary
+ * is derived from the same scoped subset, so "Ingesting 2 of 3…" counts that
+ * Source's files and not the union of every batch in flight.
  *
  * Accented rather than plain, and that is load-bearing: this panel sits
  * directly above the Document list, and a neutral bordered box of file rows
@@ -119,28 +128,4 @@ export function IngestProgressView({
       </ul>
     </div>
   );
-}
-
-/**
- * The mounted panel, SCOPED to the Data Source the user is standing in.
- *
- * Progress belongs to its destination. The panel renders only while you are
- * standing in the Source a batch is landing in; from `All documents` or from
- * any other Source it renders nothing. A globally pinned strip that follows you
- * across the page was explicitly rejected — it turns one Source's batch into
- * chrome every other Source has to live under.
- *
- * What keeps the batch findable from elsewhere is the rail: the destination
- * Source's row swaps its document count for a spinner, and that is the only
- * trace of an in-flight batch outside its own Source.
- *
- * The summary is re-derived from the scoped subset rather than taken from the
- * hook, so "Ingesting 2 of 3…" counts this Source's files and not the union of
- * every batch in flight.
- */
-export function IngestProgress({ dataSourceId }: { dataSourceId?: string }) {
-  const { files } = useIngestUpload();
-  if (!dataSourceId) return null;
-  const scoped = files.filter((file) => file.dataSourceId === dataSourceId);
-  return <IngestProgressView files={scoped} summary={deriveSummary(scoped)} />;
 }

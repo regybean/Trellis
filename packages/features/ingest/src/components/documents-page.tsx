@@ -11,7 +11,7 @@ import { useDocumentsPage } from '../hooks/use-documents-page';
 import { DataSourceRail } from './data-source-rail';
 import { DeleteDataSourceDialog } from './delete-data-source-dialog';
 import { DocumentsList } from './documents-list';
-import { IngestProgress } from './ingest-progress';
+import { IngestProgressView } from './ingest-progress';
 import { UploadDocumentsDialog } from './upload-documents-dialog';
 
 /**
@@ -37,14 +37,17 @@ export function DocumentsPage() {
 
 function DocumentsExplorer() {
   const page = useDocumentsPage();
+  // The user wants the dialog: no server state says that, and no cache entry
+  // can. Both dialogs hold the intent and nothing else — the rows they act on
+  // are resolved from the live list below.
   const [isUploadOpen, setIsUploadOpen] = useState(false);
-  const [pendingDelete, setPendingDelete] = useState<DataSourceSummary | null>(
-    null,
-  );
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
-  const atSourceCap =
-    page.maxDataSourcesPerUser !== undefined &&
-    page.sources.length >= page.maxDataSourcesPerUser;
+  // Resolved every render, never snapshotted: the dialog states the Source's
+  // document count, and a count frozen at open-time goes stale the moment
+  // `documents.list` invalidates under it.
+  const pendingDelete =
+    page.sources.find((source) => source.id === pendingDeleteId) ?? null;
 
   // Friction tracks consequence: an empty Source goes immediately, a populated
   // one goes through the type-the-name confirm. The asymmetry lives here
@@ -55,7 +58,7 @@ function DocumentsExplorer() {
       page.deleteDataSource(source.id);
       return;
     }
-    setPendingDelete(source);
+    setPendingDeleteId(source.id);
   };
 
   const hasNoSources = !page.isLoading && page.sources.length === 0;
@@ -68,6 +71,7 @@ function DocumentsExplorer() {
         onSelect={page.select}
         totalDocumentCount={page.totalDocumentCount}
         maxDataSourcesPerUser={page.maxDataSourcesPerUser}
+        atCap={page.atDataSourceCap}
         onCreate={page.createDataSource}
         isCreating={page.isCreating}
         onDelete={requestDelete}
@@ -103,15 +107,25 @@ function DocumentsExplorer() {
             </div>
 
             {/* Two regions, in this order: the accented in-flight panel, then
-                the labelled list of what has landed. */}
-            <IngestProgress dataSourceId={page.selected?.id} />
+                the labelled list of what has landed. Both are handed what the
+                hook already narrowed to the selected Source — the panel renders
+                nothing from the roll-up, which is what keeps progress with its
+                destination. */}
+            <IngestProgressView
+              files={page.uploadsInView}
+              summary={page.uploadsSummary}
+            />
 
             <div className="space-y-2">
               <p className="text-muted-foreground text-xs font-medium uppercase">
                 Documents
               </p>
               <DocumentsList
-                dataSourceId={page.selected?.id}
+                documents={page.documentsInView}
+                isLoading={page.isLoading}
+                isRollUp={page.selected === null}
+                onDelete={page.deleteDocument}
+                isDeleting={page.isDeletingDocument}
                 onRequestUpload={() => setIsUploadOpen(true)}
               />
             </div>
@@ -119,23 +133,29 @@ function DocumentsExplorer() {
         )}
       </div>
 
-      <UploadDocumentsDialog
-        open={isUploadOpen}
-        onOpenChange={setIsUploadOpen}
-        destination={page.selected}
-        sources={page.sources}
-        headroom={page.headroom}
-        atSourceCap={atSourceCap}
-        onCreateDataSource={page.createDataSource}
-        onUploaded={page.select}
-      />
+      {/* Both dialogs are mounted only while they are open, so their fields
+          start empty every time and there is no reset to remember. */}
+      {isUploadOpen && (
+        <UploadDocumentsDialog
+          destination={page.selected}
+          sources={page.sources}
+          headroom={page.headroom}
+          maxDocumentsPerDataSource={page.maxDocumentsPerDataSource}
+          atSourceCap={page.atDataSourceCap}
+          onCreateDataSource={page.createDataSource}
+          onUploaded={page.select}
+          onClose={() => setIsUploadOpen(false)}
+        />
+      )}
 
-      <DeleteDataSourceDialog
-        source={pendingDelete}
-        onOpenChange={(open) => !open && setPendingDelete(null)}
-        onConfirm={page.deleteDataSource}
-        isDeleting={page.isDeleting}
-      />
+      {pendingDelete && (
+        <DeleteDataSourceDialog
+          source={pendingDelete}
+          onConfirm={page.deleteDataSource}
+          onClose={() => setPendingDeleteId(null)}
+          isDeleting={page.isDeleting}
+        />
+      )}
     </div>
   );
 }
