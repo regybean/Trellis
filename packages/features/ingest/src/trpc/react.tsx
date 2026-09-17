@@ -47,11 +47,15 @@ export const TRPCProvider = client.FeatureTRPCProvider;
 export const useTRPC = client.useTRPC;
 
 /**
- * Cache policy for `documents.list`, the one query ingest persists, to spread
- * into its options. Carries the persister, `gcTime`, the `persistMeta` mark,
- * and the `staleTime: 0` without which uploading a Document and reloading would
- * paint the pre-upload list. `documents.progressSnapshot` is deliberately left
- * off it — see `use-document-upload.ts`.
+ * Cache policy for the queries ingest persists — `documents.list` and
+ * `dataSources.list` — to spread into their options. Carries the persister,
+ * `gcTime`, the `persistMeta` mark, and the `staleTime: 0` without which
+ * uploading a Document and reloading would paint the pre-upload list.
+ *
+ * Two queries are deliberately left off it. `documents.progressSnapshot` is
+ * in-flight Upload state whose whole point is to be read fresh — see
+ * `use-document-upload.ts`. `dataSources.limits` is two integers whose value is
+ * a retunable cap, not a paint worth a day on disk.
  */
 export const usePersistedQueryOptions = client.usePersistedQueryOptions;
 
