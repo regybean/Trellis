@@ -10,7 +10,6 @@ import {
   StripeTesting,
   TierManagement,
 } from '@acme/billing';
-import { DocumentsPage } from '@acme/ingest';
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { setRole } from '~/lib/admin';
@@ -25,8 +24,13 @@ interface Props {
 
 /**
  * App-owned admin shell (Next.js RSC). Reuses the neutral presentational pieces
- * (`UserManagement`, `StripeTesting`, ingest documents) and supplies the
- * `'use server'` role mutations from `~/lib/admin`. See ADR 0011.
+ * (`UserManagement`, `StripeTesting`) and supplies the `'use server'` role
+ * mutations from `~/lib/admin`. See ADR 0011.
+ *
+ * This page is about **other people**: user search, role promotion, billing.
+ * Documents left for `/documents` when they stopped being one admin-curated
+ * corpus and became a user's own content — so there is deliberately no
+ * cross-user document view here at all, additive later if moderation needs one.
  */
 export async function AdminDashboard({ searchParams }: Props) {
   const requestHeaders = await headers();
@@ -62,18 +66,6 @@ export async function AdminDashboard({ searchParams }: Props) {
       </div>
 
       <div className="space-y-12">
-        {/* The user's own Documents, still rendered here only because this app
-            has no `/documents` route yet. The page is a user's own content, so
-            it moves out from behind the admin gate with that route. */}
-        <Card className="border-border shadow-sm">
-          <CardHeader>
-            <h2 className="text-2xl font-bold">Documents</h2>
-          </CardHeader>
-          <CardContent>
-            <DocumentsPage />
-          </CardContent>
-        </Card>
-
         {/* User Management */}
         <div className="space-y-6">
           <Card className="border-border shadow-sm">
