@@ -11,7 +11,8 @@
  * Everything with an outcome beyond the rail's own DOM — create, collision,
  * selection, delete friction — is asserted on the page instead, where the
  * outcome is a row appearing or a mutation not happening rather than a callback
- * being invoked.
+ * being invoked — including the blur rule, where the outcome of reaching for
+ * another rail control mid-name is a Source appearing that should not.
  */
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
@@ -34,28 +35,39 @@ const noop = () => {
   // the rail's callbacks belong to the page; these cases assert its DOM only
 };
 
-// None of the cases below commits a name, so this resolves to no row.
-const neverCreates = async (): Promise<undefined> => {
-  await Promise.resolve();
-};
+// No case below commits a name, so the rail never calls this and the row it
+// would resolve is never read — it exists to satisfy the prop.
+const uncalledCreate = () => Promise.resolve({ id: 'never-read' });
 
-const renderRail = ({
-  sources = [] as DataSourceSummary[],
-  totalDocumentCount = 0,
-  maxDataSourcesPerUser = 10 as number | undefined,
-} = {}) =>
-  render(
+interface RailOverrides {
+  sources?: DataSourceSummary[];
+  totalDocumentCount?: number;
+  maxDataSourcesPerUser?: number;
+  atCap?: boolean;
+}
+
+const renderRail = (over: RailOverrides = {}) => {
+  const { sources = [], totalDocumentCount = 0, atCap = false } = over;
+  // `undefined` is a REAL value for the cap — it means "not known yet" — so it
+  // is read off the overrides rather than defaulted, which would silently turn
+  // an explicit `undefined` into 10 and test the opposite case.
+  const maxDataSourcesPerUser =
+    'maxDataSourcesPerUser' in over ? over.maxDataSourcesPerUser : 10;
+
+  return render(
     <DataSourceRail
       sources={sources}
       selectedId={null}
       onSelect={noop}
       totalDocumentCount={totalDocumentCount}
       maxDataSourcesPerUser={maxDataSourcesPerUser}
-      onCreate={neverCreates}
+      atCap={atCap}
+      onCreate={uncalledCreate}
       isCreating={false}
       onDelete={noop}
     />,
   );
+};
 
 describe('DataSourceRail', () => {
   it('lists every Source with its count, the roll-up row, and N/10', () => {
@@ -79,6 +91,7 @@ describe('DataSourceRail', () => {
     renderRail({
       sources: [summary({ name: 'Only' }), summary({ name: 'Other' })],
       maxDataSourcesPerUser: 2,
+      atCap: true,
     });
 
     expect(
@@ -86,17 +99,14 @@ describe('DataSourceRail', () => {
     ).toBeDisabled();
   });
 
-  it('keeps create live while the cap is still unknown', () => {
-    // An advisory check that guesses is worse than one that waits — presign
-    // rejects the create either way.
+  it('counts the Sources without a ceiling while the cap is unknown', () => {
     renderRail({
-      sources: [summary({ name: 'Only' })],
+      sources: [summary({ name: 'Only' }), summary({ name: 'Other' })],
       maxDataSourcesPerUser: undefined,
     });
 
-    expect(
-      screen.getByRole('button', { name: /new data source/i }),
-    ).toBeEnabled();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.queryByText(/2\//)).not.toBeInTheDocument();
   });
 
   it('swaps the in-flight Source row count for a spinner', () => {

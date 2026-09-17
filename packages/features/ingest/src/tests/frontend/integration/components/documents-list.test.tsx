@@ -1,99 +1,98 @@
 /**
  * DocumentsList — integration/components.
  *
- * The reference rewrite: the old test `vi.mock`ed `../../trpc/react` and
- * asserted `deleteSpy.toHaveBeenCalledWith(...)`. This one fakes the network at
- * the HTTP boundary with MSW, runs the real `useDocuments` hook + QueryClient,
- * and asserts the observable outcome — the row leaving the DOM and the success
- * toast rendering — never a mock call.
+ * Prop-driven, like the rail and `IngestProgressView`: the rows arrive already
+ * narrowed to the Source the user is standing in, because `useDocumentsPage`
+ * owns that scoping. So the cases worth pinning here are the presentation rules
+ * with no network in them — the loading and empty states, the chunk counts, and
+ * the Source name that earns its place only in the roll-up.
+ *
+ * The delete OUTCOME — the row leaving the DOM and the success toast — is
+ * asserted on the page instead (`documents-page.test.tsx`), where it runs
+ * through MSW, the real `useDocuments` and a real QueryClient rather than a
+ * callback.
  */
-import { screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 
 import '@testing-library/jest-dom';
 
+import type { DocumentRow } from '../../../../hooks/use-documents-page';
 import { DocumentsList } from '../../../../components/documents-list';
-import { renderWithProviders, trpcMsw } from '../../setup';
 
-const server = setupServer();
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
-afterEach(() => server.resetHandlers());
-afterAll(() => server.close());
-
-const doc = (filename: string, count: number, uploadTimestamp = 1) => ({
+const doc = (
+  filename: string,
+  count: number,
+  dataSourceName = 'Work notes',
+): DocumentRow => ({
   dataSourceId: '11111111-1111-4111-8111-111111111111',
-  dataSourceName: 'Work notes',
+  dataSourceName,
   filename,
   count,
-  uploadTimestamp,
+  uploadTimestamp: 1,
 });
 
-describe('DocumentsList', () => {
-  it('shows a loading state while the query is pending', () => {
-    server.use(
-      trpcMsw.documents.list.query(
-        () =>
-          new Promise<never>(() => {
-            // never resolves — keeps the query pending so we can assert loading
-          }),
-      ),
-    );
+const renderList = ({
+  documents = [],
+  isLoading = false,
+  isRollUp = true,
+  onDelete = () => {
+    // the mutation is the page's; these cases assert the list's DOM only
+  },
+  isDeleting = false,
+}: {
+  documents?: DocumentRow[];
+  isLoading?: boolean;
+  isRollUp?: boolean;
+  onDelete?: (dataSourceId: string, filename: string) => void;
+  isDeleting?: boolean;
+} = {}) =>
+  render(
+    <DocumentsList
+      documents={documents}
+      isLoading={isLoading}
+      isRollUp={isRollUp}
+      onDelete={onDelete}
+      isDeleting={isDeleting}
+    />,
+  );
 
-    renderWithProviders(<DocumentsList />);
+describe('DocumentsList', () => {
+  it('shows a loading state while the list is pending', () => {
+    renderList({ isLoading: true });
 
     expect(screen.getByText(/loading documents/i)).toBeInTheDocument();
   });
 
-  it('shows an empty state when there are no documents', async () => {
-    server.use(trpcMsw.documents.list.query(() => []));
+  it('shows an empty state when there are no documents', () => {
+    renderList();
 
-    renderWithProviders(<DocumentsList />);
+    expect(screen.getByText(/no documents uploaded yet/i)).toBeInTheDocument();
+  });
+
+  it('names each row’s Source in the roll-up', () => {
+    renderList({
+      documents: [doc('a.pdf', 3), doc('return.pdf', 1, 'Tax')],
+      isRollUp: true,
+    });
+
+    expect(screen.getByText('a.pdf')).toBeInTheDocument();
+    expect(screen.getByText('Work notes · 3 chunks')).toBeInTheDocument();
+    expect(screen.getByText('Tax · 1 chunks')).toBeInTheDocument();
+  });
+
+  it('drops the Source name inside one Source, where it would repeat', () => {
+    renderList({ documents: [doc('a.pdf', 3)], isRollUp: false });
+
+    expect(screen.getByText('3 chunks')).toBeInTheDocument();
+    expect(screen.queryByText(/Work notes ·/)).not.toBeInTheDocument();
+  });
+
+  it('disables the row trash while a delete is in flight', () => {
+    renderList({ documents: [doc('a.pdf', 3)], isDeleting: true });
 
     expect(
-      await screen.findByText(/no documents uploaded yet/i),
-    ).toBeInTheDocument();
-  });
-
-  it('renders each document with its Data Source and chunk count', async () => {
-    server.use(
-      trpcMsw.documents.list.query(() => [doc('a.pdf', 3), doc('b.txt', 1, 2)]),
-    );
-
-    renderWithProviders(<DocumentsList />);
-
-    expect(await screen.findByText('a.pdf')).toBeInTheDocument();
-    expect(screen.getByText('Work notes · 3 chunks')).toBeInTheDocument();
-    expect(screen.getByText('b.txt')).toBeInTheDocument();
-    expect(screen.getByText('Work notes · 1 chunks')).toBeInTheDocument();
-  });
-
-  it('deletes a document: removes its row and toasts success', async () => {
-    let listCalls = 0;
-    server.use(
-      // First load has the doc; after the delete invalidates the list, the
-      // refetch returns empty — so the row leaving the DOM is the outcome.
-      trpcMsw.documents.list.query(() => {
-        listCalls += 1;
-        return listCalls === 1 ? [doc('a.pdf', 3)] : [];
-      }),
-      trpcMsw.documents.delete.mutation(() => ({
-        deletedCount: 3,
-        fileName: 'a.pdf',
-      })),
-    );
-
-    const user = userEvent.setup();
-    renderWithProviders(<DocumentsList />);
-
-    await user.click(
-      await screen.findByRole('button', { name: /delete a\.pdf/i }),
-    );
-
-    expect(await screen.findByText('Document deleted')).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.queryByText('a.pdf')).not.toBeInTheDocument(),
-    );
+      screen.getByRole('button', { name: /delete a\.pdf/i }),
+    ).toBeDisabled();
   });
 });

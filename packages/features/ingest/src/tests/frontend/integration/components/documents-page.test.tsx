@@ -63,11 +63,17 @@ const TWO_DOCS = [
   doc(TAX, 'Tax', 'return.pdf'),
 ];
 
-const limitsHandler = (maxDataSourcesPerUser = 10) =>
+const limitsHandler = (
+  maxDataSourcesPerUser = 10,
+  maxDocumentsPerDataSource = 50,
+) =>
   trpcMsw.dataSources.limits.query(() => ({
     maxDataSourcesPerUser,
-    maxDocumentsPerDataSource: 50,
+    maxDocumentsPerDataSource,
   }));
+
+const txtFile = (name: string) =>
+  new File(['indexable content'], name, { type: 'text/plain' });
 
 const server = setupServer(
   trpcMsw.documents.progressSnapshot.query(() => ({
@@ -400,5 +406,186 @@ describe('DocumentsPage', () => {
       ).toBeDisabled(),
     );
     expect(screen.getByText('3/3')).toBeInTheDocument();
+  });
+
+  it('does not create a Source when a rail control takes the focus mid-name', async () => {
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+      // A create that WOULD succeed, so "still three Sources" is evidence the
+      // mutation never fired rather than evidence it failed.
+      trpcMsw.dataSources.create.mutation(() =>
+        source('44444444-4444-4444-8444-444444444444', 'Receipts'),
+      ),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /new data source/i }),
+    );
+    await user.type(screen.getByLabelText(/new data source name/i), 'Receipts');
+
+    // Reaching for another row's trash is that action, not a finish.
+    // Committing the draft on it creates a Source the user never asked for and
+    // then raises a delete confirm on top of it.
+    await user.click(
+      screen.getByRole('button', { name: /delete data source work notes/i }),
+    );
+
+    expect(await screen.findByRole('dialog')).toHaveTextContent(
+      /Delete .Work notes./,
+    );
+    expect(screen.getByText('3/10')).toBeInTheDocument();
+    // Nothing typed is lost either — the draft is still open behind the dialog.
+    expect(screen.getByLabelText(/new data source name/i)).toHaveValue(
+      'Receipts',
+    );
+  });
+
+  it('commits the draft when the focus leaves the rail entirely', async () => {
+    const created = source('44444444-4444-4444-8444-444444444444', 'Receipts');
+    let listCalls = 0;
+    server.use(
+      trpcMsw.dataSources.list.query(() => {
+        listCalls += 1;
+        return listCalls === 1 ? THREE_SOURCES : [...THREE_SOURCES, created];
+      }),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+      trpcMsw.dataSources.create.mutation(() => created),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /new data source/i }),
+    );
+    await user.type(screen.getByLabelText(/new data source name/i), 'Receipts');
+    // Clicking away from the rail IS the finish, because the row is the field.
+    await user.click(screen.getByRole('heading', { name: 'All documents' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Receipts' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the headroom of the one Source it preselected, unprompted', async () => {
+    // With exactly one Source the preselect IS the answer, so the advisory
+    // count is known without the user re-picking the Source they already have.
+    server.use(
+      trpcMsw.dataSources.list.query(() => [source(WORK, 'Work notes')]),
+      trpcMsw.documents.list.query(() => [doc(WORK, 'Work notes', 'a.pdf')]),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /upload documents/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByText('49 slots left'),
+    ).toBeInTheDocument();
+  });
+
+  it('refuses an empty batch beside the file field, never in a toast', async () => {
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /^Work notes/ }),
+    );
+    await user.click(screen.getByRole('button', { name: /upload documents/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: /^Upload$/ }));
+
+    // Beside the control that caused it. A toast would put the message
+    // somewhere other than the field the user has to fix.
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'Choose at least one file to upload.',
+    );
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+  });
+
+  it('refuses a batch bigger than the destination headroom, inline', async () => {
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+      // Work notes holds one of its three, so two slots are left.
+      limitsHandler(10, 3),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /^Work notes/ }),
+    );
+    await user.click(screen.getByRole('button', { name: /upload documents/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText('2 slots left')).toBeInTheDocument();
+
+    await user.upload(within(dialog).getByLabelText(/^files$/i), [
+      txtFile('a.txt'),
+      txtFile('b.txt'),
+      txtFile('c.txt'),
+    ]);
+    await user.click(within(dialog).getByRole('button', { name: /^Upload$/ }));
+
+    // The whole batch, refused — partial admission would leave the user
+    // reconciling which of their files made it.
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'That data source has room for 2 more documents.',
+    );
+  });
+
+  it('rejects a colliding name in the upload dialog’s inline create', async () => {
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+      // Would succeed if it fired; the assertion is that it does not.
+      trpcMsw.dataSources.create.mutation(() => source(EMPTY, 'Work notes')),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /upload documents/i }),
+    );
+
+    const dialog = await screen.findByRole('dialog');
+    await user.click(
+      within(dialog).getByRole('combobox', { name: /data source/i }),
+    );
+    await user.click(screen.getByRole('option', { name: /new data source/i }));
+
+    await user.type(
+      await within(dialog).findByLabelText(/new data source name/i),
+      'work notes',
+    );
+    await user.upload(
+      within(dialog).getByLabelText(/^files$/i),
+      txtFile('a.txt'),
+    );
+    await user.click(within(dialog).getByRole('button', { name: /^Upload$/ }));
+
+    // The rail's rule, from the same schema — and no Source created to hold
+    // the batch it refused.
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
+      'You already have a data source called "Work notes".',
+    );
+    expect(screen.getByText('3/10')).toBeInTheDocument();
   });
 });

@@ -415,6 +415,28 @@ describe('dataSourcesRouter', () => {
     ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
   });
 
+  it('hands the caps over as rag holds them, carrying no authority', async () => {
+    // The client's checks are advisory, so what this procedure owes is the
+    // CURRENT numbers rather than a copy: hardcoding them here or in the
+    // client would be a second declaration to keep in step with a retunable
+    // env. The authoritative check re-counts at presign and assumes this
+    // response was never fetched.
+    const limits = await createCaller(userA).dataSources.limits();
+
+    expect(limits).toEqual({
+      maxDataSourcesPerUser: ragEnv.MAX_DATA_SOURCES_PER_USER,
+      maxDocumentsPerDataSource: ragEnv.MAX_DOCUMENTS_PER_DATA_SOURCE,
+    });
+  });
+
+  it('reads the same caps for every caller — they are the deployment’s, not the user’s', async () => {
+    await seedSource(userA, "A's source");
+
+    expect(await createCaller(userB).dataSources.limits()).toEqual(
+      await createCaller(userA).dataSources.limits(),
+    );
+  });
+
   it("rejects renaming and deleting another user's Data Source", async () => {
     const bSource = await seedSource(userB, "B's untouchable");
 
