@@ -12,10 +12,11 @@
 // App-owned tables go here, namespaced on `appSchema`.
 export { appSchema } from '../app-schema';
 
-// App-owned, drizzle-kit-managed table from the chat feature. The slim subset
-// drops auth/billing but keeps Conversation History; Folders are scoped to the
-// local principal's userId. Re-exported so push/generate own its DDL (@acme/rag ADR 0001).
-export { chatFolder } from '@acme/chat/schema';
+// App-owned, drizzle-kit-managed tables from the chat feature. The slim subset
+// drops auth/billing but keeps Conversation History; Folders and the
+// per-Message Source receipt are scoped to the local principal's userId.
+// Re-exported so push/generate own their DDL (@acme/rag ADR 0001).
+export { chatFolder, messageDataSource } from '@acme/chat/schema';
 
 // `data_source` — the user-owned partition of the knowledge base, scoped to the
 // slim subset's local principal like Folders are. This is the one push-managed
