@@ -12,6 +12,7 @@ export {
   deleteDataSource,
   listDataSources,
   ownedDataSourceIds,
+  ownedDataSources,
   renameDataSource,
   resolveRetrievalScope,
   retrievalContextSchema,

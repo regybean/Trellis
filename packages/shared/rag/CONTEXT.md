@@ -35,8 +35,12 @@ _Avoid_: "drizzle table", "our table"
 
 **App-owned table**:
 Any non-`mastra_` table in the per-app schema — the app, via Drizzle, owns its DDL.
-The first is `message_feedback`, defined in
-[`@acme/feedback`](../../features/feedback/CONTEXT.md). _Avoid_: "custom table"
+The first was `message_feedback`, defined in
+[`@acme/feedback`](../../features/feedback/CONTEXT.md); `data_source` (here) and
+`message_data_source` (in [`@acme/chat`](../../features/chat/CONTEXT.md)) are the
+others. Each is defined by the feature that owns the concept and re-exported by
+every app's schema barrel, which is what makes the app — not the feature — the
+one that decides to manage its DDL. _Avoid_: "custom table"
 
 **Thread ownership**:
 The fact that a Mastra **thread** belongs to a **resource** (`thread.resourceId ===
@@ -89,11 +93,14 @@ detail), "mode", "direction"
 - `assertThreadOwned` is the shared **thread ownership** rule: chat's ownership
   middleware and feedback's `submit` mutation both call it rather than re-reading
   `resourceId` inline.
-- Data Source ownership has two forms over one read (`ownedDataSourceIds`):
-  `assertDataSourceOwned` rejects, and is what `deleteDataSource`/`renameDataSource`
-  and ingest's upload path use; `resolveRetrievalScope` narrows, and is what chat's
-  `chat.send` and its stream wrapper use. Neither takes a pre-validated input, so
-  there is no "already checked" variant to trust.
+- Data Source ownership has three forms over one read (`ownedDataSources`, which
+  returns rows): `assertDataSourceOwned` rejects, and is what
+  `deleteDataSource`/`renameDataSource` and ingest's upload path use;
+  `resolveRetrievalScope` narrows through the ids projection
+  (`ownedDataSourceIds`), and is what chat's stream wrapper uses; the rows
+  themselves are what chat's `chat.send` needs, because the per-Message receipt it
+  writes carries each Source's NAME beside its id. None takes a pre-validated
+  input, so there is no "already checked" variant to trust.
 
 ## Decisions
 
