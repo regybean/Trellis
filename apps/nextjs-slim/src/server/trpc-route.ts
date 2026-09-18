@@ -12,22 +12,29 @@ import { entitlements } from './deps';
  * app. The fetch-adapter wiring, error logging and CORS live once in
  * `@acme/trpc/handler`; this file owns only the app-specific seam — injecting a
  * constant local principal in place of auth, and the provider from `./deps` into
- * the one mount that asks for one (ADR 0010).
+ * the one mount that asks for one (@acme/trpc ADR 0003).
  */
 
 /**
  * Constant local principal. This app strips auth, but the feature procedures
- * still require a principal: `@acme/chat` is `protectedProcedure` (scopes Mastra
- * memory by a non-null principal) and `@acme/ingest` is `adminProcedure` (gates
- * on the principal's `role`). So we inject a single fixed admin user — the whole
- * session, with no provider behind it. See ADR-0006 and ADR-0010.
+ * still require one: `@acme/chat` and `@acme/ingest` are both
+ * `protectedProcedure`, scoping Mastra memory and Data Source ownership by a
+ * non-null principal. So we inject a single fixed user — the whole session,
+ * with no provider behind it. See apps ADR 0001 and @acme/trpc ADR 0003.
+ *
+ * No `role`. It used to say `admin`, invented purely to satisfy ingest's
+ * `adminProcedure` gate; ingest is owner-scoped now, so a role here would be a
+ * claim about an authorization model this app does not have. What it costs is
+ * worth naming: with one principal, owner scoping is a tautology here — every
+ * row is `local`'s — so the slim apps prove nothing about the privacy boundary.
+ * The full apps are where that invariant is exercised.
  */
 const LOCAL_SESSION: InjectedSession = {
-  user: { id: 'local', role: 'admin' },
+  user: { id: 'local' },
 };
 
 /**
- * The neutral base context every mount receives. No auth: a constant admin
+ * The neutral base context every mount receives. No auth: a constant local
  * principal, injected directly. Mounts whose feature context is exactly
  * `BaseContext` (`ingest`, `notifications`) name this resolver.
  */
@@ -39,8 +46,9 @@ export const resolveContext = (req: Request) => ({
 
 /**
  * The base context plus the no-op provider `./deps` builds (top tier, infinite
- * credits) — the extra field `@acme/chat` names on its own context (#256, ADR
- * 0006). Chosen per mount, so `ingest` and `notifications` — which have no tier
+ * credits) — the extra field `@acme/chat` names on its own context
+ * (@acme/entitlements ADR 0001). Chosen per mount, so `ingest` and
+ * `notifications` — which have no tier
  * to gate on and no credit to spend — are handed nothing. Which provider this is
  * is the composition root's call, not this file's; `worker.ts` reads the same
  * one.

@@ -34,7 +34,7 @@ function HomeRoute() {
           </Link>
         </Button>
         <Button asChild variant="secondary">
-          <Link to="/admin">
+          <Link to="/documents">
             <Database className="h-4 w-4" />
             manage documents
           </Link>

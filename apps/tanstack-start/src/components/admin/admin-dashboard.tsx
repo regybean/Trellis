@@ -7,7 +7,6 @@ import {
   StripeTesting,
   TierManagement,
 } from '@acme/billing';
-import { DocumentsPage } from '@acme/ingest';
 import { Card, CardContent, CardHeader, UserManagement } from '@acme/ui';
 
 import { setUserRole } from '../../lib/admin';
@@ -23,8 +22,13 @@ interface AdminDashboardProps {
 /**
  * App-owned admin shell — the framework-specific replacement for the Next.js
  * `AdminDashboard` RSC. It reuses the neutral presentational pieces
- * (`UserManagement`, `StripeTesting`, ingest documents) unchanged and binds the
- * role mutation to a TanStack Start server function.
+ * (`UserManagement`, `StripeTesting`) unchanged and binds the role mutation to
+ * a TanStack Start server function.
+ *
+ * This page is about **other people**: user search, role promotion, billing.
+ * Documents left for `/documents` when they stopped being one admin-curated
+ * corpus and became a user's own content — so there is deliberately no
+ * cross-user document view here at all, additive later if moderation needs one.
  *
  * The adapter that used to sit here is gone: `UserManagement` took
  * `(FormData) => Promise<void>`, a Next.js server-action signature, so this
@@ -55,18 +59,6 @@ export function AdminDashboard({
       </div>
 
       <div className="space-y-12">
-        {/* The user's own Documents, still rendered here only because this app
-            has no `/documents` route yet. The page is a user's own content, so
-            it moves out from behind the admin gate with that route. */}
-        <Card className="border-border shadow-sm">
-          <CardHeader>
-            <h2 className="text-2xl font-bold">Documents</h2>
-          </CardHeader>
-          <CardContent>
-            <DocumentsPage />
-          </CardContent>
-        </Card>
-
         <div className="space-y-6">
           <Card className="border-border shadow-sm">
             <CardHeader></CardHeader>
