@@ -1,6 +1,10 @@
 import { mapDataSourceError } from '@acme/rag/ownership-trpc';
 import { CreateDataSourceRequest } from '@acme/rag/schema';
-import { createDataSource, listDataSources } from '@acme/rag/server';
+import {
+  createDataSource,
+  listDataSources,
+  listDocuments,
+} from '@acme/rag/server';
 
 import { MessageSourcesRequest } from '../schemas/message-source-schema';
 import { listConversationSources } from '../services/message-sources';
@@ -39,6 +43,39 @@ export const dataSourcesRouter = createTRPCRouter({
   list: protectedProcedure.query(({ ctx }) =>
     listDataSources({ ownerId: ctx.session.user.id }),
   ),
+
+  /**
+   * How many Documents each of the caller's Sources holds — the number beside
+   * each checkbox row in the composer panel.
+   *
+   * Separate from `list` rather than folded into it, for two different reasons
+   * that happen to agree. `list` is persisted, and a count is the one field on
+   * a Source row that goes stale within a session, so baking it in would either
+   * paint a wrong number from IndexedDB or force the list off the persister and
+   * back into a cold-open spinner. And `list`'s shape is deliberately rag's own
+   * row, so that ingest's `dataSources.list` and this one stay the same read.
+   *
+   * Counts are advisory: they tell the user which Source is worth ticking, and
+   * nothing about what a Turn may retrieve. Only the server-built filter
+   * decides that, so a stale count here cannot widen a scope.
+   *
+   * One grouped query, not one per Source. rag's roll-up already groups by
+   * Source and filename, so the Document count is the row count per Source —
+   * the same derivation ingest's rail makes from its own roll-up.
+   */
+  documentCounts: protectedProcedure.query(async ({ ctx }) => {
+    const rows = await listDocuments({ ownerId: ctx.session.user.id });
+
+    const counts = new Map<string, number>();
+    for (const row of rows) {
+      counts.set(row.dataSourceId, (counts.get(row.dataSourceId) ?? 0) + 1);
+    }
+
+    return [...counts].map(([dataSourceId, documentCount]) => ({
+      dataSourceId,
+      documentCount,
+    }));
+  }),
 
   /**
    * Create a Data Source under a client-minted id, so a panel row can appear

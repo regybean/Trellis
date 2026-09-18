@@ -25,7 +25,15 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { setupServer } from 'msw/node';
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from 'vitest';
 
 import type { SelectDataSource } from '@acme/rag/schema';
 
@@ -37,6 +45,14 @@ const server = setupServer();
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
+
+// The panel's Document counts, which every case fetches and none of these
+// assert on — they are advisory decoration on a row, not part of the selection.
+// Defaulted here rather than repeated in seven `server.use` calls; a case that
+// cares can still override it, since a later `server.use` wins.
+beforeEach(() => {
+  server.use(trpcMsw.chat.dataSources.documentCounts.query(() => []));
+});
 
 const CONVERSATION = '99999999-9999-4999-8999-999999999999';
 const WORK = '11111111-1111-4111-8111-111111111111';
