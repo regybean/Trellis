@@ -1,6 +1,7 @@
 import 'fake-indexeddb/auto';
 
 import type { RenderOptions } from '@testing-library/react';
+import type { RequestHandler } from 'msw';
 import type { ReactElement, ReactNode } from 'react';
 import { render } from '@testing-library/react';
 import { IDBFactory } from 'fake-indexeddb';
@@ -87,6 +88,21 @@ export const trpcMsw = createTRPCMsw<AppRouter>({
   links: [mswHttpLink({ url: 'http://localhost:3000/api/trpc/chat' })],
   transformer: { input: superjson, output: superjson },
 });
+
+/**
+ * The three Data Source reads every `<ChatAssistant>` mount makes, all
+ * answering empty — the composer picker's own contract, which most tests in
+ * this feature have no opinion about.
+ *
+ * Spread into `server.use(...)` so a suite under `onUnhandledRequest: 'error'`
+ * does not have to restate them, and so a case that DOES care can still
+ * override any one of them afterwards (a later handler wins).
+ */
+export const emptySourceHandlers = (): RequestHandler[] => [
+  trpcMsw.chat.dataSources.list.query(() => []),
+  trpcMsw.chat.dataSources.documentCounts.query(() => []),
+  trpcMsw.chat.dataSources.records.query(() => []),
+];
 
 // jsdom doesn't implement matchMedia; the sidebar rail reads it for its
 // mobile default. Report desktop (matches:false) so tests render expanded.

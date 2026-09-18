@@ -8,7 +8,9 @@ import { Bot, User } from 'lucide-react';
 import { Avatar, MarkdownContent } from '@acme/ui';
 
 import type { Message } from '../api/schemas/message-schema';
+import type { RecordedSources } from '../api/schemas/message-source-schema';
 import AnimatedEllipsis from '../components/animated-ellipsis';
+import { MessageSources } from './message-sources';
 
 // `false` during SSR and the first (hydration) client render, then `true`. Lets
 // a client-only value render identically on both sides of hydration (no
@@ -40,14 +42,21 @@ function ClientMessageTime({ timestamp }: { timestamp?: Date }) {
 export default function MessageItem({
   message,
   renderMessageActions,
+  sourcesForMessage,
 }: {
   message: Message;
   renderMessageActions?: (message: Message) => React.ReactNode;
+  // The Message's Source receipt, threaded down rather than fetched here:
+  // components in this feature hold no data layer, and one query for the
+  // Conversation serves the whole transcript plus the sticky selection.
+  // `undefined` means no receipt at all — a pre-feature Message, or a Turn that
+  // failed — which discloses nothing.
+  sourcesForMessage?: (messageId: string) => RecordedSources | undefined;
 }) {
   const isUser = message.role === 'user';
   const justify = isUser ? 'justify-end' : 'justify-start';
   const direction = isUser ? 'flex-row-reverse' : 'flex-row';
-  const bubbleBase = `mx-2 rounded-lg p-3 ${
+  const bubbleBase = `rounded-lg p-3 ${
     isUser ? 'bg-primary text-white' : 'bg-muted text-foreground'
   }`;
   const testId = isUser ? 'user-message' : 'bot-message';
@@ -76,34 +85,80 @@ export default function MessageItem({
       </div>
     );
   } else {
-    // Render-slot for per-message actions (e.g. feedback). Only settled
-    // assistant messages carry a persisted id, so the slot stays absent while
-    // streaming and for user turns.
-    const actions =
-      !isUser && message.id ? renderMessageActions?.(message) : null;
+    // Only a settled ASSISTANT Message earns a footer: an optimistic user turn
+    // and a streaming partial have nothing durable to act on or disclose
+    // (ADR 0007). One flag decides both halves of the row.
+    const settledAssistantId = isUser ? undefined : message.id;
+
+    // Bubble, then the footer row beneath it. The row is below rather than
+    // inside because expanding a Source list inside a bubble would grow the
+    // bubble, and because `renderMessageActions` was always specified as
+    // rendering beneath the Message (ADR 0007).
     messageContent = (
-      <div className={bubbleBase} data-testid={testId}>
-        <MarkdownContent
-          content={message.text}
-          className={isUser ? 'text-white' : undefined}
-        />
-        <ClientMessageTime timestamp={message.timestamp} />
-        {actions ? <div className="mt-2">{actions}</div> : null}
+      <div className="mx-2 min-w-0">
+        <div className={bubbleBase} data-testid={testId}>
+          <MarkdownContent
+            content={message.text}
+            className={isUser ? 'text-white' : undefined}
+          />
+          <ClientMessageTime timestamp={message.timestamp} />
+        </div>
+
+        {settledAssistantId && (
+          <MessageFooter
+            actions={renderMessageActions?.(message)}
+            recorded={sourcesForMessage?.(settledAssistantId)}
+          />
+        )}
       </div>
     );
   }
 
   return (
     <div
-      className={`flex ${justify} mb-4`}
+      // `group` is what the hover-revealed sources trigger keys off: revealing
+      // on the whole Message row rather than on the trigger itself means the
+      // pointer does not have to find a control it cannot yet see.
+      className={`group flex ${justify} mb-4`}
       data-testid={`message-${message.id}`}
     >
-      <div className={`flex ${direction} max-w-[80%] items-center`}>
-        <Avatar className="bg-muted flex h-9 w-9 items-center justify-center">
+      {/* `items-start`, not `items-center`. Centred, expanding the Source list
+          re-centres the column and visibly slides the avatar down the screen. */}
+      <div className={`flex ${direction} max-w-[80%] items-start`}>
+        <Avatar className="bg-muted flex h-9 w-9 shrink-0 items-center justify-center">
           {isUser ? <User className="h-6 w-6" /> : <Bot className="h-6 w-6" />}
         </Avatar>
         {messageContent}
       </div>
+    </div>
+  );
+}
+
+/**
+ * The row beneath a settled assistant Message: the app's actions, then the
+ * Source disclosure to their right.
+ *
+ * Absent entirely when there is nothing to put in it, and an empty receipt
+ * counts as nothing — an empty-scope Turn is deliberately undisclosed in the
+ * transcript. The alternative is a blank-but-present row adding a gap under
+ * every pre-feature Message.
+ */
+function MessageFooter({
+  actions,
+  recorded,
+}: {
+  actions: React.ReactNode;
+  recorded: RecordedSources | undefined;
+}) {
+  const hasSources = recorded !== undefined && recorded.length > 0;
+  if (!actions && !hasSources) return null;
+
+  return (
+    // The app's actions stay always visible; the sources trigger sits to their
+    // right and reveals on hover. They do not compete for space.
+    <div className="mt-1 flex items-center gap-3">
+      {actions}
+      {recorded && <MessageSources sources={recorded} />}
     </div>
   );
 }

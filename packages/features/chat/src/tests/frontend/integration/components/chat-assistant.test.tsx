@@ -23,6 +23,7 @@ import {
   afterAll,
   afterEach,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   it,
@@ -33,7 +34,7 @@ import '@testing-library/jest-dom';
 
 import { MAX_MESSAGE_LENGTH } from '../../../../api/schemas/chat-schema';
 import { ChatAssistant } from '../../../../components/chat-assistant';
-import { renderWithProviders, trpcMsw } from '../../setup';
+import { emptySourceHandlers, renderWithProviders, trpcMsw } from '../../setup';
 
 // scrollIntoView / scrollTo are not implemented in jsdom.
 Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
@@ -54,6 +55,7 @@ describe('ChatAssistant', () => {
     beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
     afterEach(() => server.resetHandlers());
     afterAll(() => server.close());
+    beforeEach(() => server.use(...emptySourceHandlers()));
 
     it('shows the input and send button for a new session', async () => {
       // New session: chat.get returns [] → useChat shows an empty pane.
@@ -124,13 +126,16 @@ describe('ChatAssistant', () => {
 
   // ── Pure-client error path (no network) ───────────────────────────────
   // A message longer than MAX_MESSAGE_LENGTH makes send() write an error
-  // assistant message to localMessages without touching the network. No handlers
-  // needed — onUnhandledRequest:'error' verifies no request leaks.
+  // assistant message to localMessages without touching the network. The only
+  // handlers are the mount-time reads (history plus the composer's Data Source
+  // queries), so `onUnhandledRequest: 'error'` still verifies that the send
+  // itself leaks no request.
   describe('message too long', () => {
     const server = setupServer();
     beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
     afterEach(() => server.resetHandlers());
     afterAll(() => server.close());
+    beforeEach(() => server.use(...emptySourceHandlers()));
 
     it('shows an error message when input exceeds MAX_MESSAGE_LENGTH', async () => {
       server.use(trpcMsw.chat.get.query(() => []));

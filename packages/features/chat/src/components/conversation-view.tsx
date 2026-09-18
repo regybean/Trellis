@@ -30,6 +30,8 @@ interface ConversationViewProps {
   basePath?: string;
   onTokensConsumed?: () => void;
   renderMessageActions?: (message: Message) => React.ReactNode;
+  // Passed through to the Source panel's empty state. See ChatAssistant.
+  documentsPath?: string;
 }
 
 // The Conversation History surface: the sidebar plus the active Conversation.
@@ -49,6 +51,7 @@ export function ConversationView({
   basePath = '/chat-assistant',
   onTokensConsumed,
   renderMessageActions,
+  documentsPath,
 }: ConversationViewProps) {
   const [sessionId, setSessionId] = useState(
     () => initialSessionId ?? crypto.randomUUID(),
@@ -86,6 +89,7 @@ export function ConversationView({
           // already-stamped resume is a no-op.
           onSend={() => syncUrl(`${basePath}/${sessionId}`)}
           renderMessageActions={renderMessageActions}
+          documentsPath={documentsPath}
         />
       </div>
     </div>
