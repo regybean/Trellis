@@ -144,16 +144,23 @@ function buildDataSourceFilter({
 
 /**
  * The ownership rule, in its narrowing form: the subset of a raw selection the
- * caller actually owns, deduped and in request order. An empty request costs no
- * query.
+ * caller actually owns, as whole rows, deduped and in request order. An empty
+ * request costs no query.
  *
- * This is the single read both policies are expressed over. Narrowing is the
+ * This is the single read every policy below is expressed over. Narrowing is the
  * primitive and throwing is derived from it, rather than the other way round,
- * because the two callers want opposite things from the same fact: a retrieval
- * scope must survive a Source that vanished mid-flight, while a rename or a
- * delete must not silently succeed on an id the caller does not own.
+ * because the callers want opposite things from the same fact: a retrieval scope
+ * must survive a Source that vanished mid-flight, while a rename or a delete
+ * must not silently succeed on an id the caller does not own.
+ *
+ * It returns rows rather than ids because one caller needs the NAMES: the
+ * per-Message receipt `@acme/chat` writes carries each Source's name beside its
+ * id, so a receipt still reads correctly after the Source is deleted. Resolving
+ * those names through a second `listDataSources` call would express "which of
+ * these are yours" twice — once here and once as a set intersection in chat —
+ * and this module exists so that question has exactly one answer.
  */
-export async function ownedDataSourceIds({
+export async function ownedDataSources({
   ownerId,
   dataSourceIds,
 }: DataSourceScope) {
@@ -161,14 +168,28 @@ export async function ownedDataSourceIds({
   if (requested.length === 0) return [];
 
   const rows = await db
-    .select({ id: dataSource.id })
+    .select()
     .from(dataSource)
     .where(
       and(eq(dataSource.ownerId, ownerId), inArray(dataSource.id, requested)),
     );
 
-  const ownedIds = new Set(rows.map((row) => row.id));
-  return requested.filter((id) => ownedIds.has(id));
+  const byId = new Map(rows.map((row) => [row.id, row]));
+  return requested
+    .map((id) => byId.get(id))
+    .filter((row) => row !== undefined)
+    .map((row) => selectDataSourceSchema.parse(row));
+}
+
+/**
+ * The ownership rule as the retrieval path wants it: just the owned ids, in
+ * request order. A projection of `ownedDataSources`, not a second query, so the
+ * predicate cannot drift between the path that retrieves and the path that
+ * records.
+ */
+export async function ownedDataSourceIds(scope: DataSourceScope) {
+  const owned = await ownedDataSources(scope);
+  return owned.map((source) => source.id);
 }
 
 /**

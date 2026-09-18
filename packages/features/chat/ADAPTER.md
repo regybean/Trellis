@@ -13,7 +13,12 @@ substrate at once, so mounting it touches every recipe.
 - Generation that survives a reload: the stream is durable, so a user who
   refreshes mid-answer rejoins it rather than losing it.
 - Conversation memory and retrieval through `@acme/rag`, and folders for
-  organising sessions, with no wiring of your own beyond the table.
+  organising sessions, with no wiring of your own beyond the tables.
+- Per-turn Source selection: the user picks which of their Data Sources the next
+  message may retrieve from, the choice carries forward within a conversation,
+  and each answer records what it was scoped to. Nothing to wire — the picker
+  and the disclosure are chat's own UI, and the Sources themselves are managed
+  from `@acme/ingest`'s documents page.
 - Metering through the entitlements seam — a turn consumes credits and a failure
   refunds them — against whichever provider you injected.
 
@@ -23,7 +28,7 @@ substrate at once, so mounting it touches every recipe.
 | ------------------- | ------------------------------------------------ | ------ |
 | `@acme/chat`        | Assistant UI, conversation view, provider, hooks | client |
 | `@acme/chat/server` | Router, context factory, generation processor    | server |
-| `@acme/chat/schema` | The folder table                                 | client |
+| `@acme/chat/schema` | The folder and per-message Source tables         | client |
 | `@acme/chat/env`    | This package's env factory                       | either |
 
 ## Wiring
@@ -37,8 +42,10 @@ substrate at once, so mounting it touches every recipe.
   builds it, which your route seam imports too
   ([worker.md](../../../docs/mounting/worker.md)). A worker that builds its own
   refunds a ledger nobody is reading.
-- Re-export the folder table from your schema barrel, and compose the env
-  factory with a chat model selected
+- Re-export `chatFolder` **and `messageDataSource`** from your schema barrel,
+  and compose the env factory with a chat model selected. Miss the second and
+  nothing fails at build or lint — the first turn that settles fails at runtime
+  on a missing relation
   ([schema.md](../../../docs/mounting/schema.md),
   [env.md](../../../docs/mounting/env.md)).
 - Give the UI a route carrying an optional session id, passed in as a prop,

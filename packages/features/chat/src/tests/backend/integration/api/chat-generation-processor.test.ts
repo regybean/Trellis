@@ -6,7 +6,7 @@
  * (Mastra Memory).
  */
 
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   EntitlementsProvider,
@@ -15,6 +15,12 @@ import type {
 import type { Job } from '@acme/queue';
 import { createMockEntitlements } from '@acme/entitlements/testing';
 import { memory } from '@acme/rag';
+import {
+  createDataSource,
+  deleteDataSource,
+  listDataSources,
+  renameDataSource,
+} from '@acme/rag/server';
 import { redis } from '@acme/redis';
 
 import type { GenerationJob } from '../../../../api/services/chat-queue';
@@ -27,6 +33,7 @@ import {
 import { chatAgent } from '../../../../api/services/chat-agent';
 import { createChatGenerationProcessor } from '../../../../api/services/chat-generation-processor';
 import { chatStream, coalesce } from '../../../../api/services/chat-stream';
+import { listConversationSources } from '../../../../api/services/message-sources';
 import { env } from '../../../../env';
 import { fakeAgentStream, throwingAgentStream } from '../../setup';
 import {
@@ -78,7 +85,7 @@ function makeJob(overrides: Partial<GenerationJob> = {}): Job<GenerationJob> {
       // about the Stream, the terminals and the refund, not about retrieval.
       // An empty scope also costs no ownership query, so these stay off the
       // `data_source` table entirely.
-      dataSourceIds: [],
+      dataSources: [],
       ...overrides,
     },
   } as Job<GenerationJob>;
@@ -91,6 +98,18 @@ function streamField(fields: string[], name: string): string | undefined {
   if (idx === -1) return undefined;
   return fields.at(idx + 1);
 }
+
+// The assistant messageId the Turn settled on, as the terminal reported it —
+// which is the key the receipt is written under.
+async function settledMessageId(conversationId: string) {
+  const entries = await redis.xRange(chatStreamKey(conversationId), '-', '+');
+  return streamField(entries.at(-1)?.[1] ?? [], 'messageId');
+}
+
+// The receipt as a client reads it, through the same function the procedure
+// calls rather than a query of our own.
+const receipts = (conversationId: string, ownerId: string) =>
+  listConversationSources({ conversationId, ownerId });
 
 // Read the whole Stream back through the SAME codec + coalesce the reader uses,
 // so the producer is asserted symmetrically to the consumer (the writer wrote it,
@@ -379,6 +398,137 @@ describe('chatGenerationProcessor', () => {
       await expect(processor(job)).resolves.not.toThrow();
       // The guard short-circuits before the provider seam — no refund crossed.
       expect(refundCalls).toEqual([]);
+    });
+  });
+
+  // ==========================================================================
+  // THE PER-MESSAGE SOURCE RECEIPT
+  //
+  // The row is written here, by the worker, because Mastra mints the assistant
+  // messageId during streaming — `chat.send` has no id to key on. So this is
+  // where the receipt's claims belong: that it names what the Turn was scoped
+  // to, that the empty set is a value rather than an absence, that a Turn which
+  // never settled leaves nothing behind, and that a name recorded once stays
+  // recorded.
+  //
+  // Read back through `listConversationSources`, the same function the
+  // procedure calls, rather than by querying the table — the receipt's contract
+  // is what a reader gets out, not the row shape it went in as.
+  // ==========================================================================
+  describe('per-Message Source receipt', () => {
+    const sourceOwners: string[] = [];
+
+    // Owner-scoped teardown, matching `chat.test.ts`: the shared
+    // `cleanupTestData` deliberately leaves `data_source` alone, because a
+    // sibling suite file seeds a corpus in `beforeAll` that a wholesale
+    // truncation would pull out from under it.
+    afterEach(async () => {
+      for (const ownerId of sourceOwners.splice(0)) {
+        for (const source of await listDataSources({ ownerId })) {
+          await deleteDataSource({ ownerId, id: source.id });
+        }
+      }
+    });
+
+    // Returns `{ id, name }` — the shape the job payload and the receipt both
+    // carry, so an assertion reads the way the receipt does.
+    async function seedSource(ownerId: string, name: string) {
+      sourceOwners.push(ownerId);
+      const { id } = await createDataSource({
+        ownerId,
+        id: crypto.randomUUID(),
+        name,
+      });
+      return { id, name };
+    }
+
+    it('records the selected Sources by id and name against the assistant Message', async () => {
+      const userId = createTestUserId();
+      const work = await seedSource(userId, 'Work notes');
+      const personal = await seedSource(userId, 'Personal');
+      const job = makeJob({ userId, dataSources: [work, personal] });
+      const { conversationId } = job.data;
+
+      await createTestChat({ sessionId: conversationId, userId });
+      await processor(job);
+
+      // Exactly one row, keyed on the ASSISTANT Message the terminal named —
+      // the Turn where retrieval could have happened and where the disclosure
+      // renders. Both names travel with both ids, because the Source they point
+      // at is destroyable and ids alone would leave the transcript referencing
+      // labels nothing can resolve.
+      expect(await receipts(conversationId, userId)).toEqual([
+        {
+          messageId: await settledMessageId(conversationId),
+          sources: [work, personal],
+        },
+      ]);
+    });
+
+    it('writes an empty collection, distinguishable from no record at all', async () => {
+      const userId = createTestUserId();
+      const job = makeJob({ userId, dataSources: [] });
+      const { conversationId } = job.data;
+
+      await createTestChat({ sessionId: conversationId, userId });
+      await processor(job);
+
+      // A row exists and its collection is empty. Under a row-per-Source shape
+      // "asked with no Sources" and "pre-feature Message, never recorded" would
+      // both be zero rows, and the sticky empty set depends on telling them
+      // apart — so the assertion is the row's presence AND its emptiness.
+      const recorded = await receipts(conversationId, userId);
+      expect(recorded).toHaveLength(1);
+      expect(recorded[0]?.sources).toEqual([]);
+    });
+
+    it('writes no row for a Turn that fails, so the sticky set reads through', async () => {
+      const userId = createTestUserId();
+      const work = await seedSource(userId, 'Work notes');
+      const conversationId = createTestSessionId();
+
+      await createTestChat({ sessionId: conversationId, userId });
+
+      // A settled Turn first, so there is a previous receipt to read through TO.
+      await processor(makeJob({ userId, conversationId, dataSources: [work] }));
+
+      vi.spyOn(chatAgent, 'stream').mockResolvedValue(
+        throwingAgentStream([], new Error('LLM failed')),
+      );
+      await processor(makeJob({ userId, conversationId, dataSources: [] }));
+
+      // The failed Turn is invisible to stickiness rather than resetting it.
+      // Had it written an empty row it would be the latest, and the composer
+      // would silently untick everything after an error the user did not cause.
+      // One row, still the settled Turn's — the failed Turn minted no Message
+      // to key a second one on.
+      const recorded = await receipts(conversationId, userId);
+      expect(recorded).toHaveLength(1);
+      expect(recorded.at(-1)?.sources).toEqual([work]);
+    });
+
+    it('keeps the name a Source had when the Turn settled, after a rename', async () => {
+      const userId = createTestUserId();
+      const source = await seedSource(userId, 'Work notes');
+      const job = makeJob({ userId, dataSources: [source] });
+      const { conversationId } = job.data;
+
+      await createTestChat({ sessionId: conversationId, userId });
+      await processor(job);
+
+      await renameDataSource({
+        ownerId: userId,
+        id: source.id,
+        name: 'Renamed after the fact',
+      });
+
+      // Correct receipt semantics: it says what was included, under the name it
+      // had. Resolving names on read would make every past Turn silently
+      // restate itself, and would show nothing at all once the Source is gone.
+      const [recorded] = await receipts(conversationId, userId);
+      expect(recorded?.sources).toEqual([
+        { id: source.id, name: 'Work notes' },
+      ]);
     });
   });
 });

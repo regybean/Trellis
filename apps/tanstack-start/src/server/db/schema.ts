@@ -17,7 +17,7 @@ export { appSchema } from '../app-schema';
 // decides to manage them). They carry Mastra-owned ids by value with no FK — see
 // the feature schema notes and @acme/rag ADR 0001.
 export { feedbackRating, messageFeedback } from '@acme/feedback/schema';
-export { chatFolder } from '@acme/chat/schema';
+export { chatFolder, messageDataSource } from '@acme/chat/schema';
 
 // `data_source` — the user-owned partition of the knowledge base. This is the
 // one push-managed table from `@acme/rag`, whose other schema exports are

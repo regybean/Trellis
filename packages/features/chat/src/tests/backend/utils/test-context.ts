@@ -18,6 +18,7 @@ import {
   createMockSession,
 } from '@acme/trpc/testing';
 
+import { messageDataSource } from '../../../api/schemas/message-source-schema';
 import { db } from '../../../api/trpc';
 
 /**
@@ -48,11 +49,18 @@ export function createTestContext({
 }
 
 /**
- * Remove all test data: Mastra messages before threads (FK order), then flush
- * the isolated Redis DB. The Mastra tables are created lazily on first use, so
- * the delete may run before they exist — ignored.
+ * Remove all test data: the per-Message Source receipts, then Mastra messages
+ * before threads (FK order), then flush the isolated Redis DB. The Mastra
+ * tables are created lazily on first use, so the delete may run before they
+ * exist — ignored.
+ *
+ * `message_data_source` is truncated wholesale, unlike `data_source`, which the
+ * suites that seed it tear down per owner. It can be: the receipt carries no
+ * corpus, so nothing seeded in a `beforeAll` depends on a row surviving.
  */
 export async function cleanupTestData() {
+  await db.delete(messageDataSource);
+
   try {
     await db.delete(mastraMessages);
     await db.delete(mastraThreads);

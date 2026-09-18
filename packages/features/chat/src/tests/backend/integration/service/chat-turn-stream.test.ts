@@ -123,15 +123,6 @@ describe('streamScopedTurn (integration)', () => {
     conversationId = createTestSessionId();
     created = [];
 
-    // Undo the suite-wide `chatAgent.stream` stub for this file only. Calling
-    // `vi.spyOn` on an already-spied method hands back the SAME spy the shared
-    // setup installed, so restoring it here puts the real implementation back
-    // — which is the whole point: the agent has to run for the provider to be
-    // asked anything.
-    vi.spyOn(chatAgent, 'stream').mockRestore();
-
-    respondWith(answersOnce);
-
     // Mastra recalls the thread on every Turn (`readOnly: true` recalls without
     // persisting), so it has to exist before the agent runs.
     await createConversation(conversationId, userId);
@@ -163,7 +154,24 @@ describe('streamScopedTurn (integration)', () => {
 
   // Run a Turn to completion. The provider is only asked for anything once the
   // stream is consumed, so nothing here may skip the drain.
-  async function runTurn(dataSourceIds: string[]) {
+  //
+  // Both pieces of provider wiring are established HERE rather than in
+  // `beforeEach`, and that is deliberate. This file needs exactly the two
+  // things the shared setup undoes — the agent unstubbed, and a responder armed
+  // — and `isolate: false` in one forked worker means this file's hooks and the
+  // setup's are not reliably ordered against each other. Doing both immediately
+  // before use takes hook ordering out of it. Note the failure mode if it ever
+  // regresses is quiet: the case asserting the provider was NOT asked for an
+  // embedding passes vacuously when the stub is still in place.
+  async function runTurn(dataSourceIds: string[], responder = answersOnce) {
+    // Undo the suite-wide `chatAgent.stream` stub: this file is the one that
+    // needs the agent to actually run, or nothing reaches the provider.
+    // Calling `vi.spyOn` on an already-spied method hands back the SAME spy
+    // the shared setup installed, so restoring it puts the real implementation
+    // back.
+    vi.spyOn(chatAgent, 'stream').mockRestore();
+    respondWith(responder);
+
     const result = await streamScopedTurn({
       conversationId,
       userId,
@@ -229,9 +237,8 @@ describe('streamScopedTurn (integration)', () => {
 
   it('stops the Turn at the pinned step budget rather than an inherited one', async () => {
     const mine = await seedSource('Work');
-    respondWith(alwaysRetrieves);
 
-    await runTurn([mine]);
+    await runTurn([mine], alwaysRetrieves);
 
     // Five, because `streamScopedTurn` pins `stepCountIs(5)`. The value is
     // Mastra's current default on purpose — this is a change of authority, not

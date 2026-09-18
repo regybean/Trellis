@@ -8,106 +8,29 @@
  * `chatAgent.stream` spy that keeps the vector store out of the router tests.
  */
 
-import type { MockLanguageModelV3 } from 'ai/test';
 import { afterEach, beforeEach, vi } from 'vitest';
 
-import type * as RagTesting from '@acme/rag/testing';
-
 import { chatAgent } from '../../api/services/chat-agent';
+import {
+  chatModelStub,
+  embedModelStub,
+  respondWith,
+} from './utils/provider-stubs';
 import { cleanupTestData } from './utils/test-context';
-
-type ChatModelStub = InstanceType<typeof MockLanguageModelV3>;
-type Streamed = Awaited<ReturnType<ChatModelStub['doStream']>>;
-
-interface ProviderFakes {
-  chatModelStub: ChatModelStub;
-  embedModelStub: ReturnType<typeof RagTesting.fakeEmbedModel>;
-  fakeModelsModule: typeof RagTesting.fakeModelsModule;
-  respondWith: (next: (() => Streamed) | null) => void;
-}
-
-declare global {
-  /**
-   * The provider fakes, pinned to the WORKER rather than to one execution of
-   * this file. See the note on `vi.hoisted` below for why that distinction is
-   * load-bearing; `globalThis` is the only scope that outlives a single setup
-   * execution while still dying with the worker.
-   */
-
-  var chatProviderFakes: ProviderFakes | undefined;
-}
 
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
 
-/**
- * The provider stand-ins, built before the module mock that installs them.
- *
- * `vi.hoisted` is what makes them reachable from BOTH the factory below (which
- * is itself hoisted above every import) and the test files that import this
- * module — a plain `const` would be in its temporal dead zone when the factory
- * runs. The imports are dynamic for the same reason.
- *
- * Both are recording mocks. `chatModelStub.doStreamCalls` is what the provider
- * was actually asked for — the tool list, the messages — and
- * `embedModelStub.doEmbedCalls` is whether a query embedding was computed at
- * all. That is the honest observation point for `streamScopedTurn`'s contract:
- * the LLM is a true external, so what reaches it is an outcome, where reading
- * the arguments of a stubbed in-repo method would only be the mechanism.
- *
- * A test chooses what the provider answers with through `respondWith`, NOT by
- * reassigning `chatModelStub.doStream`: the constructor wraps the function it
- * is handed in the recorder that appends to `doStreamCalls`, so overwriting the
- * field throws the recording away and leaves every assertion about it vacuously
- * green. Unset, the provider throws — a file that reaches the model without
- * meaning to should say so rather than return something plausible.
- *
- * Built ONCE PER WORKER, and that is the whole reason for the `globalThis`
- * handoff. A setup file re-executes for every test file, but the backend
- * project runs `isolate: false` (`@acme/test-utils`), so the modules it mocks
- * do NOT: `chat-agent.ts` is evaluated by whichever test file imports it first
- * and stays cached, holding the `chatModel` that execution's `vi.mock` factory
- * handed it. Fresh stubs on the second execution would therefore be written by
- * the test and read by nobody — the agent would still be streaming through the
- * FIRST file's stub, so `respondWith(...)` would set a response the provider
- * never consults and `doStreamCalls` would stay empty however many times the
- * model was asked. That is not hypothetical: it is exactly how
- * `chat-turn-stream.test.ts` failed whenever the file sequencer did not happen
- * to run it first. Pinning the fakes to the worker makes the stub the agent
- * captured and the stub a test can reach the same object, in any file order.
- */
-const { chatModelStub, embedModelStub, fakeModelsModule, respondWith } =
-  await vi.hoisted(async (): Promise<ProviderFakes> => {
-    if (globalThis.chatProviderFakes) return globalThis.chatProviderFakes;
-
-    const { MockLanguageModelV3 } = await import('ai/test');
-    const ragTesting = await import('@acme/rag/testing');
-
-    let response: (() => Streamed) | null = null;
-
-    const fakes: ProviderFakes = {
-      chatModelStub: new MockLanguageModelV3({
-        doStream: () => {
-          if (!response) {
-            throw new Error(
-              'The chat provider was called with no response configured. Either the test meant to stream through the chatAgent.stream stub, or it needs respondWith(...).',
-            );
-          }
-          return Promise.resolve(response());
-        },
-      }),
-      embedModelStub: ragTesting.fakeEmbedModel(),
-      fakeModelsModule: ragTesting.fakeModelsModule,
-      respondWith: (next: (() => Streamed) | null) => {
-        response = next;
-      },
-    };
-
-    globalThis.chatProviderFakes = fakes;
-    return fakes;
-  });
-
-export { chatModelStub, embedModelStub, respondWith };
+// The provider stand-ins are built in `./utils/provider-stubs`, an ordinary
+// module, and only re-exported here so the existing `from '../../setup'`
+// imports keep working. Their placement is load-bearing and explained there:
+// `isolate: false` re-evaluates a setup file per test file, so stubs built HERE
+// existed once per file while the `@acme/models` mock kept only the first set.
+export {
+  chatModelStub,
+  embedModelStub,
+  respondWith,
+} from './utils/provider-stubs';
 
 // The provider fake is rag's (`@acme/rag/testing`) rather than a copy: both
 // suites embed against the same pgvector store, so the dimension and the
@@ -120,9 +43,21 @@ export { chatModelStub, embedModelStub, respondWith };
 // through the `vi.spyOn` stub below or drives the agent against
 // `chatModelStub` — nothing is supposed to reach Bedrock, and a stand-in makes
 // that structural rather than a property of how the tests happen to be written.
-vi.mock('@acme/models', () =>
-  fakeModelsModule({ chatModel: chatModelStub, embedModel: embedModelStub }),
-);
+//
+// The factory is hoisted above every import in this file, so it reaches the
+// stubs through a dynamic `import()` rather than a module-scope binding that
+// would still be in its temporal dead zone. Because the target is a plain
+// module, that import resolves to the same instances the test files hold.
+vi.mock('@acme/models', async () => {
+  const [stubs, ragTesting] = await Promise.all([
+    import('./utils/provider-stubs'),
+    import('@acme/rag/testing'),
+  ]);
+  return ragTesting.fakeModelsModule({
+    chatModel: stubs.chatModelStub,
+    embedModel: stubs.embedModelStub,
+  });
+});
 
 // Predictable streamed response. The router consumes `chatAgent.stream(...)`
 // directly, iterating the resolved result's `textStream`; spying on the agent
@@ -174,13 +109,13 @@ beforeEach(() => {
 
 // Clean up after each test.
 //
-// The provider state is reset HERE and not in `beforeEach`, and with the fakes
-// pinned to the worker the reason is structural: they now outlive any one
-// execution of this file, so teardown is the only hook that can keep test
-// files independent of each other. Resetting on the way in instead would undo
-// the `respondWith(...)` a test's own `beforeEach` had already set, leaving the
-// provider with nothing to answer and an empty call log — which every "no tools
-// were offered" assertion passes vacuously against.
+// The provider state is reset HERE and not in `beforeEach`, and the reason is
+// worth knowing: the stubs live in an ordinary module, so they outlive any one
+// execution of this file — teardown is the only hook that can keep test files
+// independent of each other. Resetting on the way in would silently undo a
+// file's `respondWith(...)`, which is how this file was wrong once: the
+// provider then answered nothing, the call log was empty, and every assertion
+// about "no tools were offered" passed vacuously.
 afterEach(async () => {
   respondWith(null);
   chatModelStub.doStreamCalls.length = 0;

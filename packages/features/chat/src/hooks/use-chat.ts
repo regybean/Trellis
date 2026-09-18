@@ -377,7 +377,14 @@ export function useChat(
   // Turn adopted by resume-after-refresh, which this client never sent.
   const isSending = turnState.phase !== 'idle';
 
-  const send = (text: string) => {
+  // `dataSourceIds` is the composer's Source Selection for THIS Turn — the ids
+  // from `useSourceSelection`, which owns the stickiness and the
+  // intersect-with-owned reconciliation. It defaults to the empty set so a
+  // caller with no picker sends an unscoped Turn rather than a validation
+  // error, and so that the default is "retrieve nothing" rather than
+  // "everything". The server narrows whatever arrives to the caller's own
+  // Sources regardless, so nothing here is trusted.
+  const send = (text: string, dataSourceIds: string[] = []) => {
     if (stateRef.current.phase !== 'idle') return;
 
     // Validate length before sending — the URL carries the sessionId and an
@@ -415,6 +422,7 @@ export function useChat(
       query: text,
       conversationId: sessionId,
       turnId: crypto.randomUUID(),
+      dataSourceIds,
     });
   };
 
