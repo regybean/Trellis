@@ -8,10 +8,34 @@
  * `chatAgent.stream` spy that keeps the vector store out of the router tests.
  */
 
+import type { MockLanguageModelV3 } from 'ai/test';
 import { afterEach, beforeEach, vi } from 'vitest';
+
+import type * as RagTesting from '@acme/rag/testing';
 
 import { chatAgent } from '../../api/services/chat-agent';
 import { cleanupTestData } from './utils/test-context';
+
+type ChatModelStub = InstanceType<typeof MockLanguageModelV3>;
+type Streamed = Awaited<ReturnType<ChatModelStub['doStream']>>;
+
+interface ProviderFakes {
+  chatModelStub: ChatModelStub;
+  embedModelStub: ReturnType<typeof RagTesting.fakeEmbedModel>;
+  fakeModelsModule: typeof RagTesting.fakeModelsModule;
+  respondWith: (next: (() => Streamed) | null) => void;
+}
+
+declare global {
+  /**
+   * The provider fakes, pinned to the WORKER rather than to one execution of
+   * this file. See the note on `vi.hoisted` below for why that distinction is
+   * load-bearing; `globalThis` is the only scope that outlives a single setup
+   * execution while still dying with the worker.
+   */
+
+  var chatProviderFakes: ProviderFakes | undefined;
+}
 
 // Mock server-only module - allows importing server components in vitest
 vi.mock('server-only', () => ({}));
@@ -37,19 +61,31 @@ vi.mock('server-only', () => ({}));
  * field throws the recording away and leaves every assertion about it vacuously
  * green. Unset, the provider throws — a file that reaches the model without
  * meaning to should say so rather than return something plausible.
+ *
+ * Built ONCE PER WORKER, and that is the whole reason for the `globalThis`
+ * handoff. A setup file re-executes for every test file, but the backend
+ * project runs `isolate: false` (`@acme/test-utils`), so the modules it mocks
+ * do NOT: `chat-agent.ts` is evaluated by whichever test file imports it first
+ * and stays cached, holding the `chatModel` that execution's `vi.mock` factory
+ * handed it. Fresh stubs on the second execution would therefore be written by
+ * the test and read by nobody — the agent would still be streaming through the
+ * FIRST file's stub, so `respondWith(...)` would set a response the provider
+ * never consults and `doStreamCalls` would stay empty however many times the
+ * model was asked. That is not hypothetical: it is exactly how
+ * `chat-turn-stream.test.ts` failed whenever the file sequencer did not happen
+ * to run it first. Pinning the fakes to the worker makes the stub the agent
+ * captured and the stub a test can reach the same object, in any file order.
  */
 const { chatModelStub, embedModelStub, fakeModelsModule, respondWith } =
-  await vi.hoisted(async () => {
+  await vi.hoisted(async (): Promise<ProviderFakes> => {
+    if (globalThis.chatProviderFakes) return globalThis.chatProviderFakes;
+
     const { MockLanguageModelV3 } = await import('ai/test');
     const ragTesting = await import('@acme/rag/testing');
 
-    type Streamed = Awaited<
-      ReturnType<InstanceType<typeof MockLanguageModelV3>['doStream']>
-    >;
-
     let response: (() => Streamed) | null = null;
 
-    return {
+    const fakes: ProviderFakes = {
       chatModelStub: new MockLanguageModelV3({
         doStream: () => {
           if (!response) {
@@ -66,6 +102,9 @@ const { chatModelStub, embedModelStub, fakeModelsModule, respondWith } =
         response = next;
       },
     };
+
+    globalThis.chatProviderFakes = fakes;
+    return fakes;
   });
 
 export { chatModelStub, embedModelStub, respondWith };
@@ -135,13 +174,13 @@ beforeEach(() => {
 
 // Clean up after each test.
 //
-// The provider state is reset HERE and not in `beforeEach`, and the reason is
-// worth knowing: the backend project runs `isolate: false` in one forked worker
-// (`@acme/test-utils`), so a setup hook is not reliably ordered before a test
-// file's own — teardown is. Resetting on the way in would silently undo a
-// file's `respondWith(...)`, which is how this file was wrong once: the
-// provider then answered nothing, the call log was empty, and every assertion
-// about "no tools were offered" passed vacuously.
+// The provider state is reset HERE and not in `beforeEach`, and with the fakes
+// pinned to the worker the reason is structural: they now outlive any one
+// execution of this file, so teardown is the only hook that can keep test
+// files independent of each other. Resetting on the way in instead would undo
+// the `respondWith(...)` a test's own `beforeEach` had already set, leaving the
+// provider with nothing to answer and an empty call log — which every "no tools
+// were offered" assertion passes vacuously against.
 afterEach(async () => {
   respondWith(null);
   chatModelStub.doStreamCalls.length = 0;
