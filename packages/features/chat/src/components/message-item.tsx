@@ -87,13 +87,15 @@ export default function MessageItem({
   } else {
     // Only a settled ASSISTANT Message earns a footer: an optimistic user turn
     // and a streaming partial have nothing durable to act on or disclose
-    // (ADR 0007). One flag decides both halves of the row.
+    // (docs/adr/0007-message-actions-render-slot.md). One flag decides both
+    // halves of the row.
     const settledAssistantId = isUser ? undefined : message.id;
 
     // Bubble, then the footer row beneath it. The row is below rather than
     // inside because expanding a Source list inside a bubble would grow the
     // bubble, and because `renderMessageActions` was always specified as
-    // rendering beneath the Message (ADR 0007).
+    // rendering beneath the Message
+    // (docs/adr/0007-message-actions-render-slot.md).
     messageContent = (
       <div className="mx-2 min-w-0">
         <div className={bubbleBase} data-testid={testId}>

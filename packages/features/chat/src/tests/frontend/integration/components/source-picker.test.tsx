@@ -81,7 +81,8 @@ const receipt = (
 ): MessageSources => ({ messageId, sources });
 
 // A settled exchange: the assistant Message carries a persisted id, which is
-// what makes it eligible for a footer row at all (ADR 0007).
+// what makes it eligible for a footer row at all
+// (docs/adr/0007-message-actions-render-slot.md).
 const transcript = (): Message[] => [
   {
     id: 'user-message-1',
@@ -252,7 +253,8 @@ describe('"Sources included" reads the per-Message receipt', () => {
         sessionId={SESSION_ID}
         // A stub, never `@acme/feedback` — a test reaching for the real
         // component would reintroduce the features→features dependency the
-        // render slot exists to avoid (ADR 0007).
+        // render slot exists to avoid
+        // (docs/adr/0007-message-actions-render-slot.md).
         renderMessageActions={() => (
           <button type="button" data-testid="stub-action">
             Helpful
