@@ -24,9 +24,10 @@ import type { SourceRow } from '../hooks/use-source-selection';
  * real confusion: the user is reading a streaming answer and deciding what the
  * NEXT question should see, which is exactly when they want to change it.
  *
- * The name filter is local state and nothing else is. Membership, the counts
- * and the empty-scope flag are all the selection hook's, derived per render, so
- * a Source deleted elsewhere leaves this list the moment `dataSources.list`
+ * The only state anywhere in here is the two drafts the user is typing — the
+ * name filter and the inline-create name. Membership, the counts and the
+ * empty-scope flag all belong to the selection hook and are derived per render,
+ * so a Source deleted elsewhere leaves this list the moment `dataSources.list`
  * settles rather than after an effect has noticed.
  *
  * This is the one Source surface allowed to render names from
