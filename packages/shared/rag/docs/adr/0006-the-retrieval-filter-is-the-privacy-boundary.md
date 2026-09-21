@@ -116,7 +116,7 @@ global` branch in the filter. Rejected: the branch is exactly where a leak
   first app-owned DDL on a `mastra_*` table and that ADR's invariant is that
   Mastra owns all of it. The amendment is not made here: the index is deferred,
   so the invariant is still true today, and documenting a carve-out nobody has
-  taken would make ADR 0001 less accurate rather than more.
+  taken would make that ADR less accurate rather than more.
 - **Consumers get one streaming call site, and it is lint-enforced in the
   consuming package.** A boundary built into `resolveRetrievalScope` only holds
   if every agent stream goes through a wrapper that calls it, and that wrapper
