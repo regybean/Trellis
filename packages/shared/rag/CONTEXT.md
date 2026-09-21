@@ -8,9 +8,12 @@ resolved by [`@acme/models`](../models/CONTEXT.md), not constructed here.
 ## Language
 
 **Knowledge base**:
-The collection of indexed Document chunks in the vector store (`PgVector`), queried
-at chat time. Lives in its own vector database (`DB_VECTOR_NAME`).
-_Avoid_: "index", "embeddings table"
+One app's indexed Document chunks in the vector store (`PgVector`), living in its own
+vector database (`DB_VECTOR_NAME`). It is **partitioned, never queried whole**: every
+chunk belongs to exactly one **Data Source** and carries its owner, and the only way
+to read it is through a **Retrieval scope** naming both. There is no unowned chunk and
+no shared portion — "the knowledge base" is the store, not a corpus anyone retrieves
+over. _Avoid_: "index", "embeddings table", "the corpus" (it has no undivided form)
 
 **Thread**:
 Mastra's unit of conversation persistence (`mastra_threads`), identified by a
@@ -67,9 +70,10 @@ nothing. _Avoid_: "scope" (that is the resolved object below), "filter", "allowl
 **Retrieval scope**:
 The trusted object `resolveRetrievalScope` builds from a Source Selection — a Mastra
 `RequestContext` carrying the two-clause filter (`owner_id` + `data_source_id $in`)
-and the server-pinned `topK`, plus `hasSources`. It NARROWS: ids the caller does not
-own, including ones deleted since the selection was made, are dropped rather than
-made fatal ([ADR 0005](docs/adr/0005-retrieval-scope-narrows-rather-than-rejects.md)).
+and the server-pinned `topK`, plus `hasSources`. The `owner_id` clause comes from the
+verified caller and never from the request, which is what makes the scope the privacy
+boundary rather than a convenience. It NARROWS: ids the caller does not own, including
+ones deleted since the selection was made, are dropped rather than made fatal.
 `hasSources` is read off the narrowed set, so it is a fact a caller cannot recompute
 from its own raw input. _Avoid_: "the filter" (the context overrides more knobs than
 that), "validated ids"

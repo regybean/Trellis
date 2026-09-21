@@ -34,6 +34,12 @@ let indexReady: Promise<unknown> | null = null;
 // fixes EMBED_DIMENSIONS; if an index already exists at a different dimension
 // (e.g. someone switched embed provider without rebuilding) every upsert would
 // fail deep inside pgvector. Surface an actionable error up front instead.
+//
+// The remedy names no `db:push`: the vector database is not drizzle-kit-managed
+// at all, so there is nothing to push against it and there never was a vector
+// push to run. `ensureVectorIndex` below is what recreates the table, at boot.
+// The same three steps are the only way to reindex, whatever forced it, so keep
+// this string and the reindex entry in the repo's docs quoting each other.
 async function assertDimensionMatches() {
   const existing = await pgVector.listIndexes();
   if (!existing.includes(indexName)) return;
@@ -43,7 +49,9 @@ async function assertDimensionMatches() {
     throw new Error(
       `Knowledge-base index \`${indexName}\` exists at dimension ${dimension} ` +
         `but EMBED_DIMENSIONS=${EMBED_DIMENSIONS} — the embed model changed. ` +
-        `Drop the vector DB and run \`pnpm db:push\` to rebuild the index.`,
+        `Rebuild it: drop \`${RAG_SCHEMA}.${indexName}\` in the vector database, ` +
+        `restart so it is recreated at boot, then re-upload the documents. ` +
+        `There is no vector \`db:push\` — Mastra owns this table's DDL.`,
     );
   }
 }
