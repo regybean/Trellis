@@ -31,8 +31,18 @@ so there is nothing an action could key off.
 - **The coupling belongs to the app, and the app is where it already lives.** An
   app already knows it mounts both features; it is the only layer allowed to
   know that. Composing them is a prop in a page, not an edge in the graph.
-- **It generalises for free.** Copy, retry, cite-sources are the same slot. Any
-  of them as a chat feature would mean chat deciding what a Message affords.
+- **It generalises for free.** Copy and retry are the same slot. Any of them as
+  a chat feature would mean chat deciding what a Message affords.
+
+Citing sources was originally listed here as a third example, and it turned out
+not to be one. **"Sources included" is chat's own, rendered natively**, beside
+the slot's output rather than through it: it reads the per-Message receipt chat
+writes, in chat's own table, about a Source Selection that travelled on
+`chat.send`. Nothing is injected and no sibling feature is involved, so routing
+it through the slot would have meant an app passing chat a renderer for chat's
+own data. The line the slot draws is _whose data is this_, not _where on the
+Message does it appear_ — and that distinction only became visible once
+something on chat's side of it shipped.
 
 ## Considered and rejected
 

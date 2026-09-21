@@ -1,4 +1,4 @@
-# Slim apps are separate no-auth deployments that inject a constant admin principal
+# Slim apps are separate no-auth deployments that inject a constant principal
 
 **Status:** accepted
 
@@ -18,25 +18,26 @@ features still gate on one:
 
 - `@acme/chat` — every procedure is `protectedProcedure`; it scopes Mastra memory
   by a **non-null** `userId`.
-- `@acme/ingest` — every procedure is `adminProcedure`; it gates on the
-  principal's `role` being `'admin'`.
+- `@acme/ingest` — every procedure is `protectedProcedure`, and owner-scoped: a
+  Data Source and the Documents in it belong to a `userId`, which is also what
+  every retrieval filter is built from.
 
 So a no-auth app cannot inject "signed out" (`{ user: null }`) — chat would
-reject every call and ingest would 403. Instead each slim app injects a single
-**constant principal** at its tRPC route seam:
+reject every call and ingest would have no owner to scope to. Instead each slim
+app injects a single **constant principal** at its tRPC route seam:
 
 ```ts
 const LOCAL_SESSION: InjectedSession = {
-  user: { id: "local", role: "admin" },
+  user: { id: "local" },
 };
 // inject: { headers, req, session: LOCAL_SESSION, entitlements: unlimitedEntitlements }
 ```
 
-The `role: 'admin'` is **load-bearing, not cosmetic**: it is the only reason
-`@acme/ingest`'s `adminProcedure` admits the caller. The principal carries
-nothing else, because no retained feature reads anything else (only
-`@acme/billing`, which is dropped, needed the email). Entitlements are
-`unlimitedEntitlements` from `@acme/entitlements`.
+The principal carries **nothing but the id**, because nothing retained reads
+anything else. There is deliberately no `role`: it used to say `'admin'`,
+invented to satisfy an `adminProcedure` gate on ingest that no longer exists, and
+a role here would now be a claim about an authorization model this app does not
+have. Entitlements are `unlimitedEntitlements` from `@acme/entitlements`.
 
 > Updated by #220: the seam was `{ auth: InjectedAuth, user }` when this ADR was
 > written — a Clerk-shaped `{ userId, sessionClaims }` pair plus a separate
@@ -44,9 +45,33 @@ nothing else, because no retained feature reads anything else (only
 > ([@acme/auth ADR 0003](../../../packages/shared/auth/docs/adr/0003-framework-agnostic-auth-seam.md), amendment). The decision is
 > unchanged; only the shape being injected is.
 
-The surprising consequence — **a no-auth app injects `role: 'admin'`** — is the
-thing this ADR exists to make legible. It reads like a privilege escalation; it
-is actually "there is one local user and they own this single-tenant deployment."
+> This ADR used to reject **a non-admin constant principal (`role: 'user'`)** on
+> the grounds that ingest's `adminProcedure` would 403 it, while upload and list
+> are core to the slim product. That trade-off no longer exists: ingest dropped
+> the role gate for owner scoping, so the option was resolved by removing the
+> gate rather than by choosing a role. It is kept here as a note because the
+> reasoning is the reason the paragraph above reads the way it does.
+
+The surprising consequence is no longer a privilege escalation. It is that **the
+slim subset reduces a security property to a tautology.**
+
+The features these apps mount now carry a real privacy boundary: a Data Source
+belongs to an owner, and every retrieval filter is built from the verified
+`userId` rather than from anything in the request. Here that `userId` is a
+constant. Every visitor to a slim deployment is `local`, so every Data Source
+belongs to all of them, and the boundary is satisfied **vacuously** — not because
+the scoping works, but because there is only ever one owner to scope to.
+
+That is the correct behaviour for a single-tenant local product, and it is worth
+being precise about what it costs. **The slim apps prove nothing about the
+privacy boundary.** They exercise the code path and can never exercise the
+property, so a regression that collapsed owner scoping entirely would run green
+in both of them. The full apps are where the invariant is actually tested.
+
+No test can flag this, which is why it lives here. Apps are `testClass: app` and
+are covered only through their features' suites, so there is no slim-app test to
+write that would notice a constant owner — and a feature test, run against real
+distinct users, sees a boundary that works.
 
 ## Separate apps, not a runtime no-auth flag on the full apps
 
@@ -71,12 +96,9 @@ single-sourced; only the thin integration layer is copied.
 - **A runtime `AUTH_DISABLED` flag on the full apps.** Rejected — keeps Clerk +
   Stripe in the dependency graph and env surface, and forks auth-touching files
   into boolean-guarded dual paths. The seam should be enforced by the build.
-- **Injecting a signed-out context (`{ userId: null }`).** Rejected — `@acme/chat`
-  (`protectedProcedure`) and `@acme/ingest` (`adminProcedure`) reject it. A
-  constant principal is required.
-- **A non-admin constant principal (`role: 'user'`).** Rejected — `@acme/ingest`'s
-  `adminProcedure` would 403, and documents (upload/list) are core to the slim
-  product. The single local user owns the deployment, so `admin` is correct.
+- **Injecting a signed-out context (`{ userId: null }`).** Rejected — both
+  retained features are `protectedProcedure` and need a non-null principal to
+  scope by. A constant principal is required.
 - **Sharing one `localPrincipal` helper across both apps.** Rejected (for now) —
   each app already owns its tRPC route seam (the Next.js route handler vs. the
   TanStack server handler), so the constant lives next to its injection point, an
