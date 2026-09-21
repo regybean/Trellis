@@ -19,6 +19,7 @@ import {
   createDataSource,
   deleteDataSource,
   listDataSources,
+  uploadDoc,
 } from '@acme/rag/server';
 import { redis } from '@acme/redis';
 
@@ -90,6 +91,33 @@ async function seedSource(ownerId: string, name: string) {
   });
   return { id, name };
 }
+
+/**
+ * One Document into a Source, through rag's production upload for the same
+ * reason `seedSource` uses its production create: the chunk metadata the
+ * Document count groups on is stamped by `uploadDoc`, so a raw insert could
+ * stamp keys production never writes and this suite would still pass.
+ *
+ * Short text and `CHUNK_SIZE` 1024 means exactly one chunk per file, so the
+ * chunk count is the file count and a count that confused the two is visible.
+ * The chunks are swept by `sweepSeededSources` — the production cascade
+ * deletes a Source's chunks before its row.
+ */
+async function seedDocument(
+  ownerId: string,
+  dataSourceId: string,
+  fileName: string,
+) {
+  const file = new File([`Content of ${fileName} worth chunking.`], fileName, {
+    type: 'text/plain',
+  });
+  await uploadDoc(file, { ownerId, dataSourceId });
+}
+
+// `documentCounts` groups over the corpus, so its row order is the group-by's
+// and not worth asserting. Both sides of the comparison go through this.
+const byDataSourceId = <T extends { dataSourceId: string }>(rows: T[]) =>
+  rows.toSorted((a, b) => a.dataSourceId.localeCompare(b.dataSourceId));
 
 // Owner-scoped teardown, not wholesale: the shared `cleanupTestData`
 // deliberately leaves `data_source` alone, because a sibling suite file seeds a
@@ -1285,6 +1313,64 @@ describe('chatRouter', () => {
         // came back empty for some unrelated reason. `toMatchObject` over an
         // array still pins the length, so a leaked second row fails.
         expect(await caller.chat.dataSources.list()).toMatchObject([mine]);
+      });
+    });
+
+    describe('documentCounts', () => {
+      it("counts Documents per Source and omits another user's", async () => {
+        const userId = createTestUserId();
+        const otherUserId = createTestUserId();
+        const work = await seedSource(userId, 'Work');
+        const personal = await seedSource(userId, 'Personal');
+        const theirs = await seedSource(otherUserId, 'Theirs');
+
+        // Documents, not chunks: `notes.txt` and `plan.txt` are two Documents
+        // in `Work`, and each short file yields one chunk, so a count that
+        // silently counted chunks would agree here by accident. The second
+        // upload into `Work` under a DIFFERENT name is what separates them —
+        // two files, two Documents, whatever the chunking does.
+        await seedDocument(userId, work.id, 'notes.txt');
+        await seedDocument(userId, work.id, 'plan.txt');
+        await seedDocument(userId, personal.id, 'recipes.txt');
+        await seedDocument(otherUserId, theirs.id, 'secrets.txt');
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        // Set equality, not "contains Work: 2". A negative-only assertion would
+        // pass against a response that had leaked the other user's Source with
+        // some unrelated count, and the count is what the panel renders beside
+        // a name the user is about to make a privacy decision on.
+        const counts = await caller.chat.dataSources.documentCounts();
+
+        expect(byDataSourceId(counts)).toEqual(
+          byDataSourceId([
+            { dataSourceId: work.id, documentCount: 2 },
+            { dataSourceId: personal.id, documentCount: 1 },
+          ]),
+        );
+      });
+
+      it('omits a Source holding no Documents rather than reporting zero', async () => {
+        const userId = createTestUserId();
+        await seedSource(userId, 'Empty');
+
+        const caller = createCaller({
+          userId,
+          role: 'user',
+          tier: 'Basic',
+          credits: baseCredits,
+        });
+
+        // The roll-up groups over chunks, so a Source with none simply has no
+        // row. The panel supplies the zero, which is why this is the contract
+        // rather than an oversight — a caller that expected a row per Source
+        // would render `undefined` instead.
+        expect(await caller.chat.dataSources.documentCounts()).toEqual([]);
       });
     });
 

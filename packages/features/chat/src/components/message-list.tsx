@@ -6,6 +6,7 @@ import { forwardRef, useCallback, useEffect, useRef } from 'react';
 import { Skeleton } from '@acme/ui';
 
 import type { Message } from '../api/schemas/message-schema';
+import type { RecordedSources } from '../api/schemas/message-source-schema';
 import MessageItem from './message-item';
 
 // Shown while a resumed Conversation's history is still loading (switching to a
@@ -38,10 +39,17 @@ interface MessageListProps {
   onScrollComplete?: () => void;
   scrollToBottomRef?: React.RefObject<(() => void) | null>;
   renderMessageActions?: (message: Message) => React.ReactNode;
+  // Passed straight through to each MessageItem. One Conversation-wide receipt
+  // query serves the whole transcript, so the lookup is threaded down rather
+  // than each row fetching its own.
+  sourcesForMessage?: (messageId: string) => RecordedSources | undefined;
 }
 
 const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
-  ({ messages, scrollToBottomRef, renderMessageActions }, _ref) => {
+  (
+    { messages, scrollToBottomRef, renderMessageActions, sourcesForMessage },
+    _ref,
+  ) => {
     const scrollAreaRef = useRef<HTMLDivElement>(null);
 
     const scrollToBottom = useCallback(() => {
@@ -70,6 +78,7 @@ const MessageList = forwardRef<HTMLDivElement, MessageListProps>(
                 key={message.id ?? index}
                 message={message}
                 renderMessageActions={renderMessageActions}
+                sourcesForMessage={sourcesForMessage}
               />
             );
           })}

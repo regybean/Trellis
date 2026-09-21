@@ -56,8 +56,12 @@ substrate at once, so mounting it touches every recipe.
   navigate on selection.
 - Pass `renderMessageActions` if you want per-message UI — feedback buttons,
   copy, retry. Chat renders whatever you return beneath each settled assistant
-  message and depends on none of it
-  ([ADR 0007](docs/adr/0007-message-actions-render-slot.md)).
+  message, in the same row as its own "Sources included" disclosure, and depends
+  on none of it ([ADR 0007](docs/adr/0007-message-actions-render-slot.md)).
+- Pass `documentsPath` if your documents route is not `/documents`. It is where
+  the composer's Source panel sends a user who owns no Data Sources yet. A path
+  rather than a component, because upload belongs to `@acme/ingest` and chat
+  names no sibling feature.
 - Invalidate your credit display after a turn if you also mount billing. The
   features do not know about each other; your page wires the two together.
 

@@ -1,11 +1,27 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'react-toastify';
 
 import type {
   RecordedSource,
   RecordedSources,
 } from '../api/schemas/message-source-schema';
 import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
+
+/**
+ * A checkbox row in the composer panel: the Source, and what it holds.
+ *
+ * `documentCount` is `undefined` while the count query is in flight rather
+ * than `0`, so the panel omits the number instead of telling the user a Source
+ * is empty when it may be full. The distinction matters here more than it does
+ * on the documents page: this number is the main thing a user weighs when
+ * deciding whether ticking a Source is worth it.
+ */
+export interface SourceRow {
+  id: string;
+  name: string;
+  documentCount: number | undefined;
+}
 
 /**
  * The composer's Source Selection, and the stickiness that carries it forward.
@@ -61,12 +77,22 @@ import { usePersistedQueryOptions, useTRPC } from '../trpc/react';
  */
 export function useSourceSelection(conversationId: string) {
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
   const persisted = usePersistedQueryOptions();
 
   // The caller's own Sources — the panel's rows, and the set membership is
   // reconciled against. Persisted, so the panel is populated on a cold open.
   const sourcesQuery = useQuery(
     trpc.chat.dataSources.list.queryOptions(undefined, persisted),
+  );
+
+  // The per-Source Document counts the panel rows show. Deliberately NOT
+  // persisted alongside the list: the count is the one field on a row that goes
+  // stale within a session, and a restored snapshot would paint yesterday's
+  // number beside today's name. It is advisory either way — it tells the user
+  // which Source is worth ticking, never what a Turn may retrieve.
+  const countsQuery = useQuery(
+    trpc.chat.dataSources.documentCounts.queryOptions(),
   );
 
   // The Conversation's per-Message receipts, oldest first. Volatile rather than
@@ -88,6 +114,20 @@ export function useSourceSelection(conversationId: string) {
   const chosen = edited ?? restored;
 
   const owned = sourcesQuery.data;
+
+  // A Source holding nothing has no row in the roll-up, so the zero is supplied
+  // here rather than by the procedure — but only once the count query has
+  // actually settled. Before that every Source reads `undefined` and the panel
+  // omits the number, instead of labelling a full Source empty for the duration
+  // of the first fetch.
+  const counts = new Map(
+    (countsQuery.data ?? []).map((row) => [
+      row.dataSourceId,
+      row.documentCount,
+    ]),
+  );
+  const documentCount = (id: string) =>
+    countsQuery.isSuccess ? (counts.get(id) ?? 0) : undefined;
 
   // Intersect with what the caller still owns — but only once the list has
   // actually settled. Filtering against an undefined list would untick
@@ -119,9 +159,48 @@ export function useSourceSelection(conversationId: string) {
   // `null` would mean "untouched" and snap straight back to the record.
   const clear = () => setEdited([]);
 
+  // The id is minted here so a retry reconciles 1:1 with the row it already
+  // made rather than leaving two Sources of the same name; safe only because
+  // the retrieval filter's first clause is the verified owner. No optimistic
+  // insert, for the reason ingest's create gives: the row a name collision must
+  // not produce is exactly a row that appeared before the server accepted it.
+  //
+  // A create failure is a toast rather than an inline field error. The
+  // client-side collision check that earns an inline message needs the owned
+  // list as its rule, and that lives on the documents page where the user is
+  // actually managing Sources; here the create is a convenience on the way to
+  // uploading, and the cap is the likelier refusal of the two.
+  const create = useMutation(
+    trpc.chat.dataSources.create.mutationOptions({
+      onSuccess: (created) => {
+        void queryClient.invalidateQueries(
+          trpc.chat.dataSources.list.pathFilter(),
+        );
+        // Tick it. The user opened the panel to change what the next message is
+        // grounded in, so a Source that arrives unticked is a second click for
+        // the thing they already asked for — and it holds no Documents yet, so
+        // ticking it widens the scope by nothing.
+        toggle(created);
+      },
+      onError: (error) => toast.error(error.message),
+    }),
+  );
+
   return {
-    /** The panel's rows. */
-    sources: owned ?? [],
+    /**
+     * The panel's rows, each with what it holds.
+     *
+     * Names come from here, and ONLY the panel may use them: it is the one
+     * Source surface that states what you could pick rather than what a
+     * question was exposed to. Every surface making the latter claim — the
+     * composer tooltip, "Sources included" — reads names off the per-Message
+     * receipt instead, because this list is persisted (invariant 11).
+     */
+    sources: (owned ?? []).map<SourceRow>(({ id, name }) => ({
+      id,
+      name,
+      documentCount: documentCount(id),
+    })),
     /** The current selection, with the names the tooltip renders. */
     selected,
     /** What `chat.send` takes. */
@@ -139,5 +218,23 @@ export function useSourceSelection(conversationId: string) {
     toggle,
     selectAll,
     clear,
+    /** Inline create from the panel. Ticks what it makes. */
+    createSource: (name: string) =>
+      create.mutateAsync({ id: crypto.randomUUID(), name }),
+    isCreating: create.isPending,
+    /**
+     * One Message's receipt — the Sources that Turn was scoped to, under the
+     * names they had — or `undefined` for a Message with no receipt at all
+     * (a pre-feature Message, or a Turn that failed).
+     *
+     * This is what "Sources included" renders, and the reason it takes a
+     * `messageId` rather than resolving ids against `sources`: the receipt is
+     * the only read that still tells the truth once a Source has been renamed
+     * or hard-deleted. `undefined` and `[]` are different answers — the empty
+     * collection means "asked with no Sources", which the transcript discloses.
+     */
+    sourcesForMessage: (messageId: string) =>
+      recordsQuery.data?.find((record) => record.messageId === messageId)
+        ?.sources,
   };
 }
