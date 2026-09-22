@@ -2,7 +2,11 @@ import 'server-only';
 
 import { TRPCError } from '@trpc/server';
 
-import { DataSourceOwnershipError, DataSourceQuotaError } from './data-source';
+import {
+  DataSourceNameConflictError,
+  DataSourceOwnershipError,
+  DataSourceQuotaError,
+} from './data-source';
 import { assertThreadOwned, ThreadOwnershipError } from './ownership';
 
 // The single tRPC adapter for rag's transport-agnostic ownership rules — thread
@@ -74,16 +78,30 @@ export function mapDataSourceOwnershipError(error: unknown): never {
 }
 
 // The whole Data Source failure vocabulary in one catch: foreign/absent
-// ownership becomes FORBIDDEN (above), and hitting `MAX_DATA_SOURCES_PER_USER`
+// ownership becomes FORBIDDEN (above), hitting `MAX_DATA_SOURCES_PER_USER`
 // becomes TOO_MANY_REQUESTS — the code this repo already uses for "your
 // allowance is spent" (chat's credit exhaustion), rather than a BAD_REQUEST
-// that would read as a malformed call.
+// that would read as a malformed call — and a name already taken becomes
+// CONFLICT.
+//
+// The collision is the RACE backstop reaching the user: the client rejects a
+// duplicate name against its cached list before any request is sent, so the one
+// that gets here came from a list that was already stale (a second tab, a
+// retried create). It still has to read as something the user can act on, which
+// is what it did not do while the unique index surfaced as an
+// INTERNAL_SERVER_ERROR carrying the failed INSERT.
 //
 // Separate from `mapDataSourceOwnershipError` rather than folded into it,
 // because the assert-only surfaces (presign, rename, delete) cannot raise a
 // quota error and a mapper that claimed to handle one would invite the reader
 // to look for a cap that is not there. `create` is the only caller of this.
 export function mapDataSourceError(error: unknown): never {
+  if (error instanceof DataSourceNameConflictError) {
+    throw new TRPCError({
+      code: 'CONFLICT',
+      message: `You already have a data source called "${error.dataSourceName}"`,
+    });
+  }
   if (error instanceof DataSourceQuotaError) {
     throw new TRPCError({
       code: 'TOO_MANY_REQUESTS',

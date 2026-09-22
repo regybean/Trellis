@@ -14,12 +14,16 @@
  * - **Inline create rejecting a collision** without an optimistic row, because
  *   absorbing a name into an existing Source is the one outcome that silently
  *   puts documents somewhere the user did not choose.
+ * - **One commit is one create.** The rail commits on Enter AND on blur, and a
+ *   browser blurs a focused input the moment it is disabled — so the create's
+ *   own pending state used to hand the rail a second commit.
  *
  * `onUnhandledRequest: 'bypass'` because the page mounts the always-on progress
  * subscription (SSE), which can't connect in jsdom (mirrors chat/notifications).
  */
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { delay } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -391,6 +395,49 @@ describe('DocumentsPage', () => {
     ).toBeInTheDocument();
   });
 
+  it('creates once when the in-flight create blurs the field it disabled', async () => {
+    const created = source('44444444-4444-4444-8444-444444444444', 'Receipts');
+    const creates: string[] = [];
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+      trpcMsw.dataSources.create.mutation(async ({ input }) => {
+        creates.push(input.name);
+        // Long enough that the second commit lands while the first is still in
+        // flight, which is the whole window this pins.
+        await delay(80);
+        return created;
+      }),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /new data source/i }),
+    );
+    const input = screen.getByLabelText(/new data source name/i);
+    await user.type(input, 'Receipts{Enter}');
+
+    // The blur a real browser fires when `disabled={isCreating}` lands on the
+    // focused field. jsdom does not implement that half of the focus fixup
+    // rule, so the event is dispatched here rather than provoked — without it
+    // this case passes against the bug it exists to catch.
+    await waitFor(() => expect(input).toBeDisabled());
+    fireEvent.blur(input, { relatedTarget: null });
+
+    // The draft closing is the create having resolved, so any second create is
+    // already on the wire by now. A second one carries the same name under a
+    // freshly minted id: the unique index rejects it and the user is told their
+    // create failed for a Source that was in fact made.
+    await waitFor(() =>
+      expect(
+        screen.queryByLabelText(/new data source name/i),
+      ).not.toBeInTheDocument(),
+    );
+    expect(creates).toEqual(['Receipts']);
+  });
+
   it('disables inline create once the user is at the cap', async () => {
     server.use(
       trpcMsw.dataSources.list.query(() => THREE_SOURCES),
@@ -587,5 +634,34 @@ describe('DocumentsPage', () => {
       'You already have a data source called "Work notes".',
     );
     expect(screen.getByText('3/10')).toBeInTheDocument();
+  });
+  it('lists the chosen files under a trigger that always reads Choose files', async () => {
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /^Work notes/ }),
+    );
+    await user.click(screen.getByRole('button', { name: /upload documents/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const trigger = within(dialog).getByText('Choose files');
+
+    await user.upload(within(dialog).getByLabelText(/^files$/i), [
+      txtFile('a.txt'),
+      txtFile('b.txt'),
+    ]);
+
+    // The batch, named, in the dialog — not a count the browser appends to the
+    // trigger, which is all the bare native control ever shows.
+    expect(await within(dialog).findByText('a.txt')).toBeInTheDocument();
+    expect(within(dialog).getByText('b.txt')).toBeInTheDocument();
+    // And the trigger reads the same before and after the pick.
+    expect(trigger).toHaveTextContent('Choose files');
   });
 });

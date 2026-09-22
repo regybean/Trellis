@@ -88,6 +88,17 @@ export function DataSourceRail({
   };
 
   const commit = () => {
+    // A commit arriving while one is in flight is not a second commit, it is
+    // the same one arriving twice. `disabled={isCreating}` lands on the input
+    // the instant the mutation starts, and a browser blurs a focused element
+    // the moment it becomes disabled — so Enter is immediately followed by a
+    // `blur` with no `relatedTarget`, which reads as a finish and commits the
+    // draft again. The second create carries the same name under a freshly
+    // minted id, so the unique index rejects it: the user sees a raw SQL error
+    // for a Source that was in fact created. jsdom does not implement that
+    // blur, which is why the regression test dispatches it explicitly.
+    if (form.state.isSubmitting) return;
+
     // An empty draft is an abandonment, not a validation failure: there is
     // nothing to fix and nothing to tell the user about.
     if (form.state.values.name.trim().length === 0) {

@@ -53,7 +53,9 @@ _Avoid_: "auth check", "guard" (it's a domain rule any feature can reuse)
 A user-owned, private, named partition of the **knowledge base** (`data_source`, an
 **app-owned table**). Every chunk belongs to exactly one, carried as `data_source_id`
 in its metadata alongside `owner_id`. Capped per owner (`MAX_DATA_SOURCES_PER_USER`),
-names unique per owner case-insensitively, ids client-minted. Deleting one deletes
+names unique per owner case-insensitively (a collision raises
+`DataSourceNameConflictError`, which the tRPC seam maps to CONFLICT), ids
+client-minted. Deleting one deletes
 its chunks first and its row second, across two databases and therefore
 non-atomically. _Avoid_: "collection", "folder", "workspace", "namespace"
 

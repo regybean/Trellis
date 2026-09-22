@@ -2,7 +2,7 @@ import { RequestContext } from '@mastra/core/request-context';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { z } from 'zod';
 
-import { createDb } from '@acme/db';
+import { createDb, isUniqueViolation } from '@acme/db';
 import { logger } from '@acme/logger';
 
 import { env } from './env';
@@ -60,6 +60,23 @@ export class DataSourceOwnershipError extends Error {
     );
     this.name = 'DataSourceOwnershipError';
     this.dataSourceIds = dataSourceIds;
+  }
+}
+
+/**
+ * The owner already has a Data Source under this name, case-insensitively.
+ *
+ * Named rather than left as the raw driver error, because the unique index is
+ * reachable by ordinary use — a second tab, a retried create — and the caller
+ * cannot tell a collision from a dead database without it. The name is carried
+ * so the message can quote what the user typed.
+ */
+export class DataSourceNameConflictError extends Error {
+  readonly dataSourceName: string;
+  constructor(name: string) {
+    super(`A data source named ${name} already exists`);
+    this.name = 'DataSourceNameConflictError';
+    this.dataSourceName = name;
   }
 }
 
@@ -289,12 +306,16 @@ export async function listDataSources({ ownerId }: { ownerId: string }) {
  * Count-then-insert is not serialised. Two creates racing at the cap can both
  * pass and leave an owner with one Source too many, which is benign — it is a
  * quota, not the privacy boundary, and the failure is a slightly long picker
- * rather than a leak. A name collision is NOT handled here: the unique index
- * raises it, deliberately, because the client validates against its cached list
- * first and this constraint is only the race backstop. Absorbing a collision
- * into the existing Source is the one thing that must not happen — the user
- * believes they created a fresh, unselected Source while their documents land in
- * one that may already be ticked in an open conversation.
+ * rather than a leak.
+ *
+ * A name collision is NAMED here and nothing more. The unique index still
+ * raises it, deliberately — the client validates against its cached list first,
+ * so this constraint is only the race backstop — and absorbing the collision
+ * into the existing Source is the one thing that must not happen: the user
+ * believes they created a fresh, unselected Source while their documents land
+ * in one that may already be ticked in an open conversation. But an unnamed
+ * backstop reaches the user as `Failed query: insert into ...` in a toast, so
+ * the driver error is translated into a domain failure the transport can map.
  */
 export async function createDataSource({
   ownerId,
@@ -314,10 +335,18 @@ export async function createDataSource({
     throw new DataSourceQuotaError(env.MAX_DATA_SOURCES_PER_USER);
   }
 
+  const parsedName = DataSourceName.parse(name);
+
   const [created] = await db
     .insert(dataSource)
-    .values({ id, ownerId, name: DataSourceName.parse(name) })
-    .returning();
+    .values({ id, ownerId, name: parsedName })
+    .returning()
+    .catch((error: unknown) => {
+      if (isUniqueViolation(error, 'data_source_owner_name_unique')) {
+        throw new DataSourceNameConflictError(parsedName);
+      }
+      throw error;
+    });
 
   if (!created) {
     throw new Error(`Failed to create data source ${id}`);

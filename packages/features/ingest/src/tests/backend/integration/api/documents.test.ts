@@ -415,6 +415,25 @@ describe('dataSourcesRouter', () => {
     ).rejects.toMatchObject({ code: 'TOO_MANY_REQUESTS' });
   });
 
+  it('rejects a colliding create as a CONFLICT the user can read', async () => {
+    // The client rejects a duplicate against its cached list, so anything that
+    // gets here raced that check — a second tab, a retried create. It still has
+    // to arrive as a stated conflict: unmapped, the unique index surfaced as an
+    // INTERNAL_SERVER_ERROR whose message was the failed INSERT, parameters
+    // included.
+    await seedSource(userA, 'Work notes');
+
+    await expect(
+      createCaller(userA).dataSources.create({
+        id: crypto.randomUUID(),
+        name: 'work notes',
+      }),
+    ).rejects.toMatchObject({
+      code: 'CONFLICT',
+      message: 'You already have a data source called "work notes"',
+    });
+  });
+
   it('hands the caps over as rag holds them, carrying no authority', async () => {
     // The client's checks are advisory, so what this procedure owes is the
     // CURRENT numbers rather than a copy: hardcoding them here or in the

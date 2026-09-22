@@ -7,6 +7,7 @@ import 'server-only';
 export {
   assertDataSourceOwned,
   createDataSource,
+  DataSourceNameConflictError,
   DataSourceOwnershipError,
   DataSourceQuotaError,
   deleteDataSource,

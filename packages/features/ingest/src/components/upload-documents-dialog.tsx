@@ -190,15 +190,33 @@ export function UploadDocumentsDialog({
               {(field) => (
                 <div className="space-y-1.5">
                   <Label htmlFor="documents-upload-input">Files</Label>
-                  <Input
+                  {/* Only the native control can open the picker, so it stays —
+                      but it also renders its own trigger text and appends
+                      "2 files" beside it, both in shadow DOM we can neither
+                      restyle nor extend. So it goes sr-only, a label styled as a
+                      button becomes the trigger with text that never changes,
+                      and the batch is named below it where there is room. */}
+                  <input
                     id="documents-upload-input"
                     type="file"
                     multiple
                     accept={accept}
+                    className="sr-only"
                     onChange={(evt) =>
                       field.handleChange([...(evt.target.files ?? [])])
                     }
                   />
+                  <div className="flex flex-col items-start gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <label
+                        htmlFor="documents-upload-input"
+                        className="cursor-pointer"
+                      >
+                        Choose files
+                      </label>
+                    </Button>
+                    <ChosenFiles files={field.state.value} />
+                  </div>
                   <FieldError errors={field.state.meta.errors} />
                 </div>
               )}
@@ -299,5 +317,25 @@ function FieldError({ errors }: { errors: readonly unknown[] }) {
     <p role="alert" className="text-destructive text-xs">
       {message}
     </p>
+  );
+}
+
+/**
+ * The batch, named. The native control says only "2 files" and says it beside
+ * its own trigger, so the names live here instead — the one spot in the field
+ * with room for them. Keyed by position because the value is replaced whole on
+ * every pick and never reordered, and two files picked from different folders
+ * can share a name.
+ */
+function ChosenFiles({ files }: { files: File[] }) {
+  if (files.length === 0) return null;
+  return (
+    <ul className="text-muted-foreground w-full space-y-0.5 text-xs">
+      {files.map((file, index) => (
+        <li key={`${index}-${file.name}`} className="truncate">
+          {file.name}
+        </li>
+      ))}
+    </ul>
   );
 }

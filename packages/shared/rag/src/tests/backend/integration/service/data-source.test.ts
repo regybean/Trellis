@@ -26,6 +26,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   assertDataSourceOwned,
   createDataSource,
+  DataSourceNameConflictError,
   DataSourceOwnershipError,
   DataSourceQuotaError,
   deleteDataSource,
@@ -70,18 +71,35 @@ describe('data source module (integration)', () => {
   });
 
   describe('name rules', () => {
+    // The error TYPE is the assertion, not merely that something threw. The
+    // unique index is the race backstop, so what it raises is what a second tab
+    // gets told: unnamed, it reached the user as an INTERNAL_SERVER_ERROR
+    // carrying the failed INSERT.
     it('rejects a second Source whose name differs only in case', async () => {
       const ownerId = newOwner();
       await source(ownerId, 'Work Notes');
 
-      await expect(source(ownerId, 'work notes')).rejects.toThrow();
+      await expect(source(ownerId, 'work notes')).rejects.toThrow(
+        DataSourceNameConflictError,
+      );
     });
 
     it('rejects a second Source whose name differs only in surrounding whitespace', async () => {
       const ownerId = newOwner();
       await source(ownerId, 'Work Notes');
 
-      await expect(source(ownerId, '  Work Notes  ')).rejects.toThrow();
+      await expect(source(ownerId, '  Work Notes  ')).rejects.toThrow(
+        DataSourceNameConflictError,
+      );
+    });
+
+    it('names the collision with the name as it was trimmed', async () => {
+      const ownerId = newOwner();
+      await source(ownerId, 'Work Notes');
+
+      await expect(source(ownerId, '  work notes  ')).rejects.toMatchObject({
+        dataSourceName: 'work notes',
+      });
     });
 
     it('stores the case the user typed', async () => {
