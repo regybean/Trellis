@@ -30,7 +30,7 @@ The **columns** prove portability — the same slices under two frameworks, diff
 | Feature                                                    | What it does                                                                                                                                                                                                                                                           | Status |
 | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | [`@acme/chat`](../packages/features/chat/CONTEXT.md)       | LLM chat: SSE streaming, persistent conversation history, RAG over the knowledge base. The Mastra agent + Mastra instance live here.                                                                                                                                   | ✅     |
-| [`@acme/ingest`](../packages/features/ingest/CONTEXT.md)   | Admin-only knowledge-base management: upload `.pdf` / `.docx` / `.txt`, parsed and indexed into the vector store.                                                                                                                                                      | ✅     |
+| [`@acme/ingest`](../packages/features/ingest/CONTEXT.md)   | Each user's own knowledge base: upload `.pdf` / `.docx` / `.txt` into a **Data Source** they own, parsed and indexed into the vector store. Every procedure is owner-scoped — there is no admin gate.                                                                  | ✅     |
 | [`@acme/billing`](../packages/features/billing/CONTEXT.md) | Stripe-backed subscriptions (Basic / Standard / Pro), credit-based rate limiting, checkout, billing portal, admin credit tools. Runs against [`localstripe`](../packages/features/billing/docs/adr/0001-localstripe-dev-billing.md) in dev — no Stripe account needed. | ✅     |
 
 ## Shared — reusable primitives
@@ -59,7 +59,7 @@ The **columns** prove portability — the same slices under two frameworks, diff
 
 ## Assembled UI — app-owned
 
-There is no compositions layer ([ADR 0011](adr/0011-remove-compositions-layer.md)). Framework-specific shell/chrome lives in the **app** (e.g. `tanstack-start`'s console shell). The admin dashboard each app needs assembles `@acme/billing` + `@acme/ingest` + auth-role pieces in its own `src/components/admin/`; genuinely shared, stateless presentational pieces belong in `@acme/ui`. A new shared UI assembly that can't live in an app or `@acme/ui` requires an ADR.
+There is no compositions layer ([ADR 0011](adr/0011-remove-compositions-layer.md)). Framework-specific shell/chrome lives in the **app** (e.g. `tanstack-start`'s console shell). The admin dashboard each app needs assembles `@acme/billing` + auth-role pieces in its own `src/components/admin/` — it is about other people, so `@acme/ingest` is not part of it and mounts on the app's own user-facing `/documents` route instead; genuinely shared, stateless presentational pieces belong in `@acme/ui`. A new shared UI assembly that can't live in an app or `@acme/ui` requires an ADR.
 
 ## Tooling — shared configs & test infra
 
@@ -225,7 +225,19 @@ The honest answer to "how easily can I change X?". This is the practical side of
 ### Medium — there's a seam, but it costs something
 
 - **Run a feature on a new React framework.** Features and shared packages are runtime-agnostic, but the **adapter** is per-app and must be written: the route handler that mounts the tRPC router, the client URL resolution, and the auth-context resolver ([ADR 0003 auth seam](../packages/shared/auth/docs/adr/0003-framework-agnostic-auth-seam.md)). That's the honest boundary — "framework-agnostic where it counts."
-- **Change the embedding model.** It fixes the vector dimension, so `EMBED_DIMENSIONS` changes mean re-pushing the vector schema (`pnpm db:push`). A mismatch fails up front with an actionable error, not a raw pgvector crash.
+- **Change the embedding model.** It fixes the vector dimension, so an `EMBED_DIMENSIONS` change means rebuilding the knowledge-base index. A mismatch fails up front with an actionable error naming the sequence, not a raw pgvector crash. The sequence is the one under [Reindexing](#reindexing) — **not** a `pnpm db:push`, which does not reach the vector database at all.
+
+#### Reindexing
+
+The vector database has no in-place upgrade path, and two kinds of change force a rebuild: a new embedding model (the dimension changes) and a change to how chunk ids are derived (every id changes). The second happened when Data Sources landed — `deriveChunkId` took on the owner and the Source, so every `vector_id` written before the partition existed is now wrong.
+
+Either way it is three steps:
+
+1. **Drop the knowledge-base index** in the vector database — `DROP TABLE "<NEXT_PUBLIC_WEBAPP>"."mastra_documents"`, or drop the whole vector database if it holds nothing else. There is no vector `pnpm db:push`: Mastra owns that table's DDL end to end ([@acme/rag ADR 0001](../packages/shared/rag/docs/adr/0001-mastra-rag-and-memory.md)).
+2. **Restart.** `ensureVectorIndex` recreates the table at boot, empty and at the current dimension.
+3. **Re-upload.** Run `pnpm db:push` first if the _app_ database also changed — Data Sources added `data_source` and `message_data_source` there — then upload the documents again.
+
+**Nothing detects this for you, and that is deliberate.** A dimension mismatch is caught up front because `describeIndex` reports the dimension, so the check is one read. A stale chunk id is not comparable: chunks written before the partition simply carry no `owner_id`, so they match no retrieval filter and become invisible ballast. They are never returned to anyone and never leak — they are only dead rows taking up space. Writing a detector would mean scanning the corpus for a metadata key's absence on every boot, to warn about data that is already inert. So the failure is silent, the reasoning is written down here instead, and someone who reindexes gets a smaller table and their documents back.
 
 ### Load-bearing — changing these reshapes the template
 

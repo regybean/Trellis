@@ -1,6 +1,7 @@
 'use client';
 
 import { revalidateLogic, useForm, useSelector } from '@tanstack/react-form';
+import { X } from 'lucide-react';
 
 import {
   Button,
@@ -28,6 +29,7 @@ import {
   uploadDocumentsSchema,
   uploadSlots,
 } from '../lib/upload-destination';
+import { appendFiles, fileKey } from '../lib/upload-validation';
 
 /**
  * One upload dialog, two modes, and never a modal inside a modal.
@@ -202,9 +204,17 @@ export function UploadDocumentsDialog({
                     multiple
                     accept={accept}
                     className="sr-only"
-                    onChange={(evt) =>
-                      field.handleChange([...(evt.target.files ?? [])])
-                    }
+                    onChange={(evt) => {
+                      field.handleChange(
+                        appendFiles(field.state.value, [
+                          ...(evt.target.files ?? []),
+                        ]),
+                      );
+                      // Clear the control, or a file removed from the list
+                      // below cannot be re-picked: the native input fires no
+                      // change when the same selection is chosen twice.
+                      evt.target.value = '';
+                    }}
                   />
                   <div className="flex flex-col items-start gap-2">
                     <Button asChild variant="outline" size="sm">
@@ -215,7 +225,14 @@ export function UploadDocumentsDialog({
                         Choose files
                       </label>
                     </Button>
-                    <ChosenFiles files={field.state.value} />
+                    <ChosenFiles
+                      files={field.state.value}
+                      onRemove={(file) =>
+                        field.handleChange(
+                          field.state.value.filter((each) => each !== file),
+                        )
+                      }
+                    />
                   </div>
                   <FieldError errors={field.state.meta.errors} />
                 </div>
@@ -321,19 +338,35 @@ function FieldError({ errors }: { errors: readonly unknown[] }) {
 }
 
 /**
- * The batch, named. The native control says only "2 files" and says it beside
- * its own trigger, so the names live here instead — the one spot in the field
- * with room for them. Keyed by position because the value is replaced whole on
- * every pick and never reordered, and two files picked from different folders
- * can share a name.
+ * The batch, named, and each row removable. The native control says only
+ * "2 files" and says it beside its own trigger, so the names live here instead
+ * — the one spot in the field with room for them, and the only place a user can
+ * drop one file without re-picking the whole batch.
+ *
+ * Keyed by identity rather than position, because a removal shifts every index
+ * after it; `appendFiles` is what makes that key unique.
  */
-function ChosenFiles({ files }: { files: File[] }) {
+function ChosenFiles({
+  files,
+  onRemove,
+}: {
+  files: File[];
+  onRemove: (file: File) => void;
+}) {
   if (files.length === 0) return null;
   return (
-    <ul className="text-muted-foreground w-full space-y-0.5 text-xs">
-      {files.map((file, index) => (
-        <li key={`${index}-${file.name}`} className="truncate">
-          {file.name}
+    <ul className="w-full space-y-0.5 text-xs">
+      {files.map((file) => (
+        <li key={fileKey(file)} className="flex items-center gap-1">
+          <span className="text-muted-foreground truncate">{file.name}</span>
+          <button
+            type="button"
+            aria-label={`Remove ${file.name}`}
+            onClick={() => onRemove(file)}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+          >
+            <X className="size-3" />
+          </button>
         </li>
       ))}
     </ul>

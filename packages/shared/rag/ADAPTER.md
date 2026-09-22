@@ -9,6 +9,17 @@ from its migration tool.
 ## What it gives you
 
 - A vector store over Postgres, so retrieval needs no second database.
+- **Data Sources** — the user-owned partitions the knowledge base is divided
+  into, with their table, their caps, and every read and write of them behind one
+  server-only module. A feature that manages them (`@acme/ingest`) and a feature
+  that retrieves from them (`@acme/chat`) both reach them here rather than each
+  holding their own database client.
+- **Retrieval scope** — `resolveRetrievalScope` turns a caller's chosen Source
+  ids into the trusted request context an agent is given: the metadata filter,
+  built from the verified `userId` and never from the request, plus the
+  server-pinned `topK`. That filter is the privacy boundary, so the filter
+  builder is deliberately not exported
+  ([ADR 0006](docs/adr/0006-the-retrieval-filter-is-the-privacy-boundary.md)).
 - Conversational memory — recent turns plus semantic recall — that features read
   without managing history themselves.
 - Text extraction from uploaded documents, and chunking with configurable size
@@ -16,23 +27,28 @@ from its migration tool.
 - `ensureVectorIndex` — the boot-time call that creates the knowledge-base index
   if it is absent.
 - Thread-ownership assertions, so a feature cannot read a conversation
-  belonging to another principal.
+  belonging to another principal, and the matching Data Source ownership rule in
+  both its forms — rejecting for a mutation, narrowing for a retrieval scope
+  ([ADR 0005](docs/adr/0005-retrieval-scope-narrows-rather-than-rejects.md)).
 
 ## Surface
 
-| Import                     | What's in it                           | Runs   |
-| -------------------------- | -------------------------------------- | ------ |
-| `@acme/rag`                | Vector store, memory, ownership checks | server |
-| `@acme/rag/server`         | Extraction, chunking, index creation   | server |
-| `@acme/rag/schema`         | The memory tables, for querying        | client |
-| `@acme/rag/ownership-trpc` | Ownership guards for procedures        | server |
-| `@acme/rag/env`            | This package's env factory             | either |
+| Import                     | What's in it                                        | Runs   |
+| -------------------------- | --------------------------------------------------- | ------ |
+| `@acme/rag`                | Vector store, memory, thread ownership              | server |
+| `@acme/rag/server`         | Data Sources, retrieval scope, extraction, indexing | server |
+| `@acme/rag/schema`         | The memory tables and `data_source`, for querying   | client |
+| `@acme/rag/ownership-trpc` | Ownership guards for procedures                     | server |
+| `@acme/rag/env`            | This package's env factory                          | either |
 
 ## Wiring
 
 - Call `ensureVectorIndex` at boot, in the same place you initialise telemetry,
   and in your worker entrypoint too — reads do not create the index
   ([ADR 0002](docs/adr/0002-knowledge-base-index-provisioned-at-boot.md)).
+- Re-export `dataSource` from `@acme/rag/schema` in your app's schema barrel, so
+  drizzle-kit pushes it. It is an **app-owned** table, unlike everything else
+  here — [schema.md](../../../docs/mounting/schema.md).
 - Do **not** re-export the memory tables from your schema barrel. The library
   owns their DDL and creates them at runtime; handing them to your migration
   tool makes the next push drop them. Exclude them by name pattern in your
@@ -49,9 +65,15 @@ from its migration tool.
 | -------------------- | ------ | ----------------------------------------------- |
 | `NEXT_PUBLIC_WEBAPP` | secret | Your app's identity — becomes its schema prefix |
 
-Plus six profile-authored tunables: the vector database name, chunk size and
-overlap, and the memory recall bounds. Each is overridable by an environment
-variable of the same name. See `src/env.ts`.
+Plus nine profile-authored tunables: the vector database name, chunk size and
+overlap, the memory recall bounds, the two Data Source caps (per user, and
+Documents per Source) and the retrieval `topK`. Each is overridable by an
+environment variable of the same name. See `src/env.ts`.
+
+The caps and `topK` live here rather than in the features that enforce them,
+because this package owns the entity they bound — `@acme/ingest` reads the caps
+at presign, and `topK` is pinned into every retrieval scope so the number is the
+server's rather than the model's.
 
 ## Infra
 
