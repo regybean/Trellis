@@ -31,11 +31,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     // (@acme/env ADR 0001) and threaded to the client through the BillingConfigProvider seam
     // below.
     beforeLoad: async () => {
-      const [{ userId, user }, localstripeMode] = await Promise.all([
+      const [{ userId, role, user }, localstripeMode] = await Promise.all([
         getAuthState(),
         getLocalstripeMode(),
       ]);
-      return { userId, user, localstripeMode };
+      return { userId, role, user, localstripeMode };
     },
     head: () => ({
       meta: [
@@ -76,7 +76,7 @@ function RootComponent() {
  * gets.
  */
 function RootDocument({ children }: { children: ReactNode }) {
-  const { userId, user, localstripeMode } = Route.useRouteContext();
+  const { userId, role, user, localstripeMode } = Route.useRouteContext();
 
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
@@ -98,7 +98,9 @@ function RootDocument({ children }: { children: ReactNode }) {
                 <PersistedFeatureProviders scopeKey={userId ?? undefined}>
                   <NotificationsProvider>
                     <TooltipProvider>
-                      <ConsoleShell user={user}>{children}</ConsoleShell>
+                      <ConsoleShell user={user} role={role}>
+                        {children}
+                      </ConsoleShell>
                       <ToastThemeClient />
                     </TooltipProvider>
                   </NotificationsProvider>

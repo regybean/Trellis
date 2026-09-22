@@ -1,10 +1,25 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { CreditCard, Monitor, Moon, Shield, Sun } from 'lucide-react';
 
-import { Button, cn, UserButton } from '@acme/ui';
+import {
+  NavCreditBalance,
+  NavUserSubscription,
+  useBillingConfig,
+} from '@acme/billing';
+import {
+  Button,
+  cn,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  StripeIcon,
+  UserButton,
+  useTheme,
+} from '@acme/ui';
 
 import { authClient } from '~/lib/auth-client';
 
@@ -117,6 +132,12 @@ export function EditorialShell({ children }: { children: ReactNode }) {
 function AuthControls() {
   const { data: session, isPending } = authClient.useSession();
   const router = useRouter();
+  const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
+  // The billing-portal URL arrives through the provider the root layout mounts,
+  // not from this app's own env: what the browser may read is what the server
+  // threaded across the SSR boundary.
+  const billing = useBillingConfig();
+  const { theme, setTheme } = useTheme();
 
   if (isPending) return null;
 
@@ -147,14 +168,66 @@ function AuthControls() {
     }
   };
 
+  // Reading the role in the browser is a convenience, never the gate. The role
+  // is a column on the user row rather than a cookie claim, so this decides
+  // whether an entry is *offered*; `/admin` re-resolves the session server-side
+  // and redirects anyone who arrives without the role.
+  const isAdmin = session.user.role === 'admin';
+
+  // One entry cycling light → dark → system, which is what the pre-rewrite menu
+  // did. A cycle rather than a submenu because there are three states and the
+  // label already says which one is current.
+  const themeCycle = {
+    light: { label: 'Light', next: 'dark', Icon: Sun },
+    dark: { label: 'Dark', next: 'system', Icon: Moon },
+    system: { label: 'System', next: 'light', Icon: Monitor },
+  } as const;
+  const current =
+    themeCycle[theme === 'dark' || theme === 'light' ? theme : 'system'];
+
   return (
-    <UserButton
-      user={{
-        name: session.user.name,
-        email: session.user.email,
-        imageUrl: session.user.image,
-      }}
-      onSignOut={() => void handleSignOut()}
-    />
+    <>
+      <UserButton
+        user={{
+          name: session.user.name,
+          email: session.user.email,
+          imageUrl: session.user.image,
+        }}
+        onSignOut={() => void handleSignOut()}
+        menuItems={
+          <>
+            <NavCreditBalance />
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => setSubscriptionModalOpen(true)}>
+              <CreditCard />
+              View Subscription Details
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() =>
+                window.open(billing.STRIPE_MANAGE_BILLING_URL, '_blank')
+              }
+            >
+              <StripeIcon />
+              Manage Billing
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setTheme(current.next)}>
+              <current.Icon />
+              Theme: {current.label}
+            </DropdownMenuItem>
+            {isAdmin && (
+              <DropdownMenuItem onSelect={() => router.push('/admin')}>
+                <Shield />
+                Admin
+              </DropdownMenuItem>
+            )}
+          </>
+        }
+      />
+
+      <NavUserSubscription
+        isOpen={subscriptionModalOpen}
+        onOpenChange={setSubscriptionModalOpen}
+      />
+    </>
   );
 }

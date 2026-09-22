@@ -6,11 +6,15 @@ Stripe-backed subscription management and credit-based rate limiting. Owns the c
 
 **Subscription**:
 A user's current Stripe subscription state. One of three tiers: Basic (free, no Stripe subscription), Standard, or Pro. Cached in Redis via `@acme/subscriptions`.
-_Avoid_: "plan", "license", "account type"
+_Avoid_: "plan" (see Tier for the one place that word is sanctioned), "license", "account type"
 
 **Current subscription**:
 The one of a customer's Stripe subscriptions that the app reports as theirs. A customer can hold several — a Tier change cancels the predecessor before creating the replacement — so `selectCurrentSubscription` names it by status precedence then recency, never by the order Stripe listed them in. The only subscription that reaches the Redis cache.
 _Avoid_: "the latest subscription", "the first subscription", "the active subscription" (a dunning or canceled one can be the current one)
+
+**Plan**:
+The customer-facing name for a Tier, and the only sanctioned use of the word. Code, comments and docs say Tier; text a customer reads says Plan, because nobody outside this repo calls their subscription level a tier. The pricing page and the account modal already read this way.
+_Avoid_: "plan" as a synonym for Tier anywhere a customer will not read it
 
 **Tier**:
 The named level of a Subscription — `Basic` | `Standard` | `Pro`. An ordered hierarchy (`Basic < Standard < Pro`): a higher tier satisfies any lower-tier gate. Determines the Credit limit and which procedures are accessible.

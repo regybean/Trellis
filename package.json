@@ -73,6 +73,7 @@
     "prepare": "lefthook install",
     "quality-gate": "pnpm --filter @acme/quality-gate quality-gate",
     "gitleaks": "if command -v gitleaks >/dev/null 2>&1; then gitleaks git --no-banner --redact --config .gitleaks.toml .; else echo '⚠️  gitleaks not installed; skipping (CI enforces). Install: brew install gitleaks'; fi",
+    "promote:admin": "pnpm with-env pnpm --filter @acme/auth promote:admin",
     "seed:localstripe": "pnpm with-env pnpm --filter @acme/billing seed:localstripe",
     "setup:wizard": "pnpm --filter @acme/bank setup:wizard",
     "studio": "pnpm with-env pnpm --filter @acme/chat studio",
