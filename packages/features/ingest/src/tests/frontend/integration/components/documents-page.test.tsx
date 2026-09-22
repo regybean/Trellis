@@ -664,4 +664,41 @@ describe('DocumentsPage', () => {
     // And the trigger reads the same before and after the pick.
     expect(trigger).toHaveTextContent('Choose files');
   });
+
+  it('appends a second pick to the batch and removes a file from it', async () => {
+    server.use(
+      trpcMsw.dataSources.list.query(() => THREE_SOURCES),
+      trpcMsw.documents.list.query(() => TWO_DOCS),
+    );
+
+    const user = userEvent.setup();
+    renderPage();
+
+    await user.click(
+      await screen.findByRole('button', { name: /^Work notes/ }),
+    );
+    await user.click(screen.getByRole('button', { name: /upload documents/i }));
+
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText(/^files$/i);
+
+    await user.upload(input, [txtFile('a.txt')]);
+    // A second trip to the picker adds to the batch rather than replacing it.
+    await user.upload(input, [txtFile('b.txt')]);
+
+    expect(await within(dialog).findByText('b.txt')).toBeInTheDocument();
+    expect(within(dialog).getByText('a.txt')).toBeInTheDocument();
+
+    await user.click(
+      within(dialog).getByRole('button', { name: 'Remove a.txt' }),
+    );
+
+    expect(within(dialog).queryByText('a.txt')).not.toBeInTheDocument();
+    expect(within(dialog).getByText('b.txt')).toBeInTheDocument();
+
+    // Removed, then re-picked: the input is cleared after each pick, so the
+    // same file still fires a change.
+    await user.upload(input, [txtFile('a.txt')]);
+    expect(await within(dialog).findByText('a.txt')).toBeInTheDocument();
+  });
 });

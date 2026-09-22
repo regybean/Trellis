@@ -46,6 +46,14 @@ function DialogOverlay({
   );
 }
 
+/**
+ * `grid-cols-[minmax(0,1fr)]` is load-bearing, not cosmetic. The default `auto`
+ * track takes its minimum from the content, so one unbreakable string anywhere
+ * inside — a `truncate`d filename, a long URL — widens the track past the
+ * dialog's own `max-w`, and every row in the grid rides out with it, footer
+ * buttons included. Pinning the minimum to 0 makes the track the box, which is
+ * also what lets a descendant's `truncate` have something to truncate against.
+ */
 function DialogContent({
   className,
   children,
@@ -60,7 +68,7 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
+          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] grid-cols-[minmax(0,1fr)] gap-4 rounded-lg border p-6 shadow-lg duration-200 sm:max-w-lg',
           className,
         )}
         {...props}
