@@ -13,6 +13,9 @@ payment returns through your app rather than only through a request.
 - Plan ids mapped onto entitlements, so mounting this alongside
   `@acme/subscriptions` is what makes metered features meter for real.
 - Admin views for tiers and rate limits, and a widget showing the current plan.
+- A credit-balance row for your signed-in menu (`NavCreditBalance`), showing the
+  viewer's plan and remaining credits. This package owns how it reads; you own
+  where it sits ([ADR 0002](docs/adr/0002-credit-balance-display-belongs-to-billing.md)).
 - A tRPC router and context factory, plus a webhook handler.
 
 ## Surface
@@ -35,6 +38,9 @@ and renders that result its own way.
   [provider.md](../../../docs/mounting/provider.md).
 - Mount the **webhook** as its own route, outside the tRPC seam. Stripe posts a
   signed body to it, so it needs the raw request and no session.
+- Pass `PricingPage` an `adminPath` only when the viewer may follow it. The
+  dev-mode banner links there to set a tier, and this package cannot see who is
+  viewing, so an unconditional link sends non-admins to a page that rejects them.
 - Give it three pages of yours: pricing, checkout success and checkout cancel.
   The success and cancel paths are configured values, so they must match the
   routes you actually created — [ui.md](../../../docs/mounting/ui.md).

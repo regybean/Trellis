@@ -210,4 +210,39 @@ describe('PricingPage', () => {
       await screen.findByText(/redirecting to stripe dashboard/i),
     ).toBeInTheDocument();
   });
+
+  // The dev banner's link goes to the tier setter, which only an admin can use.
+  // This package cannot see the viewer's role, so the app supplies the path and
+  // supplies it only to an admin; the link used to be hardcoded, which sent
+  // everyone else to a page that bounces them home.
+  describe('dev-mode banner', () => {
+    beforeEach(() => {
+      setAuth({ signedIn: true });
+    });
+
+    it('links to the admin page when the app supplies the path', async () => {
+      server.use(basicSubscription());
+
+      renderWithProviders(<PricingPage adminPath="/admin" />, {
+        localstripeMode: true,
+      });
+
+      expect(
+        await screen.findByRole('link', { name: 'admin page' }),
+      ).toHaveAttribute('href', '/admin');
+    });
+
+    it('renders no link when the app supplies no path', async () => {
+      server.use(basicSubscription());
+
+      renderWithProviders(<PricingPage />, { localstripeMode: true });
+
+      expect(
+        await screen.findByText(/checkout is unavailable/i),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'admin page' }),
+      ).not.toBeInTheDocument();
+    });
+  });
 });

@@ -53,7 +53,13 @@ openssl rand -base64 32
 
 Sign-up and sign-in are in-app at `/sign-up` and `/sign-in` — email and password, against your own handler. That is the only method wired: no social provider, and no email transport, so nothing sends a password-reset or verification mail. In dev, a forgotten password means signing up again or editing the row.
 
-**Roles** — admin-only actions (managing other people: user search, role promotion, the billing tools on `/admin`) are gated on a `role` (`admin` | `user` — the `Roles` union in [`@acme/trpc`](../packages/platform/trpc/src/index.ts)). `role` is a nullable column on the user row, not a token claim: signing up leaves it empty, which reads as an ordinary non-admin user. Once you have one admin, promote others from the app's `/admin` page. Seeding that **first** admin is a database write by definition — the promote endpoint requires an existing admin to call it:
+**Roles** — admin-only actions (managing other people: user search, role promotion, the billing tools on `/admin`) are gated on a `role` (`admin` | `user` — the `Roles` union in [`@acme/trpc`](../packages/platform/trpc/src/index.ts)). `role` is a nullable column on the user row, not a token claim: the admin plugin writes `user` on sign-up. Once you have one admin, promote others from the app's `/admin` page. Seeding that **first** admin is a database write by definition — the promote endpoint requires an existing admin to call it:
+
+```bash
+pnpm promote:admin you@example.com
+```
+
+That refuses to run unless `APP_ENV` is development, because it is a local convenience and nothing more. On a real deployment, promote the first admin against its database directly:
 
 ```sql
 UPDATE auth."user" SET role = 'admin' WHERE email = 'you@example.com';

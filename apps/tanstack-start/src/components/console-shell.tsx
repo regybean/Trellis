@@ -2,11 +2,27 @@ import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { FileText, MessageSquare, SquareTerminal, Tag } from 'lucide-react';
+import {
+  FileText,
+  MessageSquare,
+  Shield,
+  SquareTerminal,
+  Tag,
+} from 'lucide-react';
 
 import type { UserButtonUser } from '@acme/ui';
-import { NavUserSubscription, useBillingConfig } from '@acme/billing';
-import { Button, DropdownMenuItem, StripeIcon, UserButton } from '@acme/ui';
+import {
+  NavCreditBalance,
+  NavUserSubscription,
+  useBillingConfig,
+} from '@acme/billing';
+import {
+  Button,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  StripeIcon,
+  UserButton,
+} from '@acme/ui';
 
 import { authClient } from '../lib/auth-client';
 import { StatusBar } from './status-bar';
@@ -44,12 +60,20 @@ const navItems: NavItem[] = [
  * `__root`'s `beforeLoad` and passed down as a prop. A prop rather than a
  * client-side session read, so the rail paints the right state immediately
  * instead of rendering signed-out first and swapping on hydration (@acme/auth ADR 0001).
+ *
+ * `role` arrives the same way and for the same reason, and it is threaded as a
+ * prop rather than read from this app's auth client on purpose: that client is
+ * deliberately plugin-free (see `lib/auth-client.ts`), so `role` is not typed on
+ * its session. It decides whether the admin entry is *offered*; the `/admin`
+ * route's `beforeLoad` is the gate.
  */
 export function ConsoleShell({
   user,
+  role,
   children,
 }: {
   user: UserButtonUser | null;
+  role: string | null;
   children: ReactNode;
 }) {
   const [subscriptionModalOpen, setSubscriptionModalOpen] = useState(false);
@@ -112,6 +136,8 @@ export function ConsoleShell({
               onSignOut={() => void signOut()}
               menuItems={
                 <>
+                  <NavCreditBalance />
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onSelect={() => setSubscriptionModalOpen(true)}
                   >
@@ -126,6 +152,14 @@ export function ConsoleShell({
                     <StripeIcon />
                     Manage Billing
                   </DropdownMenuItem>
+                  {role === 'admin' && (
+                    <DropdownMenuItem
+                      onSelect={() => void navigate({ to: '/admin' })}
+                    >
+                      <Shield />
+                      Admin
+                    </DropdownMenuItem>
+                  )}
                 </>
               }
             />

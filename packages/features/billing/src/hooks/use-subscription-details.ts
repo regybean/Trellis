@@ -32,5 +32,8 @@ export function useSubscriptionDetails() {
     subscriptionData: subscription.data,
     creditUsageData: creditUsage.data,
     isLoading: subscription.isPending || creditUsage.isPending,
+    // Either read failing is a failure of the pair: both describe one account,
+    // and a Plan with no balance beside it is a worse answer than no answer.
+    isError: subscription.isError || creditUsage.isError,
   };
 }

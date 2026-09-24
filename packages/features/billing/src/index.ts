@@ -15,3 +15,4 @@ export { SubscriptionDetailsModal } from './components/subscription-details-moda
 export type { AppRouter as BillingAppRouter } from './api/root';
 
 export { NavUserSubscription } from './components/nav-user-subscription';
+export { NavCreditBalance } from './components/nav-credit-balance';

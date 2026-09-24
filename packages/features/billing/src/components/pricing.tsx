@@ -16,7 +16,21 @@ import { getTierColors } from '../data/pricing-data';
 import { usePricing } from '../hooks/use-pricing';
 import { ButtonSkeleton } from './pricing-components';
 
-export function PricingPage() {
+/**
+ * `adminPath` is how the dev-mode banner below gets a link to the tier setter.
+ *
+ * A path rather than a role flag, and absent by default, because this package
+ * cannot see who is viewing: features are auth-agnostic and the neutral
+ * `AuthStatus` seam carries no role. So the app passes the path only when the
+ * viewer may actually follow it, and passing nothing renders no link. The
+ * banner previously hardcoded `/admin` for every signed-in viewer, which sent
+ * non-admins to a page that bounces them straight home.
+ */
+interface PricingPageProps {
+  adminPath?: string;
+}
+
+export function PricingPage({ adminPath }: PricingPageProps) {
   const { cards, selectPlan, localstripeMode, planIds } = usePricing();
 
   return (
@@ -41,11 +55,18 @@ export function PricingPage() {
           <div className="mx-auto mt-8 max-w-3xl rounded-md border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-200">
             <strong className="font-semibold">Dev mode:</strong> checkout is
             unavailable here — local billing runs on localstripe, which has no
-            Checkout API. Set a subscription tier from the{' '}
-            <a href="/admin" className="font-semibold underline">
-              admin page
-            </a>{' '}
-            instead.
+            Checkout API.{' '}
+            {adminPath ? (
+              <>
+                Set a subscription tier from the{' '}
+                <a href={adminPath} className="font-semibold underline">
+                  admin page
+                </a>{' '}
+                instead.
+              </>
+            ) : (
+              'An admin can set a subscription tier from the admin page.'
+            )}
           </div>
         )}
       </div>
