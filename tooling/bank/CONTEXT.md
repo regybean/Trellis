@@ -31,7 +31,8 @@ rather than importing the shared kernel — see
 [ADR 0001](docs/adr/0001-the-bank-keeps-its-own-workspace-helpers.md) before
 removing that duplication.
 
-The root delegates every command here with `pnpm -C tooling/bank`, so
+The root delegates every command here with
+`pnpm --filter @acme/bank --fail-if-no-match`, so
 `tooling/bank` rides the always-included `delegated-tooling` bundle in
 `bank.paths.json`: a consumer who never selected this package by name still
 receives it, because otherwise their next sync would delete the tool that
@@ -41,15 +42,25 @@ reason alone — a bundle contributes paths and never walks dependency edges, so
 manifest one delivers has to name only packages the always-included set
 delivers.
 
-`-C` rather than `--filter` is deliberate, and not for the reason it looks like:
-on the pinned pnpm both spellings pass the child's exit code through, so
-`bank:sync --check`'s drift code survives either way. What separates them is the
-missing-package case. `--filter` on a name no package matches prints "No
-projects matched the filters" and **exits 0** — so in a repo whose bank never
-arrived, `pnpm bank:sync --check` would report no drift while doing nothing at
-all, which is the one answer this command must never give wrongly. `-C` on a
-missing directory is an error. All of it is held by tests, exercised rather than
-asserted against the script text.
+`--fail-if-no-match` is load-bearing, and the flag rather than the filter is the
+part to keep. A bare `--filter` on a name no package matches prints "No projects
+matched the filters" and **exits 0** — so in a repo whose bank never arrived,
+`pnpm bank:sync --check` would report no drift while doing nothing at all, which
+is the one answer this command must never give wrongly. The flag turns that into
+an error.
+
+Addressing the package by name rather than by `-C tooling/bank` costs one thing,
+and it is stated here because the alternative is someone rediscovering it as a
+bug. On the pinned pnpm, `--filter` reports its own `1` for any task failure
+instead of the child's code, and `turbo run --filter` does the same; only
+`-C <path>` propagates. So `bank:sync --check`'s three codes are distinguishable
+at this package's own command and collapse to "non-zero" at the root. That is
+the right trade while a selection is names and never paths: a path in the root
+manifest is a second place this package's location is written down, and it is
+the one nobody edits when the package moves.
+
+All of it is held by tests, exercised rather than asserted against the script
+text.
 
 ## Language
 

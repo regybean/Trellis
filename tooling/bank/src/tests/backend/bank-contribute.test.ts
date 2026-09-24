@@ -268,13 +268,19 @@ describe('nothing invokes bank:contribute automatically', () => {
    * commands name it in their comments and should keep doing so — describing
    * the command is not running it, which is also why docs are not searched.
    *
-   * The delegating shapes (`--filter <name>`, `-C <dir>`) count too, because
-   * the root delegates every bank command into this package rather than
-   * invoking the file directly. A regex that only knew the direct shape would
-   * stop seeing the root script that actually reaches this command.
+   * Delegating shapes count too, because the root delegates every bank command
+   * into this package rather than invoking the file directly. A regex that only
+   * knew the direct shape would stop seeing the root script that actually
+   * reaches this command.
+   *
+   * So any run of flags between the package manager and the command name is
+   * skipped, rather than one named pair. Spelling out `--filter <name>` and
+   * `-C <dir>` matched both shapes that existed when this was written and
+   * silently stopped matching when a second flag joined the first — the root
+   * gained `--fail-if-no-match` and this tripwire quietly went blind to it.
    */
   const invocation =
-    /(?:node|pnpm|npm|yarn|bun)\s+(?:(?:run|exec)\s+|(?:--filter|-C)\s+\S+\s+)?[^\s'"]*bank[:-]contribute/;
+    /(?:node|pnpm|npm|yarn|bun)\s+(?:(?:run|exec)\s+)?(?:-{1,2}[\w-]+(?:=\S+)?\s+(?:[^-\s]\S*\s+)?)*[^\s'"]*bank[:-]contribute/;
 
   it('is invoked by no workflow, hook or other script in this repo', () => {
     const automation = [

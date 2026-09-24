@@ -39,6 +39,14 @@
  *   0  up to date — nothing unpulled
  *   1  error — bad manifest, unreachable bank, unresolvable ref
  *   2  behind — the bank has commits this repo has not taken
+ *
+ * Telling 1 from 2 means running this file, or the package script, rather than
+ * the root `pnpm bank:sync`. The root addresses this package by name so that
+ * moving it breaks nothing, and no name-based delegation hands a child's exit
+ * code back: `pnpm --filter` and `turbo run` both answer with their own 1 for
+ * any failure. The root therefore distinguishes only "up to date" from "look
+ * at this", which is all a gate needs; a scheduled job that opens a bump PR for
+ * 2 and pages someone for 1 reads the codes here.
  */
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

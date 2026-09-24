@@ -589,21 +589,30 @@ describe('bank:sync --check reports drift', () => {
   });
 
   /**
-   * Those three codes only mean anything if they survive the root script, so
+   * A root command that answers 0 for a failure is worse than no command, so
    * the delegation is exercised rather than read.
    *
    * The command under test is copied verbatim out of this repo's root
    * `package.json` into a throwaway workspace, where `tooling/bank` is a stub
-   * that exits 2 on demand and can be deleted. Nothing here asserts a spelling:
-   * both `pnpm -C tooling/bank` and `pnpm --filter @acme/bank` reach that stub,
-   * and either is free to pass if it behaves.
+   * that fails on demand and can be deleted. Nothing here asserts a spelling.
    *
-   * The second case is the one that separates them, and it is the reason the
-   * root uses `-C`. `--filter` on a name no package matches prints "No projects
-   * matched the filters" and exits **0**: in a repo whose bank never arrived —
-   * the failure the always-included bundle exists to prevent, one registration
-   * away at all times — `pnpm bank:sync --check` would answer "no drift" having
-   * looked at nothing. `-C` on a missing directory is an error.
+   * What it asserts is **non-zero**, not a particular code, and that is a
+   * deliberate ceiling rather than laziness. No delegation available hands the
+   * child's own code back: `pnpm --filter` and `turbo run` both report their
+   * own 1 for any task failure, and only `pnpm -C <path>` propagates. Since the
+   * root addresses the bank by name rather than by a path that can move, the
+   * three `--check` codes are distinguishable at the package command and
+   * collapse to "non-zero" at the root. `bank-sync.mjs` says so where it
+   * documents them.
+   *
+   * The missing-bank case is the one with teeth. A bare `--filter` on a name no
+   * package matches prints "No projects matched the filters" and exits **0**:
+   * in a repo whose bank never arrived — the failure the always-included bundle
+   * exists to prevent, one registration away at all times — `pnpm bank:sync
+   * --check` would answer "no drift" having looked at nothing. That is what
+   * `--fail-if-no-match` is on the root commands for, and every command is
+   * checked, not just `bank:sync`: the hole hid for as long as it did because
+   * only one of the six was covered.
    */
   describe('the root delegation', () => {
     const rootScripts = stringMap(
@@ -685,22 +694,25 @@ describe('bank:sync --check reports drift', () => {
       return run.status ?? -1;
     }
 
-    it.each(declared)(
-      'passes %s the exit code its package returned, not one of its own',
-      (script) => {
-        const dir = scratchWorkspace(script, 2);
-
-        expect(runRoot(dir, script)).toBe(2);
-      },
-    );
-
-    it('fails rather than reporting success when the bank package is absent', () => {
-      const dir = scratchWorkspace('bank:sync', 2, false);
+    it.each(declared)('fails %s when its package failed', (script) => {
+      const dir = scratchWorkspace(script, 2);
 
       expect(
-        runRoot(dir, 'bank:sync'),
-        'a root command that no-ops to 0 when the bank is missing would report "no drift" having looked at nothing',
+        runRoot(dir, script),
+        'the root reports its own 1 for any failure; what it may never do is report success',
       ).not.toBe(0);
     });
+
+    it.each(declared)(
+      'fails %s rather than reporting success when the bank package is absent',
+      (script) => {
+        const dir = scratchWorkspace(script, 2, false);
+
+        expect(
+          runRoot(dir, script),
+          'a root command that no-ops to 0 when the bank is missing would report "no drift" having looked at nothing',
+        ).not.toBe(0);
+      },
+    );
   });
 });
