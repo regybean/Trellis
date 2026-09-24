@@ -3,13 +3,14 @@ import pLimit from 'p-limit';
 import type { Job } from '@acme/queue';
 import type { UploadScope } from '@acme/rag/server';
 import { logger } from '@acme/logger';
+import { classifyProviderFailure } from '@acme/provider-errors';
 import { DocumentParseError, uploadDoc } from '@acme/rag/server';
 
 import type { JobFailure } from './ingest-notify';
 import type { IngestJob } from './ingest-queue';
 import { env } from '../../env';
 import { deleteFilesFromS3, downloadFileFromS3 } from '../../utils/s3-client';
-import { notifyJobComplete } from './ingest-notify';
+import { notifyJobComplete, notifyJobFailed } from './ingest-notify';
 import { createIngestProgressWriter } from './ingest-progress-stream';
 
 // INGEST_CONCURRENCY (fan-out width) + BullMQ retention are authored config.
@@ -85,14 +86,23 @@ async function runIngestJob(job: Job<IngestJob>) {
   );
 
   // A rejected result is an INFRA failure. Fail the whole Job loud (throw →
-  // BullMQ failed job), publish NO completion toast, and leave the S3 objects in
-  // place for a manual rerun. Siblings have already finished (allSettled).
+  // BullMQ failed job) and leave the S3 objects in place for a manual rerun.
+  // Siblings have already finished (allSettled).
+  //
+  // It publishes a FAILURE notification rather than the completion one: the
+  // Job never settled, so there is no tally to report, but a user who was told
+  // nothing had no way to tell a failed batch from a slow one. The reason
+  // comes from the shared classifier, so an overloaded provider reads as
+  // "wait" and a misconfiguration reads as "not yours to fix". There is no
+  // `attempts` on this queue, so this fires exactly once per Job.
   const rejected = results.find((r) => r.status === 'rejected');
   if (rejected?.status === 'rejected') {
+    const { reason } = classifyProviderFailure(rejected.reason);
     logger.error(
-      { jobId, err: rejected.reason },
+      { jobId, reason, err: rejected.reason },
       'ingest worker: infra failure — job failed',
     );
+    await notifyJobFailed(userId, { jobId, total: uploads.length, reason });
     throw rejected.reason;
   }
 

@@ -10,8 +10,8 @@
  *  - the per-file stage sequence on the progress stream (read back via the pure
  *    parser the reader uses);
  *  - `allSettled` isolation: a content-fail (empty file) stays green + counted +
- *    lets siblings finish; an infra-fail (download throws) rethrows and publishes
- *    NOTHING;
+ *    lets siblings finish; an infra-fail (download throws) rethrows and reports
+ *    the classified cause instead of the Job going quiet;
  *  - the single completion notification on the settled path (shape + once);
  *  - uuidv5 idempotency: a re-run adds no duplicate chunks.
  */
@@ -173,9 +173,11 @@ describe('createIngestProcessor', () => {
     expect(okDone).toBe(true);
     expect(badFailed).toBeDefined();
 
-    // A single completion notification, counting the failure but staying green.
+    // A single completion notification, counting the failure but staying green
+    // — and naming the cause, so the user knows re-uploading will not help.
     const [note] = await readNotifications();
     expect(note?.level).toBe('error');
+    expect(note?.message).toContain('no readable text');
     expect(note?.data).toMatchObject({
       total: 2,
       succeeded: 1,
@@ -187,7 +189,7 @@ describe('createIngestProcessor', () => {
     expect(docs.find((d) => d.filename === okName)?.count).toBeGreaterThan(0);
   });
 
-  it('rethrows on an infra failure and publishes no completion', async () => {
+  it('rethrows on an infra failure and names the cause instead of going quiet', async () => {
     const filename = uniqueName();
     const s3Key = `uploads/j/u1/${filename}`;
     // Download rejects — an infra failure (not a DocumentParseError).
@@ -195,14 +197,56 @@ describe('createIngestProcessor', () => {
       new Error('S3 unreachable'),
     );
 
-    await expect(
-      createIngestProcessor()(makeJob([{ uploadId: 'u1', filename, s3Key }])),
-    ).rejects.toThrow('S3 unreachable');
+    const job = makeJob([{ uploadId: 'u1', filename, s3Key }]);
+    await expect(createIngestProcessor()(job)).rejects.toThrow(
+      'S3 unreachable',
+    );
 
-    // Per-file failed was still emitted, but NO completion notification fired.
+    // Per-file failed was still emitted, and the Job reports itself failed
+    // rather than leaving the user watching a batch that never lands.
     const events = await readProgress();
     expect(events.some((e) => e.stage === 'failed')).toBe(true);
-    expect(await readNotifications()).toHaveLength(0);
+
+    const notifications = await readNotifications();
+    expect(notifications).toHaveLength(1);
+    const [note] = notifications;
+    expect(note?.kind).toBe('ingest.job-failed');
+    expect(note?.level).toBe('error');
+    expect(note?.data).toMatchObject({
+      jobId: job.data.jobId,
+      total: 1,
+      reason: 'unavailable',
+    });
+    // The reason is what the user reads, never the provider's own words.
+    expect(note?.message).not.toContain('S3');
+  });
+
+  it('classifies a provider failure so the toast says whether to wait', async () => {
+    const filename = uniqueName();
+    const s3Key = `uploads/j/u1/${filename}`;
+    stubDownloads(new Map([[s3Key, 'Content worth chunking and embedding.']]));
+    // The embedding provider, overloaded, as it arrives once the AI SDK's own
+    // retries run out: wrapped, with the real failure nested inside.
+    const overloaded = Object.assign(new Error('Service Unavailable'), {
+      name: 'AI_APICallError',
+      statusCode: 503,
+      isRetryable: true,
+    });
+    vi.mocked(downloadFileFromS3).mockRejectedValue(
+      Object.assign(new Error('Failed after 3 attempts.'), {
+        name: 'AI_RetryError',
+        errors: [overloaded],
+        lastError: overloaded,
+      }),
+    );
+
+    await expect(
+      createIngestProcessor()(makeJob([{ uploadId: 'u1', filename, s3Key }])),
+    ).rejects.toThrow('Failed after 3 attempts.');
+
+    const [note] = await readNotifications();
+    expect(note?.data).toMatchObject({ reason: 'overloaded' });
+    expect(note?.message).toContain('busy right now');
   });
 
   it('is idempotent: re-running the same file adds no duplicate chunks', async () => {

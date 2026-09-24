@@ -1313,6 +1313,9 @@ importers:
       '@acme/notifications':
         specifier: workspace:*
         version: link:../../shared/notifications
+      '@acme/provider-errors':
+        specifier: workspace:*
+        version: link:../../shared/provider-errors
       '@acme/queue':
         specifier: workspace:*
         version: link:../../platform/queue

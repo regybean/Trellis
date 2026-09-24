@@ -5,6 +5,7 @@
     "@acme/hooks": "workspace:*",
     "@acme/logger": "workspace:*",
     "@acme/notifications": "workspace:*",
+    "@acme/provider-errors": "workspace:*",
     "@acme/queue": "workspace:*",
     "@acme/rag": "workspace:*",
     "@acme/redis": "workspace:*",

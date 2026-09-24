@@ -103,7 +103,7 @@ const TEXT_TABLE: readonly (readonly [FailureReason, RegExp])[] = [
     'invalid_request',
     /invalid (request|prompt|parameter|argument|value)|validation|unsupported|no such model|model not found/,
   ],
-  ['unavailable', /timed out|timeout|unavailable|service is down/],
+  ['unavailable', /timed out|timeout|unavailable|unreachable|service is down/],
 ];
 
 type Rule = (failure: NormalizedFailure) => FailureReason | undefined;

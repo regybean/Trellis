@@ -47,7 +47,8 @@ _Avoid_: "signed URL", "upload link"
 - A user submits a set of files → one **Job** (`jobId`) grouping one **Upload** (`uploadId`) per file, both server-minted in the presign response
 - Each **Upload** is uploaded browser-direct to S3, then processed server-side (parse → chunk → embed → upsert) into **Chunks**, producing or refreshing one filename-keyed **Document**
 - Each **Upload** carries its own **Stage**, and reaches `done` or `failed` independently of its siblings
-- A **Job** completes when all its Uploads reach a terminal **Stage**; completion emits a single notification `{ jobId, total, succeeded, failed: { uploadId, filename, error }[] }` → one user-facing toast
+- A **Job** completes when all its Uploads reach a terminal **Stage**; completion emits a single notification `{ jobId, total, succeeded, failed: { uploadId, filename, error }[] }` → one user-facing toast, whose message names the cause rather than only counting the failures
+- A **Job** that never settles emits a single failure notification instead, `{ jobId, total, reason }`, where `reason` is the closed **Failure reason** `@acme/provider-errors` classifies the failure to. `retryable` is absent by design: it is derived from the reason wherever it is read
 - Deleting a **Document** removes all its **Chunks** from the vector store, matched on owner, Data Source and filename — never filename alone, which would now cross Sources
 - The `list` procedure returns the caller's Documents grouped by `(data_source_id, file_name)`, each row naming its Data Source — one row per Document, not per Chunk
 - Presign is the **authoritative** quota check: it re-counts the destination Source's Documents from the database and rejects the whole batch when `existing + N` would exceed the cap, naming the remaining headroom. The client's own check is advisory

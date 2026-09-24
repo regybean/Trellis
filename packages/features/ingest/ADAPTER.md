@@ -19,7 +19,8 @@ reload ([ADR 0001](docs/adr/0001-ingest-progress-survives-refresh.md)).
   `@acme/rag`'s vector store, with bounded concurrency so a large batch cannot
   exhaust memory.
 - A completion notification through `@acme/notifications`, so a user who
-  navigated away still finds out.
+  navigated away still finds out — and, when a batch fails outright, a failure
+  notification naming the cause, so they know whether to wait or re-upload.
 
 ## Surface
 
