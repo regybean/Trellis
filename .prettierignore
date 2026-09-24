@@ -8,3 +8,9 @@ pnpm-lock.yaml
 **/.output
 **/.tanstack
 **/.mastra
+# Generator templates. Prettier parses every `.hbs` as a Handlebars *template*,
+# which reflows the JSON and TS inside them into text — it rewrapped
+# `templates/shared/package.json.hbs` into JSON with newlines inside string
+# literals, and the shared generator then emitted a package.json pnpm could not
+# parse. The generator already formats what it writes.
+turbo/generators/templates
