@@ -1,6 +1,12 @@
 # One authored value per role, validated as a discriminated union
 
-**Status:** accepted
+**Status:** amended by 0003-per-user-connections-and-model-configs.md (decision
+2 holds only for an env-authored selection)
+
+> **Amended by [ADR 0003](0003-per-user-connections-and-model-configs.md) on who
+> authors a selection.** A selection also comes from a user's Connection and
+> Model config, and decision 2 below no longer holds for those. How much of the
+> env selection described here survives is still open.
 
 > **Amends [ADR 0001](0001-multi-provider-models.md) on how a selection is
 > expressed.** Three providers behind one package, one file each, chat and embed
@@ -24,6 +30,13 @@ load-bearing:
    runtime.** OpenRouter is absent from the embed union because it exposes no
    embeddings API, so an OpenRouter embed selection fails when the env parses.
    `resolveEmbedModel` is total over the union and contains no `throw`.
+
+   **This holds only for an env-authored selection.** On a user's own selection,
+   provider and role live on separate records and the same guarantee is
+   unreachable — see
+   [ADR 0003](0003-per-user-connections-and-model-configs.md) decision 2. The
+   totality of `resolveEmbedModel` survives either way.
+
 3. **Shared connection params are single-authored and spread.** `baseUrl`
    (Ollama) and `region` (Bedrock) each recur across both roles, so each leaf
    schema is declared once in `model-schemas.ts` and spread into the variants
