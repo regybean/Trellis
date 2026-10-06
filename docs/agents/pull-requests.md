@@ -8,19 +8,15 @@ reference this doc rather than embedding the commands.
 ```bash
 git push -u origin "$(git branch --show-current)"
 gh pr create --base main --title "<feature-slug>" --body "$(cat <<'EOF'
-<one-line summary of the change>
+<Summary / Evidence / Merge Danger, per the pr skill>
 
 Closes #<issue-number>
-
-Commits:
-- <commit 1 summary>
-- <commit 2 summary>
-
-GLOSSARY/ADR changes: <none | files touched>
 EOF
 )"
 ```
 
+- **Body:** call the Skill tool with "pr" for the template. Under Merge Danger,
+  list GLOSSARY/ADR changes (`none` or the files touched).
 - Base is always `main`.
 - **Link the ticket** with a `Closes #<issue-number>` line — GitHub's native
   PR↔issue link, and the thing that closes the ticket on merge.

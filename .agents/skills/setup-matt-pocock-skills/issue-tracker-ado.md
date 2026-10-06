@@ -7,11 +7,11 @@ operations (`az extension add --name azure-devops` if it is missing).
 Fill in the placeholders once, near the top of the instantiated
 `docs/agents/issue-tracker.md`, and reuse them everywhere below:
 
-- `<org-url>` — e.g. `https://dev.azure.com/<org>`
-- `<project>` — the ADO project (URL-encode spaces as `%20` in REST URIs)
-- `<repo>` — the Git repository name
-- `<area-path>` — the Area Path that maps to your team's board (e.g. `<project>\<team>`)
-- `<iteration>` — the Iteration Path new work lands in (often the project root)
+- `<org-url>`: e.g. `https://dev.azure.com/<org>`
+- `<project>`: the ADO project (URL-encode spaces as `%20` in REST URIs)
+- `<repo>`: the Git repository name
+- `<area-path>`: the Area Path that maps to your team's board (e.g. `<project>\<team>`)
+- `<iteration>`: the Iteration Path new work lands in (often the project root)
 
 Set CLI defaults once per machine so later commands stay short:
 
@@ -22,7 +22,7 @@ az devops configure --defaults organization=<org-url> project="<project>"
 ## Work-item type mapping
 
 ADO has first-class **work item types** and a **State** workflow, so the skills'
-"labels" split two ways — type + state are native, everything else is a **tag**.
+"labels" split two ways: type + state are native, everything else is a **tag**.
 
 | Skill concept                   | ADO type   | Distinguisher (tag)                             |
 | ------------------------------- | ---------- | ----------------------------------------------- |
@@ -30,11 +30,11 @@ ADO has first-class **work item types** and a **State** workflow, so the skills'
 | wayfinder **ticket**            | User Story | `wayfinder:research\|prototype\|grilling\|task` |
 | **spec** (`/to-spec`)           | Feature    | `type:spec`                                     |
 | spec **ticket** (`/to-tickets`) | User Story | `type:ticket`                                   |
-| other action item from a spec   | Task       | —                                               |
-| bug / risk                      | Bug / Risk | —                                               |
+| other action item from a spec   | Task       | n/a                                             |
+| bug / risk                      | Bug / Risk | n/a                                             |
 
 - **Hierarchy** (map/spec Feature → its tickets): native `parent`/`child` links.
-- **Blocking** (`blocked by`): native `predecessor`/`successor` links — the
+- **Blocking** (`blocked by`): native `predecessor`/`successor` links: the
   blocker is the **predecessor** of the ticket it blocks.
 - **Lifecycle** is the native **State** field, not a tag: a ticket is "closed"
   ⇒ `State = Closed`; `wontfix` ⇒ `State = Removed`. Triage _roles_
@@ -89,7 +89,7 @@ az rest --method patch \
 ```
 
 The resource GUID `499b84ac-1321-427f-aa17-267ca6975798` is the fixed Azure
-DevOps AAD application ID — the token audience for `az rest` against ADO. Use
+DevOps AAD application ID, the token audience for `az rest` against ADO. Use
 real newlines in the JSON string (a literal `\n` in `--fields` is stored
 verbatim). The same recipe sets `Microsoft.VSTS.Common.AcceptanceCriteria`.
 
@@ -110,7 +110,7 @@ On the child/blocked item these show as `System.LinkTypes.Hierarchy-Reverse` and
 **PRs as a request surface: no.** _(Set to `yes` for an open-contribution repo
 where external PRs are feature requests; `/triage` reads this flag.)_ When `yes`,
 run PRs through the same tags/states using `az repos pr show` / `az repos pr list`
-and the PR-thread API for comments — see `pull-requests.md` for the verbs.
+and the PR-thread API for comments; see `pull-requests.md` for the verbs.
 
 ## When a skill says "publish to the issue tracker"
 
@@ -126,7 +126,7 @@ normally pass the work-item id or URL directly.
 ## Frontier (wayfinding **and** specs, unified)
 
 ADO gives both maps and specs real `parent`/`predecessor` links, so a **single**
-native-link frontier serves both `/wayfinder` and a `/to-tickets` spec parent —
+native-link frontier serves both `/wayfinder` and a `/to-tickets` spec parent:
 there is no body-convention special case.
 
 1. **Open, unassigned children** of the map/spec `<parent>`:
@@ -151,8 +151,8 @@ Used by `/wayfinder`. The **map** is a `Feature`; its tickets are child work ite
 
 - **Map**: `az boards work-item create --type Feature --title "map: <destination>" --area '<area-path>' --iteration '<iteration>' --fields "System.Tags=wayfinder:map"`. Its Notes / Decisions-so-far / Fog body go in `System.Description` via the markdown recipe.
 - **Child ticket**: a `User Story` (or `Task`) linked to the map with `--relation-type parent`; tag `wayfinder:<type>`. Once claimed, `--assigned-to` the driving dev.
-- **Blocking**: native `predecessor` link (above) — the UI-visible dependency. A ticket is unblocked when every predecessor is `Closed`/`Removed`.
+- **Blocking**: native `predecessor` link (above), the UI-visible dependency. A ticket is unblocked when every predecessor is `Closed`/`Removed`.
 - **Frontier query**: the unified frontier above.
-- **Claim**: `az boards work-item update --id <n> --assigned-to "<email>"` — the session's first write.
+- **Claim**: `az boards work-item update --id <n> --assigned-to "<email>"`, the session's first write.
 - **Resolve**: post the answer with `--discussion "<answer>"`, set `--state "Closed"`, then append a context pointer to the map's Decisions-so-far (in the map's `System.Description`).
-- **Asset**: research summaries/prototypes attach to the ticket, not the repo tree — add them as an attachment (`az boards work-item relation add --relation-type "attached file"`) or paste into a `--discussion` comment, then link from the map's Decisions-so-far. Delete the local working file once posted. The tracker is the source of truth — no local map mirror, no loose MD in the repo tree.
+- **Asset**: research summaries/prototypes attach to the ticket, not the repo tree: add them as an attachment (`az boards work-item relation add --relation-type "attached file"`) or paste into a `--discussion` comment, then link from the map's Decisions-so-far. Delete the local working file once posted. The tracker is the source of truth: no local map mirror, no loose MD in the repo tree.
