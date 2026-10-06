@@ -112,8 +112,8 @@
       "reason": "Repository identity — the consumer's licensing is its own decision."
     },
     {
-      "path": "CONTEXT-MAP.md",
-      "reason": "An index of this repo's packages. A consumer takes a subset, so ours would be wrong on arrival; each package's own CONTEXT.md travels with it."
+      "path": "GLOSSARY-MAP.md",
+      "reason": "An index of this repo's packages. A consumer takes a subset, so ours would be wrong on arrival; each package's own GLOSSARY.md travels with it."
     },
     {
       "path": "docs/README.md",
@@ -125,7 +125,7 @@
     },
     {
       "path": "docs/whats-included.md",
-      "reason": "The inventory of everything Trellis ships. A consumer takes a subset, so the page is wrong on arrival — the same reason CONTEXT-MAP.md is withheld."
+      "reason": "The inventory of everything Trellis ships. A consumer takes a subset, so the page is wrong on arrival — the same reason GLOSSARY-MAP.md is withheld."
     },
     {
       "path": "docs/task-graph-topo.mermaid",

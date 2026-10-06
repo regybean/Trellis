@@ -16,7 +16,7 @@ Diagrams are kept as standalone `.mermaid` files (repo convention, cf.
 
 Source of truth for the code: `hooks/use-chat.ts`, `api/routers/chat.ts`,
 `api/services/chat-*.ts`, `components/conversation-view.tsx`. Domain language:
-[`../CONTEXT.md`](../CONTEXT.md). Decisions: [`adr/`](adr/).
+[`../GLOSSARY.md`](../GLOSSARY.md). Decisions: [`adr/`](adr/).
 
 ---
 
@@ -42,7 +42,7 @@ durable Redis Stream tailed by a pure subscription). See
 The In-flight lock (`chat:inflight:{cid}` = `turnId`) is **not** renewed by the
 worker — there is no heartbeat. Crash recovery is the lock's TTL
 (`INFLIGHT_LOCK_TTL` = 600s) plus `chat.reconcileTurn`; see the In-flight lock
-entry in [`../CONTEXT.md`](../CONTEXT.md).
+entry in [`../GLOSSARY.md`](../GLOSSARY.md).
 
 ## 2. Frontend state — one source of truth, one phase value
 
@@ -130,7 +130,7 @@ consequences:
 The prior audit flagged six issues; this is how the current code addresses them.
 
 1. **Fictional worker heartbeat — removed.** The worker never renewed
-   `chatInflightKey`; the claim is deleted from `CONTEXT.md` and
+   `chatInflightKey`; the claim is deleted from `GLOSSARY.md` and
    `chat-turn-lifecycle.ts`. Crash recovery is documented as the lock TTL +
    `reconcileTurn`, with the TTL kept longer than the longest expected
    generation so a live worker's lock never lapses under it.

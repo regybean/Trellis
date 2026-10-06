@@ -4,7 +4,7 @@ How the engineering skills should consume this repo's domain documentation when 
 
 ## Before exploring, read these
 
-- **`CONTEXT-MAP.md`** at the repo root — it points at one `CONTEXT.md` per context, and lists both the ADRs each package owns and the root ones that govern it. Read each row relevant to the topic.
+- **`GLOSSARY-MAP.md`** at the repo root — it points at one `GLOSSARY.md` per context, and lists both the ADRs each package owns and the root ones that govern it. Read each row relevant to the topic.
 - **`docs/adr/`** — repo-wide decisions that touch the area you're about to work in.
 - The package's own **`docs/adr/`** — its decisions travel with it.
 
@@ -12,30 +12,30 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 
 ## File structure
 
-Multi-context monorepo (presence of `CONTEXT-MAP.md` at the root):
+Multi-context monorepo (presence of `GLOSSARY-MAP.md` at the root):
 
 ```
 /
-├── CONTEXT-MAP.md
+├── GLOSSARY-MAP.md
 ├── docs/adr/                                   ← repo-wide decisions
 ├── packages/
 │   ├── features/
 │   │   ├── chat/
-│   │   │   ├── CONTEXT.md
+│   │   │   ├── GLOSSARY.md
 │   │   │   └── docs/adr/                       ← chat's own decisions
 │   │   └── <other-feature>/
-│   │       ├── CONTEXT.md
+│   │       ├── GLOSSARY.md
 │   │       └── docs/adr/
 │   └── shared/
 │       └── <package>/
-│           ├── CONTEXT.md
+│           ├── GLOSSARY.md
 │           └── docs/adr/
 └── apps/
     ├── <app>/
-    │   ├── CONTEXT.md
+    │   ├── GLOSSARY.md
     │   └── docs/adr/
     └── <other-app>/
-        ├── CONTEXT.md
+        ├── GLOSSARY.md
         └── docs/adr/
 ```
 
@@ -75,7 +75,7 @@ collisions a single global counter kept producing.
 Closing it would re-break every link that points past it, so `check-adrs` warns
 and passes.
 
-**Every package owning a `docs/adr/` has a `CONTEXT-MAP.md` row.** A `CONTEXT.md`
+**Every package owning a `docs/adr/` has a `GLOSSARY-MAP.md` row.** A `GLOSSARY.md`
 is not required — an ADR directory and a glossary are independent.
 
 ## How to cite an ADR
@@ -107,7 +107,7 @@ own, so it may cite nothing outside itself. `apps/` is withheld from every
 consumer, so an app-layer ADR may cite freely and nothing may cite it.
 
 Two things the five rules do not reach. A `docs/` file may _link a package's
-docs_ — a `CONTEXT.md`, an `ADAPTER.md` — as long as the package is one a
+docs_ — a `GLOSSARY.md`, an `ADAPTER.md` — as long as the package is one a
 consumer is guaranteed to have, meaning one in an always-included bundle
 (`delegated-tooling` or `config-closure`). That is not a citation and the rules
 above do not govern it. Pointing
@@ -165,9 +165,9 @@ that names a departed vendor throughout may still be the only explanation of why
 the code is shaped the way it is. Rewrite the vendor out of the prose if you
 like; do not delete the file.
 
-## `CONTEXT.md` is a glossary and nothing else
+## `GLOSSARY.md` is a glossary and nothing else
 
-A `CONTEXT.md` holds a title, a short intro, `## Language`, `## Relationships`,
+A `GLOSSARY.md` holds a title, a short intro, `## Language`, `## Relationships`,
 and one closing `## Decisions` line pointing at `docs/adr/`. No design-decision
 prose, and no ADR references in the body — including inside term definitions.
 
@@ -180,14 +180,14 @@ something hard to reverse that explains _why_ the code is the way it is.
 `tooling/repo-checks/src/adrs.ts` runs inside `pnpm lint` and as its own
 `pnpm quality-gate` stage. It fails on a duplicate number within a directory, a
 dead ADR link anywhere in the repo, a missing or out-of-vocabulary status, and a
-package owning ADRs with no `CONTEXT-MAP.md` row. It warns on a sequence gap.
+package owning ADRs with no `GLOSSARY-MAP.md` row. It warns on a sequence gap.
 
 Whether an ADR is _genuinely_ package-scoped is judgement. It stays documented
 here rather than enforced.
 
 ## Use the glossary's vocabulary
 
-When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in the relevant `CONTEXT.md`. Don't drift to synonyms the glossary explicitly avoids.
+When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in the relevant `GLOSSARY.md`. Don't drift to synonyms the glossary explicitly avoids.
 
 If the concept you need isn't in the glossary yet, that's a signal — either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/grill-with-docs`).
 

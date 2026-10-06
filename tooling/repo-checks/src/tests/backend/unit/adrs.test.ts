@@ -43,7 +43,7 @@ describe('the ADR directories', () => {
     const dirs = adrDirectories([
       `${ADR_DIR}/${adr(1, 'a-root-decision')}`,
       `packages/shared/ui/${ADR_DIR}/${adr(1, 'a-ui-decision')}`,
-      'packages/shared/ui/CONTEXT.md',
+      'packages/shared/ui/GLOSSARY.md',
       'README.md',
     ]);
 
@@ -259,7 +259,7 @@ describe('every ADR citation resolves', () => {
     // correct for where the generator writes it.
     expect(
       validateCitations(
-        'turbo/generators/templates/CONTEXT.md.hbs',
+        'turbo/generators/templates/GLOSSARY.md.hbs',
         `See [the decision](../../../../${ADR_DIR}/${target}).\n`,
         exists,
       ),
@@ -320,15 +320,18 @@ describe('a package owning ADRs is on the map', () => {
   });
 
   it('fails when the package has no row, naming the package', () => {
-    const [error] = validateMapRows(directories, '# Context Map\n\nNo rows.\n');
+    const [error] = validateMapRows(
+      directories,
+      '# Glossary Map\n\nNo rows.\n',
+    );
 
     expect(error).toContain('packages/shared/ui');
-    expect(error).toContain('CONTEXT-MAP.md');
+    expect(error).toContain('GLOSSARY-MAP.md');
   });
 
   it('asks nothing of the root directory — it is the map itself', () => {
     expect(
-      validateMapRows(directories.slice(0, 1), '# Context Map\n\nNo rows.\n'),
+      validateMapRows(directories.slice(0, 1), '# Glossary Map\n\nNo rows.\n'),
     ).toEqual([]);
   });
 });

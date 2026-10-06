@@ -87,7 +87,7 @@ describe('formatReport', () => {
   it('reports warnings alongside errors', () => {
     const { code, stderr } = report((violations) => {
       violations.warn('0002 is missing from the sequence');
-      violations.error('link to `CONTEXT.md` resolves to no file');
+      violations.error('link to `GLOSSARY.md` resolves to no file');
     });
 
     expect(code).toBe(1);

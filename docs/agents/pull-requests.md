@@ -16,7 +16,7 @@ Commits:
 - <commit 1 summary>
 - <commit 2 summary>
 
-CONTEXT/ADR changes: <none | files touched>
+GLOSSARY/ADR changes: <none | files touched>
 EOF
 )"
 ```

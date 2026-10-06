@@ -7,7 +7,7 @@ This file provides guidance to coding agents working in this repository. It is t
 Consult the map before grepping; it turns most searches into a direct jump.
 
 1. **Locating code in a feature/package?** Don't grep first. Read its
-   [CONTEXT-MAP.md](CONTEXT-MAP.md) row → the package's `CONTEXT.md`, then
+   [GLOSSARY-MAP.md](GLOSSARY-MAP.md) row → the package's `GLOSSARY.md`, then
    [docs/agents/feature-anatomy.md](docs/agents/feature-anatomy.md) for the exact
    layout (`api/routers/*`, `hooks/use-*`, `api/schemas/*`). Jump to the file.
 2. **Hunting a symbol across packages?** Split by operation. `LSP` `hover` /
@@ -180,7 +180,7 @@ See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
-Multi-context layout — `CONTEXT-MAP.md` at root points to per-package `CONTEXT.md` files. ADRs live with what they govern: repo-wide decisions in `docs/adr/`, a package's own in its `docs/adr/`, numbered **per directory** so the same number in both is normal. Placement, numbering, the status vocabulary and what a `CONTEXT.md` may hold are stated once in [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives) — don't restate them elsewhere. `tooling/repo-checks/src/adrs.ts` enforces what can be enforced, via `pnpm lint`.
+Multi-context layout — `GLOSSARY-MAP.md` at root points to per-package `GLOSSARY.md` files. ADRs live with what they govern: repo-wide decisions in `docs/adr/`, a package's own in its `docs/adr/`, numbered **per directory** so the same number in both is normal. Placement, numbering, the status vocabulary and what a `GLOSSARY.md` may hold are stated once in [docs/agents/domain.md](docs/agents/domain.md#where-an-adr-lives) — don't restate them elsewhere. `tooling/repo-checks/src/adrs.ts` enforces what can be enforced, via `pnpm lint`.
 
 ### Worktree workflow
 
@@ -194,4 +194,4 @@ The north star, to weigh when making changes:
 - **Keep seams swappable, name what's coupled.** Providers (`@acme/models`), auth (Better Auth behind a seam), billing (Stripe) are meant to be replaceable. When something becomes load-bearing or hard to reverse, write it down (ADR) rather than letting it harden silently.
 - **Shell/chrome is app-owned.** Framework-specific shell/chrome lives in the app; look at any app's console shell for the worked example. There is no compositions layer; shared UI assemblies go in `@acme/ui`. A new `packages/compositions/` entry requires an ADR justifying why the assembly can't live in an app or `@acme/ui`.
 - **Earn the next runtime / the next subset.** The portability and subsetting claims are only as true as the apps that prove them, so the app set is built to prove both: a full app and a reduced one on each framework it claims to support. The full pair proves the same slices run on two frameworks; the reduced pair proves a no-auth/no-billing _subset_ drops the auth provider and Stripe from the graph. New shared/feature code must stay runtime-agnostic and not re-couple the substrate to auth/billing — design so the next framework or the next reduced subset stays trivial.
-- **Documentation keeps pace with design.** `CONTEXT.md` + ADRs are updated _as_ decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.
+- **Documentation keeps pace with design.** `GLOSSARY.md` + ADRs are updated _as_ decisions are made (`/grill-with-docs`), not after. Keep the README honest — flag WIP/theoretical, never imply capabilities that don't exist.

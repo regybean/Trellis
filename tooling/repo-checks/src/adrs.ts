@@ -13,12 +13,12 @@
  *      something counts.
  *   2. **No dead ADR link.** Moving an ADR is the routine operation now, so the
  *      thing that makes a move safe to attempt is knowing every citation still
- *      resolves. Checked everywhere: ADRs, `CONTEXT.md`, `CONTEXT-MAP.md`,
+ *      resolves. Checked everywhere: ADRs, `GLOSSARY.md`, `GLOSSARY-MAP.md`,
  *      docs, and source comments.
  *   3. **A status the vocabulary allows** — `accepted` or `amended by <path>`,
  *      and the amending path resolves. `superseded by` is rejected on purpose:
  *      a superseded ADR is deleted, so it can never be a resting state.
- *   4. **A `CONTEXT-MAP.md` row for every package owning ADRs.** Otherwise a
+ *   4. **A `GLOSSARY-MAP.md` row for every package owning ADRs.** Otherwise a
  *      package's reasoning exists but nothing points at it.
  *
  * A **gap** in a sequence only warns. It is the honest trace of a deletion, and
@@ -50,7 +50,7 @@ export const ADRS_HELP =
   'The placement and status rules are in docs/agents/domain.md.';
 
 /** The root map that has to point at a package's ADR directory. */
-export const CONTEXT_MAP = 'CONTEXT-MAP.md';
+export const GLOSSARY_MAP = 'GLOSSARY-MAP.md';
 
 /** `0001-slug.md` — the only shape a number can be read off. */
 const ADR_FILENAME = /^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$/;
@@ -364,7 +364,7 @@ export function validateCitations(
   return errors;
 }
 
-/** Rule 4: a package owning ADRs has a `CONTEXT-MAP.md` row. */
+/** Rule 4: a package owning ADRs has a `GLOSSARY-MAP.md` row. */
 export function validateMapRows(
   directories: readonly AdrDirectory[],
   mapText: string,
@@ -374,8 +374,8 @@ export function validateMapRows(
     if (!owner) continue; // the root directory is the map's `## System-wide` list
     if (mapText.includes(`${dir}/`)) continue;
     errors.push(
-      `${owner}/ owns ADRs in ${dir}/ but ${CONTEXT_MAP} has no row linking them. ` +
-        `Add the row — a \`CONTEXT.md\` is not required, an ADR directory alone is enough.`,
+      `${owner}/ owns ADRs in ${dir}/ but ${GLOSSARY_MAP} has no row linking them. ` +
+        `Add the row — a \`GLOSSARY.md\` is not required, an ADR directory alone is enough.`,
     );
   }
   return errors;
@@ -422,8 +422,8 @@ export function checkAdrs(io: RepoIo): AdrResult {
     );
   }
 
-  if (io.exists(CONTEXT_MAP)) {
-    errors.push(...validateMapRows(directories, io.read(CONTEXT_MAP)));
+  if (io.exists(GLOSSARY_MAP)) {
+    errors.push(...validateMapRows(directories, io.read(GLOSSARY_MAP)));
   }
 
   const violations = collectViolations();
