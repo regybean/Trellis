@@ -192,6 +192,10 @@ export function frontendProject({
         env: { ...staticTestEnv },
         include: [TEST_INCLUDE.frontend],
         setupFiles,
+        // Node 25+ ships its own `localStorage` global, `undefined` without
+        // `--localstorage-file`, and it shadows jsdom's. Turning it off lets
+        // jsdom's through; a no-op on Node 22, where it is already off.
+        execArgv: ['--no-experimental-webstorage'],
       },
     }),
   );

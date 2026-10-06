@@ -149,7 +149,7 @@ overrides:
   # a concrete target, so a fix on one line can't force an incompatible major
   # onto another. ---
   fast-xml-parser: ">=5.10.1" # GHSA-8r6m-32jq-jx6q (@aws-sdk)
-  "@grpc/grpc-js": ">=1.14.4" # GHSA-5375-pq7m-f5r2, GHSA-99f4-grh7-6pcq (@a2a-js/sdk)
+  "@grpc/grpc-js": ">=1.14.5" # GHSA-5375-pq7m-f5r2, GHSA-99f4-grh7-6pcq, GHSA-m9gg-hp2v-232j (@a2a-js/sdk)
   # fast-uri: the original two highs (GHSA-v2hh-gcrm-f6hx, GHSA-7p8r-x3mc-p8w7)
   # were cleared by 3.1.5; four more landed on the same single path
   # (chat>mastra>serve>ajv>fast-uri), all patched in 3.1.6 —
@@ -179,7 +179,7 @@ overrides:
   # count to zero.
   browserslist: ">=4.28.7" # GHSA-c83g-rgw3-j3cx, GHSA-73wf-gq98-2v4g
   sharp: ">=0.35.4" # GHSA-f88m-g3jw-g9cj, GHSA-rgj7-g3m4-5g8c (next optional dep)
-  undici: ">=6.27.0" # GHSA-vxpw-j846-p89q +chain (testcontainers, test-only)
+  undici: ">=8.10.2" # GHSA-vxpw-j846-p89q +chain, GHSA-rfgv-xxqx-mfg5, GHSA-w293-vg96-wgc3 (testcontainers, test-only)
   # postcss forced tree-wide: next pins 8.4.31 and the apps declare 8.5.6.
   postcss: ">=8.5.18" # GHSA-6g55-p6wh-862q, GHSA-r28c-9q8g-f849
   # nanoid: only the 3.x line is in tree (under postcss). Range-selected so a
@@ -198,9 +198,20 @@ overrides:
   # consumers pin, so they can't be collapsed onto one line. Between them these
   # clear every brace-expansion advisory in tree — GHSA-3jxr, GHSA-rgw5 and the
   # ReDoS GHSA-mh99, which is why the latter no longer needs an allowlist entry.
-  "brace-expansion@>=1.0.0 <1.1.18": "1.1.18" # GHSA-3jxr-9vmj-r5cp, GHSA-rgw5-rvv9-x895 (1.x)
-  "brace-expansion@>=2.0.0 <2.1.4": "2.1.4" # GHSA-3jxr-9vmj-r5cp, GHSA-rgw5-rvv9-x895 (2.x)
-  "brace-expansion@>=4.0.0 <5.0.9": "5.0.9" # GHSA-rgw5-rvv9-x895 (5.x, glob@13>minimatch)
+  # GHSA-6j4f-fj2g-mc7p and GHSA-qhr7-859c-m2p7 (stack exhaustion) later moved
+  # every floor up a patch or two, still within each line.
+  "brace-expansion@>=1.0.0 <1.1.20": "1.1.20" # GHSA-3jxr-9vmj-r5cp, GHSA-rgw5-rvv9-x895, GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 (1.x)
+  "brace-expansion@>=2.0.0 <2.1.6": "2.1.6" # same advisories, 2.x line
+  "brace-expansion@>=4.0.0 <5.0.11": "5.0.11" # GHSA-rgw5-rvv9-x895, GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7 (5.x, glob@13>minimatch)
+  probe-image-size: ">=7.4.0" # GHSA-gjj5-9665-rwrc (rag>@mastra/memory)
+  # seroval: runtime dep of @tanstack/router-core (the TanStack Start apps, and
+  # better-auth's optional start integration). seroval-plugins moves with it —
+  # router-core declares both at the same caret floor.
+  seroval: ">=1.6.3" # GHSA-p6vx-979v-rg4c (critical), GHSA-jp82-f5mq-hwhp
+  seroval-plugins: ">=1.6.3"
+  source-map-js: ">=1.2.2" # GHSA-68fv-2mgg-jv7q (jsdom>css-tree, test-only)
+  proxy-addr: ">=2.0.8 <3" # GHSA-jqcg-44mw-7w3h (critical; @a2a-js/sdk>express)
+  compression: ">=1.8.2" # GHSA-vc2v-76pw-4v95 (mastra CLI>serve)
   # picomatch: 2.x (mastra deployer>fast-glob) and 4.x (vitest) lines
   "picomatch@>=2.0.0 <2.3.2": "2.3.2" # GHSA-c2c7-rcm5-vvqj
   "picomatch@>=4.0.0 <4.0.4": "4.0.4" # GHSA-c2c7-rcm5-vvqj
@@ -223,3 +234,9 @@ auditConfig:
     # image-size ships a fix. Added 2026-08-14.
     - GHSA-w3rx-r6r6-pgpr
     - GHSA-5p2g-fcmc-qvqq
+    # braces stack-exhaustion DoS on deeply nested patterns. npm reports
+    # `patched: <0.0.0` — latest (3.0.3) is vulnerable. Reached only through the
+    # mastra CLI's deployer (find-workspaces>fast-glob>micromatch), which expands
+    # globs from our own workspace config at build time, never user input. Drop
+    # when braces ships a fix. Added 2026-10-06.
+    - GHSA-vfj7-8cjw-p6xm

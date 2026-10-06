@@ -11,7 +11,7 @@
  * nothing here needs one. Git and a temp dir are the whole fixture.
  */
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import {
   existsSync,
   mkdirSync,
@@ -41,7 +41,7 @@ import {
   writeJson,
   writePackage,
 } from './bank-sandbox';
-import { readJson, stringMap } from './json';
+import { readJson, stringField, stringMap } from './json';
 
 /** The commands the root exposes for this package, all five delegated. */
 const BANK_SCRIPTS = [
@@ -606,10 +606,16 @@ describe('bank:sync --check reports drift', () => {
    * looked at nothing. `-C` on a missing directory is an error.
    */
   describe('the root delegation', () => {
-    const rootScripts = stringMap(
-      readJson(join(repoRoot, 'package.json')),
-      'scripts',
-    );
+    const rootManifest = readJson(join(repoRoot, 'package.json'));
+    const rootScripts = stringMap(rootManifest, 'scripts');
+
+    /**
+     * The root's pnpm pin, carried into every scratch workspace. Without it
+     * corepack falls back to its machine-wide default, a different pnpm than
+     * the repo's — and a broken default (a corrupt corepack cache once looped
+     * `pnpm dlx` into thousands of processes) takes this suite down with it.
+     */
+    const packageManager = stringField(rootManifest, 'packageManager');
 
     /**
      * The bank commands the root manifest actually defines.
@@ -651,6 +657,7 @@ describe('bank:sync --check reports drift', () => {
       writeJson(join(dir, 'package.json'), {
         name: 'scratch-consumer',
         private: true,
+        packageManager,
         scripts: { [script]: command },
       });
       writeFileSync(
@@ -675,30 +682,78 @@ describe('bank:sync --check reports drift', () => {
       return dir;
     }
 
-    /** Runs the root command the way a human at the repo root would. */
-    function runRoot(dir: string, script: string) {
-      const run = spawnSync('pnpm', ['run', script], {
+    /** Room for a cold corepack fetch, and under the suite's 120s testTimeout. */
+    const PNPM_TIMEOUT_MS = 60_000;
+
+    /**
+     * Runs pnpm in `dir`, resolving its exit code and stdout.
+     *
+     * The child leads its own process group, and a timeout kills the whole
+     * group: `spawnSync`'s `timeout` kills only the direct child, so a pnpm
+     * that re-invokes itself would leave its descendants running.
+     */
+    function pnpm(dir: string, args: string[]) {
+      const child = spawn('pnpm', args, {
         cwd: dir,
-        encoding: 'utf8',
+        detached: true,
+        stdio: ['ignore', 'pipe', 'ignore'],
       });
-      if (run.error) throw run.error;
-      return run.status ?? -1;
+      let stdout = '';
+      child.stdout.setEncoding('utf8');
+      child.stdout.on('data', (chunk: string) => (stdout += chunk));
+
+      return new Promise<{ status: number; stdout: string }>(
+        (resolve, reject) => {
+          const timer = setTimeout(() => {
+            if (child.pid !== undefined) process.kill(-child.pid, 'SIGKILL');
+            reject(
+              new Error(
+                `pnpm ${args.join(' ')} still running after ${PNPM_TIMEOUT_MS}ms; killed its process group`,
+              ),
+            );
+          }, PNPM_TIMEOUT_MS);
+          child.on('error', (error) => {
+            clearTimeout(timer);
+            reject(error);
+          });
+          child.on('close', (code) => {
+            clearTimeout(timer);
+            resolve({ status: code ?? -1, stdout });
+          });
+        },
+      );
     }
 
-    it.each(declared)(
-      'passes %s the exit code its package returned, not one of its own',
-      (script) => {
-        const dir = scratchWorkspace(script, 2);
+    /** Runs the root command the way a human at the repo root would. */
+    async function runRoot(dir: string, script: string) {
+      return (await pnpm(dir, ['run', script])).status;
+    }
 
-        expect(runRoot(dir, script)).toBe(2);
+    it.skipIf(packageManager === undefined)(
+      "runs the root's pinned pnpm, not the machine's default",
+      async () => {
+        const dir = scratchWorkspace('bank:sync', 0);
+        const { status, stdout } = await pnpm(dir, ['--version']);
+
+        expect(status).toBe(0);
+        expect(`pnpm@${stdout.trim()}`).toBe(packageManager?.split('+')[0]);
       },
     );
 
-    it('fails rather than reporting success when the bank package is absent', () => {
+    it.each(declared)(
+      'passes %s the exit code its package returned, not one of its own',
+      async (script) => {
+        const dir = scratchWorkspace(script, 2);
+
+        expect(await runRoot(dir, script)).toBe(2);
+      },
+    );
+
+    it('fails rather than reporting success when the bank package is absent', async () => {
       const dir = scratchWorkspace('bank:sync', 2, false);
 
       expect(
-        runRoot(dir, 'bank:sync'),
+        await runRoot(dir, 'bank:sync'),
         'a root command that no-ops to 0 when the bank is missing would report "no drift" having looked at nothing',
       ).not.toBe(0);
     });

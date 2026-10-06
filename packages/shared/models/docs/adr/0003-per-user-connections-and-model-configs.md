@@ -14,8 +14,8 @@ Connection to many Model configs. The split is the point: one Bedrock account
 hosts several models, and the credential should be stated once. Both records are
 owned by a user and carry `user_id` directly rather than reaching it through a
 join — the sealed credential's AAD already binds `<userId>:<connectionId>`, so
-the pairing is load-bearing, and the ownership filter is the privacy boundary
-([rag ADR 0006](../../../rag/docs/adr/0006-the-retrieval-filter-is-the-privacy-boundary.md)).
+the pairing is load-bearing, and filtering on that owner column is the
+privacy boundary: no read reaches another user's records.
 Each carries a required label, unique per user, because a write-only credential
 leaves the label as the only handle the UI has.
 
