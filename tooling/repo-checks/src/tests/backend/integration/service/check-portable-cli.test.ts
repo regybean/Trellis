@@ -98,7 +98,7 @@ describe('a repo violating each rule once', () => {
     // 1. a number with no path, and 3. an issue reference.
     [`${UI}/src/index.ts`]: `// Rationale: ${bareRef(1)}.\n// Deferred: ${issueRef(126)}.\nexport const x = 1;\n`,
     // 2. an ADR path resolving outside the citing package.
-    [`${UI}/CONTEXT.md`]: `See [it](../../../${rootAdr}).\n`,
+    [`${UI}/GLOSSARY.md`]: `See [it](../../../${rootAdr}).\n`,
     // 4. a distributed document naming an app.
     [rootAdr]: `${body('A root decision')}It applies to apps/web.\n`,
   });
@@ -108,7 +108,7 @@ describe('a repo violating each rule once', () => {
 
     expect(stderr).toContain(`${UI}/src/index.ts:1`);
     expect(stderr).toContain(`${UI}/src/index.ts:2`);
-    expect(stderr).toContain(`${UI}/CONTEXT.md:1`);
+    expect(stderr).toContain(`${UI}/GLOSSARY.md:1`);
     expect(stderr).toContain(`${rootAdr}:6`);
   });
 

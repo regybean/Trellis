@@ -245,7 +245,7 @@ describe('a citation resolves inside the citing package', () => {
   it('ignores a link to an ADR directory, which names no decision', () => {
     expect(
       validateAdrScope(
-        'CONTEXT-MAP.md',
+        'GLOSSARY-MAP.md',
         `| [ADRs](${ui}/${ADR_DIR}/) |\n`,
         packages,
         only(uiAdr),
@@ -412,7 +412,7 @@ describe('a repo declaring content it never offered anybody', () => {
       [rootAdr]: '# A root decision\n',
       [`${MINE}/package.json`]: '{ "name": "@fixture/mine" }\n',
       [`${MINE}/src/index.ts`]: `// Rationale: ${bareRef(1)}.\n// Deferred: ${issueRef(126)}.\n`,
-      [`${MINE}/CONTEXT.md`]: `See [it](../../../${rootAdr}).\n`,
+      [`${MINE}/GLOSSARY.md`]: `See [it](../../../${rootAdr}).\n`,
     });
 
   it('reports all three rules when it declares nothing', () => {

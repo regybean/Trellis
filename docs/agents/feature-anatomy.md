@@ -2,7 +2,7 @@
 
 How a `packages/features/*` package is laid out and why. This is the structural
 companion to [CLAUDE.md](../../CLAUDE.md) (the boundary rules) and the per-package
-[`CONTEXT.md`](../../CONTEXT-MAP.md) files (the domain language). Scaffold new
+[`GLOSSARY.md`](../../GLOSSARY-MAP.md) files (the domain language). Scaffold new
 features with `pnpm turbo gen feature` — never by hand — and this is the shape it
 produces.
 
@@ -24,7 +24,7 @@ packages/features/<name>/
   package.json            # exports map + scripts + acme.testClass (see below)
   eslint.config.ts        # containmentOverride(...) if the feature needs a vendor SDK
   vitest.config.backend.ts / vitest.config.frontend.ts
-  CONTEXT.md              # domain language for this feature (ubiquitous terms)
+  GLOSSARY.md              # domain language for this feature (ubiquitous terms)
   src/
     api/
       trpc.ts             # the feature's context type, tRPC instance, middleware and db

@@ -33,7 +33,7 @@ const body = (title: string, status = 'accepted') =>
 
 /** One root ADR, one package ADR, and the row that links the package. */
 const baseline = (): Record<string, string> => ({
-  'CONTEXT-MAP.md': `| \`packages/shared/alpha/\` | [ADRs](${alphaAdrDir}) |\n`,
+  'GLOSSARY-MAP.md': `| \`packages/shared/alpha/\` | [ADRs](${alphaAdrDir}) |\n`,
   [`${ADR_DIR}/${adr(1, 'a-root-decision')}`]: body('A root decision'),
   [`${alphaAdrDir}${adr(1, 'an-alpha-decision')}`]: body('An alpha decision'),
 });
@@ -95,10 +95,10 @@ describe('a repo that has drifted', () => {
     expect(stderr).toContain('scripts/thing.mjs');
   });
 
-  it('fails a package owning ADRs with no CONTEXT-MAP.md row', () => {
+  it('fails a package owning ADRs with no GLOSSARY-MAP.md row', () => {
     const { status, stderr } = check({
       ...baseline(),
-      'CONTEXT-MAP.md': '# Context Map\n\nNo rows yet.\n',
+      'GLOSSARY-MAP.md': '# Glossary Map\n\nNo rows yet.\n',
     });
 
     expect(status).toBe(1);

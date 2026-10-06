@@ -3,7 +3,7 @@
 Shared primitives for retrieval-augmented generation and conversation memory on
 Mastra. Provides the vector store, document uploader, and memory storage consumed
 by the chat and ingest features. Provider-agnostic: chat and embedding models are
-resolved by [`@acme/models`](../models/CONTEXT.md), not constructed here.
+resolved by [`@acme/models`](../models/GLOSSARY.md), not constructed here.
 
 ## Language
 
@@ -39,8 +39,8 @@ _Avoid_: "drizzle table", "our table"
 **App-owned table**:
 Any non-`mastra_` table in the per-app schema — the app, via Drizzle, owns its DDL.
 The first was `message_feedback`, defined in
-[`@acme/feedback`](../../features/feedback/CONTEXT.md); `data_source` (here) and
-`message_data_source` (in [`@acme/chat`](../../features/chat/CONTEXT.md)) are the
+[`@acme/feedback`](../../features/feedback/GLOSSARY.md); `data_source` (here) and
+`message_data_source` (in [`@acme/chat`](../../features/chat/GLOSSARY.md)) are the
 others. Each is defined by the feature that owns the concept and re-exported by
 every app's schema barrel, which is what makes the app — not the feature — the
 one that decides to manage its DDL. _Avoid_: "custom table"
@@ -83,7 +83,7 @@ that), "validated ids"
 **Embed purpose**:
 Whether an embedding is for a stored document or a query — `document` when indexing,
 `query` when retrieving. The uploader and vector query tool pass this to
-`embedProviderOptions(purpose)` in [`@acme/models`](../models/CONTEXT.md), which
+`embedProviderOptions(purpose)` in [`@acme/models`](../models/GLOSSARY.md), which
 turns it into provider-specific options. _Avoid_: "input type" (that's a Cohere-only
 detail), "mode", "direction"
 

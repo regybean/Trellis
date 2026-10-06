@@ -27,7 +27,7 @@ not by Postgres. _Avoid_: "foreign key", "join column"
 
 - `feedback.submit({ messageId, threadId, rating, comment? })` upserts the caller's
   Feedback for a Message. It runs the **ownership seam** in order: (1) the thread must
-  be owned by the caller — `assertThreadOwned` from [`@acme/rag`](../../shared/rag/CONTEXT.md),
+  be owned by the caller — `assertThreadOwned` from [`@acme/rag`](../../shared/rag/GLOSSARY.md),
   mapped to `FORBIDDEN`/`NOT_FOUND`; (2) the Message must exist in that thread — read
   from the `mastra_messages` Drizzle mirror, else `NOT_FOUND`; (3) the row is upserted
   on the `(message_id, user_id)` unique constraint.

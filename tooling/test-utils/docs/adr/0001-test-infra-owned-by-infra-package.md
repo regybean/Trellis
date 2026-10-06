@@ -46,7 +46,7 @@ redisContainer])`, wired via
   the `backendProject` preset, and the `runInfraSetup` engine. It no longer
   encodes _which package needs what_ (that's the suite's global-setup) or _how each
   infra is built_ (that's the owner's descriptor). This is what the package's own
-  CONTEXT calls being "infra-only", finished.
+  GLOSSARY calls being "infra-only", finished.
 - **This resolves the layer boundary.** `@acme/test-utils` is `tooling` and cannot
   import `platform`; importing the descriptors in the suite's own global-setup
   (not inside test-utils) is what lets ownership move down to the infra package

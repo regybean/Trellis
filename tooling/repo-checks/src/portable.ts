@@ -88,7 +88,7 @@ const APPS_DIR = 'apps/';
  *     describes the offer and each consumer's own is different. Naming the one
  *     file is a constant here; deriving the same fact would couple this package
  *     to the bank's.
- *   - `README.md`, `CONTEXT-MAP.md`, `docs/README.md`,
+ *   - `README.md`, `GLOSSARY-MAP.md`, `docs/README.md`,
  *     `docs/getting-started.md`, `docs/whats-included.md` — this repo's front
  *     matter and its two indexes. An index of every doc and every package in
  *     *this* checkout is the one kind of file whose whole job is to point
@@ -99,7 +99,7 @@ const APPS_DIR = 'apps/';
 export const NOT_DISTRIBUTED = new Set([
   'bank.paths.json',
   'README.md',
-  'CONTEXT-MAP.md',
+  'GLOSSARY-MAP.md',
   'docs/README.md',
   'docs/getting-started.md',
   'docs/whats-included.md',

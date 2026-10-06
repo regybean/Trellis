@@ -10,7 +10,7 @@ no knowledge here of streams, tRPC, `uploadId`s, or any wire shape.
 
 **One file per call, and the fan-out belongs to the caller.** The bounded
 parallel fan-out over a set of files is the ingest processor's job
-([`@acme/ingest`](../../../../features/ingest/CONTEXT.md)), which calls
+([`@acme/ingest`](../../../../features/ingest/GLOSSARY.md)), which calls
 `uploadDoc` per file.
 
 **Idempotent by construction, not by checkpoint.** `deriveChunkId` is

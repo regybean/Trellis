@@ -20,10 +20,10 @@ Contents — every doc in the repo, in reading order.
 
 ## Domain language
 
-| Doc                                 | What it covers                                                                        |
-| ----------------------------------- | ------------------------------------------------------------------------------------- |
-| [CONTEXT-MAP.md](../CONTEXT-MAP.md) | Index of per-package `CONTEXT.md` files (the ubiquitous language).                    |
-| [AGENTS.md](../AGENTS.md)           | The agent brief: commands, architecture, layer-boundary rules, engineering direction. |
+| Doc                                   | What it covers                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------- |
+| [GLOSSARY-MAP.md](../GLOSSARY-MAP.md) | Index of per-package `GLOSSARY.md` files (the ubiquitous language).                   |
+| [AGENTS.md](../AGENTS.md)             | The agent brief: commands, architecture, layer-boundary rules, engineering direction. |
 
 ## Working with agents
 
@@ -33,7 +33,7 @@ Contents — every doc in the repo, in reading order.
 | [Worktree workflow](agents/worktree-workflow.md) | How parallel isolated build agents work and the standing rules.                                  |
 | [Issue tracker](agents/issue-tracker.md)         | Markdown issues + PRDs under `.scratch/`.                                                        |
 | [Triage labels](agents/triage-labels.md)         | The five canonical triage roles.                                                                 |
-| [Domain docs](agents/domain.md)                  | Where an ADR lives, what a status may say, and what a `CONTEXT.md` holds.                        |
+| [Domain docs](agents/domain.md)                  | Where an ADR lives, what a status may say, and what a `GLOSSARY.md` holds.                       |
 
 ## Testing
 
@@ -81,7 +81,7 @@ numbering, and the status vocabulary are stated once in
 
 Each package's own sequence, starting at `0001` — independent of the root's, so
 `@acme/auth` 0001 and root 0001 are different decisions and that is normal.
-`CONTEXT-MAP.md` lists these alongside the root ADRs that also govern each
+`GLOSSARY-MAP.md` lists these alongside the root ADRs that also govern each
 package.
 
 | Package               | ADR                                                                                              | Decision                                                                                   |

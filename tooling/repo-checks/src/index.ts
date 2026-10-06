@@ -19,7 +19,7 @@
 export type { AdrCitation, AdrDirectory, AdrResult, RuleResult } from './adrs';
 export {
   ADRS_HELP,
-  CONTEXT_MAP,
+  GLOSSARY_MAP,
   adrCitations,
   adrDirectories,
   carriesCitations,

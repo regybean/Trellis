@@ -161,4 +161,4 @@ pnpm quality-gate    # read-only verify
 - [What you get with Trellis](whats-included.md) — full feature, tooling, and command inventory.
 - [The big idea](../README.md#the-big-idea) — why features are slices and how apps mount subsets.
 - [Agent workflow](agents/) — how to plan and build changes with coding agents.
-- [CONTEXT-MAP.md](../CONTEXT-MAP.md) — the domain-language index across packages.
+- [GLOSSARY-MAP.md](../GLOSSARY-MAP.md) — the domain-language index across packages.
